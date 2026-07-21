@@ -1,14 +1,13 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path, reverse_lazy
 
-from .views import GoogleLoginView, LandingPageView, PasswordRecoveryView, PrivacyNoticeView, TermsOfUseView, UserLoginView, UserLogoutView
+from .views import LandingPageView, PasswordRecoveryView, PrivacyNoticeView, TermsOfUseView, UserLoginView, UserLogoutView
 
 app_name = "authentication"
 
 urlpatterns = [
     path("", LandingPageView.as_view(), name="landing"),
     path("login/", UserLoginView.as_view(), name="login"),
-    path("login/google/", GoogleLoginView.as_view(), name="google_login"),
     path("logout/", UserLogoutView.as_view(), name="logout"),
     path("privacy/", PrivacyNoticeView.as_view(), name="privacy"),
     path("terms/", TermsOfUseView.as_view(), name="terms"),

@@ -57,7 +57,6 @@ AUTH_USER_MODEL = "authentication.CustomUser"
 LOGIN_URL = "authentication:login"
 LOGIN_REDIRECT_URL = "dashboard:home"
 LOGOUT_REDIRECT_URL = "authentication:landing"
-GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "").strip()
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "FMIS <noreply@fmis.local>")
 STATIC_ROOT = BASE_DIR / "staticfiles"
 BACKUP_ROOT = Path(os.getenv("FMIS_BACKUP_ROOT", BASE_DIR / "backups"))

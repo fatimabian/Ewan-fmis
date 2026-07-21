@@ -11,11 +11,11 @@ class FarmParcel(models.Model):
         ("ARB", "Agrarian Reform Beneficiary"),
         ("OTHER", "Other"),
     ]
+    # AFTER
     LAND_TYPE_CHOICES = [
-        ("FLATLAND", "Flatland"),
         ("UPLAND", "Upland"),
         ("LOWLAND", "Lowland"),
-    ]
+]
     FARM_TYPE_CHOICES = [
         ("IRRIGATED", "Irrigated"),
         ("RAINFED_UPLAND", "Rainfed Upland"),
@@ -38,7 +38,6 @@ class FarmParcel(models.Model):
     land_owner_name = models.CharField(max_length=180, blank=True)
     land_owner_registered_rsbsa = models.BooleanField(null=True, blank=True)
     is_rsbsa_recorded = models.BooleanField(default=False)
-    is_organic = models.BooleanField(default=False)
     georef_id = models.CharField(max_length=80, blank=True)
     is_active = models.BooleanField(default=True)
     coordinates = models.CharField(max_length=255, blank=True)

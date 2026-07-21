@@ -17,7 +17,7 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
             "farmer", "barangay", "municipality", "province", "area_hectares", "ownership_type",
             "land_type", "farm_type", "ownership_document", "land_owner_name",
             "land_owner_registered_rsbsa", "within_ancestral_domain", "agrarian_reform_beneficiary",
-            "is_rsbsa_recorded", "is_organic", "coordinates", "georef_id", "is_active",
+            "is_rsbsa_recorded", "coordinates", "georef_id", "is_active",
         ]
         labels = {
             "farmer": "Existing Farmer ID / RSBSA Number",

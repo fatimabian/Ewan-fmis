@@ -24,13 +24,12 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
     class Meta:
         model = CropRecord
         fields = [
-            "parcel", "crop_type", "cropping_schedule", "area_hectares", "number_of_heads",
+            "parcel", "crop_type", "area_hectares", "number_of_heads",
             "is_organic", "planting_date", "harvest_date", "image",
-        ]
+]
         labels = {
             "parcel": "Existing Farmer ID and Farm Parcel",
             "crop_type": "Crop / Commodity",
-            "cropping_schedule": "Cropping schedule",
             "area_hectares": "Size / Area Planted (ha)",
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
@@ -39,7 +38,6 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
         }
         widgets = {
             "crop_type": forms.TextInput(attrs={"placeholder": "e.g., Rice, Corn, Banana"}),
-            "cropping_schedule": forms.TextInput(attrs={"placeholder": "e.g., Wet Season 2026"}),
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "number_of_heads": forms.NumberInput(attrs={"min": "0"}),
             "planting_date": forms.DateInput(attrs={"type": "date"}),
@@ -49,7 +47,6 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["cropping_schedule"].required = True
         self.fields["area_hectares"].min_value = 0.01
         for field in self.fields.values():
             if not isinstance(field.widget, forms.CheckboxInput):

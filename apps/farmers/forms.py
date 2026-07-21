@@ -176,15 +176,12 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
         label="N/A - no crop information yet; update it later in Crops",
     )
     parcel_number = forms.IntegerField(min_value=1, required=False, label="Parcel number")
-    cropping_schedule = forms.CharField(required=False, label="Cropping schedule")
 
     class Meta:
         model = CropRecord
         exclude = ["parcel"]
         labels = {
             "crop_type": "Crop / Commodity",
-            "cropping_schedule": "Cropping schedule",
-            "area_hectares": "Size / Area (ha)",
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
         }
@@ -198,7 +195,7 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.order_fields(["not_applicable"] + [name for name in self.fields if name != "not_applicable"])
-        for name in ("parcel_number", "crop_type", "cropping_schedule", "area_hectares"):
+        for name in ("parcel_number", "crop_type", "area_hectares"):
             self.fields[name].required = False
             self.fields[name].widget.attrs["data-step-required"] = "true"
         self.apply_styles()
@@ -207,7 +204,7 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
         cleaned = super().clean()
         if cleaned.get("not_applicable"):
             return cleaned
-        for name in ("parcel_number", "crop_type", "cropping_schedule", "area_hectares"):
+        for name in ("parcel_number", "crop_type", "area_hectares"):
             if not cleaned.get(name):
                 self.add_error(name, "Complete this field or choose the N/A option above.")
         start, end = cleaned.get("planting_date"), cleaned.get("harvest_date")
