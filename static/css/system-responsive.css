@@ -33,7 +33,7 @@ button,.btn,a{-webkit-tap-highlight-color:transparent}
 .form-section>h3,
 .settings-card>h3,
 .catalog-section>h3{
-  background:linear-gradient(105deg,var(--fmis-nav),var(--fmis-nav-soft))!important;
+  background:linear-gradient(105deg,var(--fmis-accent),var(--ag-green-deep))!important;
   color:#fff!important;
   border-color:#334155!important;
   box-shadow:inset 4px 0 0 var(--fmis-gold);
@@ -50,7 +50,7 @@ button,.btn,a{-webkit-tap-highlight-color:transparent}
 .related-list>a:hover{border-color:var(--fmis-blue)!important;background:#f1f6fb!important;color:#174f85!important}
 
 /* Stronger shared data presentation without flooding the interface with green. */
-.app-shell table thead th,.app-shell table tr:first-child th{background:linear-gradient(105deg,var(--fmis-nav),var(--fmis-nav-soft))!important;color:#fff!important;border-color:#334155!important}
+.app-shell table thead th,.app-shell table tr:first-child th{background:linear-gradient(105deg,var(--fmis-accent),var(--ag-green-deep))!important;color:#fff!important;border-color:#334155!important}
 .app-shell table tbody tr:nth-child(even) td{background:#f8fafc}
 .metric-grid article,.report-metric,.staff-metric-card,.farmer-statistics-grid>div{border-top-color:var(--fmis-blue)!important}
 .metric-grid article:nth-child(4n+2),.report-metric:nth-child(4n+2),.staff-metric-card:nth-child(4n+2),.farmer-statistics-grid>div:nth-child(4n+2){border-top-color:var(--fmis-gold)!important}
