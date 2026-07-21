@@ -134,6 +134,12 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
         label="N/A - no parcel information yet; update it later in Farm Parcel",
     )
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=False)
+    farm_type = forms.CharField(
+        max_length=30,
+        required=False,
+        label="Farm type",
+        widget=forms.TextInput(attrs={"placeholder": "Remarks"}),
+    )
 
     class Meta:
         model = FarmParcel

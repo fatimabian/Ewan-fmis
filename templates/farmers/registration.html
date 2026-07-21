@@ -77,10 +77,11 @@
         </div></div>
         {{ crop_formset.management_form }}
         {% if crop_formset.non_form_errors %}<div class="alert alert-danger">{{ crop_formset.non_form_errors }}</div>{% endif %}
+        <div class="crop-add-row"><button type="button" class="btn btn-success btn-sm add-form-row" data-prefix="crops"><i class="bi bi-plus-lg"></i> Add Crop</button></div>
         <div id="crops-rows" class="formset-rows">
         {% for crop_form in crop_formset %}{% include "farmers/crop_form_row.html" with form=crop_form row_number=forloop.counter %}{% endfor %}
         </div>
-          <button type="button" class="btn btn-success btn-sm add-form-row" data-prefix="crops"><i class="bi bi-plus-lg"></i> Add Crop</button>
+          
         <template id="crops-empty-form">{% include "farmers/crop_form_row.html" with form=crop_formset.empty_form row_number="__number__" %}</template>
         <div class="registration-note soft"><i class="bi bi-info-circle"></i><span>One crop form is provided initially. Use Add Crop only for an additional commodity; every added row must be completed or explicitly marked N/A.</span></div>
         <div class="step-actions"><button type="button" class="btn btn-outline-secondary prev-step"><i class="bi bi-arrow-left"></i> Back</button><button type="button" class="btn btn-success next-step">Next <i class="bi bi-arrow-right"></i></button></div>
