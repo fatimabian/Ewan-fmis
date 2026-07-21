@@ -15,7 +15,7 @@
 }
 .app-shell table{width:100%;border-collapse:separate!important;border-spacing:0!important;margin:0!important;background:transparent!important}
 .app-shell table thead th,.app-shell table tr:first-child th{
-  padding:14px 16px!important;background:#f4f7f9!important;color:#334155!important;
+  padding:14px 16px!important;background:linear-gradient(105deg,var(--fmis-accent),var(--ag-green-deep))!important;color:#fff!important;
   border:0!important;border-bottom:1px solid #dfe7ec!important;font-family:Arial,Helvetica,sans-serif!important;
   font-size:13px!important;font-weight:700!important;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;
 }
