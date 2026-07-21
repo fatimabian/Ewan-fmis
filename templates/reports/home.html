@@ -58,8 +58,7 @@
     <article class="report-card"><h3>ACCOUNT ACCESS SUMMARY</h3><p>Current users allowed to access FMIS</p><div class="summary-grid"><div><b>{{ admin_accounts }}</b><small>Administrators</small></div><div><b>{{ staff_accounts }}</b><small>Staff</small></div><div><b>{{ inactive_accounts }}</b><small>Inactive</small></div></div><a class="panel-link d-block mt-3" href="{% url 'accounts:list' %}">Manage user access →</a></article>
     <article class="report-card" style="grid-column:span 2"><h3>SERVICE CATALOG OVERSIGHT</h3><p>Services made available to operational staff</p><div class="summary-grid"><div><b>{{ service_count }}</b><small>Active Catalogs</small></div><div><b>{{ inactive_catalogs }}</b><small>Inactive / Draft</small></div><div><b>{{ pending_requests }}</b><small>Pending Requests</small></div></div><a class="panel-link d-block mt-3" href="{% url 'service_catalog:list' %}">Manage service catalogs →</a></article>
     {% else %}
-    <article class="report-card crop-combined"><h3>CROP DISTRIBUTION &amp; LAND AREA</h3><p>Number of farmers and crop records compared with planted hectares</p><div class="combined-chart">{% for crop in crop_summary %}<div class="combined-row"><strong>{{ crop.crop_type }}</strong><div class="combined-track"><span style="width:{% widthratio crop.area crop_area_total 100 %}%"></span></div><div class="combined-values"><span><b>{{ crop.total }}</b> records</span><span><b>{{ crop.area|floatformat:1 }}</b> ha</span></div></div>{% empty %}<p>No crop records yet.</p>{% endfor %}</div></article>
-    <article class="report-card">
+    <article class="report-card" style="grid-column:1/-1">
       <h3>SERVICE REQUEST STATUS</h3>
       <div class="status-donut" style="--request-gradient:{{ request_status_gradient }}"><b>{{ request_total }}</b></div>
       <p class="text-center">Total requests</p>
