@@ -13,8 +13,8 @@
     <label>Status<select name="status" onchange="this.form.submit()"><option value="">All</option><option value="growing" {% if request.GET.status == 'growing' %}selected{% endif %}>Growing</option><option value="harvested" {% if request.GET.status == 'harvested' %}selected{% endif %}>Harvested</option></select></label>
     <a class="btn btn-success" href="{% url 'crops:create' %}"><i class="bi bi-plus-lg"></i> Add Crop</a>
   </form>
-  <div class="crop-table-wrap">
-    <table class="crop-table">
+  <div class="crop-table-wrap universal-table-wrap">
+    <table class="crop-table universal-table">
       <thead><tr><th>Farmer ID</th><th>Farmer Name</th><th>Crop</th><th>Planting Date</th><th>Harvest Date</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
       {% for crop in object_list %}

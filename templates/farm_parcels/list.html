@@ -14,8 +14,8 @@
     <label>Area (ha)<select name="area" onchange="this.form.submit()"><option value="">All</option><option value="under1" {% if request.GET.area == 'under1' %}selected{% endif %}>Below 1 ha</option><option value="1to2" {% if request.GET.area == '1to2' %}selected{% endif %}>1–2 ha</option><option value="over2" {% if request.GET.area == 'over2' %}selected{% endif %}>Above 2 ha</option></select></label>
     <div class="parcel-toolbar-actions"><a class="btn btn-outline-success" href="{% url 'farm_parcels:map' %}"><i class="bi bi-geo-alt"></i> Map View</a><a class="btn btn-success" href="{% url 'farm_parcels:create' %}"><i class="bi bi-plus-lg"></i> Add Parcel</a></div>
   </form>
-  <div class="parcel-table-wrap">
-    <table class="parcel-table">
+  <div class="parcel-table-wrap universal-table-wrap">
+    <table class="parcel-table universal-table">
       <thead><tr><th>Farmer ID</th><th>Farmer Name</th><th>Area (ha)</th><th>Ownership</th><th>Land Type</th><th>Farm Type</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
       {% for parcel in object_list %}

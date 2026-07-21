@@ -4,6 +4,7 @@
  * actions, pagination, dark mode, and mobile behavior stay consistent.
  */
 .app-shell .table-panel,
+.app-shell .universal-table-wrap,
 .app-shell .farmer-table-wrap,
 .app-shell .parcel-table-wrap,
 .app-shell .crop-table-wrap,

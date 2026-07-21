@@ -16,8 +16,8 @@
     <label>Date Requested<input type="date" name="date" value="{{ request.GET.date }}" onchange="this.form.submit()"></label>
     <a class="btn btn-success" href="{% url 'service_requests:create' %}"><i class="bi bi-plus-lg"></i> New Request</a>
   </form>
-  <div class="request-table-wrap">
-    <table class="request-table">
+  <div class="request-table-wrap universal-table-wrap">
+    <table class="request-table universal-table">
       <thead><tr><th>ID</th><th>Request Type</th><th>Farmer ID</th><th>Farmer Name</th><th>Barangay</th><th>Subject</th><th>Priority</th><th>Status</th><th>Date Requested</th><th>Actions</th></tr></thead>
       <tbody>
       {% for item in object_list %}
