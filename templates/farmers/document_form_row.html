@@ -1,0 +1,7 @@
+<article class="formset-row document-row{% if form.errors %} has-errors{% endif %}" data-form-row>
+  <div class="formset-row-heading"><h3><span class="row-number">{{ row_number }}</span> Supporting Document</h3><button type="button" class="remove-form-row" aria-label="Remove document"><i class="bi bi-trash"></i> Remove</button></div>
+  <span class="delete-control">{{ form.DELETE }}</span>
+  <div class="registration-grid three">
+    {% for field in form %}{% if field.name != "DELETE" %}{% include "farmers/registration_field.html" with field=field %}{% endif %}{% endfor %}
+  </div>
+</article>

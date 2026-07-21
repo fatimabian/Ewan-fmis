@@ -1,0 +1,11 @@
+{% extends base_template %}
+{% block page_title %}Farmer Registration{% endblock %}
+{% block page_subtitle %}Farmer record created and ready for field use{% endblock %}
+{% block content %}
+<div class="content registration-page"><section class="panel registration-shell">
+  <ol class="registration-stepper complete-stepper">
+    <li class="done"><span><i class="bi bi-check-lg"></i></span><small>Farmer Profile</small></li><li class="done"><span><i class="bi bi-check-lg"></i></span><small>Farm Parcels</small></li><li class="done"><span><i class="bi bi-check-lg"></i></span><small>Crops &amp; Livelihood</small></li><li class="done"><span><i class="bi bi-check-lg"></i></span><small>Documents</small></li><li class="done"><span><i class="bi bi-check-lg"></i></span><small>Review &amp; Confirm</small></li><li class="active"><span>6</span><small>Complete</small></li>
+  </ol>
+  <div class="registration-success"><div class="success-icon"><i class="bi bi-check-lg"></i></div><h2>Registration Complete</h2><p><strong>{{ farmer.full_name }}</strong> is now an active farmer record in FMIS.</p><div class="reference-card"><small>Farmer ID</small><strong>{{ farmer.record_id }}</strong><small>Date Registered</small><b>{{ farmer.submitted_at|date:"F j, Y, g:i A" }}</b><span class="status active">Active Record</span></div>{% if qr_data_uri %}<div class="completion-qr"><img src="{{ qr_data_uri }}" alt="Secure QR for {{ farmer.full_name }}"><span><b>Staff-only field QR</b><small>Scanning requires an authorized staff account.</small></span></div>{% endif %}<div class="success-actions"><a class="btn btn-outline-success" href="{% url 'farmers:qr_print' farmer.pk %}"><i class="bi bi-qr-code"></i> Print Farmer QR</a><a class="btn btn-outline-secondary" href="{% url 'farmers:list' %}">View Farmers</a><a class="btn btn-success" href="{% url 'farmers:create' %}"><i class="bi bi-plus-lg"></i> Register Another Farmer</a></div></div>
+</section></div>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends base_template %}
+{% block page_title %}Farmer QR Card{% endblock %}
+{% block page_subtitle %}Print a secure field-access card for authorized staff use{% endblock %}
+{% block content %}
+<div class="content farmer-qr-page">
+  <div class="qr-page-actions no-print"><a href="{% url 'farmers:detail' farmer.pk %}"><i class="bi bi-arrow-left"></i> Back to Farmer</a><button class="btn btn-success" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Print QR Card</button></div>
+  <section class="farmer-qr-card">
+    <header><span class="qr-office-mark"><i class="bi bi-leaf-fill"></i></span><span><strong>FMIS</strong><small>Office for Agricultural Services</small></span></header>
+    <div class="farmer-qr-body">
+      {% if qr_data_uri %}<img class="farmer-qr-image" src="{{ qr_data_uri }}" alt="Secure QR for {{ farmer.full_name }}">{% else %}<div class="qr-unavailable"><i class="bi bi-qr-code"></i><b>QR generator is not installed.</b><small>Install the project requirements, then reload this page.</small></div>{% endif %}
+      <div class="farmer-qr-copy"><span class="secure-label"><i class="bi bi-shield-lock"></i> Staff-only access</span><h2>{{ farmer.full_name }}</h2><strong>{{ farmer.record_id }}</strong><p>{{ farmer.barangay }}, Rosario, Batangas</p></div>
+    </div>
+    <footer><b>For authorized FMIS field verification only.</b><span>This QR does not contain the farmer's personal details. A staff login is required before the record is shown.</span></footer>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'base/staff_base.html' %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="content staff-dashboard">
+  <div class="staff-welcome">
+    <div>
+      <span class="staff-welcome-label">STAFF WORKSPACE</span>
+      <h2>Welcome back, {{ request.user.display_name }}!</h2>
+    </div>
+  </div>
+
+  <section class="staff-metric-grid" aria-label="Record summary">
+    <a class="staff-metric-card" href="{% url 'farmers:list' %}">
+      <i class="bi bi-people"></i><span><small>REGISTERED FARMERS</small><b>{{ farmers }}</b><em>View farmer records</em></span>
+    </a>
+    <a class="staff-metric-card" href="{% url 'farm_parcels:list' %}">
+      <i class="bi bi-pin-map"></i><span><small>ACTIVE FARM PARCELS</small><b>{{ parcels }}</b><em>View parcels and map</em></span>
+    </a>
+    <a class="staff-metric-card" href="{% url 'crops:list' %}">
+      <i class="bi bi-flower1"></i><span><small>CROP RECORDS</small><b>{{ crops }}</b><em>View recorded crops</em></span>
+    </a>
+    <a class="staff-metric-card" href="{% url 'service_requests:list' %}">
+      <i class="bi bi-headset"></i><span><small>SERVICE REQUESTS</small><b>{{ open_requests }}</b><em>{{ urgent_requests }} high priority</em></span>
+    </a>
+  </section>
+
+  <section class="staff-dashboard-main">
+    <article class="panel staff-primary-chart">
+      <div class="staff-panel-heading">
+        <div><span class="staff-section-label">MAIN FOCUS</span><h3>Service Requests — Last 6 Months</h3><p>Requests recorded by the agriculture office each month</p></div>
+        <a href="{% url 'service_requests:list' %}">View all requests <i class="bi bi-arrow-right"></i></a>
+      </div>
+      <div class="staff-bar-chart" role="img" aria-label="Monthly service request volume for the last six months; {{ request_six_month_total }} total database records">
+        {% for item in request_trend %}
+          <div class="staff-bar-column">
+            <strong>{{ item.total }}</strong>
+            <span class="staff-bar-track"><i style="height:{{ item.height }}%"></i></span>
+            <small>{{ item.label }}</small>
+          </div>
+        {% endfor %}
+      </div>
+      {% if not request_six_month_total %}<p class="staff-chart-empty"><i class="bi bi-info-circle"></i> No service requests have been recorded in this six-month period.</p>{% endif %}
+    </article>
+
+    <aside class="panel staff-work-queue">
+      <div class="staff-panel-heading"><div><span class="staff-section-label">TODAY'S WORK</span><h3>Request Work Queue</h3></div></div>
+      <a href="{% url 'service_requests:list' %}?status=PENDING"><span class="queue-dot pending"></span><span><b>{{ request_status.pending }}</b><small>Pending review</small></span><i class="bi bi-chevron-right"></i></a>
+      <a href="{% url 'service_requests:list' %}?status=IN_PROGRESS"><span class="queue-dot progress"></span><span><b>{{ request_status.in_progress }}</b><small>In progress</small></span><i class="bi bi-chevron-right"></i></a>
+      <a href="{% url 'service_requests:list' %}?status=COMPLETED"><span class="queue-dot completed"></span><span><b>{{ completed_this_month }}</b><small>Completed this month</small></span><i class="bi bi-chevron-right"></i></a>
+      <div class="staff-urgent-note"><i class="bi bi-exclamation-circle"></i><span><b>{{ urgent_requests }} high-priority request{{ urgent_requests|pluralize }}</b><small>Review these requests first.</small></span></div>
+    </aside>
+  </section>
+
+  <section class="staff-dashboard-lower">
+    <article class="panel staff-recent-requests">
+      <div class="staff-panel-heading"><div><span class="staff-section-label">RECENT</span><h3>Requests Requiring Action</h3></div></div>
+      <div class="staff-request-list">
+        {% for service_request in recent_requests %}
+          <a href="{% url 'service_requests:detail' service_request.pk %}">
+            <span class="request-icon"><i class="bi bi-clipboard2-check"></i></span>
+            <span class="request-copy"><b>{{ service_request.subject }}</b><small>{{ service_request.farmer.full_name }} · {{ service_request.service }}</small></span>
+            <span class="request-priority priority-{{ service_request.priority|lower }}">{{ service_request.get_priority_display }}</span>
+          </a>
+        {% empty %}
+          <div class="staff-empty"><i class="bi bi-check2-circle"></i><span><b>No open requests</b><small>The current service queue is clear.</small></span></div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="panel staff-quick-actions">
+      <div class="staff-panel-heading"><div><span class="staff-section-label">SHORTCUTS</span><h3>Common Tasks</h3></div></div>
+      <div>
+        <a href="{% url 'farmers:create' %}"><i class="bi bi-person-plus"></i><span><b>Register Farmer</b><small>Start an RSBSA-aligned record</small></span></a>
+        <a href="{% url 'farm_parcels:list' %}"><i class="bi bi-geo-alt"></i><span><b>Open Farm Map</b><small>Find mapped farmer locations</small></span></a>
+        <a href="{% url 'crops:list' %}"><i class="bi bi-pencil-square"></i><span><b>Update Crop Records</b><small>Maintain current crop information</small></span></a>
+      </div>
+    </article>
+  </section>
+</div>
+{% endblock %}

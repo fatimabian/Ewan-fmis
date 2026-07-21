@@ -1,0 +1,21 @@
+{% extends 'base/admin_base.html' %}
+{% block page_title %}User Accounts{% endblock %}
+{% block content %}
+<style>
+.accounts-overview{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr)) 150px;gap:16px;margin:4px 0 18px}.accounts-overview .metric-card{padding:20px;min-height:122px;background:#fff;border:1px solid #e7ebf0;border-radius:15px;box-shadow:0 3px 10px #2634510b}.accounts-overview .metric-card>i{float:left;background:var(--mint);color:var(--green);font-style:normal;font-size:23px;padding:9px;border-radius:12px;margin-right:12px}.accounts-overview small{display:block;color:var(--muted);font-size:11px;font-weight:700}.accounts-overview b{font-size:27px;display:block;margin-top:11px}.account-action{display:flex;align-items:center;justify-content:center}.account-action .btn{width:auto;padding:9px 13px;font-size:13px!important;font-weight:700;white-space:nowrap}.account-action .btn i{margin-right:5px}.account-row-actions{display:flex;align-items:center;gap:8px}.account-row-actions a,.account-row-actions button{width:34px;height:34px;display:grid;place-items:center;border:1px solid #dce5ec;border-radius:8px;background:transparent;color:#1765d8}.account-row-actions button{color:#d32626}@media(max-width:1100px){.accounts-overview{grid-template-columns:repeat(4,minmax(130px,1fr))}.account-action{grid-column:1/-1;padding:4px}.account-action .btn{width:auto}}@media(max-width:700px){.accounts-overview{grid-template-columns:repeat(2,1fr)}}
+</style>
+<div class="content">
+  <div class="accounts-overview">
+    <article class="metric-card"><i class="bi bi-people"></i><small>TOTAL ACCOUNTS</small><b>{{ total }}</b></article>
+    <article class="metric-card"><i class="bi bi-person-check"></i><small>ACTIVE ACCOUNTS</small><b>{{ active }}</b></article>
+    <article class="metric-card"><i class="bi bi-shield-check"></i><small>ADMIN ACCOUNTS</small><b>{{ admins }}</b></article>
+    <article class="metric-card"><i class="bi bi-person-badge"></i><small>STAFF ACCOUNTS</small><b>{{ staff }}</b></article>
+    <div class="account-action"><a class="btn btn-success" href="{% url 'accounts:create' %}"><i class="bi bi-plus-lg"></i> New Account</a></div>
+  </div>
+  <section class="panel table-panel account-table-panel"><h3>All Accounts</h3><table class="account-table"><thead>
+    <tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+    {% for user in object_list %}<tr class="record-row" tabindex="0" data-record-url="{% url 'accounts:detail' user.pk %}"><td><a class="record-cell-link" href="{% url 'accounts:detail' user.pk %}">{{ user.display_name }}</a></td><td>{{ user.username }}</td><td>{{ user.email|default:'-' }}</td><td><span class="badge">{{ user.get_role_display }}</span></td><td>{% if user.is_active %}Active{% else %}Inactive{% endif %}</td><td><div class="account-row-actions"><a href="{% url 'accounts:edit' user.pk %}" title="Edit {{ user.display_name }}"><i class="bi bi-pencil-square"></i></a>{% if user.pk != request.user.pk %}<form method="post" action="{% url 'accounts:delete' user.pk %}" data-confirm="Delete {{ user.display_name|escape }}'s account? They will no longer be able to sign in.">{% csrf_token %}<button type="submit" title="Delete {{ user.display_name }}"><i class="bi bi-trash"></i></button></form>{% endif %}</div></td></tr>
+    {% empty %}<tr><td colspan="6">No accounts yet.</td></tr>{% endfor %}
+  </tbody></table></section>
+</div>
+{% endblock %}

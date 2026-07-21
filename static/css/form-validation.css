@@ -1,0 +1,48 @@
+/* Shared, accessible validation treatment for all FMIS forms. */
+.form-control.is-invalid,
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid,
+.has-error input,
+.has-error select,
+.has-error textarea,
+.fmis-form-submitted input:invalid,
+.fmis-form-submitted select:invalid,
+.fmis-form-submitted textarea:invalid {
+  border: 2px solid #dc2626 !important;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .12) !important;
+}
+.errorlist,
+.request-errors .errorlist,
+.field-errors,
+.inline-form-error {
+  list-style: none;
+  color: #b91c1c !important;
+  font-size: .78rem;
+  line-height: 1.35;
+  margin: .32rem 0 0;
+  padding: 0;
+}
+.form-validation-alert {
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  border-radius: 8px;
+  background: #fff7f7;
+  color: #991b1b;
+  padding: .75rem 1rem;
+  margin-bottom: 1rem;
+}
+body[data-theme="dark"] .form-validation-alert {
+  background: #351b20 !important;
+  border-color: #ef4444 !important;
+  color: #fecaca !important;
+}
+body[data-theme="dark"] .errorlist,
+body[data-theme="dark"] .request-errors .errorlist,
+body[data-theme="dark"] .field-errors,
+body[data-theme="dark"] .inline-form-error { color: #fca5a5 !important; }
+.selected-report.is-invalid {
+  border: 2px solid #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .12) !important;
+}

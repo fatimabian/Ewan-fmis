@@ -1,0 +1,4 @@
+{% extends base_template %}
+{% block page_title %}Update Farmer Profile{% endblock %}
+{% block page_subtitle %}Update the registrant's personal information using RSBSA Slip A{% endblock %}
+{% block content %}<div class="content"><section class="panel form-panel rsbsa-update-form"><div class="registration-note"><i class="bi bi-info-circle"></i><span>This page updates personal information only (RSBSA Slip A). Use Farm Parcel or Crops for Slip B updates.</span></div><form method="post" enctype="multipart/form-data">{% csrf_token %}<div class="registration-grid three">{% for field in form %}{% if not field.is_hidden %}{% include "farmers/registration_field.html" with field=field %}{% else %}{{ field }}{% endif %}{% endfor %}</div><div class="step-actions"><a class="btn btn-outline-secondary" href="{% url 'farmers:list' %}">Cancel</a><button class="btn btn-success">Save Profile Update</button></div></form></section></div>{% endblock %}

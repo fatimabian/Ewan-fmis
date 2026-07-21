@@ -1,0 +1,50 @@
+{% extends 'base/admin_base.html' %}
+{% block page_title %}{% if object %}Edit Service Catalog{% else %}Add New Service Catalog{% endif %}{% endblock %}
+{% block page_subtitle %}Create and manage agricultural services offered by the office{% endblock %}
+{% block content %}
+<style>
+.catalog-editor{max-width:1280px;margin:auto}.catalog-back{display:inline-flex;align-items:center;gap:7px;color:#27364f;text-decoration:none;font-weight:700;margin-bottom:16px}.catalog-title{display:flex;gap:15px;align-items:center;margin-bottom:24px}.catalog-title>i,.catalog-section h3>i{font-style:normal;display:grid;place-items:center;background:#e3fbef;color:#008957;border-radius:11px;width:38px;height:38px}.catalog-title h2{margin:0;font-size:28px}.catalog-title p{margin:3px 0 0;color:#6d7d99}.catalog-section{background:#fff;border:1px solid #e7edf1;border-radius:14px;margin-bottom:18px;padding:22px;box-shadow:0 4px 14px #233a5108}.catalog-section h3{display:flex;align-items:center;gap:12px;font-size:16px;margin:0 0 20px}.catalog-section h3:after{content:'';height:1px;background:#e4eaee;flex:1}.catalog-editor label,.field-label{display:grid;gap:8px;font-size:13px;font-weight:700;color:#19243c}.catalog-editor input[type=text],.catalog-editor select,.catalog-editor textarea{border:1px solid #dce4ec;border-radius:9px;padding:11px 13px;width:100%;font:inherit;color:#21314e;background:#fff}.catalog-editor textarea{min-height:103px;resize:vertical}.catalog-editor input[readonly]{background:#f3f5f7;color:#8b99ae}.catalog-basic{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.span-all{grid-column:1/-1}.catalog-details{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.catalog-details .check-field{grid-column:span 3}.choice-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:0;padding:0;list-style:none}.choice-grid>div,.choice-grid li{margin:0!important}.choice-grid label{display:flex;grid-template-columns:none;align-items:center;gap:8px;min-height:42px;padding:9px 11px;border:1px solid #dce4ec;border-radius:9px;background:#fbfcfd;font-weight:600;cursor:pointer}.choice-grid input{width:16px;height:16px;accent-color:#008552}.catalog-bottom{display:grid;grid-template-columns:1fr;gap:18px}.icon-options,.color-options{display:flex;flex-wrap:wrap;gap:10px}.icon-choice input,.color-choice input{position:absolute;opacity:0;pointer-events:none}.icon-choice label{width:49px;height:49px;display:grid;place-items:center;padding:0;border:1px solid #d8e3dd;border-radius:11px;background:#f7fbf9;color:#3e5567;font-size:22px;cursor:pointer}.icon-choice input:checked+label{border:2px solid #008552;background:#e5f8ed;color:#008552;box-shadow:0 0 0 3px #0085521c}.color-choice label{width:31px;height:31px;display:block;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #cbd5e1;cursor:pointer}.color-choice input:checked+label{box-shadow:0 0 0 3px #173047}.catalog-actions{display:flex;justify-content:flex-end;gap:12px;padding:16px 0 25px}.catalog-actions .btn{min-width:132px;padding:11px 18px;font-weight:700}.catalog-actions .btn-success{background:#006e43;border-color:#006e43}.field-errors{margin:7px 0 0;color:#b91c1c;font-size:12px}@media(max-width:900px){.catalog-basic,.catalog-details{grid-template-columns:repeat(2,1fr)}.catalog-details .check-field{grid-column:span 2}.choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.catalog-basic,.catalog-details{grid-template-columns:1fr}.catalog-details .check-field{grid-column:auto}.choice-grid{grid-template-columns:1fr}.catalog-actions{flex-wrap:wrap}.catalog-actions .btn{flex:1}}
+</style>
+<div class="content catalog-editor">
+  <a class="catalog-back" href="{% url 'service_catalog:list' %}"><i class="bi bi-arrow-left"></i> Back to Service Catalogs</a>
+  <div class="catalog-title"><i class="bi bi-journal-plus"></i><div><h2>{% if object %}Edit Service Catalog{% else %}Add New Service Catalog{% endif %}</h2><p>Create an agricultural service that staff can select when recording a service request.</p></div></div>
+  <form method="post">
+    {% csrf_token %}
+    <section class="catalog-section">
+      <h3><i class="bi bi-card-checklist"></i> Basic Information</h3>
+      <div class="catalog-basic">
+        <label>Catalog Name <span class="text-danger">*</span>{{ form.name }}{{ form.name.errors }}</label>
+        <label>Catalog Code{{ form.code }}{{ form.code.errors }}</label>
+        <label>Category <span class="text-danger">*</span>{{ form.category }}{{ form.category.errors }}</label>
+        <label class="span-all">Short Description <span class="text-danger">*</span>{{ form.description }}{{ form.description.errors }}</label>
+      </div>
+    </section>
+    <section class="catalog-section">
+      <h3><i class="bi bi-ui-checks"></i> Service Details</h3>
+      <div class="catalog-details">
+        <label>Service Type <span class="text-danger">*</span>{{ form.service_type }}{{ form.service_type.errors }}</label>
+        <label>Estimated Processing Time <span class="text-danger">*</span>{{ form.processing_time }}{{ form.processing_time.errors }}</label>
+        <label>When Service Is Offered <span class="text-danger">*</span>{{ form.availability }}{{ form.availability.errors }}</label>
+        <label>Seasonality{{ form.seasonality }}{{ form.seasonality.errors }}</label>
+        <div class="check-field"><span class="field-label">Target Beneficiaries <span class="text-danger">*</span></span><div class="choice-grid">{{ form.target_beneficiaries }}</div>{{ form.target_beneficiaries.errors }}</div>
+        <div class="check-field"><span class="field-label">Requirements / Documents Needed <span class="text-danger">*</span></span><div class="choice-grid">{{ form.requirements }}</div>{{ form.requirements.errors }}</div>
+      </div>
+    </section>
+    <div class="catalog-bottom">
+      <section class="catalog-section">
+        <h3><i class="bi bi-palette"></i> Appearance</h3>
+        <span class="field-label">Service Icon</span>
+        <div class="icon-options">
+          {% for value, label in form.fields.icon_name.choices %}<span class="icon-choice"><input type="radio" name="{{ form.icon_name.html_name }}" value="{{ value }}" id="icon_{{ forloop.counter }}" {% if form.icon_name.value == value %}checked{% endif %}><label for="icon_{{ forloop.counter }}" title="{{ label }}"><i class="bi {{ value }}"></i><span class="visually-hidden">{{ label }}</span></label></span>{% endfor %}
+        </div>{{ form.icon_name.errors }}
+        <span class="field-label mt-3">Icon Color / Badge Color</span>
+        <div class="color-options">
+          {% for value, label in form.fields.badge_color.choices %}<span class="color-choice"><input type="radio" name="{{ form.badge_color.html_name }}" value="{{ value }}" id="color_{{ forloop.counter }}" {% if form.badge_color.value == value %}checked{% endif %}><label for="color_{{ forloop.counter }}" title="{{ label }}" style="background:{{ value }}"><span class="visually-hidden">{{ label }}</span></label></span>{% endfor %}
+        </div>{{ form.badge_color.errors }}
+      </section>
+    </div>
+    {% if form.non_field_errors %}<div class="form-validation-alert" data-inline-validation>{{ form.non_field_errors }}</div>{% endif %}
+    <div class="catalog-actions"><a class="btn btn-outline-secondary" href="{% url 'service_catalog:list' %}">Cancel</a><button class="btn btn-outline-success" name="draft" value="1" type="submit">Save as Draft</button><button class="btn btn-success" type="submit"><i class="bi bi-plus-lg"></i> {% if object %}Save Changes{% else %}Create Catalog Item{% endif %}</button></div>
+  </form>
+</div>
+{% endblock %}

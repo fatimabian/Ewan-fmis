@@ -1,0 +1,62 @@
+{% extends base_template %}
+{% block page_title %}Farmer Location Map{% endblock %}
+{% block page_subtitle %}Pin farmer residences and review their registered crops{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+.farmer-map-page{max-width:1400px;margin:auto}.map-toolbar{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end;margin-bottom:14px}.map-toolbar label{display:grid;gap:5px;font-weight:700;font-size:12px}.map-toolbar select{height:46px}.map-counts{display:flex;gap:8px;flex-wrap:wrap}.map-count{padding:8px 11px;border:1px solid var(--ag-border,#dce7e0);border-radius:999px;background:var(--surface,#fff);font-size:12px}.pin-help{display:none;margin:0 0 12px;padding:11px 14px;border:1px solid #94d5aa;border-radius:9px;background:#effaf3;color:#176537;font-weight:700}body.map-pin-active .pin-help{display:block}body.map-pin-active #farmerMap{cursor:crosshair}#farmerMap{height:min(68vh,720px);min-height:440px;border:1px solid var(--ag-border,#dce7e0);border-radius:14px;background:#eaf4ed;box-shadow:var(--ag-shadow);z-index:1}.map-empty{display:none;min-height:280px;place-items:center;text-align:center;padding:30px;border:1px dashed #b9d7c4;border-radius:14px;background:var(--surface,#fff)}.farmer-popup{width:470px;max-width:100%}.farmer-popup-head{display:flex;gap:12px;align-items:center;margin-bottom:11px}.farmer-popup-head img,.farmer-avatar{width:56px;height:56px;flex:0 0 56px;border-radius:12px;object-fit:cover}.farmer-avatar{display:grid;place-items:center;background:#e5f7eb;color:#0f7e3b;font-size:23px;font-weight:800}.farmer-popup h3{margin:0 0 3px;font-size:18px}.farmer-popup small{color:#657287}.farmer-popup-address{margin:8px 0 13px;color:#4a596b;font-size:13px;line-height:1.45}.crop-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.crop-card{overflow:hidden;border:1px solid #dfe7e2;border-radius:10px;background:#f6faf7;box-shadow:0 3px 10px rgba(25,61,43,.07)}.crop-card img,.crop-placeholder{width:100%;height:175px;object-fit:cover}.crop-placeholder{display:grid;place-items:center;background:#e8f6ed;color:#168348;font-size:36px}.crop-card span{display:block;padding:8px 10px;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.farmer-popup a{display:inline-flex;margin-top:13px;color:#0e7f3b;font-weight:700;text-decoration:none}.unmapped-panel{margin-top:16px;padding:16px;border:1px solid var(--ag-border,#dce7e0);border-radius:12px;background:var(--surface,#fff)}.unmapped-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.unmapped-list a{padding:9px 11px;border:1px solid #dfe7e2;border-radius:8px;color:inherit;text-decoration:none}@media(max-width:850px){.map-toolbar{grid-template-columns:1fr 1fr}.map-toolbar label{grid-column:1/-1}.unmapped-list{grid-template-columns:1fr 1fr}}@media(max-width:560px){.map-toolbar{grid-template-columns:1fr}.map-toolbar label{grid-column:auto}.map-toolbar .btn{width:100%}.unmapped-list{grid-template-columns:1fr}#farmerMap{min-height:360px;height:58vh}.farmer-popup{width:min(290px,78vw)}.farmer-popup-head img,.farmer-avatar{width:48px;height:48px;flex-basis:48px}.farmer-popup h3{font-size:16px}.crop-gallery{grid-template-columns:1fr}.crop-card img,.crop-placeholder{height:190px}.crop-card span{font-size:12px;padding:7px 8px}}
+</style>
+<div class="content farmer-map-page">
+  <form id="pinForm" class="map-toolbar">{% csrf_token %}
+    <label>Find Farmer<select id="pinFarmer" name="farmer_id" required data-farmer-picker="true" data-search-placeholder="Type Farmer ID or name..."><option value="">Select a farmer</option>{% for farmer in farmers %}<option value="{{ farmer.pk }}">{{ farmer.record_id }} — {{ farmer.full_name }} ({{ farmer.barangay }})</option>{% endfor %}</select></label>
+    <button class="btn btn-success" id="startPin" type="button"><i class="bi bi-pin-map"></i> Pin Farmer Location</button>
+    <a class="btn btn-outline-success" href="{% url 'farm_parcels:list' %}"><i class="bi bi-table"></i> Parcel Table</a>
+  </form>
+  <div class="map-counts"><span class="map-count"><strong>{{ mapped_count }}</strong> mapped farmers</span><span class="map-count"><strong>{{ unmapped_count }}</strong> need a pin</span></div>
+  <p class="pin-help" id="pinHelp"><i class="bi bi-crosshair"></i> Click the farmer's residence on the map to save the pin.</p>
+  <div id="farmerMap" aria-label="Interactive map of farmer locations"></div>
+  <div class="map-empty" id="mapEmpty"><div><i class="bi bi-geo-alt"></i><h2>No farmer locations pinned yet</h2><p>Select a farmer above, choose Pin Farmer Location, then click their residence on the map.</p></div></div>
+  {% if unmapped_farmers %}<details class="unmapped-panel"><summary>{{ unmapped_count }} farmer{{ unmapped_count|pluralize }} without a saved home pin</summary><div class="unmapped-list">{% for farmer in unmapped_farmers %}<a href="{% url 'farmers:edit' farmer.pk %}">{{ farmer.record_id }} — {{ farmer.full_name }}</a>{% endfor %}</div></details>{% endif %}
+</div>
+{{ map_markers|json_script:"farmer-map-markers" }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(()=>{
+  const markers=JSON.parse(document.getElementById('farmer-map-markers').textContent),mapNode=document.getElementById('farmerMap');
+  const farmerSelect=document.getElementById('pinFarmer'),startPin=document.getElementById('startPin'),markerByFarmer=new Map();
+  const map=L.map(mapNode,{scrollWheelZoom:false}).setView([13.8467,121.2060],12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'}).addTo(map);
+  const bounds=[];
+  const make=(tag,className,text)=>{const node=document.createElement(tag);if(className)node.className=className;if(text)node.textContent=text;return node};
+  markers.forEach(item=>{
+    const popup=make('div','farmer-popup'),head=make('div','farmer-popup-head'),identity=make('div');
+    const farmerBadge=make('div','farmer-avatar');farmerBadge.innerHTML='<i class="bi bi-person"></i>';head.appendChild(farmerBadge);
+    identity.appendChild(make('h3','',item.farmer));identity.appendChild(make('small','',item.farmer_id));head.appendChild(identity);popup.appendChild(head);
+    popup.appendChild(make('p','farmer-popup-address',item.address||'Address not completed'));
+    const gallery=make('div','crop-gallery');
+    if(item.crops.length){item.crops.slice(0,6).forEach(crop=>{const card=make('div','crop-card');if(crop.image){const image=make('img');image.src=crop.image;image.alt=crop.name;card.appendChild(image)}else{const blank=make('div','crop-placeholder');blank.innerHTML='<i class="bi bi-flower1"></i>';card.appendChild(blank)}card.appendChild(make('span','',crop.name));gallery.appendChild(card)})}else{gallery.appendChild(make('span','','No crops recorded'))}
+    popup.appendChild(gallery);const edit=make('a','', 'Open farmer profile');edit.href=item.edit_url;popup.appendChild(edit);
+    const mobilePopup=window.matchMedia('(max-width:560px)').matches;
+    const farmerMarker=L.marker([item.lat,item.lng]).addTo(map).bindPopup(popup,{maxWidth:mobilePopup?310:510,minWidth:mobilePopup?260:470,maxHeight:620});
+    markerByFarmer.set(String(item.id),farmerMarker);bounds.push([item.lat,item.lng]);
+  });
+  if(bounds.length>1)map.fitBounds(bounds,{padding:[35,35],maxZoom:16});
+  let pinning=false;
+  const resetPinMode=()=>{pinning=false;document.body.classList.remove('map-pin-active')};
+  const setPinButton=(mapped)=>{startPin.disabled=mapped;startPin.innerHTML=mapped?'<i class="bi bi-geo-alt-fill"></i> Location Already Pinned':'<i class="bi bi-pin-map"></i> Pin Farmer Location'};
+  const showSelectedFarmer=()=>{
+    resetPinMode();
+    const farmerMarker=markerByFarmer.get(String(farmerSelect.value));
+    setPinButton(Boolean(farmerMarker));
+    if(!farmerMarker)return;
+    const point=farmerMarker.getLatLng();
+    map.flyTo(point,Math.max(map.getZoom(),16),{animate:true,duration:.7});
+    map.once('moveend',()=>farmerMarker.openPopup());
+    if(map.getCenter().distanceTo(point)<1)farmerMarker.openPopup();
+  };
+  farmerSelect.addEventListener('change',showSelectedFarmer);
+  startPin.addEventListener('click',()=>{if(!farmerSelect.value){farmerSelect.reportValidity();return}if(markerByFarmer.has(String(farmerSelect.value))){showSelectedFarmer();return}pinning=true;document.body.classList.add('map-pin-active')});
+  map.on('click',async event=>{if(!pinning)return;const form=new FormData(document.getElementById('pinForm'));form.set('latitude',event.latlng.lat);form.set('longitude',event.latlng.lng);try{const response=await fetch('{% url "farm_parcels:pin_farmer" %}',{method:'POST',body:form,headers:{'X-Requested-With':'XMLHttpRequest'}});const result=await response.json();if(response.ok&&result.ok){window.fmisFeedback?.(result.message,'success');setTimeout(()=>window.location.reload(),900);return}window.fmisFeedback?.(result.message||'The pin could not be saved.','error')}catch(error){window.fmisFeedback?.('The map location could not be saved. Check your connection and try again.','error')}pinning=false;document.body.classList.remove('map-pin-active')});
+})();
+</script>
+{% endblock %}

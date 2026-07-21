@@ -1,0 +1,31 @@
+{% extends 'base/admin_base.html' %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+<div class="content staff-dashboard admin-dashboard">
+  <div class="staff-welcome"><div><span class="staff-welcome-label">ADMINISTRATOR WORKSPACE</span><h2>Welcome back, {{ request.user.display_name }}!</h2></div></div>
+  <section class="staff-metric-grid" aria-label="System administration summary">
+    <a class="staff-metric-card" href="{% url 'accounts:list' %}"><i class="bi bi-people"></i><span><small>USER ACCOUNTS</small><b>{{ accounts }}</b><em>{{ active_accounts }} active accounts</em></span></a>
+    <a class="staff-metric-card" href="{% url 'service_catalog:list' %}"><i class="bi bi-journal-bookmark"></i><span><small>ACTIVE SERVICE CATALOGS</small><b>{{ service_catalogs }}</b><em>{{ draft_catalogs }} inactive or draft</em></span></a>
+    <a class="staff-metric-card" href="{% url 'activity_logs:list' %}"><i class="bi bi-clock-history"></i><span><small>ACTIVITY TODAY</small><b>{{ events_today }}</b><em>Recorded system actions</em></span></a>
+    <a class="staff-metric-card" href="{% url 'settings_page:home' %}"><i class="bi bi-shield-check"></i><span><small>SECURITY EVENTS</small><b>{{ failed_events }}</b><em>Events requiring review</em></span></a>
+  </section>
+  <section class="staff-dashboard-main">
+    <article class="panel staff-primary-chart">
+      <div class="staff-panel-heading"><div><span class="staff-section-label">MAIN FOCUS</span><h3>System Activity — Last 7 Days</h3><p>Recorded account, catalog, security, and administrator actions</p></div><a href="{% url 'activity_logs:list' %}">Open activity log <i class="bi bi-arrow-right"></i></a></div>
+      <div class="staff-bar-chart admin-activity-chart" role="img" aria-label="System activity recorded during the last seven days; {{ activity_week_total }} total database records">{% for item in activity_trend %}<div class="staff-bar-column"><strong>{{ item.total }}</strong><span class="staff-bar-track"><i style="height:{{ item.height }}%"></i></span><small>{{ item.label }}</small></div>{% endfor %}</div>
+      {% if not activity_week_total %}<p class="staff-chart-empty"><i class="bi bi-info-circle"></i> No activity has been recorded in this seven-day period.</p>{% endif %}
+    </article>
+    <aside class="panel staff-work-queue">
+      <div class="staff-panel-heading"><div><span class="staff-section-label">SYSTEM OVERVIEW</span><h3>Access &amp; Configuration</h3></div></div>
+      <a href="{% url 'accounts:list' %}"><span class="queue-dot completed"></span><span><b>{{ admins }}</b><small>Active administrators</small></span><i class="bi bi-chevron-right"></i></a>
+      <a href="{% url 'accounts:list' %}"><span class="queue-dot progress"></span><span><b>{{ staff }}</b><small>Active staff accounts</small></span><i class="bi bi-chevron-right"></i></a>
+      <a href="{% url 'service_catalog:list' %}"><span class="queue-dot pending"></span><span><b>{{ draft_catalogs }}</b><small>Inactive catalog items</small></span><i class="bi bi-chevron-right"></i></a>
+      <div class="staff-urgent-note"><i class="bi bi-shield-lock"></i><span><b>Administrator-only workspace</b><small>Operational farmer tools remain restricted to staff.</small></span></div>
+    </aside>
+  </section>
+  <section class="staff-dashboard-lower">
+    <article class="panel staff-recent-requests"><div class="staff-panel-heading"><div><span class="staff-section-label">RECENT</span><h3>System Activity</h3></div></div><div class="staff-request-list">{% for activity in recent_activity %}<a href="{% url 'activity_logs:list' %}"><span class="request-icon"><i class="bi bi-clock-history"></i></span><span class="request-copy"><b>{{ activity.title|default:activity.action }}</b><small>{{ activity.actor.display_name|default:'System' }} · {{ activity.created_at|date:'M d, Y h:i A' }}</small></span><span class="request-priority priority-low">{{ activity.status }}</span></a>{% empty %}<div class="staff-empty"><i class="bi bi-info-circle"></i><span><b>No recorded activity</b><small>New administrator actions will appear here.</small></span></div>{% endfor %}</div></article>
+    <article class="panel staff-quick-actions"><div class="staff-panel-heading"><div><span class="staff-section-label">SHORTCUTS</span><h3>Administration</h3></div></div><div><a href="{% url 'accounts:list' %}"><i class="bi bi-people"></i><span><b>Manage User Accounts</b><small>Edit roles and account access</small></span></a><a href="{% url 'service_catalog:list' %}"><i class="bi bi-journal-bookmark"></i><span><b>Manage Service Catalogs</b><small>Control services available to staff</small></span></a><a href="{% url 'settings_page:home' %}"><i class="bi bi-gear"></i><span><b>Security &amp; System</b><small>Review security, sessions, and backups</small></span></a></div></article>
+  </section>
+</div>
+{% endblock %}

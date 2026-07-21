@@ -1,0 +1,28 @@
+{% extends base_template %}
+{% block page_title %}Crops{% endblock %}
+{% block page_subtitle %}Record what each farmer planted for the current and previous production years{% endblock %}
+{% block content %}
+<style>
+.crop-page{max-width:1400px;margin:auto}.crop-toolbar{display:grid;grid-template-columns:1.3fr .85fr .7fr .75fr auto;gap:14px;align-items:end;margin:10px 0 24px}.crop-toolbar label{display:grid;gap:6px;color:#5c6b82}.crop-toolbar input,.crop-toolbar select{height:50px;border:1px solid var(--border);border-radius:10px;padding:0 14px;background:var(--surface);color:inherit}.crop-toolbar .btn{height:50px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 22px;white-space:nowrap;font-weight:700}.crop-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}.crop-table{width:100%;border-collapse:collapse}.crop-table th{background:var(--surface-muted);padding:15px 16px;border-bottom:1px solid var(--border);white-space:nowrap}.crop-table td{padding:15px 16px;border-bottom:1px solid var(--border)}.crop-status{display:inline-block;border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;background:#fff1cf;color:#a76800}.crop-status.harvested{background:#d9f7e5;color:#087f49}.crop-actions{display:flex;gap:12px}.crop-actions a,.crop-actions button{border:0;background:transparent;color:#086cff;font-size:18px}.crop-actions button{color:#e22323}.crop-footer{display:flex;justify-content:space-between;align-items:center;margin-top:22px}.crop-pages{display:flex;gap:8px}.crop-pages a,.crop-pages span{border:1px solid var(--border);border-radius:8px;padding:8px 12px;text-decoration:none;color:inherit}.crop-pages .current{background:var(--fmis-accent);color:var(--fmis-accent-text)}@media(max-width:1050px){.crop-toolbar{grid-template-columns:repeat(2,1fr)}.crop-table-wrap{overflow-x:auto}.crop-table{min-width:950px}}@media(max-width:600px){.crop-toolbar{grid-template-columns:1fr}.crop-footer{flex-direction:column;align-items:flex-start;gap:12px}}
+</style>
+<div class="content crop-page">
+  <form class="crop-toolbar" method="get">
+    <label>Search<input name="q" value="{{ request.GET.q }}" placeholder="Search crop, Farmer ID, or farmer name..."></label>
+    <label>Crop<select name="crop_type" onchange="this.form.submit()"><option value="">All Crops</option>{% for crop_type in crop_types %}<option value="{{ crop_type }}" {% if request.GET.crop_type == crop_type %}selected{% endif %}>{{ crop_type }}</option>{% endfor %}</select></label>
+    <label>Planting Year<select name="year" onchange="this.form.submit()"><option value="">All Years</option>{% for year in years %}<option value="{{ year|date:'Y' }}" {% if request.GET.year == year|date:'Y' %}selected{% endif %}>{{ year|date:'Y' }}</option>{% endfor %}</select></label>
+    <label>Status<select name="status" onchange="this.form.submit()"><option value="">All</option><option value="growing" {% if request.GET.status == 'growing' %}selected{% endif %}>Growing</option><option value="harvested" {% if request.GET.status == 'harvested' %}selected{% endif %}>Harvested</option></select></label>
+    <a class="btn btn-success" href="{% url 'crops:create' %}"><i class="bi bi-plus-lg"></i> Add Crop</a>
+  </form>
+  <div class="crop-table-wrap">
+    <table class="crop-table">
+      <thead><tr><th>Farmer ID</th><th>Farmer Name</th><th>Crop</th><th>Planting Date</th><th>Harvest Date</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+      {% for crop in object_list %}
+        <tr class="record-row" tabindex="0" data-record-url="{% url 'crops:detail' crop.pk %}"><td><a class="record-cell-link" href="{% url 'crops:detail' crop.pk %}">{{ crop.parcel.farmer.record_id }}</a></td><td>{{ crop.parcel.farmer.list_name }}</td><td>{{ crop.crop_type }}</td><td>{{ crop.planting_date|date:"M d, Y"|default:"Not set" }}</td><td>{{ crop.harvest_date|date:"M d, Y"|default:"Not set" }}</td><td>{% if crop.harvest_date and crop.harvest_date <= today %}<span class="crop-status harvested">Harvested</span>{% else %}<span class="crop-status">Growing</span>{% endif %}</td><td><div class="crop-actions"><a href="{% url 'crops:edit' crop.pk %}" title="Edit {{ crop.crop_type }}"><i class="bi bi-pencil-square"></i></a><form method="post" action="{% url 'crops:delete' crop.pk %}" data-confirm="Delete this {{ crop.crop_type|escape }} crop record? This action cannot be undone.">{% csrf_token %}<button title="Delete {{ crop.crop_type }}"><i class="bi bi-trash"></i></button></form></div></td></tr>
+      {% empty %}<tr><td colspan="7" class="text-center py-5">No crop planting records matched your filters.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="crop-footer"><span>{% if page_obj.paginator.count %}Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} crop records{% else %}No entries{% endif %}</span>{% if is_paginated %}<nav class="crop-pages">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&crop_type={{ request.GET.crop_type }}&year={{ request.GET.year }}&status={{ request.GET.status }}">‹</a>{% endif %}<span class="current">{{ page_obj.number }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&crop_type={{ request.GET.crop_type }}&year={{ request.GET.year }}&status={{ request.GET.status }}">›</a>{% endif %}</nav>{% endif %}</div>
+</div>
+{% endblock %}

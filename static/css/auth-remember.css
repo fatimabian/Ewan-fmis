@@ -1,0 +1,4 @@
+.auth-row{align-items:center!important;justify-content:space-between!important;gap:14px}
+.remember-control{display:inline-flex!important;align-items:center;gap:7px;color:#475569!important;font-size:12px!important;font-weight:600!important;cursor:pointer}
+.auth-form .remember-control input{width:17px!important;min-height:17px!important;height:17px!important;margin:0!important;padding:0!important;accent-color:var(--auth-green)}
+@media(max-width:400px){.auth-row{align-items:flex-start!important;flex-direction:column}.auth-row a{align-self:flex-end}}

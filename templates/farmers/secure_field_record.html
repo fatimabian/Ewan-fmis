@@ -1,0 +1,15 @@
+{% extends base_template %}
+{% block page_title %}Secure Farmer Field Record{% endblock %}
+{% block page_subtitle %}Authorized staff access from a verified FMIS QR code{% endblock %}
+{% block content %}
+<div class="content record-detail secure-field-record">
+  <div class="field-security-banner"><i class="bi bi-shield-check"></i><span><b>Verified staff-only record</b><small>This information is protected by your signed-in FMIS account.</small></span></div>
+  <section class="record-hero"><div class="record-avatar">{% if farmer.photo %}<img src="{{ farmer.photo.url }}" alt="{{ farmer.full_name }}">{% else %}{{ farmer.first_name|slice:':1' }}{{ farmer.last_name|slice:':1' }}{% endif %}</div><div class="record-hero-copy"><small>{{ farmer.record_id }} · Active farmer record</small><h2>{{ farmer.full_name }}</h2><p>{{ farmer.barangay }}, {{ farmer.city_municipality }}, {{ farmer.province }}</p></div></section>
+  <div class="record-detail-grid">
+    <section class="panel record-section"><h3><i class="bi bi-person-vcard"></i> Field Identification</h3><div class="record-section-body"><dl class="record-data"><div><dt>Farmer ID</dt><dd>{{ farmer.record_id }}</dd></div><div><dt>RSBSA Number</dt><dd>{{ farmer.rsbsa_number|default:'Not assigned' }}</dd></div><div><dt>Sex</dt><dd>{{ farmer.get_sex_display|default:'Not recorded' }}</dd></div><div><dt>Date of Birth</dt><dd>{{ farmer.birth_date|date:'F d, Y'|default:'Not recorded' }}</dd></div><div><dt>Phone Number</dt><dd>{{ farmer.phone_number|default:'Not recorded' }}</dd></div><div><dt>Livelihood</dt><dd>{{ farmer.get_livelihood_display }}</dd></div></dl></div></section>
+    <section class="panel record-section"><h3><i class="bi bi-geo-alt"></i> Registered Address</h3><div class="record-section-body"><dl class="record-data"><div><dt>House / Lot / Purok</dt><dd>{{ farmer.house_lot_purok|default:'Not recorded' }}</dd></div><div><dt>Street / Sitio</dt><dd>{{ farmer.street_sitio|default:'Not recorded' }}</dd></div><div><dt>Barangay</dt><dd>{{ farmer.barangay }}</dd></div><div><dt>Municipality</dt><dd>{{ farmer.city_municipality }}</dd></div></dl></div></section>
+    <section class="panel record-section field-farms"><h3><i class="bi bi-map"></i> Parcels and Current Crops</h3><div class="record-section-body related-list">{% for parcel in farmer.parcels.all %}<a href="{% url 'farm_parcels:detail' parcel.pk %}"><span><b>{{ parcel.display_name }}</b><small class="d-block">{{ parcel.area_hectares }} ha · {% for crop in parcel.crops.all %}{{ crop.crop_type }}{% if not forloop.last %}, {% endif %}{% empty %}No crop recorded{% endfor %}</small></span><i class="bi bi-chevron-right"></i></a>{% empty %}<div>No farm parcel recorded.</div>{% endfor %}</div></section>
+  </div>
+  <div class="record-detail-actions field-record-actions"><a class="btn btn-outline-success" href="{% url 'farmers:qr_print' farmer.pk %}"><i class="bi bi-printer"></i> Reprint QR</a><a class="btn btn-success" href="{% url 'farmers:detail' farmer.pk %}"><i class="bi bi-folder2-open"></i> Open Full Record</a></div>
+</div>
+{% endblock %}

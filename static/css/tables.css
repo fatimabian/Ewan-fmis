@@ -1,0 +1,39 @@
+/*
+ * FMIS shared table system
+ * Every module table inherits these rules so spacing, typography, states,
+ * actions, pagination, dark mode, and mobile behavior stay consistent.
+ */
+.app-shell .table-panel,
+.app-shell .farmer-table-wrap,
+.app-shell .parcel-table-wrap,
+.app-shell .crop-table-wrap,
+.app-shell .request-table-wrap,
+.app-shell .activity-table{
+  width:100%;max-width:100%;overflow:hidden;background:var(--surface,#fff)!important;
+  border:1px solid var(--border,#dfe7ec)!important;border-radius:12px!important;
+  box-shadow:var(--shadow,0 4px 16px rgba(29,53,71,.07))!important;
+}
+.app-shell table{width:100%;border-collapse:separate!important;border-spacing:0!important;margin:0!important;background:transparent!important}
+.app-shell table thead th,.app-shell table tr:first-child th{
+  padding:14px 16px!important;background:#f4f7f9!important;color:#334155!important;
+  border:0!important;border-bottom:1px solid #dfe7ec!important;font-family:Arial,Helvetica,sans-serif!important;
+  font-size:13px!important;font-weight:700!important;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;
+}
+.app-shell table tbody td,.app-shell table tr:not(:first-child) td{
+  padding:14px 16px!important;color:#3f4d63!important;background:transparent!important;
+  border:0!important;border-bottom:1px solid #e7edf1!important;font-size:14px!important;vertical-align:middle!important;
+}
+.app-shell table tbody tr:last-child td,.app-shell table tr:last-child td{border-bottom:0!important}
+.app-shell table tbody tr{transition:background-color .15s ease}.app-shell table tbody tr:hover{background:#f7fbf8!important}
+.app-shell table form{margin:0!important}.app-shell table .badge,.app-shell table .status{font-size:11px!important;font-weight:700!important}
+.app-shell table a:focus-visible,.app-shell table button:focus-visible{outline:2px solid var(--fmis-accent);outline-offset:2px;border-radius:5px}
+.farmer-footer,.parcel-footer,.crop-footer,.request-footer,.activity-pagination{margin-top:18px!important;color:#64748b;font-size:13px!important}
+body[data-theme="dark"] .app-shell table thead th,body[data-theme="dark"] .app-shell table tr:first-child th{background:#253244!important;color:#dce7f3!important;border-color:#3b4b60!important}
+body[data-theme="dark"] .app-shell table tbody td,body[data-theme="dark"] .app-shell table tr:not(:first-child) td{color:#d5dfeb!important;border-color:#354457!important}
+body[data-theme="dark"] .app-shell table tbody tr:hover{background:#223041!important}
+@media(max-width:900px){
+  .app-shell .table-panel,.app-shell .farmer-table-wrap,.app-shell .parcel-table-wrap,.app-shell .crop-table-wrap,.app-shell .request-table-wrap,.app-shell .activity-table{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+  .app-shell table{min-width:760px}.app-shell table th,.app-shell table td{white-space:nowrap!important}
+  .app-shell table td.subject-cell{white-space:normal!important;min-width:210px}
+}
+@media(max-width:600px){.app-shell table thead th,.app-shell table tr:first-child th,.app-shell table tbody td,.app-shell table tr:not(:first-child) td{padding:12px 13px!important;font-size:12px!important}}

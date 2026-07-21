@@ -1,0 +1,13 @@
+{% extends 'base/admin_base.html' %}
+{% block page_title %}User Account{% endblock %}
+{% block page_subtitle %}Complete account access and contact information{% endblock %}
+{% block content %}
+<div class="content record-detail">
+  <div class="record-detail-nav"><a href="{% url 'accounts:list' %}"><i class="bi bi-arrow-left"></i> Back to User Accounts</a><div class="record-detail-actions"><a class="btn btn-success" href="{% url 'accounts:edit' object.pk %}"><i class="bi bi-pencil"></i> Edit Account</a></div></div>
+  <section class="record-hero"><div class="record-avatar">{{ object.display_name|slice:':1'|upper }}</div><div class="record-hero-copy"><small>{{ object.get_role_display }} account · {% if object.is_active %}Active{% else %}Inactive{% endif %}</small><h2>{{ object.display_name }}</h2><p>@{{ object.username }}</p></div></section>
+  <div class="record-detail-grid">
+    <section class="panel record-section"><h3><i class="bi bi-person-vcard"></i> Account Information</h3><div class="record-section-body"><dl class="record-data"><div><dt>Full Name</dt><dd>{{ object.display_name }}</dd></div><div><dt>Username</dt><dd>{{ object.username }}</dd></div><div><dt>Role</dt><dd>{{ object.get_role_display }}</dd></div><div><dt>Account Status</dt><dd>{% if object.is_active %}Active{% else %}Inactive{% endif %}</dd></div></dl></div></section>
+    <section class="panel record-section"><h3><i class="bi bi-envelope-at"></i> Contact &amp; Sign-in</h3><div class="record-section-body"><dl class="record-data"><div><dt>Email Address</dt><dd>{{ object.email|default:'Not recorded' }}</dd></div><div><dt>Phone Number</dt><dd>{{ object.phone_number|default:'Not recorded' }}</dd></div><div><dt>Date Added</dt><dd>{{ object.date_joined|date:'F d, Y, g:i A' }}</dd></div><div><dt>Last Login</dt><dd>{{ object.last_login|date:'F d, Y, g:i A'|default:'No login recorded' }}</dd></div></dl></div></section>
+  </div>
+</div>
+{% endblock %}

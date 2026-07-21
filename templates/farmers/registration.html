@@ -1,0 +1,135 @@
+{% extends base_template %}
+{% block page_title %}Farmer Registration{% endblock %}
+{% block page_subtitle %}Complete the official RSBSA enrollment information for a new farmer{% endblock %}
+{% block content %}
+<div class="content registration-page">
+  <section class="panel registration-shell">
+    <div class="registration-note"><i class="bi bi-shield-check"></i><span>This workflow follows the RSBSA Enrollment Form 01-2024. Fields marked <b>*</b> are required.</span></div>
+    <ol class="registration-stepper" aria-label="Registration progress">
+      <li class="active" data-step-link="1"><span>1</span><small>Farmer Profile</small></li>
+      <li data-step-link="2"><span>2</span><small>Farm Parcels</small></li>
+      <li data-step-link="3"><span>3</span><small>Crops &amp; Livelihood</small></li>
+      <li data-step-link="4"><span>4</span><small>Documents</small></li>
+      <li data-step-link="5"><span>5</span><small>Review &amp; Confirm</small></li>
+      <li data-step-link="6"><span>6</span><small>Complete</small></li>
+    </ol>
+
+    <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
+      {% csrf_token %}
+      {% if profile_form.non_field_errors %}<div class="form-validation-alert" data-inline-validation>{{ profile_form.non_field_errors }}</div>{% endif %}
+
+      <section class="registration-step active" data-step="1">
+        <div class="step-heading"><div><h2>Farmer Profile</h2><p>Personal and contact information from the RSBSA enrollment form.</p></div><span class="rsbsa-label">RSBSA Part I</span></div>
+        <div class="form-section"><h3><i class="bi bi-person-vcard"></i> Full legal name</h3><div class="registration-grid four">
+          {% include "farmers/registration_field.html" with field=profile_form.last_name %}
+          {% include "farmers/registration_field.html" with field=profile_form.first_name %}
+          {% include "farmers/registration_field.html" with field=profile_form.middle_name %}
+          {% include "farmers/registration_field.html" with field=profile_form.extension_name %}
+        </div></div>
+        <div class="form-section"><h3><i class="bi bi-person-lines-fill"></i> Personal information</h3><div class="registration-grid three">
+          {% include "farmers/registration_field.html" with field=profile_form.sex %}
+          {% include "farmers/registration_field.html" with field=profile_form.birth_date %}
+          {% include "farmers/registration_field.html" with field=profile_form.place_of_birth %}
+          {% include "farmers/registration_field.html" with field=profile_form.mother_maiden_name %}
+          {% include "farmers/registration_field.html" with field=profile_form.civil_status %}
+          {% include "farmers/registration_field.html" with field=profile_form.spouse_name %}
+          {% include "farmers/registration_field.html" with field=profile_form.highest_education %}
+          {% include "farmers/registration_field.html" with field=profile_form.religion %}
+          {% include "farmers/registration_field.html" with field=profile_form.photo %}
+        </div></div>
+        <div class="form-section"><h3><i class="bi bi-geo-alt"></i> Permanent address</h3><div class="registration-grid three">
+          {% include "farmers/registration_field.html" with field=profile_form.house_lot_purok %}
+          {% include "farmers/registration_field.html" with field=profile_form.street_sitio %}
+          {% include "farmers/registration_field.html" with field=profile_form.barangay %}
+          {% include "farmers/registration_field.html" with field=profile_form.city_municipality %}
+          {% include "farmers/registration_field.html" with field=profile_form.province %}
+          {% include "farmers/registration_field.html" with field=profile_form.region %}
+        </div></div>
+        <div class="form-section"><h3><i class="bi bi-telephone"></i> Contact, identification, and inclusion</h3><div class="registration-grid three">
+          {% include "farmers/registration_field.html" with field=profile_form.phone_number %}
+          {% include "farmers/registration_field.html" with field=profile_form.email %}
+          {% include "farmers/registration_field.html" with field=profile_form.valid_id_type %}
+          {% include "farmers/registration_field.html" with field=profile_form.valid_id_number %}
+          {% include "farmers/registration_field.html" with field=profile_form.indigenous_group %}
+          <div class="checkbox-stack">{{ profile_form.is_indigenous }} {{ profile_form.is_indigenous.label_tag }}{{ profile_form.is_pwd }} {{ profile_form.is_pwd.label_tag }}{{ profile_form.is_four_ps }} {{ profile_form.is_four_ps.label_tag }}</div>
+        </div></div>
+        <div class="form-section"><h3><i class="bi bi-journal-text"></i> Internal follow-up</h3><div class="registration-grid one">{% include "farmers/registration_field.html" with field=profile_form.remarks %}</div></div>
+        <div class="step-actions"><a class="btn btn-outline-secondary" href="{% url 'farmers:list' %}">Cancel</a><button type="button" class="btn btn-success next-step">Next <i class="bi bi-arrow-right"></i></button></div>
+      </section>
+
+      <section class="registration-step" data-step="2">
+        <div class="step-heading"><div><h2>Farm Parcels</h2><p>List every farm parcel currently owned, leased, or cultivated by the registrant.</p></div><button type="button" class="btn btn-success btn-sm add-form-row" data-prefix="parcels"><i class="bi bi-plus-lg"></i> Add Parcel</button></div>
+        {{ parcel_formset.management_form }}
+        {% if parcel_formset.non_form_errors %}<div class="alert alert-danger">{{ parcel_formset.non_form_errors }}</div>{% endif %}
+        <div id="parcels-rows" class="formset-rows">
+          {% for parcel_form in parcel_formset %}{% include "farmers/parcel_form_row.html" with form=parcel_form row_number=forloop.counter %}{% endfor %}
+        </div>
+        <template id="parcels-empty-form">{% include "farmers/parcel_form_row.html" with form=parcel_formset.empty_form row_number="__number__" %}</template>
+        <div class="registration-note soft"><i class="bi bi-info-circle"></i><span>One parcel form is provided initially. Use Add Parcel only when this farmer has another parcel; every added row must be completed. The row number links crops in the next step.</span></div>
+        <div class="step-actions"><button type="button" class="btn btn-outline-secondary prev-step"><i class="bi bi-arrow-left"></i> Back</button><button type="button" class="btn btn-success next-step">Next <i class="bi bi-arrow-right"></i></button></div>
+      </section>
+
+      <section class="registration-step" data-step="3">
+        <div class="step-heading"><div><h2>Crops &amp; Livelihood</h2><p>Record the farmer's current agricultural livelihood and commodities.</p></div><button type="button" class="btn btn-success btn-sm add-form-row" data-prefix="crops"><i class="bi bi-plus-lg"></i> Add Crop</button></div>
+        <div class="form-section"><h3>Primary livelihood</h3><div class="registration-grid two">
+          {% include "farmers/registration_field.html" with field=profile_form.livelihood %}
+          <div class="registration-field checkbox-options"><label>{{ profile_form.activities.label }} *</label>{{ profile_form.activities }}{{ profile_form.activities.errors }}</div>
+        </div></div>
+        {{ crop_formset.management_form }}
+        {% if crop_formset.non_form_errors %}<div class="alert alert-danger">{{ crop_formset.non_form_errors }}</div>{% endif %}
+        <div id="crops-rows" class="formset-rows">
+          {% for crop_form in crop_formset %}{% include "farmers/crop_form_row.html" with form=crop_form row_number=forloop.counter %}{% endfor %}
+        </div>
+        <template id="crops-empty-form">{% include "farmers/crop_form_row.html" with form=crop_formset.empty_form row_number="__number__" %}</template>
+        <div class="registration-note soft"><i class="bi bi-info-circle"></i><span>One crop form is provided initially. Use Add Crop only for an additional commodity; every added row must be completed or explicitly marked N/A.</span></div>
+        <div class="step-actions"><button type="button" class="btn btn-outline-secondary prev-step"><i class="bi bi-arrow-left"></i> Back</button><button type="button" class="btn btn-success next-step">Next <i class="bi bi-arrow-right"></i></button></div>
+      </section>
+
+      <section class="registration-step" data-step="4">
+        <div class="step-heading"><div><h2>Supporting Documents</h2><p>Upload readable RSBSA identification and land-tenure documents.</p></div><button type="button" class="btn btn-success btn-sm add-form-row" data-prefix="documents"><i class="bi bi-plus-lg"></i> Add Document</button></div>
+        {{ document_formset.management_form }}
+        {% if document_formset.non_form_errors %}<div class="alert alert-danger">{{ document_formset.non_form_errors }}</div>{% endif %}
+        <div id="documents-rows" class="formset-rows document-rows">
+          {% for document_form in document_formset %}{% include "farmers/document_form_row.html" with form=document_form row_number=forloop.counter %}{% endfor %}
+        </div>
+        <template id="documents-empty-form">{% include "farmers/document_form_row.html" with form=document_formset.empty_form row_number="__number__" %}</template>
+        <div class="registration-note soft"><i class="bi bi-file-earmark-check"></i><span>One document form is provided initially and must be a Valid ID. Use Add Document only for another supporting file; every added document row must be completed. Accepted: JPG, PNG, and PDF up to 5 MB each.</span></div>
+        <div class="step-actions"><button type="button" class="btn btn-outline-secondary prev-step"><i class="bi bi-arrow-left"></i> Back</button><button type="button" class="btn btn-success next-step">Review Registration <i class="bi bi-arrow-right"></i></button></div>
+      </section>
+
+      <section class="registration-step" data-step="5">
+        <div class="step-heading"><div><h2>Review &amp; Confirm</h2><p>Check the information before submitting the new RSBSA registration.</p></div><span class="rsbsa-label">Final Review</span></div>
+        <div id="registrationReview" class="review-grid"></div>
+        <div class="consent-box">{{ profile_form.consent_given }}<label for="{{ profile_form.consent_given.id_for_label }}">{{ profile_form.consent_given.label }} I reviewed the <a href="{% url 'authentication:privacy' %}" target="_blank" rel="noopener">Privacy Notice</a> and <a href="{% url 'authentication:terms' %}" target="_blank" rel="noopener">Terms of Use</a>.</label>{{ profile_form.consent_given.errors }}</div>
+        <div class="step-actions"><button type="button" class="btn btn-outline-secondary prev-step"><i class="bi bi-arrow-left"></i> Back</button><button type="submit" class="btn btn-success submit-registration"><i class="bi bi-check2-circle"></i> Submit Registration</button></div>
+      </section>
+    </form>
+  </section>
+</div>
+
+<script>
+(function(){
+  const form=document.getElementById('rsbsaRegistration');
+  const steps=[...document.querySelectorAll('.registration-step')];
+  const links=[...document.querySelectorAll('[data-step-link]')];
+  let current=1;
+  function showStep(number){current=number;steps.forEach(el=>el.classList.toggle('active',Number(el.dataset.step)===number));links.forEach(el=>{const n=Number(el.dataset.stepLink);el.classList.toggle('active',n===number);el.classList.toggle('done',n<number)});window.scrollTo({top:0,behavior:'smooth'});if(number===5)buildReview()}
+  function validateStep(){const step=steps.find(el=>Number(el.dataset.step)===current);const fields=[...step.querySelectorAll('input:not([type=hidden]),select,textarea')].filter(el=>!el.closest('.formset-row')?.classList.contains('deleted'));for(const field of fields){field.setCustomValidity('');const row=field.closest('.formset-row');const isNA=row?.querySelector('input[name$="-not_applicable"]')?.checked;if(field.dataset.stepRequired&& !isNA && !String(field.value).trim())field.setCustomValidity('Complete this field or select the N/A option for this card.');if(!field.checkValidity()){field.reportValidity();return false}}if(current===3&&!document.querySelector('input[name="activities"]:checked')){const first=document.querySelector('input[name="activities"]');first?.setCustomValidity('Select at least one livelihood activity.');first?.reportValidity();return false}if(current===4){const validId=[...document.querySelectorAll('#documents-rows select[name$="-document_type"]')].some(select=>!select.closest('.deleted')&&select.value==='VALID_ID');if(!validId){const first=document.querySelector('#documents-rows select[name$="-document_type"]');first?.setCustomValidity('At least one document must be a Valid ID.');first?.reportValidity();return false}}return true}
+  document.querySelectorAll('.next-step').forEach(btn=>btn.addEventListener('click',()=>{if(validateStep())showStep(Math.min(5,current+1))}));
+  document.querySelectorAll('.prev-step').forEach(btn=>btn.addEventListener('click',()=>showStep(Math.max(1,current-1))));
+  function setNaState(row){const na=row.querySelector('input[name$="-not_applicable"]');if(!na)return;row.classList.toggle('na-selected',na.checked);row.querySelectorAll('input,select,textarea').forEach(field=>{if(field!==na&&!field.name.endsWith('-DELETE'))field.disabled=na.checked})}
+  function updateRemoveButtons(prefix){const rows=[...document.querySelectorAll(`#${prefix}-rows .formset-row:not(.deleted)`)];rows.forEach(row=>{const button=row.querySelector('.remove-form-row');if(button){button.disabled=rows.length===1;button.title=rows.length===1?'At least one form must remain.':''}})}
+  function addRow(prefix){const total=document.getElementById(`id_${prefix}-TOTAL_FORMS`);const index=Number(total.value);const template=document.getElementById(`${prefix}-empty-form`).innerHTML.replaceAll('__prefix__',index).replaceAll('__number__',index+1);const container=document.getElementById(`${prefix}-rows`);container.insertAdjacentHTML('beforeend',template);total.value=index+1;const row=container.lastElementChild;setNaState(row);updateRemoveButtons(prefix);row.querySelector('input:not([type=hidden]):not([type=checkbox]),select,textarea')?.focus()}
+  document.querySelectorAll('.add-form-row').forEach(btn=>btn.addEventListener('click',()=>addRow(btn.dataset.prefix)));
+  document.querySelectorAll('.formset-row').forEach(setNaState);['parcels','crops','documents'].forEach(updateRemoveButtons);
+  document.addEventListener('change',event=>{if(event.target.matches('input[name$="-not_applicable"]'))setNaState(event.target.closest('.formset-row'));if(event.target.name==='activities')document.querySelectorAll('input[name="activities"]').forEach(input=>input.setCustomValidity(''));if(event.target.matches('#documents-rows select[name$="-document_type"]'))document.querySelectorAll('#documents-rows select[name$="-document_type"]').forEach(select=>select.setCustomValidity(''))});
+  document.addEventListener('click',event=>{const button=event.target.closest('.remove-form-row');if(!button||button.disabled)return;const row=button.closest('.formset-row');const prefix=row.parentElement.id.replace('-rows','');const deletion=row.querySelector('input[name$="-DELETE"]');if(deletion){deletion.checked=true;row.querySelectorAll('input,select,textarea').forEach(field=>{if(field!==deletion)field.disabled=true});row.classList.add('deleted')}else row.remove();updateRemoveButtons(prefix)});
+  function valueOf(name){const el=form.elements[name];if(!el)return 'Not provided';if(el instanceof RadioNodeList){const values=[...document.querySelectorAll(`[name="${name}"]:checked`)].map(x=>x.labels?.[0]?.innerText||x.value);return values.join(', ')||'Not provided'}return el.options?el.options[el.selectedIndex]?.text:el.value||'Not provided'}
+  function esc(value){const node=document.createElement('span');node.textContent=String(value);return node.innerHTML}
+  function activeRows(prefix){return [...document.querySelectorAll(`#${prefix}-rows .formset-row:not(.deleted)`)].filter(row=>!row.querySelector('input[name$="-not_applicable"]')?.checked)}
+  function buildReview(){const review=document.getElementById('registrationReview');const name=[valueOf('first_name'),valueOf('middle_name'),valueOf('last_name'),valueOf('extension_name')].filter(x=>x!=='Not provided').join(' ');const address=[valueOf('house_lot_purok'),valueOf('street_sitio'),valueOf('barangay'),valueOf('city_municipality'),valueOf('province')].filter(x=>x!=='Not provided').join(', ');review.innerHTML=`<article><h3><i class="bi bi-person"></i> Farmer Profile</h3><dl><dt>Name</dt><dd>${esc(name)}</dd><dt>Address</dt><dd>${esc(address)}</dd><dt>Contact</dt><dd>${esc(valueOf('phone_number'))}</dd><dt>Livelihood</dt><dd>${esc(valueOf('livelihood'))}</dd></dl><button type="button" data-edit-step="1">Edit profile</button></article><article><h3><i class="bi bi-map"></i> Farm Parcels</h3><p><strong>${activeRows('parcels').length}</strong> parcel(s) declared</p><button type="button" data-edit-step="2">Edit parcels</button></article><article><h3><i class="bi bi-flower1"></i> Crops &amp; Livelihood</h3><p><strong>${activeRows('crops').length}</strong> crop or commodity record(s)</p><button type="button" data-edit-step="3">Edit crops</button></article><article><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><p><strong>${activeRows('documents').length}</strong> supporting document(s)</p><button type="button" data-edit-step="4">Edit documents</button></article>`;review.querySelectorAll('[data-edit-step]').forEach(btn=>btn.addEventListener('click',()=>showStep(Number(btn.dataset.editStep))))}
+  form.addEventListener('submit',event=>{if(!form.checkValidity()){event.preventDefault();for(let n=1;n<=5;n++){const bad=steps[n-1].querySelector(':invalid');if(bad){showStep(n);bad.reportValidity();break}}return}document.querySelector('.submit-registration').disabled=true;document.querySelector('.submit-registration').innerHTML='<span class="spinner-border spinner-border-sm"></span> Submitting...'});
+  const serverError=document.querySelector('.registration-step .errorlist');if(serverError){const errorStep=serverError.closest('.registration-step');if(errorStep)showStep(Number(errorStep.dataset.step))}
+})();
+</script>
+{% endblock %}

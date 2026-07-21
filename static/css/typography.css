@@ -1,0 +1,25 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap');
+/* FMIS type system: Inter for headings/UI emphasis and Open Sans for readable body copy. */
+:root{
+  --font-ui:"Open Sans",Arial,Helvetica,sans-serif;
+  --font-heading:"Inter","Segoe UI",Arial,sans-serif;
+  --text-xs:.75rem;   /* 12px */
+  --text-sm:.8125rem; /* 13px */
+  --text-ui:.875rem;  /* 14px */
+  --text-base:1rem;   /* 16px */
+  --text-lg:1.125rem; /* 18px */
+  --text-xl:1.5rem;   /* 24px */
+  --text-2xl:1.875rem;/* 30px */
+}
+html{font-size:16px}
+body{font-family:var(--font-ui)!important;font-size:var(--text-base);line-height:1.55}
+button,input,select,textarea,.btn,table,.app-shell table,nav,label,.badge,.status,.farmer-picker{font-family:var(--font-ui)!important}
+h1,h2,h3,h4,h5,h6,.brand strong,.auth-brand strong{font-family:var(--font-heading)!important;font-weight:700;letter-spacing:-.015em}
+.dashboard-greeting,.hero,.empty-state,.staff-metric-card b,.auth-brand-copy h1,.auth-form-panel h2,.auth-card h1,.auth-modal-box h3,.google-access-heading strong,.visual-card-header strong,.visual-metric strong,.landing-brand strong,.staff-welcome-label,.staff-section-label{font-family:var(--font-heading)!important}
+p,li,dd,dt,.auth-brand-copy p,.auth-subtitle,.section-copy{font-family:var(--font-ui)!important}
+h1{font-size:var(--text-2xl);line-height:1.2}h2{font-size:var(--text-xl);line-height:1.25}h3{font-size:var(--text-lg);line-height:1.3}h4,h5,h6{font-size:var(--text-base);line-height:1.35}
+button,input,select,textarea,.btn{font-size:var(--text-ui)!important;line-height:1.4}
+label,th,.sidebar nav a{font-size:var(--text-ui)!important}td{font-size:var(--text-ui)!important;line-height:1.45}
+small,.text-muted,.form-text,.helptext,.page-intro p,.auth-note{font-size:var(--text-sm)!important}
+.badge,.status{font-size:var(--text-xs)!important}.brand small,.intro-kicker{font-size:var(--text-xs)!important}
+@media(max-width:600px){html{font-size:15px}body{line-height:1.5}.page-intro h1{font-size:1.6rem!important}}

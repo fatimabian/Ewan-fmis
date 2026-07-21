@@ -1,0 +1,94 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}FMIS{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/fmis.css' %}">
+  <link rel="stylesheet" href="{% static 'css/fmis-polish.css' %}">
+  <link rel="stylesheet" href="{% static 'css/tables.css' %}">
+  <link rel="stylesheet" href="{% static 'css/agriculture-theme.css' %}">
+  <link rel="stylesheet" href="{% static 'css/typography.css' %}">
+  <link rel="stylesheet" href="{% static 'css/record-detail.css' %}">
+  <link rel="stylesheet" href="{% static 'css/admin-mobile.css' %}">
+  <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
+  <link rel="stylesheet" href="{% static 'css/system-responsive.css' %}">
+  <style>
+    :root{--fmis-accent:{{ user_preference.primary_color|default:'#16a34a' }};--fmis-accent-text:#fff;--green:var(--fmis-accent)}
+    .app-shell{display:block}.sidebar{position:fixed;inset:0 auto 0 0;overflow-y:auto;z-index:20}.app-shell main{margin-left:280px;min-height:100vh}.brand-mark,.btn-success,.catalog-add{background:var(--fmis-accent)!important;border-color:var(--fmis-accent)!important;color:var(--fmis-accent-text)!important}.sidebar nav a:hover,.sidebar nav a.active{background:var(--fmis-accent)!important;color:var(--fmis-accent-text)!important}.panel-link,.service-action:hover{color:var(--fmis-accent)!important}.badge,.status{color:var(--fmis-accent)!important}.page-scroll{min-height:100vh}
+    body[data-theme="dark"]{background:#121923!important;color:#edf3fa}body[data-theme="dark"] main,body[data-theme="dark"] .content{background:#121923}body[data-theme="dark"] header,body[data-theme="dark"] .panel,body[data-theme="dark"] .metric-grid article,body[data-theme="dark"] .catalog-card,body[data-theme="dark"] .catalog-toolbar,body[data-theme="dark"] .service-reference-card,body[data-theme="dark"] .activity-table,body[data-theme="dark"] .activity-row,body[data-theme="dark"] .settings-card,body[data-theme="dark"] .catalog-section{background:#1c2735!important;color:#edf3fa!important;border-color:#354457!important;box-shadow:none!important}body[data-theme="dark"] h1,body[data-theme="dark"] h2,body[data-theme="dark"] h3,body[data-theme="dark"] h4,body[data-theme="dark"] label,body[data-theme="dark"] th,body[data-theme="dark"] td{color:#edf3fa!important}body[data-theme="dark"] header span,body[data-theme="dark"] .panel p,body[data-theme="dark"] .text-muted,body[data-theme="dark"] small{color:#b7c4d5!important}body[data-theme="dark"] input,body[data-theme="dark"] select,body[data-theme="dark"] textarea{background:#111b28!important;color:#edf3fa!important;border-color:#405168!important}
+    .sidebar-legal-links{display:flex;align-items:center;justify-content:center;gap:7px;margin:0 0 10px;text-align:center;font-size:10px;line-height:1.4}.sidebar-legal-links a{color:#b9c8d5;text-decoration:none}.sidebar-legal-links a:hover,.sidebar-legal-links a:focus{color:#fff;text-decoration:underline}.sidebar-legal-links span{color:#708294}
+    @media(max-width:600px){.app-shell main{margin-left:0}}
+  </style>
+</head>
+<body class="{% if request.user.is_admin %}role-admin{% else %}role-staff{% endif %}" data-theme="{{ user_preference.theme|default:'light' }}" data-theme-preference="{{ user_preference.theme|default:'light' }}">
+<div class="app-shell">
+  <aside class="sidebar {% if not request.user.is_admin %}staff-sidebar{% endif %}">
+    <a class="brand" href="{% url 'dashboard:home' %}" aria-label="FMIS Dashboard">
+      <span class="brand-mark"><i class="bi bi-leaf-fill"></i></span>
+      <span class="brand-copy"><strong>FMIS</strong><small>ROSARIO · BATANGAS</small></span>
+    </a>
+    <nav>
+      <a href="{% url 'dashboard:home' %}"><i class="bi bi-house-door"></i><span>Dashboard</span></a>
+      {% if request.user.is_admin %}
+        <p>MANAGEMENT</p>
+        <a href="{% url 'accounts:list' %}"><i class="bi bi-people"></i><span>User Accounts</span></a>
+        <a href="{% url 'service_catalog:list' %}"><i class="bi bi-journal-bookmark"></i><span>Service Catalogs</span></a>
+        <a href="{% url 'activity_logs:list' %}"><i class="bi bi-clock-history"></i><span>Activity Log</span></a>
+        <a href="{% url 'reports:home' %}"><i class="bi bi-bar-chart-line"></i><span>Reports &amp; Analytics</span></a>
+        <p>SETTINGS</p>
+        <a href="{% url 'settings_page:home' %}"><i class="bi bi-gear"></i><span>Settings</span></a>
+      {% else %}
+        <p>MANAGEMENT</p>
+        <a href="{% url 'farmers:list' %}"><i class="bi bi-person"></i><span>Farmers</span></a>
+        <a href="{% url 'farm_parcels:list' %}"><i class="bi bi-grid"></i><span>Farm Parcel</span></a>
+        <a href="{% url 'crops:list' %}"><i class="bi bi-flower1"></i><span>Crops</span></a>
+        <a href="{% url 'service_requests:list' %}"><i class="bi bi-headset"></i><span>Service Requests</span></a>
+        <a href="{% url 'reports:home' %}"><i class="bi bi-file-earmark-bar-graph"></i><span>Reports</span></a>
+        <p>SETTINGS</p>
+        <a href="{% url 'settings_page:home' %}"><i class="bi bi-gear"></i><span>Account Management</span></a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-legal-links"><a href="{% url 'authentication:privacy' %}">Privacy Notice</a><span aria-hidden="true">·</span><a href="{% url 'authentication:terms' %}">Terms of Use</a></div>
+      <form method="post" action="{% url 'authentication:logout' %}">{% csrf_token %}<button class="logout" type="submit"><i class="bi bi-box-arrow-right"></i><span>Logout</span></button></form>
+    </div>
+  </aside>
+  <main class="page-scroll">
+    <header class="app-header">
+      <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Toggle navigation" aria-expanded="true"><i class="bi bi-list"></i></button>
+      <div class="header-actions">
+        {% if user_preference.in_app_notifications %}<details class="notification-menu">
+          <summary aria-label="Notifications"><i class="bi bi-bell"></i><span class="notification-dot"></span></summary>
+          <div class="notification-panel"><strong>Notifications</strong><p>You are all caught up. New system updates will appear here.</p></div>
+        </details>{% endif %}
+        <a class="header-profile" href="{% url 'settings_page:home' %}" title="Open account settings">
+          <span class="profile-circle">{{ request.user.display_name|slice:':1'|upper }}</span>
+          <span class="profile-copy"><strong>{{ request.user.display_name }}</strong><small>{% if request.user.is_admin %}Administrator{% else %}Staff{% endif %}</small></span>
+        </a>
+      </div>
+    </header>
+    <section class="page-intro"><div><span class="intro-kicker"><i class="bi bi-leaf-fill"></i> Office for Agricultural Services</span><h1>{% block page_title %}Dashboard{% endblock %}</h1><p>{% block page_subtitle %}Office for Agricultural Services{% endblock %}</p></div><span class="intro-leaf" aria-hidden="true"><i class="bi bi-leaf"></i></span></section>
+    {% if messages %}<div id="fmisMessageQueue" hidden>{% for message in messages %}<span data-kind="{{ message.tags|default:'info' }}" data-message="{{ message|escape }}"></span>{% endfor %}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<div class="fmis-feedback-modal" id="fmisFeedbackModal" hidden aria-hidden="true">
+  <div class="fmis-feedback-backdrop" data-modal-close></div>
+  <section class="fmis-feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="fmisModalTitle" aria-describedby="fmisModalMessage">
+    <div class="fmis-feedback-icon" id="fmisModalIcon"><i class="bi bi-info-lg"></i></div>
+    <button class="fmis-feedback-close" type="button" aria-label="Close" data-modal-close><i class="bi bi-x-lg"></i></button>
+    <h2 id="fmisModalTitle">Notice</h2><p id="fmisModalMessage"></p>
+    <div class="fmis-feedback-actions"><button type="button" class="btn btn-outline-secondary" id="fmisModalCancel" data-modal-close>Cancel</button><button type="button" class="btn btn-success" id="fmisModalConfirm">OK</button></div>
+  </section>
+</div>
+<script src="{% static 'js/fmis.js' %}"></script>
+<script src="{% static 'js/form-validation.js' %}"></script>
+</body>
+</html>
