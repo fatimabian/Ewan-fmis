@@ -145,6 +145,32 @@ def report_metrics(date_range="all", filters=None):
             cursor += percent
     request_status_gradient = ", ".join(gradient_segments) or "#dfe7e2 0% 100%"
 
+    priority_counts = {
+        row["priority"]: row["total"] for row in requests.values("priority").annotate(total=Count("id"))
+    }
+    priority_colors = {"LOW": "#16834f", "MEDIUM": "#d99a12", "HIGH": "#dc4c45"}
+    priority_total = sum(priority_counts.values()) or 1
+    request_priorities = [
+        {
+            "label": label,
+            "total": priority_counts.get(priority, 0),
+            "percent": round(priority_counts.get(priority, 0) / priority_total * 100),
+            "color": priority_colors[priority],
+        }
+        for priority, label in ServiceRequest.PRIORITY_CHOICES
+    ]
+
+    recent_requests = [
+        {
+            "farmer": req.farmer.full_name,
+            "service": req.service.name,
+            "label": dict(ServiceRequest.STATUS_CHOICES).get(req.status, req.status),
+            "color": status_colors.get(req.status, "#61718a"),
+            "date": timezone.localtime(req.created_at).strftime("%b %d, %Y"),
+        }
+        for req in requests.select_related("farmer", "service").order_by("-created_at")[:5]
+    ]
+
     senior_cutoff = timezone.localdate().replace(year=timezone.localdate().year - 60)
     farmer_statistics = [
         {"label": "Active Farmers", "total": farmers.count()},
@@ -161,6 +187,7 @@ def report_metrics(date_range="all", filters=None):
         "crop_summary": crop_summary, "crop_area_total": crop_area_total,
         "request_statuses": request_statuses, "request_status_gradient": request_status_gradient,
         "request_total": request_total,
+        "request_priorities": request_priorities, "recent_requests": recent_requests,
         "activity_summary": ActivityLog.objects.values("module").annotate(total=Count("id")).order_by("-total")[:5],
         "farmer_statistics": farmer_statistics,
         "service_count": ServiceCatalog.objects.filter(is_active=True).count(),

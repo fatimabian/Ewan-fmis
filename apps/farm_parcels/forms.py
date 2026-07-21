@@ -10,6 +10,12 @@ from .models import FarmParcel
 class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     farmer = FarmerChoiceField(queryset=active_farmer_queryset())
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES)
+    farm_type = forms.CharField(
+        max_length=30,
+        required=False,
+        label="Farm type",
+        widget=forms.TextInput(attrs={"placeholder": "Remarks"}),
+    )
 
     class Meta:
         model = FarmParcel
