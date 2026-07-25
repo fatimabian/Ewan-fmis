@@ -1,6 +1,7 @@
 ROLE_ADMIN = "ADMIN"
 ROLE_STAFF = "STAFF"
 ROLE_CHOICES = ((ROLE_ADMIN, "Administrator"), (ROLE_STAFF, "Staff"))
+ASSIGNABLE_ROLE_CHOICES = ((ROLE_STAFF, "Staff"),)
 
 # Philippine Standard Geographic Code (PSGC), Municipality of Rosario,
 # Batangas. Verified against the PSA list of 48 barangays.

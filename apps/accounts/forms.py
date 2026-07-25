@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from apps.authentication.models import CustomUser
 from apps.common.forms import InlineValidationMixin, normalize_phone_digits
+from apps.common.constants import ASSIGNABLE_ROLE_CHOICES, ROLE_CHOICES
 
 
 class AccountValidationMixin:
@@ -32,6 +33,7 @@ class AccountForm(AccountValidationMixin, InlineValidationMixin, UserCreationFor
         super().__init__(*args, **kwargs)
         for name in ("first_name", "last_name", "email", "phone_number", "role"):
             self.fields[name].required = True
+        self.fields["role"].choices = ASSIGNABLE_ROLE_CHOICES
     def clean_username(self):
         username = self.cleaned_data.get("username", "").strip()
         if not username:
@@ -57,6 +59,11 @@ class AccountUpdateForm(AccountValidationMixin, InlineValidationMixin, forms.Mod
         super().__init__(*args, **kwargs)
         for name in ("first_name", "last_name", "email", "phone_number", "role"):
             self.fields[name].required = True
+        current_role = getattr(self.instance, "role", None)
+        if current_role and current_role not in dict(ASSIGNABLE_ROLE_CHOICES):
+            self.fields["role"].choices = ROLE_CHOICES
+        else:
+            self.fields["role"].choices = ASSIGNABLE_ROLE_CHOICES
     class Meta:
         model = CustomUser
         fields = ["username", "first_name", "last_name", "email", "phone_number", "role", "is_active"]
