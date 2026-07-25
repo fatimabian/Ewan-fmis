@@ -100,6 +100,14 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         ):
             if name in self.fields:
                 self.fields[name].required = True
+        for name, fixed_value in (
+            ("city_municipality", "Rosario"),
+            ("province", "Batangas"),
+            ("region", "CALABARZON Region IV-A"),
+        ):
+            if name in self.fields:
+                self.fields[name].initial = fixed_value
+                self.fields[name].disabled = True
         self.apply_styles()
         if "phone_number" in self.fields and not (self.instance and self.instance.pk):
             self.initial.setdefault("phone_number", "09")
