@@ -38,8 +38,43 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       field.value = digits;
     };
+    const getInlineError = () => {
+      const next = field.nextElementSibling;
+      return next && next.classList.contains("inline-form-error") ? next : null;
+    };
+    const clearPhoneError = () => {
+      field.classList.remove("is-invalid");
+      field.removeAttribute("aria-invalid");
+      getInlineError()?.remove();
+    };
+    const showPhoneError = (message) => {
+      mark(field);
+      let error = getInlineError();
+      if (!error) {
+        error = document.createElement("span");
+        error.className = "inline-form-error";
+        field.insertAdjacentElement("afterend", error);
+      }
+      error.textContent = message;
+    };
+    const validatePhone = () => {
+      const digits = field.value.replace(/\D/g, "");
+      if (!digits || digits === "09") {
+        clearPhoneError();
+        return;
+      }
+      if (digits.length !== 11 || !digits.startsWith("09")) {
+        showPhoneError("Phone number must be 11 digits.");
+      } else {
+        clearPhoneError();
+      }
+    };
     if (!field.value) field.value = "09";
-    field.addEventListener("input", enforcePrefix);
+    field.addEventListener("input", () => {
+      enforcePrefix();
+      clearPhoneError();
+    });
+    field.addEventListener("blur", validatePhone);
     field.addEventListener("keydown", (e) => {
       const atLockedZone = field.selectionStart <= 2 && field.selectionEnd <= 2;
       if ((e.key === "Backspace" || e.key === "Delete") && atLockedZone) e.preventDefault();

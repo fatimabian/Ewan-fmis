@@ -24,6 +24,11 @@ textarea.is-invalid,
   margin: .32rem 0 0;
   padding: 0;
 }
+
+.inline-form-error {
+  display: block;
+}
+
 .form-validation-alert {
   border: 1px solid #fecaca;
   border-left: 4px solid #dc2626;
