@@ -29,6 +29,29 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  document.querySelectorAll('input[name="phone_number"]').forEach((field) => {
+    const enforcePrefix = () => {
+      let digits = field.value.replace(/\D/g, "").slice(0, 11);
+      if (!digits.startsWith("09")) {
+        digits = "09" + digits.replace(/^0/, "").replace(/^9/, "");
+        digits = digits.slice(0, 11);
+      }
+      field.value = digits;
+    };
+    if (!field.value) field.value = "09";
+    field.addEventListener("input", enforcePrefix);
+    field.addEventListener("keydown", (e) => {
+      const atLockedZone = field.selectionStart <= 2 && field.selectionEnd <= 2;
+      if ((e.key === "Backspace" || e.key === "Delete") && atLockedZone) e.preventDefault();
+    });
+    field.addEventListener("focus", () => {
+      if (field.selectionStart < 2) {
+        const end = field.value.length;
+        field.setSelectionRange(end, end);
+      }
+    });
+  });
+
   document.querySelectorAll("[data-capitalize-first=true]").forEach((field) => {
     field.addEventListener("blur", () => {
       field.value = capitalizeFirst(field.value.trim());

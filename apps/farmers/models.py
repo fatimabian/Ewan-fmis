@@ -1,5 +1,12 @@
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
+
+
+PH_MOBILE_VALIDATOR = RegexValidator(
+    regex=r"^09\d{9}$",
+    message="Enter a valid PH mobile number: 11 digits, starting with 09 (e.g. 09171234567).",
+)
 
 
 class Farmer(models.Model):
@@ -36,7 +43,7 @@ class Farmer(models.Model):
     province = models.CharField(max_length=100, default="Batangas")
     region = models.CharField(max_length=100, default="CALABARZON Region IV-A")
     mother_maiden_name = models.CharField(max_length=180, blank=True)
-    phone_number = models.CharField(max_length=20, blank=True)
+    phone_number = models.CharField(max_length=11, blank=True, validators=[PH_MOBILE_VALIDATOR])
     email = models.EmailField(blank=True)
     civil_status = models.CharField(max_length=15, choices=CIVIL_STATUS_CHOICES, blank=True)
     spouse_name = models.CharField(max_length=180, blank=True)

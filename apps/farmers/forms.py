@@ -70,6 +70,13 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "livelihood": forms.Select,
             "photo": forms.ClearableFileInput(attrs={"accept": "image/*"}),
             "location_coordinates": forms.TextInput(attrs={"placeholder": "e.g., 13.8467, 121.2060"}),
+            "phone_number": forms.TextInput(attrs={
+                "placeholder": "09XXXXXXXXX",
+                "maxlength": "11",
+                "inputmode": "numeric",
+                "pattern": "09[0-9]{9}",
+                "title": "Enter an 11-digit PH mobile number starting with 09",
+            }),
             "remarks": forms.Textarea(attrs={"rows": 3, "maxlength": 1000, "placeholder": "Optional internal remarks for agricultural service follow-up"}),
         }
         labels = {
@@ -94,8 +101,19 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             if name in self.fields:
                 self.fields[name].required = True
         self.apply_styles()
+        if "phone_number" in self.fields and not (self.instance and self.instance.pk):
+            self.initial.setdefault("phone_number", "09")
         if "activities" in self.fields and self.instance and self.instance.pk and self.instance.activities:
             self.initial["activities"] = self.instance.activities.split(",")
+
+    def clean_phone_number(self):
+        value = self.cleaned_data.get("phone_number", "")
+        digits = "".join(ch for ch in value if ch.isdigit())
+        if not digits:
+            return digits
+        if len(digits) != 11 or not digits.startswith("09"):
+            raise ValidationError("Enter a valid PH mobile number: 11 digits, starting with 09 (e.g. 09171234567).")
+        return digits
 
     def clean_activities(self):
         return ",".join(self.cleaned_data["activities"])
