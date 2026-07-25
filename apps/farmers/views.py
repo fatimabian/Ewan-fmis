@@ -151,11 +151,7 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         parcel_rows = {}
         if parcel_formset.is_valid():
             for row_number, parcel_form in enumerate(parcel_formset.forms, start=1):
-                if (
-                    parcel_form.cleaned_data
-                    and not parcel_form.cleaned_data.get("DELETE")
-                    and not parcel_form.cleaned_data.get("not_applicable")
-                ):
+                if parcel_form.cleaned_data and not parcel_form.cleaned_data.get("DELETE"):
                     parcel_rows[row_number] = parcel_form
 
         if crop_formset.is_valid():
@@ -192,7 +188,7 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             for row_number, parcel_form in parcel_rows.items():
                 parcel = FarmParcel(farmer=farmer)
                 for field_name, value in parcel_form.cleaned_data.items():
-                    if field_name not in {"DELETE", "not_applicable"}:
+                    if field_name != "DELETE":
                         setattr(parcel, field_name, value)
                 parcel.save()
                 saved_parcels[row_number] = parcel

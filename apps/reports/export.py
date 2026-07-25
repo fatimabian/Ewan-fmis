@@ -136,9 +136,9 @@ def build_report(report_type, date_range, filters=None):
         rows = [[
             crop.parcel.farmer.record_id, crop.parcel.farmer.full_name, crop.parcel.display_name,
             crop.parcel.barangay, crop.crop_type, crop.area_hectares,
-            crop.cropping_schedule or "-", crop.planting_date or "-", crop.harvest_date or "-",
+            crop.planting_date or "-", crop.harvest_date or "-",
         ] for crop in queryset.order_by("parcel__barangay", "parcel__farmer__last_name", "parcel_id", "crop_type")]
-        return "Commodity per Farm Parcel", ["Farmer ID", "Farmer", "Parcel", "Barangay", "Commodity", "Area (ha)", "Schedule", "Planting Date", "Harvest Date"], rows
+        return "Commodity per Farm Parcel", ["Farmer ID", "Farmer", "Parcel", "Barangay", "Commodity", "Area (ha)", "Planting Date", "Harvest Date"], rows
 
     queryset = _filter_period(ServiceRequest.objects.filter(farmer__is_active=True), "created_at", date_range)
     if year:

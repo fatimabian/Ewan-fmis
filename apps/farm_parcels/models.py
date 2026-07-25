@@ -16,12 +16,6 @@ class FarmParcel(models.Model):
         ("UPLAND", "Upland"),
         ("LOWLAND", "Lowland"),
 ]
-    FARM_TYPE_CHOICES = [
-        ("IRRIGATED", "Irrigated"),
-        ("RAINFED_UPLAND", "Rainfed Upland"),
-        ("RAINFED_LOWLAND", "Rainfed Lowland"),
-        ("NOT_APPLICABLE", "Not Applicable"),
-    ]
 
     farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, related_name="parcels")
     parcel_name = models.CharField(max_length=120, blank=True)
@@ -30,8 +24,8 @@ class FarmParcel(models.Model):
     province = models.CharField(max_length=100, default="Batangas")
     area_hectares = models.DecimalField(max_digits=10, decimal_places=2)
     ownership_type = models.CharField(max_length=30, choices=OWNERSHIP_CHOICES)
-    land_type = models.CharField(max_length=30, choices=LAND_TYPE_CHOICES, default="FLATLAND")
-    farm_type = models.CharField(max_length=30, choices=FARM_TYPE_CHOICES, default="IRRIGATED")
+    land_type = models.CharField(max_length=30, choices=LAND_TYPE_CHOICES, default="")
+    farm_type = models.CharField(max_length=30, blank=True, default="")
     within_ancestral_domain = models.BooleanField(null=True, blank=True)
     agrarian_reform_beneficiary = models.BooleanField(null=True, blank=True)
     ownership_document = models.CharField(max_length=180, blank=True)

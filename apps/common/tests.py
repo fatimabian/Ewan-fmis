@@ -165,12 +165,16 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["document_formset"].total_form_count(), 1)
 
         parcel_formset = ParcelRegistrationFormSet({
-            "parcels-TOTAL_FORMS": "2", "parcels-INITIAL_FORMS": "0",
-            "parcels-MIN_NUM_FORMS": "1", "parcels-MAX_NUM_FORMS": "1000",
-            "parcels-0-not_applicable": "on",
-        }, prefix="parcels")
-        self.assertFalse(parcel_formset.is_valid())
-        self.assertTrue(parcel_formset.forms[1].errors)
+    "parcels-TOTAL_FORMS": "2", "parcels-INITIAL_FORMS": "0",
+    "parcels-MIN_NUM_FORMS": "1", "parcels-MAX_NUM_FORMS": "1000",
+    "parcels-0-barangay": "Alupay", "parcels-0-municipality": "Rosario",
+    "parcels-0-province": "Batangas", "parcels-0-area_hectares": "1.50",
+    "parcels-0-ownership_type": "OWNED", "parcels-0-land_type": "UPLAND",
+    "parcels-0-farm_type": "Irrigated",
+}, prefix="parcels")
+self.assertFalse(parcel_formset.is_valid())
+self.assertFalse(parcel_formset.forms[0].errors)
+self.assertTrue(parcel_formset.forms[1].errors)
 
         crop_formset = CropRegistrationFormSet({
             "crops-TOTAL_FORMS": "2", "crops-INITIAL_FORMS": "0",

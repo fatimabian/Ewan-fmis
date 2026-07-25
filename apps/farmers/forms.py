@@ -129,14 +129,10 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
 
 
 class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
-    not_applicable = forms.BooleanField(
-        required=False,
-        label="N/A - no parcel information yet; update it later in Farm Parcel",
-    )
-    barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=False)
+    barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
     farm_type = forms.CharField(
         max_length=30,
-        required=False,
+        required=True,
         label="Farm type",
         widget=forms.TextInput(attrs={"placeholder": "Remarks"}),
     )
@@ -159,11 +155,8 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.order_fields(["not_applicable"] + [name for name in self.fields if name != "not_applicable"])
-        required_later = ("barangay", "area_hectares", "ownership_type", "land_type", "farm_type")
-        for name in required_later:
-            self.fields[name].required = False
-            self.fields[name].widget.attrs["data-step-required"] = "true"
+        for name in ("area_hectares", "ownership_type", "land_type"):
+            self.fields[name].required = True
         self.apply_styles()
 
     def clean(self):
