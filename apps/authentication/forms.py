@@ -10,11 +10,16 @@ from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from apps.common.forms import InlineValidationMixin, normalize_phone_digits
 
+
 class LoginForm(InlineValidationMixin, AuthenticationForm):
     username = AuthenticationForm.base_fields["username"]
-    username.widget.attrs.update({"class": "form-control", "placeholder": "Username", "autocomplete": "username"})
+    username.widget.attrs.update(
+        {"class": "form-control", "placeholder": "Username", "autocomplete": "username"}
+    )
     password = AuthenticationForm.base_fields["password"]
-    password.widget.attrs.update({"class": "form-control", "placeholder": "Password", "autocomplete": "current-password"})
+    password.widget.attrs.update(
+        {"class": "form-control", "placeholder": "Password", "autocomplete": "current-password"}
+    )
     remember_me = forms.BooleanField(
         required=False,
         label="Remember me",
@@ -55,7 +60,9 @@ class IdentifierPasswordResetForm(InlineValidationMixin, forms.Form):
             if user.has_usable_password() and normalized_phone(user.phone_number) == phone
         ]
 
-    def _email_reset_link(self, user, reset_url, from_email, subject_template_name, email_template_name):
+    def _email_reset_link(
+        self, user, reset_url, from_email, subject_template_name, email_template_name
+    ):
         subject = "".join(render_to_string(subject_template_name).splitlines())
         body = render_to_string(
             email_template_name,
@@ -81,7 +88,11 @@ class IdentifierPasswordResetForm(InlineValidationMixin, forms.Form):
                 "authentication:password_reset_confirm",
                 kwargs={"uidb64": uid, "token": token},
             )
-            reset_url = request.build_absolute_uri(reset_path) if request else f"{'https' if use_https else 'http'}://{domain_override}{reset_path}"
+            reset_url = (
+                request.build_absolute_uri(reset_path)
+                if request
+                else f"{'https' if use_https else 'http'}://{domain_override}{reset_path}"
+            )
 
             if user.email:
                 self._email_reset_link(
@@ -91,4 +102,3 @@ class IdentifierPasswordResetForm(InlineValidationMixin, forms.Form):
                     subject_template_name,
                     email_template_name,
                 )
-

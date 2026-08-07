@@ -5,12 +5,26 @@ from pathlib import Path
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS
 
-
 CAPITALIZATION_EXCLUSIONS = {
-    "username", "password", "password1", "password2", "old_password",
-    "new_password1", "new_password2", "email", "phone_number", "identifier",
-    "otp", "code", "badge_color", "primary_color", "coordinates",
-    "location_coordinates", "georef_id", "valid_id_number", "rsbsa_number",
+    "username",
+    "password",
+    "password1",
+    "password2",
+    "old_password",
+    "new_password1",
+    "new_password2",
+    "email",
+    "phone_number",
+    "identifier",
+    "otp",
+    "code",
+    "badge_color",
+    "primary_color",
+    "coordinates",
+    "location_coordinates",
+    "georef_id",
+    "valid_id_number",
+    "rsbsa_number",
 }
 
 
@@ -18,7 +32,7 @@ def capitalize_first_letter(value):
     """Uppercase the first alphabetic character without changing the rest."""
     for index, character in enumerate(value):
         if character.isalpha():
-            return value[:index] + character.upper() + value[index + 1:]
+            return value[:index] + character.upper() + value[index + 1 :]
     return value
 
 
@@ -39,7 +53,15 @@ class InlineValidationMixin:
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
             widget = field.widget
-            if not isinstance(widget, (forms.CheckboxInput, forms.RadioSelect, forms.CheckboxSelectMultiple, forms.HiddenInput)):
+            if not isinstance(
+                widget,
+                (
+                    forms.CheckboxInput,
+                    forms.RadioSelect,
+                    forms.CheckboxSelectMultiple,
+                    forms.HiddenInput,
+                ),
+            ):
                 widget.attrs.setdefault("class", "form-control")
             if self._should_capitalize(name, field):
                 widget.attrs.setdefault("autocapitalize", "sentences")
@@ -77,7 +99,8 @@ class InlineValidationMixin:
         error_names = set(self.errors)
         if NON_FIELD_ERRORS in error_names:
             error_names.update(
-                name for name, field in self.fields.items()
+                name
+                for name, field in self.fields.items()
                 if field.required and not isinstance(field.widget, forms.HiddenInput)
             )
         for name in error_names:
@@ -130,7 +153,18 @@ class InlineValidationMixin:
             if getattr(upload, "size", 0) > 8 * 1024 * 1024:
                 self.add_error(name, "Upload a file that is 8 MB or smaller.")
             extension = Path(getattr(upload, "name", "")).suffix.lower()
-            allowed = allowed_image_extensions if isinstance(field, forms.ImageField) else allowed_document_extensions
+            allowed = (
+                allowed_image_extensions
+                if isinstance(field, forms.ImageField)
+                else allowed_document_extensions
+            )
             if extension not in allowed:
-                self.add_error(name, "Upload a PDF, PNG, or JPG file." if not isinstance(field, forms.ImageField) else "Upload a PNG, JPG, or WEBP image.")
+                self.add_error(
+                    name,
+                    (
+                        "Upload a PDF, PNG, or JPG file."
+                        if not isinstance(field, forms.ImageField)
+                        else "Upload a PNG, JPG, or WEBP image."
+                    ),
+                )
         return cleaned

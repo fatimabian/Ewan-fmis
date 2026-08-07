@@ -8,8 +8,16 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="SystemSetting",
             fields=[
-                ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
-                ("system_name", models.CharField(default="FMIS - Office of Agriculture", max_length=150)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                (
+                    "system_name",
+                    models.CharField(default="FMIS - Office of Agriculture", max_length=150),
+                ),
                 ("timezone", models.CharField(default="Asia/Manila", max_length=100)),
                 ("default_language", models.CharField(default="English", max_length=30)),
                 ("session_timeout", models.PositiveIntegerField(default=15)),

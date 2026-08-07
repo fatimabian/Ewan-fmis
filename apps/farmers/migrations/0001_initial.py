@@ -7,25 +7,29 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Farmer',
+            name="Farmer",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('first_name', models.CharField(max_length=100)),
-                ('last_name', models.CharField(max_length=100)),
-                ('barangay', models.CharField(max_length=100)),
-                ('phone_number', models.CharField(blank=True, max_length=20)),
-                ('email', models.EmailField(blank=True, max_length=254)),
-                ('photo', models.ImageField(blank=True, upload_to='farmer_photos/')),
-                ('is_active', models.BooleanField(default=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("first_name", models.CharField(max_length=100)),
+                ("last_name", models.CharField(max_length=100)),
+                ("barangay", models.CharField(max_length=100)),
+                ("phone_number", models.CharField(blank=True, max_length=20)),
+                ("email", models.EmailField(blank=True, max_length=254)),
+                ("photo", models.ImageField(blank=True, upload_to="farmer_photos/")),
+                ("is_active", models.BooleanField(default=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
             options={
-                'ordering': ['last_name', 'first_name'],
+                "ordering": ["last_name", "first_name"],
             },
         ),
     ]

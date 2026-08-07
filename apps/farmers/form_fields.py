@@ -13,10 +13,12 @@ class FarmerChoiceField(forms.ModelChoiceField):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.widget.attrs.update({
-            "data-farmer-picker": "true",
-            "data-search-placeholder": "Search Farmer ID, RSBSA number, name, or barangay...",
-        })
+        self.widget.attrs.update(
+            {
+                "data-farmer-picker": "true",
+                "data-search-placeholder": "Search Farmer ID, RSBSA number, name, or barangay...",
+            }
+        )
 
 
 def active_farmer_queryset(include_pk=None):

@@ -1,80 +1,332 @@
 {% extends 'base/staff_base.html' %}
-{% block page_title %}Dashboard{% endblock %}
+{% load static %}
+{% block page_title %}
+  Dashboard
+{% endblock %}
+{% block page_intro %}{% endblock %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/staff-dashboard.css' %}">
+{% endblock %}
 {% block content %}
-<div class="content staff-dashboard">
-  <div class="staff-welcome">
-    <div>
-      <span class="staff-welcome-label">STAFF WORKSPACE</span>
-      <h2>Welcome back, {{ request.user.display_name }}!</h2>
-    </div>
-  </div>
-
-  <section class="staff-metric-grid" aria-label="Record summary">
-    <a class="staff-metric-card" href="{% url 'farmers:list' %}">
-      <i class="bi bi-people"></i><span><small>REGISTERED FARMERS</small><b>{{ farmers }}</b><em>View farmer records</em></span>
-    </a>
-    <a class="staff-metric-card" href="{% url 'farm_parcels:list' %}">
-      <i class="bi bi-pin-map"></i><span><small>ACTIVE FARM PARCELS</small><b>{{ parcels }}</b><em>View parcels and map</em></span>
-    </a>
-    <a class="staff-metric-card" href="{% url 'crops:list' %}">
-      <i class="bi bi-flower1"></i><span><small>CROP RECORDS</small><b>{{ crops }}</b><em>View recorded crops</em></span>
-    </a>
-    <a class="staff-metric-card" href="{% url 'service_requests:list' %}">
-      <i class="bi bi-headset"></i><span><small>SERVICE REQUESTS</small><b>{{ open_requests }}</b><em>{{ urgent_requests }} high priority</em></span>
-    </a>
-  </section>
-
-  <section class="staff-dashboard-main">
-    <article class="panel staff-primary-chart">
-      <div class="staff-panel-heading">
-        <div><span class="staff-section-label">MAIN FOCUS</span><h3>Service Requests — Last 6 Months</h3><p>Requests recorded by the agriculture office each month</p></div>
-        <a href="{% url 'service_requests:list' %}">View all requests <i class="bi bi-arrow-right"></i></a>
-      </div>
-      <div class="staff-bar-chart" role="img" aria-label="Monthly service request volume for the last six months; {{ request_six_month_total }} total database records">
-        {% for item in request_trend %}
-          <div class="staff-bar-column">
-            <strong>{{ item.total }}</strong>
-            <span class="staff-bar-track"><i style="height:{{ item.height }}%"></i></span>
-            <small>{{ item.label }}</small>
-          </div>
-        {% endfor %}
-      </div>
-      {% if not request_six_month_total %}<p class="staff-chart-empty"><i class="bi bi-info-circle"></i> No service requests have been recorded in this six-month period.</p>{% endif %}
-    </article>
-
-    <aside class="panel staff-work-queue">
-      <div class="staff-panel-heading"><div><span class="staff-section-label">TODAY'S WORK</span><h3>Request Work Queue</h3></div></div>
-      <a href="{% url 'service_requests:list' %}?status=PENDING"><span class="queue-dot pending"></span><span><b>{{ request_status.pending }}</b><small>Pending review</small></span><i class="bi bi-chevron-right"></i></a>
-      <a href="{% url 'service_requests:list' %}?status=IN_PROGRESS"><span class="queue-dot progress"></span><span><b>{{ request_status.in_progress }}</b><small>In progress</small></span><i class="bi bi-chevron-right"></i></a>
-      <a href="{% url 'service_requests:list' %}?status=COMPLETED"><span class="queue-dot completed"></span><span><b>{{ completed_this_month }}</b><small>Completed this month</small></span><i class="bi bi-chevron-right"></i></a>
-      <div class="staff-urgent-note"><i class="bi bi-exclamation-circle"></i><span><b>{{ urgent_requests }} high-priority request{{ urgent_requests|pluralize }}</b><small>Review these requests first.</small></span></div>
-    </aside>
-  </section>
-
-  <section class="staff-dashboard-lower">
-    <article class="panel staff-recent-requests">
-      <div class="staff-panel-heading"><div><span class="staff-section-label">RECENT</span><h3>Requests Requiring Action</h3></div></div>
-      <div class="staff-request-list">
-        {% for service_request in recent_requests %}
-          <a href="{% url 'service_requests:detail' service_request.pk %}">
-            <span class="request-icon"><i class="bi bi-clipboard2-check"></i></span>
-            <span class="request-copy"><b>{{ service_request.subject }}</b><small>{{ service_request.farmer.full_name }} · {{ service_request.service }}</small></span>
-            <span class="request-priority priority-{{ service_request.priority|lower }}">{{ service_request.get_priority_display }}</span>
-          </a>
-        {% empty %}
-          <div class="staff-empty"><i class="bi bi-check2-circle"></i><span><b>No open requests</b><small>The current service queue is clear.</small></span></div>
-        {% endfor %}
-      </div>
-    </article>
-
-    <article class="panel staff-quick-actions">
-      <div class="staff-panel-heading"><div><span class="staff-section-label">SHORTCUTS</span><h3>Common Tasks</h3></div></div>
+  <div class="content rosario-dashboard">
+    <div class="dashboard-heading">
       <div>
-        <a href="{% url 'farmers:create' %}"><i class="bi bi-person-plus"></i><span><b>Register Farmer</b><small>Start an RSBSA-aligned record</small></span></a>
-        <a href="{% url 'farm_parcels:list' %}"><i class="bi bi-geo-alt"></i><span><b>Open Farm Map</b><small>Find mapped farmer locations</small></span></a>
-        <a href="{% url 'crops:list' %}"><i class="bi bi-pencil-square"></i><span><b>Update Crop Records</b><small>Maintain current crop information</small></span></a>
+        <span class="dashboard-eyebrow">STAFF DECISION WORKSPACE</span>
+        <h1>Dashboard</h1>
+        <p>Good day, {{ request.user.display_name }}. Here is Rosario's agricultural overview.</p>
       </div>
-    </article>
-  </section>
-</div>
+      <span class="rosario-scope">
+        <i class="bi bi-geo-alt-fill">
+        </i> Rosario, Batangas only</span>
+      </div>
+      <section class="dashboard-metrics" aria-label="Rosario agricultural record summary">
+        <a class="dashboard-metric metric-farmers" href="{% url 'farmers:list' %}">
+          <span class="metric-icon">
+            <i class="bi bi-people-fill">
+            </i>
+          </span>
+          <span>
+            <b>{{ farmers }}</b>
+            <small>Registered Farmers</small>
+          </span>
+        </a>
+        <a class="dashboard-metric metric-crops" href="{% url 'crops:list' %}">
+          <span class="metric-icon">
+            <i class="bi bi-flower1">
+            </i>
+          </span>
+          <span>
+            <b>{{ crops }}</b>
+            <small>Current Crop Records</small>
+          </span>
+        </a>
+        <a class="dashboard-metric metric-area" href="{% url 'farm_parcels:list' %}">
+          <span class="metric-icon">
+            <i class="bi bi-graph-up-arrow">
+            </i>
+          </span>
+          <span>
+            <b>{{ area_planted|floatformat:2 }} <em>ha</em>
+            </b>
+            <small>Recorded Area Planted</small>
+          </span>
+        </a>
+        <a class="dashboard-metric metric-requests"
+           href="{% url 'service_requests:list' %}">
+          <span class="metric-icon">
+            <i class="bi bi-chat-square-text-fill">
+            </i>
+          </span>
+          <span>
+            <b>{{ open_requests }}</b>
+            <small>Open Service Requests</small>
+          </span>
+        </a>
+      </section>
+      <section class="dashboard-insights">
+        <article class="dashboard-card crop-chart-card">
+          <div class="card-heading">
+            <div>
+              <span class="card-kicker">ROSARIO CROP PROFILE</span>
+              <h2>Area Planted by Crop</h2>
+              <p>Top five crops based on current recorded hectares</p>
+            </div>
+            <a href="{% url 'crops:list' %}">View crop records <i class="bi bi-arrow-right">
+              </i>
+            </a>
+          </div>
+          {% if crop_chart %}
+            <div class="crop-chart"
+                 role="img"
+                 aria-label="Bar chart of the five crops with the largest recorded planted area in Rosario, Batangas">
+              {% for item in crop_chart %}
+                <div class="crop-bar-item{% if item.is_largest %} crop-leader{% endif %}"
+                     tabindex="0"
+                     aria-label="{{ item.crop_type }}: {{ item.area|floatformat:2 }} hectares across {{ item.records }} record{{ item.records|pluralize }}">
+                  <span class="crop-value">{{ item.area|floatformat:2 }} ha</span>
+                  <span class="crop-bar-track">
+                    <i style="height:{{ item.height }}%">
+                    </i>
+                  </span>
+                  <span class="crop-label">{{ item.crop_type }}</span>
+                  <span class="crop-tooltip" role="tooltip">
+                    <b>{{ item.crop_type }}</b>
+                    <small>{{ item.area|floatformat:2 }} hectares</small>
+                    <small>{{ item.records }} crop record{{ item.records|pluralize }}</small>
+                    {% if item.is_largest %}
+                      <em>Largest planted area</em>
+                    {% endif %}
+                  </span>
+                </div>
+              {% endfor %}
+            </div>
+            <p class="chart-help">
+              <i class="bi bi-cursor">
+              </i> Hover or focus a bar to see the crop and recorded area.
+            </p>
+          {% else %}
+            <div class="dashboard-empty">
+              <i class="bi bi-bar-chart">
+              </i>
+              <b>No Rosario crop records yet</b>
+              <span>Add crop records to generate the planted-area chart.</span>
+            </div>
+          {% endif %}
+        </article>
+        <aside class="dashboard-card recommendation-card">
+          <div class="recommendation-icon">
+            <i class="bi bi-lightbulb-fill">
+            </i>
+          </div>
+          <span class="card-kicker">SEASONAL DECISION SUPPORT</span>
+          <p class="season-label">{{ crop_recommendation.season }} · Rosario</p>
+          <h2>{{ crop_recommendation.crop }}</h2>
+          <p class="recommendation-lead">Recommended crop to evaluate for this season</p>
+          <div class="recommendation-evidence">
+            <i class="bi bi-database-check">
+            </i>
+            <span>
+              <b>Local evidence</b>
+              <small>{{ crop_recommendation.evidence }}</small>
+            </span>
+          </div>
+          <p class="recommendation-note">
+            <i class="bi bi-info-circle">
+            </i>{{ crop_recommendation.note }}
+          </p>
+          <a href="{% url 'reports:home' %}">Review supporting reports <i class="bi bi-arrow-right">
+            </i>
+          </a>
+        </aside>
+      </section>
+      <section class="dashboard-operations">
+        <article class="dashboard-card weather-card"
+                 id="rosarioWeather"
+                 data-latitude="13.8442"
+                 data-longitude="121.2035">
+          <div class="card-heading">
+            <div>
+              <span class="card-kicker">LIVE LOCAL FORECAST</span>
+              <h2>Rosario Weather</h2>
+              <p>
+                <i class="bi bi-geo-alt-fill">
+                </i> Rosario, Batangas · Updated <span id="weatherUpdated">--</span>
+              </p>
+            </div>
+            <button id="weatherRefresh"
+                    class="weather-refresh"
+                    type="button"
+                    aria-label="Refresh Rosario weather">
+              <i class="bi bi-arrow-clockwise">
+              </i>
+              <span>Refresh</span>
+            </button>
+          </div>
+          <div class="weather-loading" id="weatherLoading">
+            <span class="weather-spinner"></span> Loading Rosario forecast…
+          </div>
+          <div class="weather-content" id="weatherContent" hidden>
+            <div class="weather-now">
+              <span class="weather-symbol" id="weatherSymbol">
+                <i class="bi bi-cloud-sun">
+                </i>
+              </span>
+              <span>
+                <b id="weatherTemperature">--°C</b>
+                <strong id="weatherDescription">Weather unavailable</strong>
+                <small>Feels like <span id="weatherFeelsLike">--°C</span>
+                </small>
+              </span>
+            </div>
+            <div class="weather-details">
+              <span>
+                <i class="bi bi-droplet-fill">
+                </i>
+                <b id="weatherHumidity">--%</b>
+                <small>Humidity</small>
+              </span>
+              <span>
+                <i class="bi bi-cloud-rain-fill">
+                </i>
+                <b id="weatherRainChance">--%</b>
+                <small>Rain chance</small>
+              </span>
+              <span>
+                <i class="bi bi-wind">
+                </i>
+                <b id="weatherWind">-- km/h</b>
+                <small>Wind</small>
+              </span>
+            </div>
+            <div class="weather-forecast"
+                 id="weatherForecast"
+                 aria-label="Three-day Rosario weather forecast"></div>
+          </div>
+          <div class="weather-error" id="weatherError" hidden>
+            <i class="bi bi-cloud-slash">
+            </i>
+            <span>
+              <b>Forecast temporarily unavailable</b>
+              <small>Check the internet connection, then use Refresh.</small>
+            </span>
+          </div>
+          <small class="weather-source">Forecast data: <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a> · Fixed Rosario municipal coordinates</small>
+        </article>
+        <aside class="dashboard-card request-queue">
+          <div class="card-heading">
+            <div>
+              <span class="card-kicker">CURRENT WORKLOAD</span>
+              <h2>Service Request Queue</h2>
+            </div>
+            <a href="{% url 'service_requests:list' %}">View all</a>
+          </div>
+          <a href="{% url 'service_requests:list' %}?status=PENDING">
+            <span class="queue-status pending"></span>
+            <span>
+              <b>{{ request_status.pending }}</b>
+              <small>Pending review</small>
+            </span>
+            <i class="bi bi-chevron-right">
+            </i>
+          </a>
+          <a href="{% url 'service_requests:list' %}?status=IN_PROGRESS">
+            <span class="queue-status progress"></span>
+            <span>
+              <b>{{ request_status.in_progress }}</b>
+              <small>In progress</small>
+            </span>
+            <i class="bi bi-chevron-right">
+            </i>
+          </a>
+          <a href="{% url 'service_requests:list' %}?status=COMPLETED">
+            <span class="queue-status complete"></span>
+            <span>
+              <b>{{ completed_this_month }}</b>
+              <small>Completed this month</small>
+            </span>
+            <i class="bi bi-chevron-right">
+            </i>
+          </a>
+          {% if urgent_requests %}
+            <div class="urgent-callout">
+              <i class="bi bi-exclamation-triangle-fill">
+              </i>
+              <span>
+                <b>{{ urgent_requests }} high-priority request{{ urgent_requests|pluralize }}</b>
+                <small>Review these cases first.</small>
+              </span>
+            </div>
+          {% endif %}
+        </aside>
+      </section>
+      <section class="dashboard-bottom">
+        <article class="dashboard-card recent-card">
+          <div class="card-heading">
+            <div>
+              <span class="card-kicker">NEEDS ATTENTION</span>
+              <h2>Recent Open Requests</h2>
+            </div>
+          </div>
+          <div class="recent-list">
+            {% for service_request in recent_requests %}
+              <a href="{% url 'service_requests:detail' service_request.pk %}">
+                <span class="request-icon">
+                  <i class="bi bi-clipboard2-check">
+                  </i>
+                </span>
+                <span>
+                  <b>{{ service_request.subject }}</b>
+                  <small>{{ service_request.farmer.full_name }} · {{ service_request.service }}</small>
+                </span>
+                <em class="priority-{{ service_request.priority|lower }}">{{ service_request.get_priority_display }}</em>
+              </a>
+            {% empty %}
+              <div class="dashboard-empty compact">
+                <i class="bi bi-check-circle">
+                </i>
+                <b>No open requests</b>
+                <span>The Rosario service queue is clear.</span>
+              </div>
+            {% endfor %}
+          </div>
+        </article>
+        <article class="dashboard-card quick-actions-card">
+          <div class="card-heading">
+            <div>
+              <span class="card-kicker">QUICK ACTIONS</span>
+              <h2>Common Tasks</h2>
+            </div>
+          </div>
+          <div class="quick-actions">
+            <a href="{% url 'farmers:create' %}">
+              <i class="bi bi-person-plus-fill">
+              </i>
+              <span>
+                <b>Register Farmer</b>
+                <small>Create an RSBSA-aligned record</small>
+              </span>
+            </a>
+            <a href="{% url 'farm_parcels:list' %}">
+              <i class="bi bi-geo-alt-fill">
+              </i>
+              <span>
+                <b>Open Farm Parcels</b>
+                <small>Review Rosario land records</small>
+              </span>
+            </a>
+            <a href="{% url 'crops:list' %}">
+              <i class="bi bi-pencil-square">
+              </i>
+              <span>
+                <b>Update Crops</b>
+                <small>Keep seasonal records current</small>
+              </span>
+            </a>
+          </div>
+        </article>
+      </section>
+    </div>
+{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/staff-dashboard.js' %}"></script>
 {% endblock %}

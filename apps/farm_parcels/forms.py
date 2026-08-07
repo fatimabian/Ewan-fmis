@@ -20,10 +20,23 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     class Meta:
         model = FarmParcel
         fields = [
-            "farmer", "barangay", "municipality", "province", "area_hectares", "ownership_type",
-            "land_type", "farm_type", "ownership_document", "land_owner_name",
-            "land_owner_registered_rsbsa", "within_ancestral_domain", "agrarian_reform_beneficiary",
-            "is_rsbsa_recorded", "coordinates", "georef_id", "is_active",
+            "farmer",
+            "barangay",
+            "municipality",
+            "province",
+            "area_hectares",
+            "ownership_type",
+            "land_type",
+            "farm_type",
+            "ownership_document",
+            "land_owner_name",
+            "land_owner_registered_rsbsa",
+            "within_ancestral_domain",
+            "agrarian_reform_beneficiary",
+            "is_rsbsa_recorded",
+            "coordinates",
+            "georef_id",
+            "is_active",
         ]
         labels = {
             "farmer": "Existing Farmer ID / RSBSA Number",
@@ -43,7 +56,9 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["area_hectares"].min_value = 0.01
-        self.fields["farmer"].queryset = active_farmer_queryset(self.instance.farmer_id if self.instance and self.instance.pk else None)
+        self.fields["farmer"].queryset = active_farmer_queryset(
+            self.instance.farmer_id if self.instance and self.instance.pk else None
+        )
         for field in self.fields.values():
             if not isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.setdefault("class", "form-control")

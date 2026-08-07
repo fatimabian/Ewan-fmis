@@ -45,12 +45,17 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
         context = {
             **super().get_context_data(**kwargs),
             **report_metrics(date_range, filters),
-            "base_template": "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html",
+            "base_template": (
+                "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+            ),
             "report_templates": REPORT_TEMPLATES,
             "date_ranges": DATE_RANGES,
             "report_years": range(current_year, current_year - 11, -1),
             "barangays": ROSARIO_BARANGAYS,
-            "commodities": CropRecord.objects.exclude(crop_type="").values_list("crop_type", flat=True).distinct().order_by("crop_type"),
+            "commodities": CropRecord.objects.exclude(crop_type="")
+            .values_list("crop_type", flat=True)
+            .distinct()
+            .order_by("crop_type"),
             "status_choices": ServiceRequest.STATUS_CHOICES,
             "selected_report_type": selected_report_type,
             "selected_date_range": date_range,

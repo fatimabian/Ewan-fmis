@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import ChangePasswordView, ManualBackupView, SettingsView
+
 app_name = "settings_page"
 urlpatterns = [
     path("", SettingsView.as_view(), name="home"),

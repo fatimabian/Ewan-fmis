@@ -15,17 +15,36 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='UserPreference',
+            name="UserPreference",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('theme', models.CharField(choices=[('light', 'Light'), ('dark', 'Dark'), ('system', 'System')], default='light', max_length=10)),
-                ('primary_color', models.CharField(default='#008552', max_length=7)),
-                ('email_notifications', models.BooleanField(default=True)),
-                ('in_app_notifications', models.BooleanField(default=True)),
-                ('weekly_summary', models.BooleanField(default=True)),
-                ('two_factor_enabled', models.BooleanField(default=False)),
-                ('linked_email', models.EmailField(blank=True, max_length=254)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='preferences', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                (
+                    "theme",
+                    models.CharField(
+                        choices=[("light", "Light"), ("dark", "Dark"), ("system", "System")],
+                        default="light",
+                        max_length=10,
+                    ),
+                ),
+                ("primary_color", models.CharField(default="#008552", max_length=7)),
+                ("email_notifications", models.BooleanField(default=True)),
+                ("in_app_notifications", models.BooleanField(default=True)),
+                ("weekly_summary", models.BooleanField(default=True)),
+                ("two_factor_enabled", models.BooleanField(default=False)),
+                ("linked_email", models.EmailField(blank=True, max_length=254)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="preferences",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

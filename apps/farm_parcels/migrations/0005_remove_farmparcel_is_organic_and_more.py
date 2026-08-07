@@ -11,18 +11,22 @@ def convert_flatland_to_upland(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('farm_parcels', '0004_rsbsa_parcel_fields'),
+        ("farm_parcels", "0004_rsbsa_parcel_fields"),
     ]
 
     operations = [
         migrations.RunPython(convert_flatland_to_upland, migrations.RunPython.noop),
         migrations.RemoveField(
-            model_name='farmparcel',
-            name='is_organic',
+            model_name="farmparcel",
+            name="is_organic",
         ),
         migrations.AlterField(
-            model_name='farmparcel',
-            name='land_type',
-            field=models.CharField(choices=[('UPLAND', 'Upland'), ('LOWLAND', 'Lowland')], default='UPLAND', max_length=30),
+            model_name="farmparcel",
+            name="land_type",
+            field=models.CharField(
+                choices=[("UPLAND", "Upland"), ("LOWLAND", "Lowland")],
+                default="UPLAND",
+                max_length=30,
+            ),
         ),
     ]

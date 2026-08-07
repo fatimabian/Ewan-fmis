@@ -4,7 +4,9 @@ from django.db import models
 
 class UserPreference(models.Model):
     THEME_CHOICES = [("light", "Light"), ("dark", "Dark"), ("system", "System")]
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="preferences")
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="preferences"
+    )
     theme = models.CharField(max_length=10, choices=THEME_CHOICES, default="light")
     primary_color = models.CharField(max_length=7, default="#008552")
     email_notifications = models.BooleanField(default=True)

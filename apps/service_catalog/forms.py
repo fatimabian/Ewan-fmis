@@ -85,17 +85,23 @@ class ServiceCatalogForm(InlineValidationMixin, ModelForm):
     icon_name = forms.ChoiceField(choices=ServiceCatalog.ICON_CHOICES, widget=forms.RadioSelect)
     badge_color = forms.ChoiceField(choices=COLOR_CHOICES, widget=forms.RadioSelect)
     service_type = forms.ChoiceField(choices=SERVICE_TYPE_CHOICES)
-    target_beneficiaries = forms.MultipleChoiceField(choices=BENEFICIARY_CHOICES, widget=forms.CheckboxSelectMultiple)
+    target_beneficiaries = forms.MultipleChoiceField(
+        choices=BENEFICIARY_CHOICES, widget=forms.CheckboxSelectMultiple
+    )
     processing_time = forms.ChoiceField(choices=PROCESSING_TIME_CHOICES)
     availability = forms.ChoiceField(choices=AVAILABILITY_CHOICES)
     seasonality = forms.ChoiceField(choices=SEASONALITY_CHOICES, initial="Not seasonal / N/A")
-    requirements = forms.MultipleChoiceField(choices=REQUIREMENT_CHOICES, widget=forms.CheckboxSelectMultiple)
+    requirements = forms.MultipleChoiceField(
+        choices=REQUIREMENT_CHOICES, widget=forms.CheckboxSelectMultiple
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["code"].required = False
         self.fields["code"].widget.attrs.update({"readonly": True, "placeholder": "Auto-generated"})
-        self.fields["description"].widget.attrs.update({"placeholder": "Enter a short description of the service..."})
+        self.fields["description"].widget.attrs.update(
+            {"placeholder": "Enter a short description of the service..."}
+        )
         if self.instance and self.instance.pk:
             self.initial["target_beneficiaries"] = self._selected_values(
                 self.instance.target_beneficiaries, self.BENEFICIARY_CHOICES
@@ -106,7 +112,11 @@ class ServiceCatalogForm(InlineValidationMixin, ModelForm):
 
     @staticmethod
     def _selected_values(stored_value, choices):
-        selected = {part.strip() for part in (stored_value or "").replace("\n", ",").split(",") if part.strip()}
+        selected = {
+            part.strip()
+            for part in (stored_value or "").replace("\n", ",").split(",")
+            if part.strip()
+        }
         return [value for value, _label in choices if value in selected]
 
     def clean_target_beneficiaries(self):
@@ -124,7 +134,9 @@ class ServiceCatalogForm(InlineValidationMixin, ModelForm):
     def clean_requirements(self):
         values = self.cleaned_data["requirements"]
         if "None" in values and len(values) > 1:
-            raise forms.ValidationError("Choose either 'No documents required' or the required documents, not both.")
+            raise forms.ValidationError(
+                "Choose either 'No documents required' or the required documents, not both."
+            )
         if "None" in values:
             return "None"
         return ", ".join(values)
@@ -139,5 +151,21 @@ class ServiceCatalogForm(InlineValidationMixin, ModelForm):
 
     class Meta:
         model = ServiceCatalog
-        fields = ["name", "code", "category", "description", "service_type", "target_beneficiaries", "processing_time", "availability", "seasonality", "requirements", "icon_name", "badge_color"]
-        widgets = {"description": forms.Textarea(attrs={"rows": 4}), "requirements": forms.Textarea(attrs={"rows": 4})}
+        fields = [
+            "name",
+            "code",
+            "category",
+            "description",
+            "service_type",
+            "target_beneficiaries",
+            "processing_time",
+            "availability",
+            "seasonality",
+            "requirements",
+            "icon_name",
+            "badge_color",
+        ]
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 4}),
+            "requirements": forms.Textarea(attrs={"rows": 4}),
+        }

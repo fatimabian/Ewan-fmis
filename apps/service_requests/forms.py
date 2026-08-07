@@ -30,8 +30,12 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
             "notes": "Request Details",
         }
         widgets = {
-            "subject": forms.TextInput(attrs={"placeholder": "Briefly describe what the farmer needs"}),
-            "notes": forms.Textarea(attrs={"rows": 5, "placeholder": "Add useful details about the farmer's request..."}),
+            "subject": forms.TextInput(
+                attrs={"placeholder": "Briefly describe what the farmer needs"}
+            ),
+            "notes": forms.Textarea(
+                attrs={"rows": 5, "placeholder": "Add useful details about the farmer's request..."}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -39,11 +43,19 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         service_filters = Q(is_active=True)
         if self.instance and self.instance.pk:
             service_filters |= Q(pk=self.instance.service_id)
-        self.fields["farmer"].queryset = active_farmer_queryset(self.instance.farmer_id if self.instance and self.instance.pk else None)
-        self.fields["service"].queryset = ServiceCatalog.objects.filter(service_filters).order_by("category", "name")
+        self.fields["farmer"].queryset = active_farmer_queryset(
+            self.instance.farmer_id if self.instance and self.instance.pk else None
+        )
+        self.fields["service"].queryset = ServiceCatalog.objects.filter(service_filters).order_by(
+            "category", "name"
+        )
         if not self.fields["service"].queryset.exists():
-            self.fields["service"].help_text = "No active services are available. Ask an administrator to publish a Service Catalog item."
-        self.fields["assigned_to"].queryset = CustomUser.objects.filter(role="STAFF", is_active=True).order_by("first_name", "last_name", "username")
+            self.fields["service"].help_text = (
+                "No active services are available. Ask an administrator to publish a Service Catalog item."
+            )
+        self.fields["assigned_to"].queryset = CustomUser.objects.filter(
+            role="STAFF", is_active=True
+        ).order_by("first_name", "last_name", "username")
         self.fields["assigned_to"].required = False
 
     def clean_subject(self):

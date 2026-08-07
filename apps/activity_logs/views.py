@@ -17,7 +17,11 @@ class ActivityLogListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
         module = self.request.GET.get("module", "").strip()
         user_id = self.request.GET.get("user", "").strip()
         if query:
-            queryset = queryset.filter(Q(title__icontains=query) | Q(description__icontains=query) | Q(action__icontains=query))
+            queryset = queryset.filter(
+                Q(title__icontains=query)
+                | Q(description__icontains=query)
+                | Q(action__icontains=query)
+            )
         if module:
             queryset = queryset.filter(module=module)
         if user_id:
@@ -26,6 +30,15 @@ class ActivityLogListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["modules"] = ActivityLog.objects.exclude(module="").values_list("module", flat=True).distinct().order_by("module")
-        context["users"] = ActivityLog.objects.filter(actor__isnull=False).select_related("actor").order_by("actor__username")
+        context["modules"] = (
+            ActivityLog.objects.exclude(module="")
+            .values_list("module", flat=True)
+            .distinct()
+            .order_by("module")
+        )
+        context["users"] = (
+            ActivityLog.objects.filter(actor__isnull=False)
+            .select_related("actor")
+            .order_by("actor__username")
+        )
         return context

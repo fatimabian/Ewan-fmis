@@ -15,7 +15,7 @@ class FarmParcel(models.Model):
     LAND_TYPE_CHOICES = [
         ("UPLAND", "Upland"),
         ("LOWLAND", "Lowland"),
-]
+    ]
 
     farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, related_name="parcels")
     parcel_name = models.CharField(max_length=120, blank=True)

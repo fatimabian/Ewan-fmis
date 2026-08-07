@@ -23,7 +23,10 @@ class AccountValidationMixin:
         queryset = CustomUser.objects.exclude(phone_number="")
         if getattr(self, "instance", None) and self.instance.pk:
             queryset = queryset.exclude(pk=self.instance.pk)
-        if phone_number and any(normalize_phone_digits(value) == normalized for value in queryset.values_list("phone_number", flat=True)):
+        if phone_number and any(
+            normalize_phone_digits(value) == normalized
+            for value in queryset.values_list("phone_number", flat=True)
+        ):
             raise forms.ValidationError("This phone number is already linked to another account.")
         return phone_number
 
@@ -34,12 +37,15 @@ class AccountForm(AccountValidationMixin, InlineValidationMixin, UserCreationFor
         for name in ("first_name", "last_name", "email", "phone_number", "role"):
             self.fields[name].required = True
         self.fields["role"].choices = ASSIGNABLE_ROLE_CHOICES
+
     def clean_username(self):
         username = self.cleaned_data.get("username", "").strip()
         if not username:
             return username
         if CustomUser.objects.filter(username__iexact=username).exists():
-            raise forms.ValidationError("This username is already in use. Please choose another username.")
+            raise forms.ValidationError(
+                "This username is already in use. Please choose another username."
+            )
         return username
 
     def save(self, commit=True):
@@ -51,7 +57,16 @@ class AccountForm(AccountValidationMixin, InlineValidationMixin, UserCreationFor
 
     class Meta:
         model = CustomUser
-        fields = ["username", "first_name", "last_name", "email", "phone_number", "role", "password1", "password2"]
+        fields = [
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "role",
+            "password1",
+            "password2",
+        ]
 
 
 class AccountUpdateForm(AccountValidationMixin, InlineValidationMixin, forms.ModelForm):
@@ -64,15 +79,30 @@ class AccountUpdateForm(AccountValidationMixin, InlineValidationMixin, forms.Mod
             self.fields["role"].choices = ROLE_CHOICES
         else:
             self.fields["role"].choices = ASSIGNABLE_ROLE_CHOICES
+
     class Meta:
         model = CustomUser
-        fields = ["username", "first_name", "last_name", "email", "phone_number", "role", "is_active"]
+        fields = [
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "role",
+            "is_active",
+        ]
         labels = {"is_active": "Account is active"}
 
     def clean_username(self):
         username = self.cleaned_data.get("username", "").strip()
         if not username:
             return username
-        if CustomUser.objects.filter(username__iexact=username).exclude(pk=self.instance.pk).exists():
-            raise forms.ValidationError("This username is already in use. Please choose another username.")
+        if (
+            CustomUser.objects.filter(username__iexact=username)
+            .exclude(pk=self.instance.pk)
+            .exists()
+        ):
+            raise forms.ValidationError(
+                "This username is already in use. Please choose another username."
+            )
         return username

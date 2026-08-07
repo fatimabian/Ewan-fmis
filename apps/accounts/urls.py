@@ -1,5 +1,12 @@
 from django.urls import path
-from .views import AccountCreateView, AccountDeleteView, AccountDetailView, AccountListView, AccountUpdateView
+from .views import (
+    AccountCreateView,
+    AccountDeleteView,
+    AccountDetailView,
+    AccountListView,
+    AccountUpdateView,
+)
+
 app_name = "accounts"
 urlpatterns = [
     path("", AccountListView.as_view(), name="list"),

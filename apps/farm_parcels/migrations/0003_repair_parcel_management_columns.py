@@ -9,7 +9,9 @@ def add_missing_parcel_columns(apps, schema_editor):
     with schema_editor.connection.cursor() as cursor:
         existing_columns = {
             column.name
-            for column in schema_editor.connection.introspection.get_table_description(cursor, table_name)
+            for column in schema_editor.connection.introspection.get_table_description(
+                cursor, table_name
+            )
         }
 
     for field_name in ("parcel_name", "land_type", "is_active"):

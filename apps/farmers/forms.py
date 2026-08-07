@@ -11,7 +11,6 @@ from apps.farm_parcels.models import FarmParcel
 
 from .models import Farmer, FarmerDocument
 
-
 ACTIVITY_CHOICES = [
     ("FARMER_CROPS", "Farmer - Crops"),
     ("FARMER_LIVESTOCK", "Farmer - Livestock"),
@@ -35,7 +34,9 @@ ACTIVITY_CHOICES = [
 class StyledFormMixin(InlineValidationMixin):
     def apply_styles(self):
         for field in self.fields.values():
-            if isinstance(field.widget, (forms.CheckboxInput, forms.RadioSelect, forms.CheckboxSelectMultiple)):
+            if isinstance(
+                field.widget, (forms.CheckboxInput, forms.RadioSelect, forms.CheckboxSelectMultiple)
+            ):
                 continue
             field.widget.attrs.setdefault("class", "form-control")
 
@@ -56,12 +57,38 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
     class Meta:
         model = Farmer
         fields = [
-            "last_name", "first_name", "middle_name", "extension_name", "sex", "birth_date",
-            "place_of_birth", "mother_maiden_name", "house_lot_purok", "street_sitio", "barangay",
-            "city_municipality", "province", "region", "phone_number", "email", "civil_status",
-            "spouse_name", "highest_education", "valid_id_type", "valid_id_number", "religion",
-            "is_indigenous", "indigenous_group", "is_pwd", "is_four_ps", "photo", "livelihood",
-            "activities", "remarks", "consent_given", "location_coordinates",
+            "last_name",
+            "first_name",
+            "middle_name",
+            "extension_name",
+            "sex",
+            "birth_date",
+            "place_of_birth",
+            "mother_maiden_name",
+            "house_lot_purok",
+            "street_sitio",
+            "barangay",
+            "city_municipality",
+            "province",
+            "region",
+            "phone_number",
+            "email",
+            "civil_status",
+            "spouse_name",
+            "highest_education",
+            "valid_id_type",
+            "valid_id_number",
+            "religion",
+            "is_indigenous",
+            "indigenous_group",
+            "is_pwd",
+            "is_four_ps",
+            "photo",
+            "livelihood",
+            "activities",
+            "remarks",
+            "consent_given",
+            "location_coordinates",
         ]
         widgets = {
             "birth_date": forms.DateInput(attrs={"type": "date"}),
@@ -69,15 +96,25 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "civil_status": forms.Select,
             "livelihood": forms.Select,
             "photo": forms.ClearableFileInput(attrs={"accept": "image/*"}),
-            "location_coordinates": forms.TextInput(attrs={"placeholder": "e.g., 13.8467, 121.2060"}),
-            "phone_number": forms.TextInput(attrs={
-                "placeholder": "09XXXXXXXXX",
-                "maxlength": "11",
-                "inputmode": "numeric",
-                "pattern": "09[0-9]{9}",
-                "title": "Enter an 11-digit PH mobile number starting with 09",
-            }),
-            "remarks": forms.Textarea(attrs={"rows": 3, "maxlength": 1000, "placeholder": "Optional internal remarks for agricultural service follow-up"}),
+            "location_coordinates": forms.TextInput(
+                attrs={"placeholder": "e.g., 13.8467, 121.2060"}
+            ),
+            "phone_number": forms.TextInput(
+                attrs={
+                    "placeholder": "09XXXXXXXXX",
+                    "maxlength": "11",
+                    "inputmode": "numeric",
+                    "pattern": "09[0-9]{9}",
+                    "title": "Enter an 11-digit PH mobile number starting with 09",
+                }
+            ),
+            "remarks": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "maxlength": 1000,
+                    "placeholder": "Optional internal remarks for agricultural service follow-up",
+                }
+            ),
         }
         labels = {
             "extension_name": "Name extension (Jr., Sr., III)",
@@ -94,9 +131,18 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name in (
-            "sex", "birth_date", "place_of_birth", "mother_maiden_name", "barangay",
-            "city_municipality", "province", "phone_number", "civil_status",
-            "valid_id_type", "valid_id_number", "livelihood",
+            "sex",
+            "birth_date",
+            "place_of_birth",
+            "mother_maiden_name",
+            "barangay",
+            "city_municipality",
+            "province",
+            "phone_number",
+            "civil_status",
+            "valid_id_type",
+            "valid_id_number",
+            "livelihood",
         ):
             if name in self.fields:
                 self.fields[name].required = True
@@ -111,7 +157,12 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         self.apply_styles()
         if "phone_number" in self.fields and not (self.instance and self.instance.pk):
             self.initial.setdefault("phone_number", "09")
-        if "activities" in self.fields and self.instance and self.instance.pk and self.instance.activities:
+        if (
+            "activities" in self.fields
+            and self.instance
+            and self.instance.pk
+            and self.instance.activities
+        ):
             self.initial["activities"] = self.instance.activities.split(",")
 
     def clean_phone_number(self):
@@ -120,7 +171,9 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         if not digits:
             return digits
         if len(digits) != 11 or not digits.startswith("09"):
-            raise ValidationError("Enter a valid PH mobile number: 11 digits, starting with 09 (e.g. 09171234567).")
+            raise ValidationError(
+                "Enter a valid PH mobile number: 11 digits, starting with 09 (e.g. 09171234567)."
+            )
         return digits
 
     def clean_activities(self):
@@ -139,7 +192,9 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             if self.instance and self.instance.pk:
                 duplicate = duplicate.exclude(pk=self.instance.pk)
             if duplicate.exists():
-                self.add_error("valid_id_number", "This ID is already linked to another active farmer record.")
+                self.add_error(
+                    "valid_id_number", "This ID is already linked to another active farmer record."
+                )
         if cleaned.get("is_indigenous") and not cleaned.get("indigenous_group"):
             self.add_error("indigenous_group", "Enter the Indigenous People or ICC group name.")
         if cleaned.get("civil_status") == "MARRIED" and not cleaned.get("spouse_name"):
@@ -151,7 +206,11 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
     consent_given = forms.BooleanField(required=False, widget=forms.HiddenInput)
 
     class Meta(FarmerRegistrationForm.Meta):
-        fields = [field for field in FarmerRegistrationForm.Meta.fields if field not in {"livelihood", "activities"}]
+        fields = [
+            field
+            for field in FarmerRegistrationForm.Meta.fields
+            if field not in {"livelihood", "activities"}
+        ]
 
 
 class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
@@ -219,7 +278,9 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.order_fields(["not_applicable"] + [name for name in self.fields if name != "not_applicable"])
+        self.order_fields(
+            ["not_applicable"] + [name for name in self.fields if name != "not_applicable"]
+        )
         for name in ("parcel_number", "crop_type", "area_hectares"):
             self.fields[name].required = False
             self.fields[name].widget.attrs["data-step-required"] = "true"
@@ -265,7 +326,9 @@ class DocumentRegistrationForm(StyledFormMixin, forms.Form):
             ".jpeg": header.startswith(b"\xff\xd8\xff"),
         }
         if not signatures.get(extension, False):
-            raise ValidationError("The file contents do not match the selected PDF or image format.")
+            raise ValidationError(
+                "The file contents do not match the selected PDF or image format."
+            )
         return upload
 
 
@@ -292,14 +355,26 @@ class BaseDocumentRegistrationFormSet(BaseRequiredRegistrationFormSet):
 
 
 ParcelRegistrationFormSet = formset_factory(
-    ParcelRegistrationForm, formset=BaseRequiredRegistrationFormSet,
-    extra=0, min_num=1, validate_min=True, can_delete=True,
+    ParcelRegistrationForm,
+    formset=BaseRequiredRegistrationFormSet,
+    extra=0,
+    min_num=1,
+    validate_min=True,
+    can_delete=True,
 )
 CropRegistrationFormSet = formset_factory(
-    CropRegistrationForm, formset=BaseRequiredRegistrationFormSet,
-    extra=0, min_num=1, validate_min=True, can_delete=True,
+    CropRegistrationForm,
+    formset=BaseRequiredRegistrationFormSet,
+    extra=0,
+    min_num=1,
+    validate_min=True,
+    can_delete=True,
 )
 DocumentRegistrationFormSet = formset_factory(
-    DocumentRegistrationForm, formset=BaseDocumentRegistrationFormSet,
-    extra=0, min_num=1, validate_min=True, can_delete=True,
+    DocumentRegistrationForm,
+    formset=BaseDocumentRegistrationFormSet,
+    extra=0,
+    min_num=1,
+    validate_min=True,
+    can_delete=True,
 )

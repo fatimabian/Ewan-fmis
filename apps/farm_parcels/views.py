@@ -5,7 +5,14 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.views import View
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
+from django.views.generic import (
+    CreateView,
+    DeleteView,
+    DetailView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
@@ -17,11 +24,15 @@ from .models import FarmParcel
 class RoleAwareParcelMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["base_template"] = "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+        context["base_template"] = (
+            "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+        )
         return context
 
 
-class FarmParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, ListView):
+class FarmParcelListView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, ListView
+):
     model = FarmParcel
     template_name = "farm_parcels/list.html"
     paginate_by = 10
@@ -61,12 +72,16 @@ class FarmParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwarePa
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["barangays"] = FarmParcel.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
+        context["barangays"] = (
+            FarmParcel.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
+        )
         context["ownership_choices"] = FarmParcel._meta.get_field("ownership_type").choices
         return context
 
 
-class FarmParcelDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, DetailView):
+class FarmParcelDetailView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, DetailView
+):
     model = FarmParcel
     template_name = "farm_parcels/detail.html"
 
@@ -74,7 +89,9 @@ class FarmParcelDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAware
         return FarmParcel.objects.select_related("farmer").prefetch_related("crops")
 
 
-class FarmParcelMapView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, TemplateView):
+class FarmParcelMapView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, TemplateView
+):
     template_name = "farm_parcels/map.html"
 
     @staticmethod
@@ -89,14 +106,22 @@ class FarmParcelMapView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwarePar
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        farmers = Farmer.objects.filter(is_active=True).prefetch_related("parcels__crops").order_by("last_name", "first_name")
+        farmers = (
+            Farmer.objects.filter(is_active=True)
+            .prefetch_related("parcels__crops")
+            .order_by("last_name", "first_name")
+        )
         markers = []
         unmapped = []
         for farmer in farmers:
             point = self.parse_coordinates(farmer.location_coordinates)
             if point is None:
                 point = next(
-                    (parsed for parcel in farmer.parcels.all() if (parsed := self.parse_coordinates(parcel.coordinates))),
+                    (
+                        parsed
+                        for parcel in farmer.parcels.all()
+                        if (parsed := self.parse_coordinates(parcel.coordinates))
+                    ),
                     None,
                 )
             if point is None:
@@ -116,7 +141,11 @@ class FarmParcelMapView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwarePar
                     "id": farmer.pk,
                     "farmer_id": farmer.record_id,
                     "farmer": farmer.full_name,
-                    "address": ", ".join(part for part in (farmer.house_lot_purok, farmer.street_sitio, farmer.barangay) if part),
+                    "address": ", ".join(
+                        part
+                        for part in (farmer.house_lot_purok, farmer.street_sitio, farmer.barangay)
+                        if part
+                    ),
                     "crops": crops,
                     "lat": point[0],
                     "lng": point[1],
@@ -138,21 +167,31 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             latitude = float(request.POST.get("latitude", ""))
             longitude = float(request.POST.get("longitude", ""))
         except (TypeError, ValueError):
-            return JsonResponse({"ok": False, "message": "Choose a valid point on the map."}, status=400)
+            return JsonResponse(
+                {"ok": False, "message": "Choose a valid point on the map."}, status=400
+            )
         if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
-            return JsonResponse({"ok": False, "message": "The selected map coordinates are invalid."}, status=400)
+            return JsonResponse(
+                {"ok": False, "message": "The selected map coordinates are invalid."}, status=400
+            )
         farmer.location_coordinates = f"{latitude:.7f}, {longitude:.7f}"
         farmer.save(update_fields=["location_coordinates"])
-        return JsonResponse({"ok": True, "message": f"{farmer.full_name}'s map location was saved."})
+        return JsonResponse(
+            {"ok": True, "message": f"{farmer.full_name}'s map location was saved."}
+        )
 
 
-class FarmParcelCreateView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, CreateView):
+class FarmParcelCreateView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, CreateView
+):
     form_class = FarmParcelForm
     template_name = "farm_parcels/form.html"
     success_url = reverse_lazy("farm_parcels:list")
 
 
-class FarmParcelUpdateView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, UpdateView):
+class FarmParcelUpdateView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, UpdateView
+):
     model = FarmParcel
     form_class = FarmParcelForm
     template_name = "farm_parcels/form.html"

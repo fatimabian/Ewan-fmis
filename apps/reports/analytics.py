@@ -88,11 +88,13 @@ def report_preview(report_type, date_range, filters):
     chart = []
     for label, value in ordered:
         display_value = int(value) if float(value).is_integer() else round(value, 2)
-        chart.append({
-            "label": label,
-            "value": display_value,
-            "width": max(2, round(float(value) / peak * 100)) if value else 0,
-        })
+        chart.append(
+            {
+                "label": label,
+                "value": display_value,
+                "width": max(2, round(float(value) / peak * 100)) if value else 0,
+            }
+        )
     return {
         "title": title,
         "headers": headers,
@@ -106,12 +108,20 @@ def report_preview(report_type, date_range, filters):
 
 def report_metrics(date_range="all", filters=None):
     filters = filters or {}
-    farmers = _apply_report_filters(Farmer.objects.filter(is_active=True), "farmer", date_range, filters)
+    farmers = _apply_report_filters(
+        Farmer.objects.filter(is_active=True), "farmer", date_range, filters
+    )
     parcels = _apply_report_filters(
-        FarmParcel.objects.filter(is_active=True, farmer__is_active=True), "parcel", date_range, filters
+        FarmParcel.objects.filter(is_active=True, farmer__is_active=True),
+        "parcel",
+        date_range,
+        filters,
     )
     crops = _apply_report_filters(
-        CropRecord.objects.filter(parcel__is_active=True, parcel__farmer__is_active=True), "crop", date_range, filters
+        CropRecord.objects.filter(parcel__is_active=True, parcel__farmer__is_active=True),
+        "crop",
+        date_range,
+        filters,
     )
     requests = _apply_report_filters(
         ServiceRequest.objects.filter(farmer__is_active=True), "request", date_range, filters
@@ -120,7 +130,11 @@ def report_metrics(date_range="all", filters=None):
     total_area = parcels.aggregate(total=Sum("area_hectares"))["total"] or 0
     crop_summary = list(
         crops.values("crop_type")
-        .annotate(total=Count("id"), area=Sum("area_hectares"), farmers=Count("parcel__farmer", distinct=True))
+        .annotate(
+            total=Count("id"),
+            area=Sum("area_hectares"),
+            farmers=Count("parcel__farmer", distinct=True),
+        )
         .order_by("-area")[:6]
     )
     crop_area_total = sum((item["area"] or 0 for item in crop_summary), 0) or 1
@@ -129,8 +143,10 @@ def report_metrics(date_range="all", filters=None):
     }
     request_total = sum(request_status_counts.values())
     status_colors = {
-        "PENDING": "#d99a12", "IN_PROGRESS": "#2563eb",
-        "COMPLETED": "#16834f", "CANCELLED": "#dc4c45",
+        "PENDING": "#d99a12",
+        "IN_PROGRESS": "#2563eb",
+        "COMPLETED": "#16834f",
+        "CANCELLED": "#dc4c45",
     }
     request_statuses = []
     gradient_segments = []
@@ -139,14 +155,17 @@ def report_metrics(date_range="all", filters=None):
         total = request_status_counts.get(status, 0)
         percent = (total / request_total * 100) if request_total else 0
         color = status_colors[status]
-        request_statuses.append({"status": status, "label": label, "total": total, "percent": percent, "color": color})
+        request_statuses.append(
+            {"status": status, "label": label, "total": total, "percent": percent, "color": color}
+        )
         if total:
             gradient_segments.append(f"{color} {cursor:.2f}% {cursor + percent:.2f}%")
             cursor += percent
     request_status_gradient = ", ".join(gradient_segments) or "#dfe7e2 0% 100%"
 
     priority_counts = {
-        row["priority"]: row["total"] for row in requests.values("priority").annotate(total=Count("id"))
+        row["priority"]: row["total"]
+        for row in requests.values("priority").annotate(total=Count("id"))
     }
     priority_colors = {"LOW": "#16834f", "MEDIUM": "#d99a12", "HIGH": "#dc4c45"}
     priority_total = sum(priority_counts.values()) or 1
@@ -182,13 +201,21 @@ def report_metrics(date_range="all", filters=None):
         {"label": "Indigenous Farmers", "total": farmers.filter(is_indigenous=True).count()},
     ]
     return {
-        "farmers": farmers.count(), "parcels": parcels.count(), "crops": crops.count(),
-        "pending_requests": requests.filter(status="PENDING").count(), "total_area": total_area,
-        "crop_summary": crop_summary, "crop_area_total": crop_area_total,
-        "request_statuses": request_statuses, "request_status_gradient": request_status_gradient,
+        "farmers": farmers.count(),
+        "parcels": parcels.count(),
+        "crops": crops.count(),
+        "pending_requests": requests.filter(status="PENDING").count(),
+        "total_area": total_area,
+        "crop_summary": crop_summary,
+        "crop_area_total": crop_area_total,
+        "request_statuses": request_statuses,
+        "request_status_gradient": request_status_gradient,
         "request_total": request_total,
-        "request_priorities": request_priorities, "recent_requests": recent_requests,
-        "activity_summary": ActivityLog.objects.values("module").annotate(total=Count("id")).order_by("-total")[:5],
+        "request_priorities": request_priorities,
+        "recent_requests": recent_requests,
+        "activity_summary": ActivityLog.objects.values("module")
+        .annotate(total=Count("id"))
+        .order_by("-total")[:5],
         "farmer_statistics": farmer_statistics,
         "service_count": ServiceCatalog.objects.filter(is_active=True).count(),
         "total_accounts": CustomUser.objects.count(),

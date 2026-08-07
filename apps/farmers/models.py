@@ -2,7 +2,6 @@ from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
-
 PH_MOBILE_VALIDATOR = RegexValidator(
     regex=r"^09\d{9}$",
     message="Enter a valid PH mobile number: 11 digits, starting with 09 (e.g. 09171234567).",
@@ -56,7 +55,9 @@ class Farmer(models.Model):
     is_pwd = models.BooleanField(default=False)
     is_four_ps = models.BooleanField(default=False)
     livelihood = models.CharField(max_length=20, choices=LIVELIHOOD_CHOICES, default="FARMER")
-    activities = models.TextField(blank=True, help_text="Comma-separated RSBSA livelihood activities")
+    activities = models.TextField(
+        blank=True, help_text="Comma-separated RSBSA livelihood activities"
+    )
     remarks = models.TextField(
         blank=True,
         max_length=1000,
@@ -109,8 +110,10 @@ class Farmer(models.Model):
         if not self.birth_date:
             return None
         today = timezone.localdate()
-        return today.year - self.birth_date.year - (
-            (today.month, today.day) < (self.birth_date.month, self.birth_date.day)
+        return (
+            today.year
+            - self.birth_date.year
+            - ((today.month, today.day) < (self.birth_date.month, self.birth_date.day))
         )
 
     @property

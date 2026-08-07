@@ -9,19 +9,31 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('farm_parcels', '0001_initial'),
+        ("farm_parcels", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='CropRecord',
+            name="CropRecord",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('crop_type', models.CharField(max_length=100)),
-                ('area_hectares', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('planting_date', models.DateField()),
-                ('harvest_date', models.DateField(blank=True, null=True)),
-                ('parcel', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='crops', to='farm_parcels.farmparcel')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("crop_type", models.CharField(max_length=100)),
+                ("area_hectares", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("planting_date", models.DateField()),
+                ("harvest_date", models.DateField(blank=True, null=True)),
+                (
+                    "parcel",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="crops",
+                        to="farm_parcels.farmparcel",
+                    ),
+                ),
             ],
         ),
     ]

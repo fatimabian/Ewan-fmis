@@ -6,9 +6,8 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('authentication', '0002_customuser_google_sub'),
-        ('authentication', '0002_promote_superusers'),
+        ("authentication", "0002_customuser_google_sub"),
+        ("authentication", "0002_promote_superusers"),
     ]
 
-    operations = [
-    ]
+    operations = []

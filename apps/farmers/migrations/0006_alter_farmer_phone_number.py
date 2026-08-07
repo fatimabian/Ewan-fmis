@@ -15,14 +15,23 @@ def clean_phone_numbers(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('farmers', '0005_farmer_remarks'),
+        ("farmers", "0005_farmer_remarks"),
     ]
 
     operations = [
         migrations.RunPython(clean_phone_numbers, migrations.RunPython.noop),
         migrations.AlterField(
-            model_name='farmer',
-            name='phone_number',
-            field=models.CharField(blank=True, max_length=11, validators=[django.core.validators.RegexValidator(message='Enter a valid PH mobile number: 11 digits, starting with 09 (e.g. 09171234567).', regex=r'^09\d{9}$')]),
+            model_name="farmer",
+            name="phone_number",
+            field=models.CharField(
+                blank=True,
+                max_length=11,
+                validators=[
+                    django.core.validators.RegexValidator(
+                        message="Enter a valid PH mobile number: 11 digits, starting with 09 (e.g. 09171234567).",
+                        regex=r"^09\d{9}$",
+                    )
+                ],
+            ),
         ),
     ]

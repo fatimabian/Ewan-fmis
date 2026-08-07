@@ -7,6 +7,10 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="farmer",
             name="remarks",
-            field=models.TextField(blank=True, help_text="Internal agricultural-service notes; do not enter unsupported sensitive information.", max_length=1000),
+            field=models.TextField(
+                blank=True,
+                help_text="Internal agricultural-service notes; do not enter unsupported sensitive information.",
+                max_length=1000,
+            ),
         ),
     ]

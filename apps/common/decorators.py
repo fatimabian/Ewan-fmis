@@ -8,4 +8,5 @@ def admin_required(view):
         if not request.user.is_authenticated or not request.user.is_admin:
             raise PermissionDenied
         return view(request, *args, **kwargs)
+
     return wrapped

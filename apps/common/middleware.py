@@ -40,8 +40,12 @@ class SessionTimeoutMiddleware:
             if last_activity and now - int(last_activity) > self._timeout_seconds():
                 logout(request)
                 if request.headers.get("x-requested-with") == "XMLHttpRequest":
-                    return JsonResponse({"detail": "Your session expired due to inactivity."}, status=401)
-                messages.warning(request, "Your session expired due to inactivity. Please sign in again.")
+                    return JsonResponse(
+                        {"detail": "Your session expired due to inactivity."}, status=401
+                    )
+                messages.warning(
+                    request, "Your session expired due to inactivity. Please sign in again."
+                )
                 return redirect(f"{reverse('authentication:login')}?next={request.path}")
             request.session[self.SESSION_KEY] = now
         return self.get_response(request)

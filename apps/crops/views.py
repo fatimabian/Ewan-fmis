@@ -13,7 +13,9 @@ from .models import CropRecord
 class RoleAwareCropMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["base_template"] = "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+        context["base_template"] = (
+            "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+        )
         return context
 
 
@@ -23,7 +25,9 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
     paginate_by = 10
 
     def get_queryset(self):
-        queryset = CropRecord.objects.select_related("parcel", "parcel__farmer").order_by("-planting_date", "crop_type")
+        queryset = CropRecord.objects.select_related("parcel", "parcel__farmer").order_by(
+            "-planting_date", "crop_type"
+        )
         query = self.request.GET.get("q", "").strip()
         crop_type = self.request.GET.get("crop_type", "").strip()
         year = self.request.GET.get("year", "").strip()
@@ -47,14 +51,18 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
         if year.isdigit():
             queryset = queryset.filter(planting_date__year=int(year))
         if status == "growing":
-            queryset = queryset.filter(Q(harvest_date__isnull=True) | Q(harvest_date__gt=date.today()))
+            queryset = queryset.filter(
+                Q(harvest_date__isnull=True) | Q(harvest_date__gt=date.today())
+            )
         elif status == "harvested":
             queryset = queryset.filter(harvest_date__lte=date.today())
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["crop_types"] = CropRecord.objects.values_list("crop_type", flat=True).distinct().order_by("crop_type")
+        context["crop_types"] = (
+            CropRecord.objects.values_list("crop_type", flat=True).distinct().order_by("crop_type")
+        )
         context["years"] = CropRecord.objects.dates("planting_date", "year", order="DESC")
         context["today"] = date.today()
         return context

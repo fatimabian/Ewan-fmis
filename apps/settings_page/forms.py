@@ -20,9 +20,16 @@ class ProfileForm(InlineValidationMixin, forms.Form):
     weekly_summary = forms.BooleanField(required=False)
     two_factor_enabled = forms.BooleanField(required=False)
     system_name = forms.CharField(max_length=150, required=False)
-    timezone = forms.ChoiceField(choices=[("Asia/Manila", "Philippine Standard Time (PST, UTC+8)"), ("UTC", "UTC")], required=False)
-    default_language = forms.ChoiceField(choices=[("English", "English"), ("Filipino", "Filipino")], required=False)
-    session_timeout = forms.ChoiceField(choices=[("15", "15 minutes"), ("30", "30 minutes"), ("60", "1 hour")], required=False)
+    timezone = forms.ChoiceField(
+        choices=[("Asia/Manila", "Philippine Standard Time (PST, UTC+8)"), ("UTC", "UTC")],
+        required=False,
+    )
+    default_language = forms.ChoiceField(
+        choices=[("English", "English"), ("Filipino", "Filipino")], required=False
+    )
+    session_timeout = forms.ChoiceField(
+        choices=[("15", "15 minutes"), ("30", "30 minutes"), ("60", "1 hour")], required=False
+    )
     automated_backups = forms.BooleanField(required=False)
     two_factor_required = forms.BooleanField(required=False)
 
@@ -50,7 +57,10 @@ class ProfileForm(InlineValidationMixin, forms.Form):
         queryset = CustomUser.objects.exclude(phone_number="")
         if self.user:
             queryset = queryset.exclude(pk=self.user.pk)
-        if phone_number and any(normalize_phone_digits(value) == normalized for value in queryset.values_list("phone_number", flat=True)):
+        if phone_number and any(
+            normalize_phone_digits(value) == normalized
+            for value in queryset.values_list("phone_number", flat=True)
+        ):
             raise forms.ValidationError("This phone number is already linked to another account.")
         return phone_number
 

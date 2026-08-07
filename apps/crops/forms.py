@@ -12,21 +12,31 @@ class ParcelChoiceField(forms.ModelChoiceField):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.widget.attrs.update({
-            "data-farmer-picker": "true",
-            "data-search-placeholder": "Search Farmer ID, farmer name, barangay, or parcel...",
-        })
+        self.widget.attrs.update(
+            {
+                "data-farmer-picker": "true",
+                "data-search-placeholder": "Search Farmer ID, farmer name, barangay, or parcel...",
+            }
+        )
 
 
 class CropRecordForm(InlineValidationMixin, forms.ModelForm):
-    parcel = ParcelChoiceField(queryset=FarmParcel.objects.select_related("farmer").filter(is_active=True))
+    parcel = ParcelChoiceField(
+        queryset=FarmParcel.objects.select_related("farmer").filter(is_active=True)
+    )
 
     class Meta:
         model = CropRecord
         fields = [
-            "parcel", "crop_type", "area_hectares", "number_of_heads",
-            "is_organic", "planting_date", "harvest_date", "image",
-]
+            "parcel",
+            "crop_type",
+            "area_hectares",
+            "number_of_heads",
+            "is_organic",
+            "planting_date",
+            "harvest_date",
+            "image",
+        ]
         labels = {
             "parcel": "Existing Farmer ID and Farm Parcel",
             "crop_type": "Crop / Commodity",
@@ -59,7 +69,10 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
         planting_date = cleaned.get("planting_date")
         harvest_date = cleaned.get("harvest_date")
         if parcel and area and area > parcel.area_hectares:
-            self.add_error("area_hectares", f"Area planted cannot exceed the parcel area of {parcel.area_hectares} ha.")
+            self.add_error(
+                "area_hectares",
+                f"Area planted cannot exceed the parcel area of {parcel.area_hectares} ha.",
+            )
         if planting_date and harvest_date and harvest_date < planting_date:
             self.add_error("harvest_date", "Harvest date cannot be earlier than the planting date.")
         return cleaned

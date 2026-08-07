@@ -35,39 +35,73 @@ class FMISRequirementTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         User = get_user_model()
-        cls.admin = User.objects.create_user(username="admin", password="StrongPass123!", role="ADMIN", email="admin@example.com")
-        cls.staff = User.objects.create_user(username="staff", password="StrongPass123!", role="STAFF", email="staff@example.com")
+        cls.admin = User.objects.create_user(
+            username="admin", password="StrongPass123!", role="ADMIN", email="admin@example.com"
+        )
+        cls.staff = User.objects.create_user(
+            username="staff", password="StrongPass123!", role="STAFF", email="staff@example.com"
+        )
         cls.farmer = Farmer.objects.create(
-            first_name="Ana", last_name="Santos", sex="FEMALE", birth_date=date(1980, 1, 2),
-            place_of_birth="Rosario", mother_maiden_name="Reyes", house_lot_purok="Purok 1",
-            barangay="Bulihan", phone_number="09171234567", civil_status="SINGLE",
-            valid_id_type="National ID", valid_id_number="ID-001", livelihood="FARMER",
-            activities="FARMER_CROPS", rsbsa_number="RSBSA-001", consent_given=True,
+            first_name="Ana",
+            last_name="Santos",
+            sex="FEMALE",
+            birth_date=date(1980, 1, 2),
+            place_of_birth="Rosario",
+            mother_maiden_name="Reyes",
+            house_lot_purok="Purok 1",
+            barangay="Bulihan",
+            phone_number="09171234567",
+            civil_status="SINGLE",
+            valid_id_type="National ID",
+            valid_id_number="ID-001",
+            livelihood="FARMER",
+            activities="FARMER_CROPS",
+            rsbsa_number="RSBSA-001",
+            consent_given=True,
             remarks="Follow up before seed distribution.",
         )
         cls.parcel = FarmParcel.objects.create(
-            farmer=cls.farmer, parcel_name="North Field", barangay="Bulihan",
-            area_hectares=Decimal("2.50"), ownership_type="OWNED",
+            farmer=cls.farmer,
+            parcel_name="North Field",
+            barangay="Bulihan",
+            area_hectares=Decimal("2.50"),
+            ownership_type="OWNED",
         )
         cls.crop = CropRecord.objects.create(
-            parcel=cls.parcel, crop_type="Rice", cropping_schedule="Wet season",
-            area_hectares=Decimal("2.00"), planting_date=date.today(),
+            parcel=cls.parcel,
+            crop_type="Rice",
+            area_hectares=Decimal("2.00"),
+            planting_date=date.today(),
         )
         cls.service = ServiceCatalog.objects.create(
-            name="Seed Distribution", code="SEED", category="Farm Inputs",
-            description="Qualified seed distribution", processing_time="3 days",
+            name="Seed Distribution",
+            code="SEED",
+            category="Farm Inputs",
+            description="Qualified seed distribution",
+            processing_time="3 days",
         )
 
     def test_public_legal_pages_and_login_are_available(self):
-        for name in ("authentication:landing", "authentication:login", "authentication:privacy", "authentication:terms"):
+        for name in (
+            "authentication:landing",
+            "authentication:login",
+            "authentication:privacy",
+            "authentication:terms",
+        ):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 200)
-        self.assertContains(self.client.get(reverse("authentication:privacy")), "Information collected")
+        self.assertContains(
+            self.client.get(reverse("authentication:privacy")), "Information collected"
+        )
 
     def test_authentication_accepts_valid_credentials_and_rejects_invalid(self):
-        response = self.client.post(reverse("authentication:login"), {"username": "staff", "password": "wrong"})
+        response = self.client.post(
+            reverse("authentication:login"), {"username": "staff", "password": "wrong"}
+        )
         self.assertEqual(response.status_code, 200)
-        response = self.client.post(reverse("authentication:login"), {"username": "staff", "password": "StrongPass123!"})
+        response = self.client.post(
+            reverse("authentication:login"), {"username": "staff", "password": "StrongPass123!"}
+        )
         self.assertEqual(response.status_code, 302)
 
     def test_role_boundaries_are_enforced(self):
@@ -93,34 +127,68 @@ class FMISRequirementTests(TestCase):
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_duplicate_valid_id_is_rejected(self):
-        form = FarmerRegistrationForm(data={
-            "last_name": "Santos", "first_name": "Ana", "sex": "FEMALE", "birth_date": "1980-01-02",
-            "place_of_birth": "Rosario", "mother_maiden_name": "Reyes", "house_lot_purok": "Purok 2",
-            "barangay": "Bulihan", "city_municipality": "Rosario", "province": "Batangas",
-            "region": "CALABARZON Region IV-A", "phone_number": "09170000000", "civil_status": "SINGLE",
-            "valid_id_type": "National ID", "valid_id_number": "ID-001", "livelihood": "FARMER",
-            "activities": ["FARMER_CROPS"], "consent_given": "on",
-        })
+        form = FarmerRegistrationForm(
+            data={
+                "last_name": "Santos",
+                "first_name": "Ana",
+                "sex": "FEMALE",
+                "birth_date": "1980-01-02",
+                "place_of_birth": "Rosario",
+                "mother_maiden_name": "Reyes",
+                "house_lot_purok": "Purok 2",
+                "barangay": "Bulihan",
+                "city_municipality": "Rosario",
+                "province": "Batangas",
+                "region": "CALABARZON Region IV-A",
+                "phone_number": "09170000000",
+                "civil_status": "SINGLE",
+                "valid_id_type": "National ID",
+                "valid_id_number": "ID-001",
+                "livelihood": "FARMER",
+                "activities": ["FARMER_CROPS"],
+                "consent_given": "on",
+            }
+        )
         self.assertFalse(form.is_valid())
         self.assertIn("already linked", form.errors["valid_id_number"][0])
 
     def test_invalid_service_request_is_rejected(self):
-        form = ServiceRequestForm(data={
-            "farmer": self.farmer.pk, "service": self.service.pk, "subject": "No",
-            "priority": "MEDIUM", "status": "PENDING", "notes": "", "assigned_to": self.staff.pk,
-        })
+        form = ServiceRequestForm(
+            data={
+                "farmer": self.farmer.pk,
+                "service": self.service.pk,
+                "subject": "No",
+                "priority": "MEDIUM",
+                "status": "PENDING",
+                "notes": "",
+                "assigned_to": self.staff.pk,
+            }
+        )
         self.assertFalse(form.is_valid())
         self.assertIn("at least 5", form.errors["subject"][0])
 
     def test_staff_can_create_and_view_service_request(self):
         self.client.force_login(self.staff)
-        response = self.client.post(reverse("service_requests:create"), {
-            "farmer": self.farmer.pk, "service": self.service.pk, "subject": "Request certified rice seeds",
-            "priority": "HIGH", "status": "PENDING", "notes": "For wet season", "assigned_to": self.staff.pk,
-        })
+        response = self.client.post(
+            reverse("service_requests:create"),
+            {
+                "farmer": self.farmer.pk,
+                "service": self.service.pk,
+                "subject": "Request certified rice seeds",
+                "priority": "HIGH",
+                "status": "PENDING",
+                "notes": "For wet season",
+                "assigned_to": self.staff.pk,
+            },
+        )
         self.assertRedirects(response, reverse("service_requests:list"))
         request_record = ServiceRequest.objects.get()
-        self.assertEqual(self.client.get(reverse("service_requests:detail", args=[request_record.pk])).status_code, 200)
+        self.assertEqual(
+            self.client.get(
+                reverse("service_requests:detail", args=[request_record.pk])
+            ).status_code,
+            200,
+        )
 
     def test_farmer_records_remarks_and_commodity_are_visible(self):
         self.client.force_login(self.staff)
@@ -150,9 +218,13 @@ class FMISRequirementTests(TestCase):
         response = self.client.get(reverse("farmers:list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<th>Age</th>", html=True)
-        expected_age = date.today().year - self.farmer.birth_date.year - (
-            (date.today().month, date.today().day)
-            < (self.farmer.birth_date.month, self.farmer.birth_date.day)
+        expected_age = (
+            date.today().year
+            - self.farmer.birth_date.year
+            - (
+                (date.today().month, date.today().day)
+                < (self.farmer.birth_date.month, self.farmer.birth_date.day)
+            )
         )
         self.assertEqual(self.farmer.age, expected_age)
 
@@ -164,96 +236,164 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["crop_formset"].total_form_count(), 1)
         self.assertEqual(response.context["document_formset"].total_form_count(), 1)
 
-        parcel_formset = ParcelRegistrationFormSet({
-    "parcels-TOTAL_FORMS": "2", "parcels-INITIAL_FORMS": "0",
-    "parcels-MIN_NUM_FORMS": "1", "parcels-MAX_NUM_FORMS": "1000",
-    "parcels-0-barangay": "Alupay", "parcels-0-municipality": "Rosario",
-    "parcels-0-province": "Batangas", "parcels-0-area_hectares": "1.50",
-    "parcels-0-ownership_type": "OWNED", "parcels-0-land_type": "UPLAND",
-    "parcels-0-farm_type": "Irrigated",
-}, prefix="parcels")
-self.assertFalse(parcel_formset.is_valid())
-self.assertFalse(parcel_formset.forms[0].errors)
-self.assertTrue(parcel_formset.forms[1].errors)
+        parcel_formset = ParcelRegistrationFormSet(
+            {
+                "parcels-TOTAL_FORMS": "2",
+                "parcels-INITIAL_FORMS": "0",
+                "parcels-MIN_NUM_FORMS": "1",
+                "parcels-MAX_NUM_FORMS": "1000",
+                "parcels-0-barangay": "Alupay",
+                "parcels-0-municipality": "Rosario",
+                "parcels-0-province": "Batangas",
+                "parcels-0-area_hectares": "1.50",
+                "parcels-0-ownership_type": "OWNED",
+                "parcels-0-land_type": "UPLAND",
+                "parcels-0-farm_type": "Irrigated",
+            },
+            prefix="parcels",
+        )
+        self.assertFalse(parcel_formset.is_valid())
+        self.assertFalse(parcel_formset.forms[0].errors)
+        self.assertTrue(parcel_formset.forms[1].errors)
 
-        crop_formset = CropRegistrationFormSet({
-            "crops-TOTAL_FORMS": "2", "crops-INITIAL_FORMS": "0",
-            "crops-MIN_NUM_FORMS": "1", "crops-MAX_NUM_FORMS": "1000",
-            "crops-0-not_applicable": "on",
-        }, prefix="crops")
+        crop_formset = CropRegistrationFormSet(
+            {
+                "crops-TOTAL_FORMS": "2",
+                "crops-INITIAL_FORMS": "0",
+                "crops-MIN_NUM_FORMS": "1",
+                "crops-MAX_NUM_FORMS": "1000",
+                "crops-0-not_applicable": "on",
+            },
+            prefix="crops",
+        )
         self.assertFalse(crop_formset.is_valid())
         self.assertTrue(crop_formset.forms[1].errors)
 
-        valid_id = SimpleUploadedFile("valid-id.png", b"\x89PNG\r\n\x1a\nFMIS", content_type="image/png")
-        document_formset = DocumentRegistrationFormSet({
-            "documents-TOTAL_FORMS": "2", "documents-INITIAL_FORMS": "0",
-            "documents-MIN_NUM_FORMS": "1", "documents-MAX_NUM_FORMS": "1000",
-            "documents-0-document_type": "VALID_ID", "documents-0-description": "Valid ID",
-        }, {"documents-0-file": valid_id}, prefix="documents")
+        valid_id = SimpleUploadedFile(
+            "valid-id.png", b"\x89PNG\r\n\x1a\nFMIS", content_type="image/png"
+        )
+        document_formset = DocumentRegistrationFormSet(
+            {
+                "documents-TOTAL_FORMS": "2",
+                "documents-INITIAL_FORMS": "0",
+                "documents-MIN_NUM_FORMS": "1",
+                "documents-MAX_NUM_FORMS": "1000",
+                "documents-0-document_type": "VALID_ID",
+                "documents-0-description": "Valid ID",
+            },
+            {"documents-0-file": valid_id},
+            prefix="documents",
+        )
         self.assertFalse(document_formset.is_valid())
         self.assertTrue(document_formset.forms[1].errors)
 
     def test_filtered_commodity_per_parcel_report(self):
-        title, headers, rows = build_report("commodity_per_parcel", "all", {"barangay": "Bulihan", "commodity": "Rice"})
+        title, headers, rows = build_report(
+            "commodity_per_parcel", "all", {"barangay": "Bulihan", "commodity": "Rice"}
+        )
         self.assertEqual(title, "Commodity per Farm Parcel")
         self.assertIn("Commodity", headers)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0][4], "Rice")
-        _, _, excluded = build_report("commodity_per_parcel", "all", {"barangay": "Alupay", "commodity": "Rice"})
+        _, _, excluded = build_report(
+            "commodity_per_parcel", "all", {"barangay": "Alupay", "commodity": "Rice"}
+        )
         self.assertEqual(excluded, [])
 
     def test_reports_export_csv_and_validate_filters(self):
         self.client.force_login(self.staff)
-        response = self.client.post(reverse("reports:home"), {
-            "report_type": "farmer_master", "format": "csv", "date_range": "all",
-            "barangay": "Bulihan", "commodity": "Rice", "year": str(date.today().year), "status": "",
-        })
+        response = self.client.post(
+            reverse("reports:home"),
+            {
+                "report_type": "farmer_master",
+                "format": "csv",
+                "date_range": "all",
+                "barangay": "Bulihan",
+                "commodity": "Rice",
+                "year": str(date.today().year),
+                "status": "",
+            },
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
         self.assertIn("Follow up before seed distribution", response.content.decode("utf-8-sig"))
-        bad = self.client.post(reverse("reports:home"), {
-            "report_type": "farmer_master", "format": "csv", "date_range": "all", "barangay": "Outside Rosario",
-        })
+        bad = self.client.post(
+            reverse("reports:home"),
+            {
+                "report_type": "farmer_master",
+                "format": "csv",
+                "date_range": "all",
+                "barangay": "Outside Rosario",
+            },
+        )
         self.assertEqual(bad.status_code, 400)
 
     def test_report_graphs_and_table_use_selected_database_filters(self):
         self.client.force_login(self.staff)
-        response = self.client.get(reverse("reports:home"), {
-            "report_type": "crop_summary", "date_range": "all",
-            "barangay": "Bulihan", "commodity": "Rice", "year": "", "status": "",
-        })
+        response = self.client.get(
+            reverse("reports:home"),
+            {
+                "report_type": "crop_summary",
+                "date_range": "all",
+                "barangay": "Bulihan",
+                "commodity": "Rice",
+                "year": "",
+                "status": "",
+            },
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["report_preview"]["total_rows"], 1)
         self.assertEqual(response.context["report_preview"]["chart"][0]["label"], "Rice")
         self.assertEqual(response.context["crops"], 1)
         self.assertNotContains(response, "Update Graphs")
         self.assertContains(response, "Download Report")
-        self.assertContains(response, "showSelectedReport")
+        self.assertContains(response, "refreshPreview")
         self.assertContains(response, "Crop Production Summary")
 
-        empty = self.client.get(reverse("reports:home"), {
-            "report_type": "crop_summary", "date_range": "all",
-            "barangay": "Alupay", "commodity": "Rice", "year": "", "status": "",
-        })
+        empty = self.client.get(
+            reverse("reports:home"),
+            {
+                "report_type": "crop_summary",
+                "date_range": "all",
+                "barangay": "Alupay",
+                "commodity": "Rice",
+                "year": "",
+                "status": "",
+            },
+        )
         self.assertEqual(empty.context["report_preview"]["total_rows"], 0)
         self.assertEqual(empty.context["crops"], 0)
         self.assertContains(empty, "No records match the selected filters")
 
-    def test_dashboard_graphs_reflect_current_database_records(self):
+    def test_staff_dashboard_uses_rosario_crop_records_and_fixed_weather_location(self):
         ServiceRequest.objects.create(
-            farmer=self.farmer, service=self.service, subject="Request chart verification",
-            priority="HIGH", status="PENDING", assigned_to=self.staff,
+            farmer=self.farmer,
+            service=self.service,
+            subject="Request chart verification",
+            priority="HIGH",
+            status="PENDING",
+            assigned_to=self.staff,
         )
         self.client.force_login(self.staff)
         response = self.client.get(reverse("dashboard:staff_home"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["request_six_month_total"], 1)
         self.assertEqual(response.context["request_status"]["pending"], 1)
-        self.assertContains(response, "1 total database records")
+        self.assertEqual(response.context["crop_chart"][0]["crop_type"], "Rice")
+        self.assertEqual(response.context["crop_chart"][0]["area"], 2.0)
+        self.assertEqual(response.context["area_planted"], Decimal("2.00"))
+        self.assertContains(response, "Rosario, Batangas only")
+        self.assertContains(response, 'data-latitude="13.8442"')
+        self.assertContains(response, "Area Planted by Crop")
+        self.assertNotContains(response, "Inventor")
+        self.assertNotContains(response, "Pending Projects")
 
         ActivityLog.objects.create(
-            actor=self.admin, action="GRAPH_TEST", path="/dashboard/admin/",
-            title="Dashboard graph verification", module="Dashboard", status="Success",
+            actor=self.admin,
+            action="GRAPH_TEST",
+            path="/dashboard/admin/",
+            title="Dashboard graph verification",
+            module="Dashboard",
+            status="Success",
         )
         self.client.force_login(self.admin)
         admin_response = self.client.get(reverse("dashboard:admin_home"))
@@ -267,13 +407,25 @@ self.assertTrue(parcel_formset.forms[1].errors)
         self.admin.email = ""
         self.admin.save(update_fields=["first_name", "last_name", "email"])
         self.client.force_login(self.admin)
-        response = self.client.post(reverse("settings_page:home"), {
-            "first_name": "", "last_name": "", "email": "", "phone_number": "",
-            "theme": "light", "primary_color": "#008552",
-            "email_notifications": "on", "in_app_notifications": "on", "weekly_summary": "on",
-            "system_name": "FMIS - Office of Agriculture", "timezone": "Asia/Manila",
-            "default_language": "English", "session_timeout": "15", "automated_backups": "on",
-        })
+        response = self.client.post(
+            reverse("settings_page:home"),
+            {
+                "first_name": "",
+                "last_name": "",
+                "email": "",
+                "phone_number": "",
+                "theme": "light",
+                "primary_color": "#008552",
+                "email_notifications": "on",
+                "in_app_notifications": "on",
+                "weekly_summary": "on",
+                "system_name": "FMIS - Office of Agriculture",
+                "timezone": "Asia/Manila",
+                "default_language": "English",
+                "session_timeout": "15",
+                "automated_backups": "on",
+            },
+        )
         self.assertRedirects(response, reverse("settings_page:home"))
 
     def test_report_query_count_remains_bounded(self):
@@ -300,7 +452,9 @@ self.assertTrue(parcel_formset.forms[1].errors)
             self.assertTrue(any(item["model"] == "farmers.farmer" for item in payload))
 
     def test_administrator_can_trigger_and_download_manual_backup(self):
-        with tempfile.TemporaryDirectory() as temp_dir, override_settings(BACKUP_ROOT=Path(temp_dir)):
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            BACKUP_ROOT=Path(temp_dir)
+        ):
             self.client.force_login(self.admin)
             response = self.client.post(reverse("settings_page:manual_backup"))
             self.assertEqual(response.status_code, 200)

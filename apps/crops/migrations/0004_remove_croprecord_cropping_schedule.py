@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('crops', '0003_croprecord_image'),
+        ("crops", "0003_croprecord_image"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='croprecord',
-            name='cropping_schedule',
+            model_name="croprecord",
+            name="cropping_schedule",
         ),
     ]

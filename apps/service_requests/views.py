@@ -12,11 +12,15 @@ from .models import ServiceRequest
 class RoleAwareRequestMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["base_template"] = "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+        context["base_template"] = (
+            "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+        )
         return context
 
 
-class ServiceRequestListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, ListView):
+class ServiceRequestListView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, ListView
+):
     model = ServiceRequest
     template_name = "service_requests/list.html"
     paginate_by = 10
@@ -43,7 +47,9 @@ class ServiceRequestListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwa
             farmer_id = query.upper().removeprefix("F-")
             if farmer_id.isdigit():
                 filters |= Q(farmer_id=int(farmer_id))
-            filters |= Q(farmer__rsbsa_number__icontains=query) | Q(farmer__barangay__icontains=query)
+            filters |= Q(farmer__rsbsa_number__icontains=query) | Q(
+                farmer__barangay__icontains=query
+            )
             queryset = queryset.filter(filters)
         if request_type.isdigit():
             queryset = queryset.filter(service_id=int(request_type))
@@ -63,18 +69,24 @@ class ServiceRequestListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwa
         return context
 
 
-class ServiceRequestCreateView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, CreateView):
+class ServiceRequestCreateView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, CreateView
+):
     form_class = ServiceRequestForm
     template_name = "service_requests/form.html"
     success_url = reverse_lazy("service_requests:list")
 
 
-class ServiceRequestDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, DetailView):
+class ServiceRequestDetailView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, DetailView
+):
     model = ServiceRequest
     template_name = "service_requests/detail.html"
 
 
-class ServiceRequestUpdateView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, UpdateView):
+class ServiceRequestUpdateView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, UpdateView
+):
     model = ServiceRequest
     form_class = ServiceRequestForm
     template_name = "service_requests/form.html"

@@ -3,4 +3,6 @@ from .models import CropRecord
 
 
 def crop_areas():
-    return CropRecord.objects.values("crop_type").annotate(area=Sum("area_hectares")).order_by("-area")
+    return (
+        CropRecord.objects.values("crop_type").annotate(area=Sum("area_hectares")).order_by("-area")
+    )

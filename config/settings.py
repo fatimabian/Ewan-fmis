@@ -8,42 +8,97 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-development-key-change-me")
-ALLOWED_HOSTS = [host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host]
+ALLOWED_HOSTS = [
+    host for host in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host
+]
 
 if not DEBUG and (SECRET_KEY == "unsafe-development-key-change-me" or len(SECRET_KEY) < 50):
-    raise ImproperlyConfigured("Set DJANGO_SECRET_KEY to a unique value of at least 50 characters in production.")
+    raise ImproperlyConfigured(
+        "Set DJANGO_SECRET_KEY to a unique value of at least 50 characters in production."
+    )
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured("Set DJANGO_ALLOWED_HOSTS before starting FMIS in production.")
 
 INSTALLED_APPS = [
-    "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
-    "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "apps.common", "apps.authentication", "apps.dashboard", "apps.accounts", "apps.farmers",
-    "apps.farm_parcels", "apps.crops", "apps.service_catalog",
-    "apps.service_requests", "apps.reports", "apps.activity_logs", "apps.settings_page",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "apps.common",
+    "apps.authentication",
+    "apps.dashboard",
+    "apps.accounts",
+    "apps.farmers",
+    "apps.farm_parcels",
+    "apps.crops",
+    "apps.service_catalog",
+    "apps.service_requests",
+    "apps.reports",
+    "apps.activity_logs",
+    "apps.settings_page",
 ]
 MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware", "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware", "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware", "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
     "apps.common.middleware.SessionTimeoutMiddleware",
     "apps.common.middleware.PrivateUserPageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware", "apps.activity_logs.middleware.ActivityLogMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.activity_logs.middleware.ActivityLogMiddleware",
 ]
 ROOT_URLCONF = "config.urls"
-TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "templates"], "APP_DIRS": True,
-              "OPTIONS": {"context_processors": ["django.template.context_processors.request", "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages", "apps.settings_page.context_processors.user_preference"]}}]
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "apps.settings_page.context_processors.user_preference",
+            ]
+        },
+    }
+]
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASE_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
 
 if DATABASE_ENGINE == "mysql":
-    mysql_engine = "apps.common.db_backends.mysql_legacy" if os.getenv("MYSQL_ALLOW_LEGACY_MARIADB", "False").lower() == "true" else "django.db.backends.mysql"
-    DATABASES = {"default": {"ENGINE": mysql_engine, "NAME": os.getenv("MYSQL_DATABASE"), "USER": os.getenv("MYSQL_USER"), "PASSWORD": os.getenv("MYSQL_PASSWORD"), "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"), "PORT": os.getenv("MYSQL_PORT", "3306"), "OPTIONS": {"charset": "utf8mb4", "init_command": "SET sql_mode='STRICT_TRANS_TABLES'"}}}
+    mysql_engine = (
+        "apps.common.db_backends.mysql_legacy"
+        if os.getenv("MYSQL_ALLOW_LEGACY_MARIADB", "False").lower() == "true"
+        else "django.db.backends.mysql"
+    )
+    DATABASES = {
+        "default": {
+            "ENGINE": mysql_engine,
+            "NAME": os.getenv("MYSQL_DATABASE"),
+            "USER": os.getenv("MYSQL_USER"),
+            "PASSWORD": os.getenv("MYSQL_PASSWORD"),
+            "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
+            "PORT": os.getenv("MYSQL_PORT", "3306"),
+            "OPTIONS": {"charset": "utf8mb4", "init_command": "SET sql_mode='STRICT_TRANS_TABLES'"},
+        }
+    }
 else:
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
+    DATABASES = {
+        "default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}
+    }
 
-AUTH_PASSWORD_VALIDATORS = [{"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"}, {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"}, {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"}, {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"}]
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Manila"
 USE_I18N = True

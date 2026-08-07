@@ -5,7 +5,12 @@ from apps.service_catalog.models import ServiceCatalog
 
 
 class ServiceRequest(models.Model):
-    STATUS_CHOICES = [("PENDING", "Pending"), ("IN_PROGRESS", "In Progress"), ("COMPLETED", "Completed"), ("CANCELLED", "Cancelled")]
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("IN_PROGRESS", "In Progress"),
+        ("COMPLETED", "Completed"),
+        ("CANCELLED", "Cancelled"),
+    ]
     PRIORITY_CHOICES = [("LOW", "Low"), ("MEDIUM", "Medium"), ("HIGH", "High")]
     farmer = models.ForeignKey(Farmer, on_delete=models.PROTECT, related_name="service_requests")
     service = models.ForeignKey(ServiceCatalog, on_delete=models.PROTECT)
@@ -13,7 +18,9 @@ class ServiceRequest(models.Model):
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="MEDIUM")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     notes = models.TextField(blank=True)
-    assigned_to = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

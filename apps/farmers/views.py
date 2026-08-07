@@ -25,7 +25,6 @@ from .forms import (
 )
 from .models import Farmer, FarmerDocument
 
-
 FARMER_QR_SALT = "fmis.farmers.field-record.v1"
 
 
@@ -72,7 +71,9 @@ def farmer_qr_context(request, farmer):
 class RoleAwareTemplateMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["base_template"] = "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+        context["base_template"] = (
+            "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+        )
         return context
 
 
@@ -88,7 +89,11 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
         sex = self.request.GET.get("sex", "").strip()
         if query:
             farmer_id = query.upper().removeprefix("F-")
-            filters = Q(first_name__icontains=query) | Q(last_name__icontains=query) | Q(rsbsa_number__icontains=query)
+            filters = (
+                Q(first_name__icontains=query)
+                | Q(last_name__icontains=query)
+                | Q(rsbsa_number__icontains=query)
+            )
             if farmer_id.isdigit():
                 filters |= Q(pk=int(farmer_id))
             queryset = queryset.filter(filters)
@@ -100,16 +105,22 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["barangays"] = Farmer.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
+        context["barangays"] = (
+            Farmer.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
+        )
         return context
 
 
-class FarmerDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTemplateMixin, DetailView):
+class FarmerDetailView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTemplateMixin, DetailView
+):
     model = Farmer
     template_name = "farmers/detail.html"
 
     def get_queryset(self):
-        return Farmer.objects.prefetch_related("documents", "parcels__crops", "service_requests__service")
+        return Farmer.objects.prefetch_related(
+            "documents", "parcels__crops", "service_requests__service"
+        )
 
 
 class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
@@ -117,7 +128,9 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
 
     def build_context(self, profile_form, parcel_formset, crop_formset, document_formset):
         return {
-            "base_template": "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html",
+            "base_template": (
+                "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
+            ),
             "profile_form": profile_form,
             "parcel_formset": parcel_formset,
             "crop_formset": crop_formset,
@@ -140,13 +153,17 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         profile_form = FarmerRegistrationForm(request.POST, request.FILES)
         parcel_formset = ParcelRegistrationFormSet(request.POST, prefix="parcels")
         crop_formset = CropRegistrationFormSet(request.POST, request.FILES, prefix="crops")
-        document_formset = DocumentRegistrationFormSet(request.POST, request.FILES, prefix="documents")
-        forms_valid = all([
-            profile_form.is_valid(),
-            parcel_formset.is_valid(),
-            crop_formset.is_valid(),
-            document_formset.is_valid(),
-        ])
+        document_formset = DocumentRegistrationFormSet(
+            request.POST, request.FILES, prefix="documents"
+        )
+        forms_valid = all(
+            [
+                profile_form.is_valid(),
+                parcel_formset.is_valid(),
+                crop_formset.is_valid(),
+                document_formset.is_valid(),
+            ]
+        )
 
         parcel_rows = {}
         if parcel_formset.is_valid():
@@ -164,17 +181,26 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     continue
                 parcel_number = crop_form.cleaned_data.get("parcel_number")
                 if parcel_number not in parcel_rows:
-                    crop_form.add_error("parcel_number", "Choose the number of an active parcel row from Step 2.")
+                    crop_form.add_error(
+                        "parcel_number", "Choose the number of an active parcel row from Step 2."
+                    )
                     forms_valid = False
                     continue
                 parcel_area = parcel_rows[parcel_number].cleaned_data.get("area_hectares")
                 crop_area = crop_form.cleaned_data.get("area_hectares")
                 if parcel_area and crop_area and crop_area > parcel_area:
-                    crop_form.add_error("area_hectares", f"This cannot exceed Parcel {parcel_number}'s area of {parcel_area} ha.")
+                    crop_form.add_error(
+                        "area_hectares",
+                        f"This cannot exceed Parcel {parcel_number}'s area of {parcel_area} ha.",
+                    )
                     forms_valid = False
 
         if not forms_valid:
-            return render(request, self.template_name, self.build_context(profile_form, parcel_formset, crop_formset, document_formset))
+            return render(
+                request,
+                self.template_name,
+                self.build_context(profile_form, parcel_formset, crop_formset, document_formset),
+            )
 
         with transaction.atomic():
             farmer = profile_form.save(commit=False)
@@ -223,7 +249,9 @@ class FarmerRegistrationCompleteView(FMISLoginRequiredMixin, StaffRequiredMixin,
     def get(self, request, pk):
         farmer = get_object_or_404(Farmer, pk=pk)
         context = {
-            "base_template": "base/admin_base.html" if request.user.is_admin else "base/staff_base.html",
+            "base_template": (
+                "base/admin_base.html" if request.user.is_admin else "base/staff_base.html"
+            ),
             **farmer_qr_context(request, farmer),
         }
         return render(request, "farmers/registration_complete.html", context)
@@ -260,13 +288,19 @@ class FarmerSecureQRDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View)
             pk=payload.get("farmer_id"),
             is_active=True,
         )
-        return render(request, "farmers/secure_field_record.html", {
-            "base_template": "base/staff_base.html",
-            "farmer": farmer,
-        })
+        return render(
+            request,
+            "farmers/secure_field_record.html",
+            {
+                "base_template": "base/staff_base.html",
+                "farmer": farmer,
+            },
+        )
 
 
-class FarmerUpdateView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTemplateMixin, UpdateView):
+class FarmerUpdateView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTemplateMixin, UpdateView
+):
     model = Farmer
     form_class = FarmerProfileUpdateForm
     template_name = "farmers/form.html"
@@ -284,5 +318,7 @@ class FarmerDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         farmer = get_object_or_404(Farmer, pk=pk)
         farmer.is_active = False
         farmer.save(update_fields=["is_active"])
-        messages.success(request, f"{farmer.full_name} was archived. Related farm records were preserved.")
+        messages.success(
+            request, f"{farmer.full_name} was archived. Related farm records were preserved."
+        )
         return redirect("farmers:list")

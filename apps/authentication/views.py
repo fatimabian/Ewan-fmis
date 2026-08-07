@@ -49,11 +49,15 @@ class UserLoginView(LoginView):
     redirect_authenticated_user = True
 
     def post(self, request, *args, **kwargs):
-        self.login_limit_key = _request_limit_key("login", request, request.POST.get("username", ""))
+        self.login_limit_key = _request_limit_key(
+            "login", request, request.POST.get("username", "")
+        )
         if int(cache.get(self.login_limit_key, 0)) >= 5:
             self.login_is_limited = True
             form = self.get_form()
-            form.add_error("username", "Too many unsuccessful sign-in attempts. Wait 10 minutes and try again.")
+            form.add_error(
+                "username", "Too many unsuccessful sign-in attempts. Wait 10 minutes and try again."
+            )
             return self.form_invalid(form)
         return super().post(request, *args, **kwargs)
 

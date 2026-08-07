@@ -6,58 +6,58 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('service_catalog', '0001_initial'),
+        ("service_catalog", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='servicecatalog',
-            name='availability',
+            model_name="servicecatalog",
+            name="availability",
             field=models.CharField(blank=True, max_length=100),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='badge_color',
-            field=models.CharField(default='#008552', max_length=7),
+            model_name="servicecatalog",
+            name="badge_color",
+            field=models.CharField(default="#008552", max_length=7),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='icon',
-            field=models.ImageField(blank=True, upload_to='service_icons/'),
+            model_name="servicecatalog",
+            name="icon",
+            field=models.ImageField(blank=True, upload_to="service_icons/"),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='internal_remarks',
+            model_name="servicecatalog",
+            name="internal_remarks",
             field=models.TextField(blank=True, max_length=300),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='notes',
+            model_name="servicecatalog",
+            name="notes",
             field=models.TextField(blank=True, max_length=300),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='office_responsible',
+            model_name="servicecatalog",
+            name="office_responsible",
             field=models.CharField(blank=True, max_length=150),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='seasonality',
+            model_name="servicecatalog",
+            name="seasonality",
             field=models.CharField(blank=True, max_length=100),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='service_type',
+            model_name="servicecatalog",
+            name="service_type",
             field=models.CharField(blank=True, max_length=100),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='tags',
+            model_name="servicecatalog",
+            name="tags",
             field=models.CharField(blank=True, max_length=255),
         ),
         migrations.AddField(
-            model_name='servicecatalog',
-            name='target_beneficiaries',
+            model_name="servicecatalog",
+            name="target_beneficiaries",
             field=models.CharField(blank=True, max_length=255),
         ),
     ]
