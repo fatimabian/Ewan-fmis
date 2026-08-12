@@ -8,6 +8,7 @@ from .views import (
     FarmerRegistrationCompleteView,
     FarmerRegistrationView,
     FarmerSecureQRDetailView,
+    FarmerSlipBUpdateView,
     FarmerUpdateView,
 )
 
@@ -25,5 +26,6 @@ urlpatterns = [
         name="registration_complete",
     ),
     path("<int:pk>/edit/", FarmerUpdateView.as_view(), name="edit"),
+    path("<int:pk>/update-slip-b/", FarmerSlipBUpdateView.as_view(), name="slip_b"),
     path("<int:pk>/delete/", FarmerDeleteView.as_view(), name="delete"),
 ]

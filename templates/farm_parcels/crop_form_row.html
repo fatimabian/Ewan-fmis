@@ -1,0 +1,26 @@
+<article class="formset-row{% if form.errors %} has-errors{% endif %}" data-crop-row>
+  <div class="formset-row-heading">
+    <h3>
+      <span class="row-number">{{ row_number }}</span>
+      Crop / Commodity
+    </h3>
+    <button type="button" class="remove-form-row" data-remove-crop>
+      <i class="bi bi-trash"></i>
+      Remove
+    </button>
+  </div>
+
+  {% for hidden in form.hidden_fields %}
+    {{ hidden }}
+  {% endfor %}
+
+  <span class="delete-control">{{ form.DELETE }}</span>
+
+  <div class="registration-grid three">
+    {% for field in form.visible_fields %}
+      {% if field.name != "DELETE" %}
+        {% include "farmers/registration_field.html" with field=field %}
+      {% endif %}
+    {% endfor %}
+  </div>
+</article>

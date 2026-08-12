@@ -81,6 +81,73 @@
   .farmer-actions button{
       color:#e22323
   }
+  .farmer-status{
+      display:inline-flex;
+      align-items:center;
+      min-height:26px;
+      padding:4px 10px;
+      border:1px solid #d8e6dc;
+      border-radius:999px;
+      background:#edf8f0;
+      color:#176b38;
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap
+  }
+  .farmer-status.archived{
+      border-color:#d8dee6;
+      background:#f3f5f7;
+      color:#667085
+  }
+  .farmer-update-person{
+      display:grid;
+      gap:2px;
+      min-width:130px
+  }
+  .farmer-update-person strong{
+      color:#23374c;
+      font-size:12px
+  }
+  .farmer-update-person small,
+  .farmer-change small{
+      color:#718096;
+      font-size:10px
+  }
+  .farmer-change{
+      display:grid;
+      gap:3px;
+      min-width:190px;
+      max-width:250px
+  }
+  .farmer-change span{
+      display:block;
+      overflow:hidden;
+      color:#35445c;
+      font-size:11px;
+      line-height:1.35;
+      text-overflow:ellipsis;
+      white-space:nowrap
+  }
+  .farmer-change a{
+      color:#157a43;
+      font-size:10px;
+      font-weight:700;
+      text-decoration:none
+  }
+  body[data-theme="dark"] .farmer-status{
+      border-color:#315c43;
+      background:#1b3427;
+      color:#9be0b3
+  }
+  body[data-theme="dark"] .farmer-status.archived{
+      border-color:#4c596a;
+      background:#293441;
+      color:#bdc7d4
+  }
+  body[data-theme="dark"] .farmer-update-person strong,
+  body[data-theme="dark"] .farmer-change span{
+      color:#e5eee8
+  }
   .farmer-footer{
       display:flex;
       justify-content:space-between;
@@ -111,7 +178,7 @@
           overflow-x:auto
       }
       .farmer-table{
-          min-width:760px
+          min-width:1120px
       }
   }
   @media(max-width:600px){
@@ -152,16 +219,19 @@
         <i class="bi bi-plus-lg">
         </i> Add Farmer</a>
       </form>
+      {% include "shared/table_export.html" with dataset="farmers" %}
       <div class="farmer-table-wrap">
         <table class="farmer-table">
           <thead>
             <tr>
               <th>Farmer ID</th>
               <th>Farmer Name</th>
-              <th>Sex</th>
-              <th>Age</th>
               <th>Barangay</th>
-              <th>Phone Number</th>
+              <th>Contact Number</th>
+              <th>Livelihood</th>
+              <th>Status</th>
+              <th>Last Updated By</th>
+              <th>Latest Change</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -174,16 +244,47 @@
                   <a class="record-cell-link" href="{% url 'farmers:detail' farmer.pk %}">{{ farmer.record_id }}</a>
                 </td>
                 <td>{{ farmer.list_name }}</td>
-                <td>{{ farmer.get_sex_display|default:'-' }}</td>
-                <td>
-                  {% if farmer.age is not None %}
-                    {{ farmer.age }}
-                  {% else %}
-                    -
-                  {% endif %}
-                </td>
                 <td>{{ farmer.barangay }}</td>
                 <td>{{ farmer.phone_number|default:'-' }}</td>
+                <td>{{ farmer.get_livelihood_display }}</td>
+                <td>
+                  {% if not farmer.is_active %}
+                    <span class="farmer-status archived">Archived</span>
+                  {% else %}
+                    <span class="farmer-status active">Active</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="farmer-update-person">
+                    {% if farmer.last_updated_by %}
+                      <strong>{{ farmer.last_updated_by.display_name }}</strong>
+                      <small>{{ farmer.last_updated_at|date:'M d, Y · g:i A' }}</small>
+                    {% else %}
+                      <small>No recorded update</small>
+                    {% endif %}
+                  </div>
+                </td>
+                <td>
+                  <div class="farmer-change">
+                    {% with latest=farmer.latest_update_for_list.0 %}
+                      {% if latest %}
+                        {% for change in latest.changes|slice:':2' %}
+                          <span title="{{ change.field }}: {{ change.before }} → {{ change.after }}">
+                            <strong>{{ change.field }}</strong>: {{ change.before }} → {{ change.after }}
+                          </span>
+                        {% empty %}
+                          <small>Update recorded; no field value changed</small>
+                        {% endfor %}
+                        {% if latest.changes|length > 2 %}
+                          <small>+{{ latest.changes|length|add:'-2' }} more change{{ latest.changes|length|add:'-2'|pluralize }}</small>
+                        {% endif %}
+                        <a href="{% url 'farmers:detail' farmer.pk %}#update-history">View full history</a>
+                      {% else %}
+                        <small>No changes recorded yet</small>
+                      {% endif %}
+                    {% endwith %}
+                  </div>
+                </td>
                 <td>
                   <div class="farmer-actions">
                     <a href="{% url 'farmers:qr_print' farmer.pk %}"
@@ -209,30 +310,24 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="7" class="text-center py-5">No farmer records matched your search.</td>
+                <td colspan="9" class="text-center py-5">No farmer records matched your search.</td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
       <div class="farmer-footer">
-        <span>
+        <span class="table-count-summary">
           {% if page_obj.paginator.count %}
-            Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} farmers
+            Showing <strong>{{ page_start_display }}</strong>
+            to <strong>{{ page_end_display }}</strong>
+            of <strong class="table-count-total">{{ page_total_display }}</strong> farmers
           {% else %}
             No entries
           {% endif %}
         </span>
         {% if is_paginated %}
-          <nav class="farmer-pages">
-            {% if page_obj.has_previous %}
-              <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&barangay={{ request.GET.barangay }}&sex={{ request.GET.sex }}">&lsaquo;</a>
-            {% endif %}
-            <span class="current">{{ page_obj.number }}</span>
-            {% if page_obj.has_next %}
-              <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&barangay={{ request.GET.barangay }}&sex={{ request.GET.sex }}">&rsaquo;</a>
-            {% endif %}
-          </nav>
+          {% include 'shared/pagination.html' %}
         {% endif %}
       </div>
     </div>

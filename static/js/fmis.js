@@ -15,6 +15,7 @@ function applySystemTheme() {
   document.body.dataset.theme = preference === "system" ?
     (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") :
     preference;
+  document.documentElement.style.colorScheme = document.body.dataset.theme;
 }
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -1,0 +1,92 @@
+{% extends base_template %}
+{% block page_title %}
+  Updating Slip B
+{% endblock %}
+{% block page_subtitle %}
+  Change of Farm Parcel Information
+{% endblock %}
+{% block content %}
+  <div class="content">
+    <section class="panel form-panel rsbsa-update-form">
+      <div class="registration-note">
+        <i class="bi bi-shield-check"></i>
+        <span>All Slip B changes preserve the previous values and record the staff member who submitted them.</span>
+      </div>
+
+      <section class="form-section slip-record-header">
+        <h3><i class="bi bi-person-badge"></i> Registrant reference</h3>
+        <dl class="record-data compact-record-data">
+          <div><dt>RSBSA Number</dt><dd>{{ farmer.rsbsa_number|default:'Not assigned' }}</dd></div>
+          <div><dt>Full Name</dt><dd>{{ farmer.full_name }}</dd></div>
+          <div><dt>PhilSys Registered</dt><dd>{{ farmer.philsys_registered|yesno:'Yes,No,Not recorded' }}</dd></div>
+          <div><dt>PCN / TRN</dt><dd>{{ farmer.philsys_pcn|default:farmer.philsys_trn|default:'Not recorded' }}</dd></div>
+        </dl>
+      </section>
+
+      <form method="post">
+        {% csrf_token %}
+        <section class="form-section">
+          <h3><i class="bi bi-briefcase"></i> Livelihood and activity / involvement</h3>
+          <div class="registration-grid three">
+            {% include "farmers/registration_field.html" with field=form.livelihood %}
+            {% include "farmers/registration_field.html" with field=form.activities %}
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="step-heading compact-heading">
+            <div>
+              <h3><i class="bi bi-map"></i> Farm parcels and commodities</h3>
+              <p>Edit each parcel to record its official Slip B fields and one or more commodities.</p>
+            </div>
+            <a class="btn btn-outline-success btn-sm" href="{% url 'farm_parcels:create' %}?farmer={{ farmer.pk }}">
+              <i class="bi bi-plus-lg"></i> Add Farm Parcel
+            </a>
+          </div>
+          <div class="slip-parcel-list">
+            {% for parcel in farmer.parcels.all %}
+              <article class="slip-parcel-card">
+                <div>
+                  <strong>{{ parcel.display_name }}</strong>
+                  <span>{{ parcel.barangay }}, Rosario, Batangas · {{ parcel.area_hectares }} ha</span>
+                  <small>
+                    {% for crop in parcel.crops.all %}
+                      <span aria-hidden="true">{{ crop.symbol }}</span> {{ crop.crop_type }}{% if not forloop.last %}, {% endif %}
+                    {% empty %}
+                      No commodity recorded
+                    {% endfor %}
+                  </small>
+                </div>
+                <a class="btn btn-outline-success btn-sm" href="{% url 'farm_parcels:edit' parcel.pk %}">
+                  Edit Parcel &amp; Crops
+                </a>
+              </article>
+            {% empty %}
+              <div class="empty-state-inline">No farm parcel is recorded yet.</div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h3><i class="bi bi-journal-check"></i> Official updating slip details</h3>
+          <div class="registration-grid three">
+            {% include "farmers/registration_field.html" with field=form.transaction_code %}
+            {% include "farmers/registration_field.html" with field=form.change_reason %}
+            {% include "farmers/registration_field.html" with field=form.agriculturist_name %}
+            {% include "farmers/registration_field.html" with field=form.date_signed %}
+            {% include "farmers/registration_field.html" with field=form.date_received %}
+            {% include "farmers/registration_field.html" with field=form.update_remarks %}
+          </div>
+          <div class="registration-consent">
+            {% include "farmers/registration_field.html" with field=form.registrant_declaration %}
+          </div>
+        </section>
+
+        <div class="step-actions">
+          <a class="btn btn-outline-secondary" href="{% url 'farmers:detail' farmer.pk %}">Cancel</a>
+          <button class="btn btn-success">Save Slip B Update</button>
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

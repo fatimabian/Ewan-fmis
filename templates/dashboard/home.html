@@ -4,12 +4,6 @@
 {% endblock %}
 {% block content %}
   <div class="content staff-dashboard admin-dashboard">
-    <div class="staff-welcome">
-      <div>
-        <span class="staff-welcome-label">ADMINISTRATOR WORKSPACE</span>
-        <h2>Welcome back, {{ request.user.display_name }}!</h2>
-      </div>
-    </div>
     <section class="staff-metric-grid" aria-label="System administration summary">
       <a class="staff-metric-card" href="{% url 'accounts:list' %}">
         <i class="bi bi-people">
@@ -60,19 +54,43 @@
             </i>
           </a>
         </div>
-        <div class="staff-bar-chart admin-activity-chart"
+        <div class="activity-line-chart"
              role="img"
              aria-label="System activity recorded during the last seven days; {{ activity_week_total }} total database records">
-          {% for item in activity_trend %}
-            <div class="staff-bar-column">
-              <strong>{{ item.total }}</strong>
-              <span class="staff-bar-track">
-                <i style="height:{{ item.height }}%">
-                </i>
-              </span>
-              <small>{{ item.label }}</small>
-            </div>
-          {% endfor %}
+          <svg viewBox="0 0 700 215"
+               preserveAspectRatio="none"
+               aria-hidden="true"
+               focusable="false">
+            <defs>
+              <linearGradient id="activityAreaFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--fmis-accent)" stop-opacity=".22"></stop>
+                <stop offset="100%" stop-color="var(--fmis-accent)" stop-opacity=".02"></stop>
+              </linearGradient>
+            </defs>
+            <g class="activity-grid" aria-hidden="true">
+              <line x1="45" y1="25" x2="655" y2="25"></line>
+              <line x1="45" y1="73" x2="655" y2="73"></line>
+              <line x1="45" y1="121" x2="655" y2="121"></line>
+              <line x1="45" y1="170" x2="655" y2="170"></line>
+            </g>
+            <polygon class="activity-line-area" points="{{ activity_area_points }}"></polygon>
+            <polyline class="activity-line-path" points="{{ activity_line_points }}"></polyline>
+            {% for item in activity_trend %}
+              <g class="activity-line-point"
+                 tabindex="0"
+                 aria-label="{{ item.date|date:'l, F j' }}: {{ item.total }} recorded action{{ item.total|pluralize }}">
+                <circle cx="{{ item.chart_x }}" cy="{{ item.chart_y }}" r="6">
+                  <title>{{ item.date|date:'l, F j' }}: {{ item.total }} recorded action{{ item.total|pluralize }}</title>
+                </circle>
+                <text class="activity-line-value"
+                      x="{{ item.chart_x }}"
+                      y="{{ item.chart_value_y }}">{{ item.total }}</text>
+                <text class="activity-line-label"
+                      x="{{ item.chart_x }}"
+                      y="202">{{ item.label }}</text>
+              </g>
+            {% endfor %}
+          </svg>
         </div>
         {% if not activity_week_total %}
           <p class="staff-chart-empty">

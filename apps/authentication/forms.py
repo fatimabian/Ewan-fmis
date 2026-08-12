@@ -27,6 +27,29 @@ class LoginForm(InlineValidationMixin, AuthenticationForm):
     )
 
 
+class ActivationOTPForm(InlineValidationMixin, forms.Form):
+    code = forms.CharField(
+        label="Six-digit verification code",
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(
+            attrs={
+                "inputmode": "numeric",
+                "autocomplete": "one-time-code",
+                "pattern": "[0-9]{6}",
+                "placeholder": "000000",
+                "autofocus": True,
+            }
+        ),
+    )
+
+    def clean_code(self):
+        code = self.cleaned_data["code"].strip()
+        if not code.isdigit():
+            raise forms.ValidationError("Enter the six-digit code from the email.")
+        return code
+
+
 def normalized_phone(value):
     """Return a comparison-friendly Philippine phone number."""
     return normalize_phone_digits(value)

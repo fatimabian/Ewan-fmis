@@ -10,7 +10,7 @@ from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 from apps.service_catalog.models import ServiceCatalog
 from apps.service_requests.models import ServiceRequest
-from .export import _filter_period, build_report
+from .export import _filter_period, build_report, build_system_report
 
 
 def _apply_report_filters(queryset, model_name, date_range, filters):
@@ -57,13 +57,30 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
     return queryset
 
 
-def report_preview(report_type, date_range, filters):
+def report_preview(report_type, date_range, filters, system_report=False):
     """Turn the selected generated report into a readable on-screen chart and table."""
-    title, headers, rows = build_report(report_type, date_range, filters)
+    builder = build_system_report if system_report else build_report
+    title, headers, rows = builder(report_type, date_range, filters)
     chart_values = defaultdict(float)
     value_label = "Records"
 
-    if report_type == "farmer_master":
+    if report_type == "system_overview":
+        for row in rows:
+            chart_values[row[0]] += float(row[1] or 0)
+        value_label = "Records"
+    elif report_type == "user_accounts":
+        for row in rows:
+            chart_values[row[4] or "Not recorded"] += 1
+        value_label = "Accounts"
+    elif report_type == "activity_audit":
+        for row in rows:
+            chart_values[row[2] or "FMIS"] += 1
+        value_label = "Activities"
+    elif report_type == "service_catalog_registry":
+        for row in rows:
+            chart_values[row[3] or "Not recorded"] += 1
+        value_label = "Services"
+    elif report_type == "farmer_master":
         for row in rows:
             chart_values[row[2] or "Not recorded"] += 1
         value_label = "Farmers"

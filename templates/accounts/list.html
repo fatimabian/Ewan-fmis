@@ -6,52 +6,58 @@
   <style>
   .accounts-overview{
       display:grid;
-      grid-template-columns:repeat(4,minmax(130px,1fr)) 150px;
-      gap:16px;
-      margin:4px 0 18px
+      grid-template-columns:repeat(4,minmax(130px,1fr));
+      gap:10px;
+      margin:0 0 14px
   }
   .accounts-overview .metric-card{
-      padding:20px;
-      min-height:122px;
+      display:grid;
+      grid-template-columns:38px minmax(0,1fr);
+      grid-template-rows:auto auto;
+      align-items:center;
+      column-gap:10px;
+      padding:11px 13px;
+      min-height:76px;
       background:#fff;
       border:1px solid #e7ebf0;
-      border-radius:15px;
+      border-radius:12px;
       box-shadow:0 3px 10px #2634510b
   }
   .accounts-overview .metric-card>i{
-      float:left;
+      grid-row:1 / 3;
+      width:38px;
+      height:38px;
+      display:grid;
+      place-items:center;
       background:var(--mint);
       color:var(--green);
       font-style:normal;
-      font-size:23px;
-      padding:9px;
-      border-radius:12px;
-      margin-right:12px
+      font-size:18px;
+      border-radius:9px
   }
   .accounts-overview small{
       display:block;
       color:var(--muted);
-      font-size:11px;
-      font-weight:700
+      font-size:9px;
+      font-weight:800;
+      line-height:1.2
   }
   .accounts-overview b{
-      font-size:27px;
+      font-size:21px;
       display:block;
-      margin-top:11px
+      margin-top:1px;
+      line-height:1
   }
-  .account-action{
+  .new-account-button{
       display:flex;
-      align-items:center;
-      justify-content:center
-  }
-  .account-action .btn{
-      width:auto;
+      width:max-content;
+      margin:0 0 16px auto;
       padding:9px 13px;
       font-size:13px!important;
       font-weight:700;
       white-space:nowrap
   }
-  .account-action .btn i{
+  .new-account-button i{
       margin-right:5px
   }
   .account-row-actions{
@@ -76,17 +82,11 @@
       .accounts-overview{
           grid-template-columns:repeat(4,minmax(130px,1fr))
       }
-      .account-action{
-          grid-column:1/-1;
-          padding:4px
-      }
-      .account-action .btn{
-          width:auto
-      }
   }
   @media(max-width:700px){
       .accounts-overview{
-          grid-template-columns:repeat(2,1fr)
+          grid-template-columns:repeat(2,minmax(0,1fr));
+          gap:8px
       }
   }
   </style>
@@ -116,12 +116,11 @@
         <small>STAFF ACCOUNTS</small>
         <b>{{ staff }}</b>
       </article>
-      <div class="account-action">
-        <a class="btn btn-success" href="{% url 'accounts:create' %}">
-          <i class="bi bi-plus-lg">
-          </i> New Account</a>
-        </div>
-      </div>
+    </div>
+    <a class="btn btn-success new-account-button" href="{% url 'accounts:create' %}">
+      <i class="bi bi-plus-lg"></i>
+      New Account
+    </a>
       <section class="panel table-panel account-table-panel">
         <h3>All Accounts</h3>
         <table class="account-table">
@@ -149,7 +148,9 @@
                   <span class="badge">{{ user.get_role_display }}</span>
                 </td>
                 <td>
-                  {% if user.is_active %}
+                  {% if user.activation_pending %}
+                    Pending activation
+                  {% elif user.is_active %}
                     Active
                   {% else %}
                     Inactive

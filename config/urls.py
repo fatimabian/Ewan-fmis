@@ -15,6 +15,7 @@ urlpatterns = [
     path("requests/", include("apps.service_requests.urls")),
     path("reports/", include("apps.reports.urls")),
     path("activity/", include("apps.activity_logs.urls")),
+    path("notifications/", include("apps.notifications.urls")),
     path("settings/", include("apps.settings_page.urls")),
 ]
 if settings.DEBUG:

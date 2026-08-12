@@ -9,7 +9,7 @@
     </button>
   </div>
   <span class="delete-control">{{ form.DELETE }}</span>
-  <div class="registration-grid four">
+  <div class="registration-grid three">
     {% for field in form %}
       {% if field.name != "DELETE" %}
         {% include "farmers/registration_field.html" with field=field %}

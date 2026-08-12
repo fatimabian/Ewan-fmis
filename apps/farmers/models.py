@@ -1,4 +1,5 @@
 from django.core.validators import RegexValidator
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -77,6 +78,18 @@ class Farmer(models.Model):
         blank=True,
         help_text="Home location as latitude, longitude for the farmer map",
     )
+    philsys_registered = models.BooleanField(null=True, blank=True)
+    philsys_pcn = models.CharField(max_length=50, blank=True)
+    philsys_trn = models.CharField(max_length=50, blank=True)
+    fca_membership = models.CharField(max_length=180, blank=True)
+    last_updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="last_updated_farmers",
+    )
+    last_updated_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -144,3 +157,51 @@ class FarmerDocument(models.Model):
 
     def __str__(self):
         return f"{self.get_document_type_display()} - {self.farmer}"
+
+
+class FarmerUpdateHistory(models.Model):
+    UPDATE_TYPE_CHOICES = [
+        ("SLIP_A", "Slip A - Personal Information"),
+        ("SLIP_B", "Slip B - Farm Parcel Information"),
+    ]
+    CHANGE_REASON_CHOICES = [
+        ("CORRECTION", "A - Correction"),
+        ("REMOVAL", "B - Removal"),
+        ("ADDITION", "C - Additional / New Information"),
+        ("OTHER", "Other"),
+    ]
+
+    farmer = models.ForeignKey(
+        Farmer,
+        on_delete=models.CASCADE,
+        related_name="update_history",
+    )
+    update_type = models.CharField(max_length=10, choices=UPDATE_TYPE_CHOICES)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="farmer_updates",
+    )
+    transaction_code = models.CharField(max_length=80, blank=True)
+    change_reason = models.CharField(
+        max_length=20,
+        choices=CHANGE_REASON_CHOICES,
+        default="CORRECTION",
+    )
+    remarks = models.TextField(blank=True)
+    date_signed = models.DateField(null=True, blank=True)
+    date_received = models.DateField(null=True, blank=True)
+    agriculturist_name = models.CharField(max_length=180, blank=True)
+    snapshot_before = models.JSONField(default=dict)
+    snapshot_after = models.JSONField(default=dict)
+    changes = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name_plural = "farmer update histories"
+
+    def __str__(self):
+        return f"{self.get_update_type_display()} - {self.farmer}"

@@ -286,6 +286,7 @@
         <i class="bi bi-plus-lg">
         </i> New Request</a>
       </form>
+      {% include "shared/table_export.html" with dataset="requests" %}
       <div class="request-table-wrap universal-table-wrap">
         <table class="request-table universal-table">
           <thead>
@@ -357,23 +358,17 @@
         </table>
       </div>
       <div class="request-footer">
-        <span>
+        <span class="table-count-summary">
           {% if page_obj.paginator.count %}
-            Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} requests
+            Showing <strong>{{ page_start_display }}</strong>
+            to <strong>{{ page_end_display }}</strong>
+            of <strong class="table-count-total">{{ page_total_display }}</strong> requests
           {% else %}
             No entries
           {% endif %}
         </span>
         {% if is_paginated %}
-          <nav class="request-pages">
-            {% if page_obj.has_previous %}
-              <a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&request_type={{ request.GET.request_type }}&status={{ request.GET.status }}&priority={{ request.GET.priority }}&date={{ request.GET.date }}">‹</a>
-            {% endif %}
-            <span class="current">{{ page_obj.number }}</span>
-            {% if page_obj.has_next %}
-              <a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&request_type={{ request.GET.request_type }}&status={{ request.GET.status }}&priority={{ request.GET.priority }}&date={{ request.GET.date }}">›</a>
-            {% endif %}
-          </nav>
+          {% include 'shared/pagination.html' %}
         {% endif %}
       </div>
     </div>

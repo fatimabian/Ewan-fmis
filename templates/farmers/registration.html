@@ -57,7 +57,7 @@
               <i class="bi bi-person-vcard">
               </i> Full legal name
             </h3>
-            <div class="registration-grid four">
+            <div class="registration-grid three">
               {% include "farmers/registration_field.html" with field=profile_form.last_name %}
               {% include "farmers/registration_field.html" with field=profile_form.first_name %}
               {% include "farmers/registration_field.html" with field=profile_form.middle_name %}
@@ -106,16 +106,12 @@
               {% include "farmers/registration_field.html" with field=profile_form.valid_id_type %}
               {% include "farmers/registration_field.html" with field=profile_form.valid_id_number %}
               {% include "farmers/registration_field.html" with field=profile_form.indigenous_group %}
-              <div class="checkbox-stack">{{ profile_form.is_indigenous }} {{ profile_form.is_indigenous.label_tag }}{{ profile_form.is_pwd }} {{ profile_form.is_pwd.label_tag }}{{ profile_form.is_four_ps }} {{ profile_form.is_four_ps.label_tag }}</div>
-            </div>
-          </div>
-          <div class="form-section">
-            <h3>
-              <i class="bi bi-journal-text">
-              </i> Internal follow-up
-            </h3>
-            <div class="registration-grid one">
-              {% include "farmers/registration_field.html" with field=profile_form.remarks %}
+              <fieldset class="checkbox-stack">
+                <legend>Special classifications</legend>
+                <label>{{ profile_form.is_indigenous }} <span>{{ profile_form.is_indigenous.label }}</span></label>
+                <label>{{ profile_form.is_pwd }} <span>{{ profile_form.is_pwd.label }}</span></label>
+                <label>{{ profile_form.is_four_ps }} <span>{{ profile_form.is_four_ps.label }}</span></label>
+              </fieldset>
             </div>
           </div>
           <div class="step-actions">
@@ -152,7 +148,7 @@
           <div class="registration-note soft">
             <i class="bi bi-info-circle">
             </i>
-            <span>One parcel form is provided initially. Use Add Parcel only when this farmer has another parcel; every added row must be completed. The row number links crops in the next step.</span>
+            <span>One parcel is required. Use Add Parcel only when the farmer has another parcel; every added parcel must be completed before continuing.</span>
           </div>
           <div class="step-actions">
             <button type="button" class="btn btn-outline-secondary prev-step">
@@ -171,6 +167,10 @@
               <h2>Crops &amp; Livelihood</h2>
               <p>Record the farmer's current agricultural livelihood and commodities.</p>
             </div>
+            <button type="button" class="btn btn-success btn-sm add-form-row" data-prefix="crops">
+              <i class="bi bi-plus-lg"></i>
+              Add Crop
+            </button>
           </div>
           <div class="form-section">
             <h3>Primary livelihood</h3>
@@ -185,12 +185,6 @@
           {% if crop_formset.non_form_errors %}
             <div class="alert alert-danger">{{ crop_formset.non_form_errors }}</div>
           {% endif %}
-          <div class="crop-add-row">
-            <button type="button" class="btn btn-success btn-sm add-form-row" data-prefix="crops">
-              <i class="bi bi-plus-lg">
-              </i> Add Crop
-            </button>
-          </div>
           <div id="crops-rows" class="formset-rows">
             {% for crop_form in crop_formset %}
               {% include "farmers/crop_form_row.html" with form=crop_form row_number=forloop.counter %}
@@ -202,7 +196,7 @@
           <div class="registration-note soft">
             <i class="bi bi-info-circle">
             </i>
-            <span>One crop form is provided initially. Use Add Crop only for an additional commodity; every added row must be completed or explicitly marked N/A.</span>
+            <span>One crop or commodity is required. Select its Farm Parcel from the dropdown. Use Add Crop only for another commodity; every added crop must be completed before continuing.</span>
           </div>
           <div class="step-actions">
             <button type="button" class="btn btn-outline-secondary prev-step">
@@ -278,6 +272,13 @@
           </div>
         </section>
       </form>
+      <div class="registration-loading" id="registrationLoading" hidden role="status" aria-live="polite">
+        <div class="registration-loading-card">
+          <span class="spinner-border" aria-hidden="true"></span>
+          <strong>Saving farmer registration…</strong>
+          <p>Please wait. Do not close or refresh this page.</p>
+        </div>
+      </div>
     </section>
   </div>
   <script>
@@ -285,7 +286,23 @@
           const form = document.getElementById('rsbsaRegistration');
           const steps = [...document.querySelectorAll('.registration-step')];
           const links = [...document.querySelectorAll('[data-step-link]')];
+          const loading = document.getElementById('registrationLoading');
           let current = 1;
+
+          function showStepError(step, field, message = 'Please complete all required fields before continuing.') {
+              let alert = step.querySelector('.step-validation-message');
+              if (!alert) {
+                  alert = document.createElement('div');
+                  alert.className = 'step-validation-message';
+                  alert.setAttribute('role', 'alert');
+                  step.querySelector('.step-heading')?.insertAdjacentElement('afterend', alert)
+              }
+              alert.innerHTML = `<i class="bi bi-exclamation-circle"></i><span>${message}</span>`;
+              field?.closest('.registration-field, .checkbox-options, .formset-row')?.classList.add('field-needs-attention');
+              field?.focus({preventScroll: true});
+              field?.scrollIntoView({behavior: 'smooth', block: 'center'});
+              field?.reportValidity()
+          }
 
           function showStep(number) {
               current = number;
@@ -304,21 +321,21 @@
 
           function validateStep() {
               const step = steps.find(el => Number(el.dataset.step) === current);
+              step.querySelector('.step-validation-message')?.remove();
+              step.querySelectorAll('.field-needs-attention').forEach(el => el.classList.remove('field-needs-attention'));
               const fields = [...step.querySelectorAll('input:not([type=hidden]),select,textarea')].filter(el => !el.closest('.formset-row')?.classList.contains('deleted'));
               for (const field of fields) {
                   field.setCustomValidity('');
-                  const row = field.closest('.formset-row');
-                  const isNA = row?.querySelector('input[name$="-not_applicable"]')?.checked;
-                  if (field.dataset.stepRequired && !isNA && !String(field.value).trim()) field.setCustomValidity('Complete this field or select the N/A option for this card.');
+                  if (field.dataset.stepRequired && !String(field.value).trim()) field.setCustomValidity('Complete this required field.');
                   if (!field.checkValidity()) {
-                      field.reportValidity();
+                      showStepError(step, field);
                       return false
                   }
               }
               if (current === 3 && !document.querySelector('input[name="activities"]:checked')) {
                   const first = document.querySelector('input[name="activities"]');
                   first?.setCustomValidity('Select at least one livelihood activity.');
-                  first?.reportValidity();
+                  showStepError(step, first, 'Select at least one livelihood activity before continuing.');
                   return false
               }
               if (current === 4) {
@@ -326,7 +343,7 @@
                   if (!validId) {
                       const first = document.querySelector('#documents-rows select[name$="-document_type"]');
                       first?.setCustomValidity('At least one document must be a Valid ID.');
-                      first?.reportValidity();
+                      showStepError(step, first, 'Add at least one Valid ID document before continuing.');
                       return false
                   }
               }
@@ -336,15 +353,6 @@
               if (validateStep()) showStep(Math.min(5, current + 1))
           }));
           document.querySelectorAll('.prev-step').forEach(btn => btn.addEventListener('click', () => showStep(Math.max(1, current - 1))));
-
-          function setNaState(row) {
-              const na = row.querySelector('input[name$="-not_applicable"]');
-              if (!na) return;
-              row.classList.toggle('na-selected', na.checked);
-              row.querySelectorAll('input,select,textarea').forEach(field => {
-                  if (field !== na && !field.name.endsWith('-DELETE')) field.disabled = na.checked
-              })
-          }
 
           function updateRemoveButtons(prefix) {
               const rows = [...document.querySelectorAll(`#${prefix}-rows .formset-row:not(.deleted)`)];
@@ -365,15 +373,13 @@
               container.insertAdjacentHTML('beforeend', template);
               total.value = index + 1;
               const row = container.lastElementChild;
-              setNaState(row);
               updateRemoveButtons(prefix);
+              if (prefix === 'parcels' || prefix === 'crops') syncParcelChoices();
               row.querySelector('input:not([type=hidden]):not([type=checkbox]),select,textarea')?.focus()
           }
           document.querySelectorAll('.add-form-row').forEach(btn => btn.addEventListener('click', () => addRow(btn.dataset.prefix)));
-          document.querySelectorAll('.formset-row').forEach(setNaState);
           ['parcels', 'crops', 'documents'].forEach(updateRemoveButtons);
           document.addEventListener('change', event => {
-              if (event.target.matches('input[name$="-not_applicable"]')) setNaState(event.target.closest('.formset-row'));
               if (event.target.name === 'activities') document.querySelectorAll('input[name="activities"]').forEach(input => input.setCustomValidity(''));
               if (event.target.matches('#documents-rows select[name$="-document_type"]')) document.querySelectorAll('#documents-rows select[name$="-document_type"]').forEach(select => select.setCustomValidity(''))
           });
@@ -390,7 +396,29 @@
                   });
                   row.classList.add('deleted')
               } else row.remove();
-              updateRemoveButtons(prefix)
+              updateRemoveButtons(prefix);
+              if (prefix === 'parcels') syncParcelChoices()
+          });
+
+          function syncParcelChoices() {
+              const parcels = activeRows('parcels').map((row, index) => {
+                  const name = row.querySelector('[name$="-parcel_name"]')?.value.trim();
+                  const barangay = row.querySelector('[name$="-barangay"]')?.selectedOptions?.[0]?.text;
+                  const detail = name || (barangay && barangay !== 'Select barangay' ? barangay : 'Address not entered yet');
+                  return {value: String(index + 1), label: `Farm Parcel ${index + 1} — ${detail}`}
+              });
+              document.querySelectorAll('#crops-rows select[name$="-parcel_number"]').forEach(select => {
+                  const selected = select.value;
+                  select.innerHTML = '<option value="">Select farm parcel</option>' + parcels.map(parcel => `<option value="${parcel.value}">${esc(parcel.label)}</option>`).join('');
+                  if (parcels.some(parcel => parcel.value === selected)) select.value = selected
+              })
+          }
+
+          document.addEventListener('input', event => {
+              if (event.target.matches('#parcels-rows [name$="-parcel_name"]')) syncParcelChoices()
+          });
+          document.addEventListener('change', event => {
+              if (event.target.matches('#parcels-rows [name$="-barangay"]')) syncParcelChoices()
           });
 
           function valueOf(name) {
@@ -410,7 +438,7 @@
           }
 
           function activeRows(prefix) {
-              return [...document.querySelectorAll(`#${prefix}-rows .formset-row:not(.deleted)`)].filter(row => !row.querySelector('input[name$="-not_applicable"]')?.checked)
+              return [...document.querySelectorAll(`#${prefix}-rows .formset-row:not(.deleted)`)]
           }
 
           function buildReview() {
@@ -433,9 +461,12 @@
                   }
                   return
               }
-              document.querySelector('.submit-registration').disabled = true;
-              document.querySelector('.submit-registration').innerHTML = '<span class="spinner-border spinner-border-sm"></span> Submitting...'
+              const submit = document.querySelector('.submit-registration');
+              submit.disabled = true;
+              submit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving…';
+              loading.hidden = false
           });
+          syncParcelChoices();
           const serverError = document.querySelector('.registration-step .errorlist');
           if (serverError) {
               const errorStep = serverError.closest('.registration-step');

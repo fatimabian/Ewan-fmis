@@ -122,7 +122,7 @@
                 <b>{{ parcel.display_name }}</b>
                 <small class="d-block">{{ parcel.area_hectares }} ha ·
                   {% for crop in parcel.crops.all %}
-                    {{ crop.crop_type }}
+                    <span aria-hidden="true">{{ crop.symbol }}</span> {{ crop.crop_type }}
                     {% if not forloop.last %}
                       ,
                     {% endif %}

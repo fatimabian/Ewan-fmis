@@ -12,6 +12,9 @@ class ActivityLog(models.Model):
     description = models.CharField(max_length=255, blank=True)
     module = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=20, default="Success")
+    target_label = models.CharField(max_length=255, blank=True)
+    reason = models.TextField(blank=True)
+    details = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

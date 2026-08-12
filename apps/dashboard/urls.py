@@ -1,5 +1,9 @@
 from django.urls import path
-from .views import AdminDashboardView, DashboardLandingView, StaffDashboardView
+from .views import (
+    AdminDashboardView,
+    DashboardLandingView,
+    StaffDashboardView,
+)
 
 app_name = "dashboard"
 urlpatterns = [

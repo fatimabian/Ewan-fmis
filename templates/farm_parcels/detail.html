@@ -197,6 +197,7 @@
             <div class="record-section-body related-list">
               {% for crop in object.crops.all %}
                 <a href="{% url 'crops:detail' crop.pk %}">
+                  <span class="crop-symbol" aria-hidden="true">{{ crop.symbol }}</span>
                   <span>
                     <b>{{ crop.crop_type }}</b>
                     <small class="d-block">{{ crop.area_hectares }} ha · planted {{ crop.planting_date|date:'M d, Y'|default:'date not recorded' }}</small>

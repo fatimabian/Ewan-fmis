@@ -4,6 +4,63 @@ from pathlib import Path
 
 from django import forms
 from django.core.exceptions import NON_FIELD_ERRORS
+from django.core.files.uploadedfile import UploadedFile
+
+
+OTHER_CROP_VALUE = "Other Crop / Commodity"
+
+
+class RequiredYesNoField(forms.TypedChoiceField):
+    """Required, readable Yes/No selection for official binary questions."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault(
+            "choices",
+            (("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
+        )
+        kwargs.setdefault("coerce", lambda value: value == "True")
+        kwargs.setdefault("empty_value", None)
+        kwargs.setdefault("required", True)
+        super().__init__(*args, **kwargs)
+
+    def clean(self, value):
+        # Continue accepting the value submitted by the former checkbox UI.
+        if value == "on":
+            value = "True"
+        return super().clean(value)
+
+
+def add_other_crop_field(form):
+    """Add the conditional detail field used by every crop-entry workflow."""
+    form.fields["other_crop_name"] = forms.CharField(
+        required=False,
+        min_length=2,
+        max_length=100,
+        label="Other crop / commodity name",
+        help_text="Enter the specific crop or commodity planted, for example Dragon Fruit.",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Enter the specific crop or commodity",
+                "data-other-crop-detail": "true",
+                "autocomplete": "off",
+            }
+        ),
+    )
+
+
+def resolve_other_crop(form, cleaned_data):
+    """Replace the Other sentinel with the encoder's required specific crop name."""
+    selected = cleaned_data.get("crop_type")
+    other_name = (cleaned_data.get("other_crop_name") or "").strip()
+    if selected == OTHER_CROP_VALUE:
+        if not other_name:
+            form.add_error(
+                "other_crop_name",
+                "Enter the specific crop or commodity when Other is selected.",
+            )
+        else:
+            cleaned_data["crop_type"] = other_name
+    return cleaned_data
 
 CAPITALIZATION_EXCLUSIONS = {
     "username",
@@ -149,6 +206,10 @@ class InlineValidationMixin:
                 continue
             upload = cleaned.get(name)
             if not upload:
+                continue
+            # Existing form values are stored file references, not new uploads.
+            # They may point to a legacy file that is no longer on disk.
+            if not isinstance(upload, UploadedFile):
                 continue
             if getattr(upload, "size", 0) > 8 * 1024 * 1024:
                 self.add_error(name, "Upload a file that is 8 MB or smaller.")

@@ -15,9 +15,10 @@
           <a class="btn btn-outline-success" href="{% url 'farmers:qr_print' object.pk %}">
             <i class="bi bi-qr-code">
             </i> Print QR</a>
-            <a class="btn btn-success" href="{% url 'farmers:edit' object.pk %}">
-              <i class="bi bi-pencil">
-              </i> Edit Farmer</a>
+            <a class="btn btn-outline-success" href="{% url 'farmers:edit' object.pk %}">
+              <i class="bi bi-person-vcard"></i> Update Slip A</a>
+            <a class="btn btn-success" href="{% url 'farmers:slip_b' object.pk %}">
+              <i class="bi bi-map"></i> Update Slip B</a>
             </div>
           </div>
           <section class="record-hero">
@@ -98,6 +99,52 @@
                     </dd>
                   </div>
                 </dl>
+              </div>
+            </section>
+            <section class="panel record-section record-history-panel" id="update-history">
+              <h3><i class="bi bi-clock-history"></i> Update History</h3>
+              <div class="record-section-body">
+                {% if object.last_updated_at %}
+                  <p class="last-editor-line">
+                    Last updated by <strong>{{ object.last_updated_by.display_name|default:'Former staff account' }}</strong>
+                    on {{ object.last_updated_at|date:'F d, Y \a\t g:i A' }}
+                  </p>
+                {% endif %}
+                <div class="farmer-history-list">
+                  {% for entry in object.update_history.all %}
+                    <details class="history-entry" {% if forloop.first %}open{% endif %}>
+                      <summary>
+                        <span>
+                          <strong>{{ entry.get_update_type_display }}</strong>
+                          <small>{{ entry.created_at|date:'M d, Y · g:i A' }} · {{ entry.actor.display_name|default:'Former staff account' }}</small>
+                        </span>
+                        <span class="history-code">{{ entry.transaction_code|default:'No transaction code' }}</span>
+                      </summary>
+                      <div class="history-meta">
+                        <span>{{ entry.get_change_reason_display }}</span>
+                        {% if entry.remarks %}<span>{{ entry.remarks }}</span>{% endif %}
+                      </div>
+                      <div class="history-change-table-wrap">
+                        <table class="history-change-table">
+                          <thead><tr><th>Information</th><th>Before</th><th>After</th></tr></thead>
+                          <tbody>
+                            {% for change in entry.changes %}
+                              <tr>
+                                <td>{{ change.field }}</td>
+                                <td>{{ change.before }}</td>
+                                <td>{{ change.after }}</td>
+                              </tr>
+                            {% empty %}
+                              <tr><td colspan="3">No data value changed; the official update was still recorded.</td></tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  {% empty %}
+                    <p>No Slip A or Slip B updates have been recorded yet.</p>
+                  {% endfor %}
+                </div>
               </div>
             </section>
             <section class="panel record-section">

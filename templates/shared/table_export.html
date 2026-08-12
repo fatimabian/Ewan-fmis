@@ -1,0 +1,30 @@
+<div class="management-export-row">
+  <details class="table-export-control">
+    <summary>
+      <i class="bi bi-download" aria-hidden="true"></i>
+      Export
+    </summary>
+    <div class="table-export-popover">
+      <strong>Export filtered records</strong>
+      <p>The download will use the filters currently applied to this table.</p>
+      <form method="get" action="{% url 'reports:management_export' dataset %}">
+        {% for name, value in request.GET.items %}
+          {% if name != "page" and name != "format" %}
+            <input type="hidden" name="{{ name }}" value="{{ value }}">
+          {% endif %}
+        {% endfor %}
+        <label>
+          File format
+          <select name="format">
+            <option value="csv">CSV Spreadsheet</option>
+            <option value="pdf">PDF Document</option>
+          </select>
+        </label>
+        <button type="submit">
+          <i class="bi bi-download" aria-hidden="true"></i>
+          Download
+        </button>
+      </form>
+    </div>
+  </details>
+</div>

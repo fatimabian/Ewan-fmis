@@ -4,533 +4,600 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="description"
-          content="Farmer Management Information System for the Office for Agricultural Services of Rosario, Batangas">
+    <meta
+      name="description"
+      content="Farmer Management Information System for the Office for Agricultural Services of Rosario, Batangas">
     <title>FMIS | Rosario, Batangas</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
-          rel="stylesheet">
-    <style>
-    :root{
-        --navy:#1e2a3a;
-        --navy-deep:#111c2b;
-        --green:#16a34a;
-        --mint:#eaf8ef;
-        --ink:#17233a;
-        --muted:#607087
-    }
-    *{
-        box-sizing:border-box
-    }
-    html{
-        scroll-behavior:smooth
-    }
-    body{
-        margin:0;
-        background:#f7faf8;
-        color:var(--ink);
-        font-family:Arial,Helvetica,sans-serif
-    }
-    .landing-nav{
-        min-height:78px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:24px;
-        padding:0 max(5vw,24px);
-        background:rgba(30,42,58,.98);
-        color:#fff
-    }
-    .landing-brand{
-        display:flex;
-        align-items:center;
-        gap:12px;
-        color:#fff;
-        text-decoration:none
-    }
-    .landing-brand-mark{
-        width:44px;
-        height:44px;
-        display:grid;
-        place-items:center;
-        border-radius:12px;
-        background:var(--green);
-        font-size:22px
-    }
-    .landing-brand strong{
-        display:block;
-        font:700 23px "Trebuchet MS",Arial,sans-serif;
-        letter-spacing:.4px
-    }
-    .landing-brand small{
-        display:block;
-        margin-top:3px;
-        color:#a8b6c7;
-        font-size:10px;
-        letter-spacing:1.1px
-    }
-    .landing-nav-links{
-        display:flex;
-        align-items:center;
-        gap:28px
-    }
-    .landing-nav-links>a:not(.landing-login){
-        color:#d9e2ec;
-        text-decoration:none;
-        font-size:13px;
-        font-weight:700
-    }
-    .landing-login{
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        padding:11px 18px;
-        border-radius:8px;
-        background:var(--green);
-        color:#fff;
-        text-decoration:none;
-        font-weight:700;
-        font-size:13px
-    }
-    .landing-hero{
-        min-height:610px;
-        display:grid;
-        grid-template-columns:1.05fr .95fr;
-        overflow:hidden;
-        background:linear-gradient(120deg,var(--navy-deep),var(--navy) 58%,#153a2b);
-        color:#fff
-    }
-    .landing-copy{
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        padding:72px 7vw
-    }
-    .landing-eyebrow{
-        display:inline-flex;
-        align-items:center;
-        gap:8px;
-        width:max-content;
-        margin-bottom:19px;
-        padding:7px 12px;
-        border:1px solid #4c725f;
-        border-radius:999px;
-        background:#ffffff0b;
-        color:#79e7a4;
-        font-size:12px;
-        font-weight:700
-    }
-    .landing-copy h1{
-        max-width:720px;
-        margin:0;
-        font:700 clamp(39px,5vw,68px)/1.05 "Trebuchet MS",Arial,sans-serif
-    }
-    .landing-copy h1 span{
-        color:#4ddd82
-    }
-    .landing-copy>p{
-        max-width:650px;
-        margin:24px 0 28px;
-        color:#c8d2df;
-        font-size:17px;
-        line-height:1.7
-    }
-    .landing-actions{
-        display:flex;
-        gap:12px;
-        flex-wrap:wrap
-    }
-    .landing-actions a{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        gap:9px;
-        min-height:50px;
-        padding:0 22px;
-        border-radius:9px;
-        text-decoration:none;
-        font-weight:700
-    }
-    .primary-action{
-        background:var(--green);
-        color:#fff
-    }
-    .secondary-action{
-        border:1px solid #617084;
-        color:#fff
-    }
-    .landing-trust{
-        display:flex;
-        gap:27px;
-        flex-wrap:wrap;
-        margin-top:38px;
-        color:#c6d1dd;
-        font-size:12px
-    }
-    .landing-trust span{
-        display:flex;
-        align-items:center;
-        gap:8px
-    }
-    .landing-trust i{
-        color:#58dc89
-    }
-    .landing-visual{
-        position:relative;
-        display:grid;
-        place-items:center;
-        padding:50px
-    }
-    .landing-visual:before{
-        content:"";
-        position:absolute;
-        inset:0;
-        background:radial-gradient(circle at 60% 45%,#1f8b4d55,transparent 43%),repeating-linear-gradient(135deg,transparent 0 34px,#ffffff08 35px 36px)
-    }
-    .visual-card{
-        position:relative;
-        width:min(500px,100%);
-        padding:28px;
-        border:1px solid #ffffff21;
-        border-radius:24px;
-        background:#ffffff0e;
-        box-shadow:0 28px 70px #0005;
-        backdrop-filter:blur(7px)
-    }
-    .visual-card-header{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        margin-bottom:23px
-    }
-    .visual-card-header strong{
-        font-family:"Trebuchet MS",Arial,sans-serif;
-        font-size:18px
-    }
-    .live-badge{
-        padding:6px 10px;
-        border-radius:999px;
-        background:#2bce6c22;
-        color:#72eca0;
-        font-size:10px;
-        font-weight:700
-    }
-    .visual-metrics{
-        display:grid;
-        grid-template-columns:repeat(2,1fr);
-        gap:12px
-    }
-    .visual-metric{
-        min-height:120px;
-        padding:17px;
-        border-radius:14px;
-        background:#fff;
-        color:var(--ink)
-    }
-    .visual-metric i{
-        width:37px;
-        height:37px;
-        display:grid;
-        place-items:center;
-        border-radius:9px;
-        background:var(--mint);
-        color:var(--green);
-        font-size:18px
-    }
-    .visual-metric strong{
-        display:block;
-        margin:15px 0 3px;
-        font:700 23px "Trebuchet MS",Arial,sans-serif
-    }
-    .visual-metric small{
-        color:var(--muted)
-    }
-    .landing-section{
-        padding:78px max(6vw,24px);
-        text-align:center
-    }
-    .section-label{
-        color:var(--green);
-        font-size:12px;
-        font-weight:800;
-        letter-spacing:1px
-    }
-    .landing-section h2{
-        margin:10px auto 13px;
-        font:700 clamp(29px,3vw,42px) "Trebuchet MS",Arial,sans-serif
-    }
-    .section-copy{
-        max-width:720px;
-        margin:0 auto;
-        color:var(--muted);
-        line-height:1.7
-    }
-    .feature-grid{
-        max-width:1240px;
-        display:grid;
-        grid-template-columns:repeat(4,1fr);
-        gap:17px;
-        margin:39px auto 0;
-        text-align:left
-    }
-    .feature-card{
-        padding:25px;
-        border:1px solid #dfe8e3;
-        border-radius:14px;
-        background:#fff;
-        box-shadow:0 8px 25px #173b2b0a
-    }
-    .feature-card i{
-        width:45px;
-        height:45px;
-        display:grid;
-        place-items:center;
-        border-radius:11px;
-        background:var(--mint);
-        color:var(--green);
-        font-size:21px
-    }
-    .feature-card h3{
-        margin:19px 0 9px;
-        font:700 17px "Trebuchet MS",Arial,sans-serif
-    }
-    .feature-card p{
-        margin:0;
-        color:var(--muted);
-        font-size:13px;
-        line-height:1.6
-    }
-    .landing-cta{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:30px;
-        margin:0 max(6vw,24px) 70px;
-        padding:34px 38px;
-        border-radius:18px;
-        background:linear-gradient(100deg,#0c743b,#16a34a);
-        color:#fff
-    }
-    .landing-cta h2{
-        margin:0 0 7px;
-        font:700 28px "Trebuchet MS",Arial,sans-serif
-    }
-    .landing-cta p{
-        margin:0;
-        color:#d8f8e4
-    }
-    .landing-cta a{
-        flex-shrink:0;
-        padding:13px 21px;
-        border-radius:9px;
-        background:#fff;
-        color:#0b7f3f;
-        text-decoration:none;
-        font-weight:700
-    }
-    .landing-footer{
-        display:flex;
-        justify-content:space-between;
-        gap:20px;
-        padding:25px max(6vw,24px);
-        background:var(--navy-deep);
-        color:#9eabba;
-        font-size:12px
-    }
-    .landing-footer strong{
-        color:#fff
-    }
-    @media(max-width:950px){
-        .landing-hero{
-            grid-template-columns:1fr
-        }
-        .landing-copy{
-            padding:65px 7vw 35px
-        }
-        .landing-visual{
-            padding:30px 7vw 65px
-        }
-        .feature-grid{
-            grid-template-columns:repeat(2,1fr)
-        }
-    }
-    @media(max-width:650px){
-        .landing-nav{
-            padding:13px 18px
-        }
-        .landing-nav-links>a:not(.landing-login){
-            display:none
-        }
-        .landing-brand small{
-            display:none
-        }
-        .landing-copy{
-            padding:52px 22px 28px
-        }
-        .landing-copy h1{
-            font-size:40px
-        }
-        .landing-copy>p{
-            font-size:15px
-        }
-        .landing-visual{
-            padding:25px 20px 50px
-        }
-        .visual-card{
-            padding:18px
-        }
-        .landing-section{
-            padding:57px 18px
-        }
-        .feature-grid{
-            grid-template-columns:1fr
-        }
-        .landing-cta{
-            align-items:flex-start;
-            flex-direction:column;
-            margin:0 18px 45px;
-            padding:27px
-        }
-        .landing-cta a{
-            width:100%;
-            text-align:center
-        }
-        .landing-footer{
-            flex-direction:column;
-            padding:22px 18px
-        }
-    }
-    </style>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/typography.css' %}">
+    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}">
   </head>
   <body>
-    <nav class="landing-nav">
-      <a class="landing-brand" href="{% url 'authentication:landing' %}">
-        <span class="landing-brand-mark">
-          <i class="bi bi-leaf-fill">
-          </i>
-        </span>
-        <span>
-          <strong>FMIS</strong>
-          <small>FARM MANAGEMENT</small>
-        </span>
-      </a>
-      <div class="landing-nav-links">
-        <a href="#capabilities">Capabilities</a>
-        <a href="#about">About</a>
-        <a href="{% url 'authentication:privacy' %}">Privacy</a>
-        <a class="landing-login" href="{% url 'authentication:login' %}">
-          <i class="bi bi-box-arrow-in-right">
-          </i> Sign In</a>
+    <div class="landing-progress" id="landingProgress" aria-hidden="true"></div>
+
+    <header class="showcase-header">
+      <nav class="showcase-nav" aria-label="Public navigation">
+        <a class="showcase-brand" href="#home" aria-label="FMIS home">
+          <span class="showcase-brand-mark">F</span>
+          <span>
+            <strong>FMIS</strong>
+            <small>Local records. Better agricultural decisions.</small>
+          </span>
+        </a>
+
+        <div class="showcase-links">
+          <a class="is-active" href="#home" aria-current="page">Home</a>
+          <a href="#services">Services</a>
+          <a href="#capabilities">System</a>
+          <a href="#about">About</a>
         </div>
+
       </nav>
-      <main>
-        <section class="landing-hero">
-          <div class="landing-copy">
-            <span class="landing-eyebrow">
-              <i class="bi bi-geo-alt-fill">
-              </i> Rosario, Batangas</span>
-              <h1>
-                Better records for a stronger <span>farming community.</span>
-              </h1>
-              <p>The Farmer Management Information System helps the Office for Agricultural Services maintain reliable RSBSA farmer records, farm parcels, crops, and service requests in one secure platform.</p>
-              <div class="landing-actions">
-                <a class="primary-action" href="{% url 'authentication:login' %}">Access FMIS <i class="bi bi-arrow-right">
-                  </i>
-                </a>
+    </header>
+
+    <main>
+      <section class="showcase-hero" id="home" aria-label="Rosario agricultural services">
+        <figure class="hero-image">
+          <img
+            src="{% static 'images/landing/office-gallery/rice-field-data-collection.png' %}"
+            alt="Rosario agricultural personnel collecting farm data in a rice field"
+            width="1422"
+            height="664"
+            fetchpriority="high">
+        </figure>
+        <div class="hero-shade" aria-hidden="true"></div>
+
+        <div class="hero-content">
+          <div class="hero-copy" data-reveal>
+            <span class="hero-location">
+              <i class="bi bi-geo-alt-fill"></i>
+              Rosario, Batangas
+            </span>
+            <p class="hero-overline">Office for Agricultural Services</p>
+            <h1>Local records that help agriculture move forward.</h1>
+            <p class="hero-summary">
+              One secure municipal workspace for farmer registration, farm parcels,
+              commodities, agricultural services, and evidence-based planning.
+            </p>
+            <div class="hero-actions">
+              <a class="hero-secondary" href="#services">
+                Explore services
+                <i class="bi bi-chevron-down"></i>
+              </a>
+            </div>
+            <p class="hero-caption">
+              <i class="bi bi-check-circle-fill"></i>
+              Reliable farmer and farm records for Rosario.
+            </p>
+          </div>
+
+          <section
+            class="landing-signin-card"
+            id="landingSignIn"
+            aria-labelledby="landingSignInTitle"
+            data-reveal>
+            <div class="landing-signin-heading">
+              <h2 id="landingSignInTitle">Welcome Back!</h2>
+              <p>Please sign in to your account</p>
+            </div>
+
+            <form
+              method="post"
+              action="{% url 'authentication:landing' %}"
+              class="landing-signin-form"
+              novalidate>
+              {% csrf_token %}
+              {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+              {% endif %}
+
+              <label{% if form.username.errors or form.non_field_errors %} class="has-error"{% endif %}>
+                <span class="signin-field-label">Username</span>
+                <span class="landing-input-wrap">
+                  {{ form.username }}
+                </span>
+                {{ form.username.errors }}
+              </label>
+
+              <label{% if form.password.errors or form.non_field_errors %} class="has-error"{% endif %}>
+                <span class="signin-field-label">Password</span>
+                <span class="landing-input-wrap">
+                  {{ form.password }}
+                  <button class="password-visibility"
+                          type="button"
+                          data-password-toggle
+                          aria-controls="{{ form.password.id_for_label }}"
+                          aria-label="Show password"
+                          aria-pressed="false"
+                          title="Show password">
+                    <i class="bi bi-eye" aria-hidden="true"></i>
+                  </button>
+                </span>
+                {{ form.password.errors }}
+                {% if form.non_field_errors %}
+                  <small class="landing-field-error">The username or password is incorrect.</small>
+                {% endif %}
+              </label>
+
+              <div class="landing-signin-options">
+                <label class="landing-remember">
+                  {{ form.remember_me }}
+                  <span>Remember me</span>
+                </label>
+                <a href="{% url 'authentication:password_reset' %}">Forgot Password?</a>
               </div>
-              <div class="landing-trust">
-                <span>
-                  <i class="bi bi-shield-check">
-                  </i> Role-based access</span>
-                  <span>
-                    <i class="bi bi-database-check">
-                    </i> Centralized records</span>
-                    <span>
-                      <i class="bi bi-file-earmark-check">
-                      </i> RSBSA-aligned workflow</span>
-                    </div>
-                  </div>
-                  <div class="landing-visual">
-                    <div class="visual-card">
-                      <div class="visual-card-header">
-                        <strong>Agricultural Records Overview</strong>
-                        <span class="live-badge">SYSTEM READY</span>
-                      </div>
-                      <div class="visual-metrics">
-                        <div class="visual-metric">
-                          <i class="bi bi-people">
-                          </i>
-                          <strong>Farmers</strong>
-                          <small>Profiles and registration</small>
-                        </div>
-                        <div class="visual-metric">
-                          <i class="bi bi-map">
-                          </i>
-                          <strong>Parcels</strong>
-                          <small>Land and tenure records</small>
-                        </div>
-                        <div class="visual-metric">
-                          <i class="bi bi-flower1">
-                          </i>
-                          <strong>Crops</strong>
-                          <small>Seasonal commodities</small>
-                        </div>
-                        <div class="visual-metric">
-                          <i class="bi bi-headset">
-                          </i>
-                          <strong>Services</strong>
-                          <small>Assistance monitoring</small>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-                <section class="landing-section" id="capabilities">
-                  <span class="section-label">CORE CAPABILITIES</span>
-                  <h2>Built for day-to-day agricultural services</h2>
-                  <p class="section-copy">A clear, professional workspace for staff and administrators, designed around the records the local agriculture office handles every day.</p>
-                  <div class="feature-grid">
-                    <article class="feature-card">
-                      <i class="bi bi-person-vcard">
-                      </i>
-                      <h3>RSBSA Registration</h3>
-                      <p>Guided farmer enrollment with parcel, crop, livelihood, consent, and supporting-document information.</p>
-                    </article>
-                    <article class="feature-card">
-                      <i class="bi bi-pin-map">
-                      </i>
-                      <h3>Farm Monitoring</h3>
-                      <p>Connect each farmer ID to parcel tenure, land classification, farm type, and current crops.</p>
-                    </article>
-                    <article class="feature-card">
-                      <i class="bi bi-clipboard2-check">
-                      </i>
-                      <h3>Service Requests</h3>
-                      <p>Record agricultural concerns, priorities, assignments, and progress in language staff can understand.</p>
-                    </article>
-                    <article class="feature-card">
-                      <i class="bi bi-bar-chart-line">
-                      </i>
-                      <h3>Reports &amp; Analytics</h3>
-                      <p>Turn maintained records into summaries that support planning and informed local decisions.</p>
-                    </article>
-                  </div>
-                </section>
-                <section class="landing-cta" id="about">
-                  <div>
-                    <h2>Authorized FMIS user?</h2>
-                    <p>Sign in with your administrator or staff account to continue.</p>
-                  </div>
-                  <a href="{% url 'authentication:login' %}">Go to Sign In <i class="bi bi-arrow-right">
-                    </i>
-                  </a>
-                </section>
-              </main>
-              <footer class="landing-footer">
-                <span>
-                  <strong>FMIS</strong> · Office for Agricultural Services</span>
-                <span>
-                  <a href="{% url 'authentication:privacy' %}" style="color:#c7d3df">Privacy Notice</a> · <a href="{% url 'authentication:terms' %}" style="color:#c7d3df">Terms of Use</a> · Municipality of Rosario, Batangas · © 2026</span>
-              </footer>
-            </body>
-          </html>
+
+              <button class="landing-signin-submit" type="submit">
+                Sign In
+              </button>
+            </form>
+
+            <p class="signin-copyright">
+              &copy; {% now "Y" %} Office for Agricultural Services
+              <span>All Rights Reserved</span>
+            </p>
+          </section>
+        </div>
+      </section>
+
+      <section class="scope-carousel" id="heroCarousel" aria-label="Agricultural field gallery">
+        <figure class="scope-slide is-active" data-slide="0">
+          <img
+            src="{% static 'images/landing/office-gallery/mechanized-rice-planting.png' %}"
+            alt="Mechanized rice planting in Rosario"
+            loading="lazy">
+          <figcaption>Local farm activity connected to maintained agricultural records</figcaption>
+        </figure>
+        <figure class="scope-slide" data-slide="1" aria-hidden="true">
+          <img
+            src="{% static 'images/landing/office-gallery/rsbsa-record-encoding.png' %}"
+            alt="Rosario personnel encoding RSBSA farmer records"
+            loading="lazy">
+          <figcaption>Organized farmer information for faster office work</figcaption>
+        </figure>
+        <figure class="scope-slide" data-slide="2" aria-hidden="true">
+          <img
+            src="{% static 'images/landing/office-gallery/rice-field-consultation.png' %}"
+            alt="Agricultural personnel consulting with a farmer in a Rosario rice field"
+            loading="lazy">
+          <figcaption>Field decisions supported by accurate local information</figcaption>
+        </figure>
+        <div class="scope-carousel-controls">
+          <button type="button" data-carousel-previous aria-label="Previous image">
+            <i class="bi bi-arrow-left"></i>
+          </button>
+          <button type="button" data-carousel-next aria-label="Next image">
+            <i class="bi bi-arrow-right"></i>
+          </button>
+        </div>
+        <div class="scope-dots" role="tablist" aria-label="Choose a carousel image">
+          <button class="is-active" type="button" data-carousel-dot="0" aria-label="Show first image" aria-selected="true"></button>
+          <button type="button" data-carousel-dot="1" aria-label="Show second image" aria-selected="false"></button>
+          <button type="button" data-carousel-dot="2" aria-label="Show third image" aria-selected="false"></button>
+        </div>
+      </section>
+
+      <section class="service-section" id="services">
+        <div class="section-heading" data-reveal>
+          <div>
+            <span class="section-kicker">WHAT THE SYSTEM OFFERS</span>
+            <h2>One workspace for Rosario's agricultural records.</h2>
+            <p>
+              These are functions available inside FMIS. They organize the office's
+              existing records and workflows without claiming services that are not
+              configured in the system.
+            </p>
+          </div>
+          <div class="service-controls">
+            <button type="button" data-service-previous aria-label="Previous service card">
+              <i class="bi bi-arrow-left"></i>
+            </button>
+            <button type="button" data-service-next aria-label="Next service card">
+              <i class="bi bi-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="service-carousel" id="serviceCarousel" data-reveal>
+          <article class="service-photo-card">
+            <img
+              src="{% static 'images/landing/office-gallery/farmer-registration-assistance.png' %}"
+              alt="Rosario personnel assisting farmers with registration records"
+              loading="lazy">
+            <div>
+              <span>Farmer registry</span>
+              <h3>RSBSA-aligned registration and updating</h3>
+              <p>Maintain personal information, supporting documents, and Slip A changes.</p>
+            </div>
+          </article>
+
+          <article class="service-photo-card">
+            <img
+              src="{% static 'images/landing/office-gallery/rice-field-georeferencing.png' %}"
+              alt="Rosario field personnel gathering parcel location information"
+              loading="lazy">
+            <div>
+              <span>Parcels and commodities</span>
+              <h3>Farm parcel mapping and crop records</h3>
+              <p>Record Rosario parcels, map locations, commodities, and Slip B updates.</p>
+            </div>
+          </article>
+
+          <article class="service-photo-card">
+            <img
+              src="{% static 'images/landing/office-gallery/corn-field-monitoring.png' %}"
+              alt="Rosario personnel monitoring a recorded corn field"
+              loading="lazy">
+            <div>
+              <span>Decision support</span>
+              <h3>Reports, statistics, and seasonal guidance</h3>
+              <p>Review maintained farmer and crop data through filters, charts, and exports.</p>
+            </div>
+          </article>
+
+          <article class="service-photo-card">
+            <img
+              src="{% static 'images/landing/office-gallery/farmer-input-release.png' %}"
+              alt="Rosario personnel documenting agricultural support for a farmer"
+              loading="lazy">
+            <div>
+              <span>Service requests</span>
+              <h3>Track farmer requests from filing to completion</h3>
+              <p>Record the requested service, priority, assigned staff, progress, and final status.</p>
+            </div>
+          </article>
+
+          <article class="service-photo-card">
+            <img
+              src="{% static 'images/landing/office-gallery/rsbsa-record-encoding.png' %}"
+              alt="Rosario staff reviewing and encoding agricultural records"
+              loading="lazy">
+            <div>
+              <span>Record history</span>
+              <h3>See what changed and who made the update</h3>
+              <p>Keep previous and new values together with the responsible user, date, and reason.</p>
+            </div>
+          </article>
+
+          <article class="service-photo-card">
+            <img
+              src="{% static 'images/landing/office-gallery/community-registration-assistance.png' %}"
+              alt="Authorized Rosario personnel assisting citizens with municipal records"
+              loading="lazy">
+            <div>
+              <span>Secure accounts</span>
+              <h3>Only authorized personnel can open protected records</h3>
+              <p>Administrators manage the system while staff handle farmer and agricultural records.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="capability-section" id="capabilities">
+        <div class="section-heading centered" data-reveal>
+          <div>
+            <span class="section-kicker">INSIDE FMIS</span>
+            <h2>A practical workspace for everyday decisions.</h2>
+            <p>
+              The interface stays familiar and straightforward while connecting records
+              that staff previously had to review separately.
+            </p>
+          </div>
+        </div>
+
+        <div class="capability-grid">
+          <article class="capability-card" data-reveal>
+            <span class="capability-number">01</span>
+            <i class="bi bi-person-vcard"></i>
+            <h3>Farmer records</h3>
+            <p>Registration, personal updates, supporting documents, and update history.</p>
+            <button class="feature-toggle" type="button" aria-expanded="false">
+              View details
+              <i class="bi bi-plus"></i>
+            </button>
+            <div class="feature-more" hidden>
+              Slip A changes retain old and new values so concerns can be reviewed clearly.
+            </div>
+          </article>
+
+          <article class="capability-card" data-reveal>
+            <span class="capability-number">02</span>
+            <i class="bi bi-map"></i>
+            <h3>Parcels and crops</h3>
+            <p>Rosario-only maps, terrain or satellite pins, parcel tenure, and commodities.</p>
+            <button class="feature-toggle" type="button" aria-expanded="false">
+              View details
+              <i class="bi bi-plus"></i>
+            </button>
+            <div class="feature-more" hidden>
+              Slip B organizes each parcel and allows multiple crop or commodity entries.
+            </div>
+          </article>
+
+          <article class="capability-card" data-reveal>
+            <span class="capability-number">03</span>
+            <i class="bi bi-clipboard2-check"></i>
+            <h3>Service coordination</h3>
+            <p>Requests, priorities, assigned personnel, progress, and clear status tracking.</p>
+            <button class="feature-toggle" type="button" aria-expanded="false">
+              View details
+              <i class="bi bi-plus"></i>
+            </button>
+            <div class="feature-more" hidden>
+              Staff can find open concerns quickly and retain a readable service history.
+            </div>
+          </article>
+
+          <article class="capability-card" data-reveal>
+            <span class="capability-number">04</span>
+            <i class="bi bi-bar-chart-line"></i>
+            <h3>Reports and planning</h3>
+            <p>Farmer statistics, crop trends, filtered exports, weather, and seasonal guidance.</p>
+            <button class="feature-toggle" type="button" aria-expanded="false">
+              View details
+              <i class="bi bi-plus"></i>
+            </button>
+            <div class="feature-more" hidden>
+              Reports use maintained Rosario records and can be downloaded for office use.
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="landing-assurance" aria-label="System scope" data-reveal>
+        <div>
+          <i class="bi bi-pin-map-fill"></i>
+          <span><strong>Rosario-only</strong><small>Municipal records and map limits</small></span>
+        </div>
+        <div>
+          <i class="bi bi-person-vcard-fill"></i>
+          <span><strong>RSBSA-aligned</strong><small>Registration and updating workflows</small></span>
+        </div>
+        <div>
+          <i class="bi bi-clock-history"></i>
+          <span><strong>Traceable changes</strong><small>Previous values and responsible staff</small></span>
+        </div>
+        <div>
+          <i class="bi bi-shield-check"></i>
+          <span><strong>Role-protected</strong><small>Controlled administrator and staff access</small></span>
+        </div>
+      </section>
+
+      <section class="about-section" id="about">
+        <div class="about-image" data-reveal>
+          <img
+            src="{% static 'images/landing/office-gallery/barangay-farmer-registration.png' %}"
+            alt="Rosario municipal personnel assisting farmers in a barangay"
+            loading="lazy">
+          <div class="about-image-note">
+            <i class="bi bi-flower1"></i>
+            <span>
+              <strong>Local information</strong>
+              <small>Turned into practical agricultural service</small>
+            </span>
+          </div>
+        </div>
+
+        <div class="about-copy" data-reveal>
+          <span class="section-kicker">BUILT FOR ROSARIO</span>
+          <h2>Technology should make public service easier to understand.</h2>
+          <p>
+            FMIS supports the office’s responsibility to maintain farmer information,
+            coordinate agricultural assistance, and use local data for responsible planning.
+          </p>
+          <ul>
+            <li>
+              <i class="bi bi-check-circle-fill"></i>
+              Clean forms based on real RSBSA workflows
+            </li>
+            <li>
+              <i class="bi bi-check-circle-fill"></i>
+              Transparent record changes and staff accountability
+            </li>
+            <li>
+              <i class="bi bi-check-circle-fill"></i>
+              Responsive screens for office and field use
+            </li>
+          </ul>
+          <a href="https://rosariobatangasoas.wixsite.com/agricultureoffice" target="_blank" rel="noopener noreferrer">
+            Visit the public office website
+            <i class="bi bi-box-arrow-up-right"></i>
+          </a>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="showcase-footer">
+      <div>
+        <a class="showcase-brand" href="#home">
+          <span class="showcase-brand-mark">F</span>
+          <span>
+            <strong>FMIS</strong>
+            <small>Office for Agricultural Services</small>
+          </span>
+        </a>
+        <p>Municipality of Rosario, Batangas</p>
+      </div>
+
+      <div class="footer-contact">
+        <span>Y. Zuño Street, Poblacion B, Rosario, Batangas 4225</span>
+        <span>rosariobatangasoas@gmail.com</span>
+        <span>(043) 405-3932</span>
+      </div>
+
+      <div class="footer-links">
+        <a href="{% url 'authentication:privacy' %}">Privacy Notice</a>
+        <a href="{% url 'authentication:terms' %}">Terms of Use</a>
+        <span>&copy; 2026</span>
+      </div>
+    </footer>
+
+    <script>
+      (() => {
+          const progress = document.getElementById("landingProgress");
+          const updateProgress = () => {
+              const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+              const percent = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
+              progress.style.width = `${Math.min(100, percent)}%`;
+          };
+
+          window.addEventListener("scroll", updateProgress, { passive: true });
+          updateProgress();
+
+          const navigationLinks = [...document.querySelectorAll(".showcase-links a")];
+          const navigationSections = navigationLinks
+              .map(link => document.querySelector(link.getAttribute("href")))
+              .filter(Boolean);
+          const setActiveNavigation = sectionId => {
+              navigationLinks.forEach(link => {
+                  const isActive = link.getAttribute("href") === `#${sectionId}`;
+                  link.classList.toggle("is-active", isActive);
+                  if (isActive) {
+                      link.setAttribute("aria-current", "page");
+                  } else {
+                      link.removeAttribute("aria-current");
+                  }
+              });
+          };
+          const updateActiveNavigation = () => {
+              const marker = window.scrollY + 120;
+              let currentSection = navigationSections[0];
+              navigationSections.forEach(section => {
+                  if (section.offsetTop <= marker) currentSection = section;
+              });
+              if (currentSection) setActiveNavigation(currentSection.id);
+          };
+          navigationLinks.forEach(link => {
+              link.addEventListener("click", () => {
+                  setActiveNavigation(link.getAttribute("href").slice(1));
+              });
+          });
+          window.addEventListener("scroll", updateActiveNavigation, { passive: true });
+          window.addEventListener("resize", updateActiveNavigation);
+          updateActiveNavigation();
+
+          document.body.classList.add("reveal-ready");
+          const observer = new IntersectionObserver(entries => {
+              entries.forEach(entry => {
+                  if (!entry.isIntersecting) return;
+                  entry.target.classList.add("is-visible");
+                  observer.unobserve(entry.target);
+              });
+          }, { threshold: 0.12 });
+
+          document.querySelectorAll("[data-reveal]").forEach(element => {
+              observer.observe(element);
+          });
+
+          const carousel = document.getElementById("heroCarousel");
+          const slides = [...carousel.querySelectorAll(".scope-slide")];
+          const dots = [...carousel.querySelectorAll("[data-carousel-dot]")];
+          const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          let activeSlide = 0;
+          let carouselTimer;
+
+          const showSlide = index => {
+              activeSlide = (index + slides.length) % slides.length;
+              slides.forEach((slide, slideIndex) => {
+                  const isActive = slideIndex === activeSlide;
+                  slide.classList.toggle("is-active", isActive);
+                  slide.setAttribute("aria-hidden", String(!isActive));
+              });
+              dots.forEach((dot, dotIndex) => {
+                  const isActive = dotIndex === activeSlide;
+                  dot.classList.toggle("is-active", isActive);
+                  dot.setAttribute("aria-selected", String(isActive));
+              });
+          };
+
+          const stopCarousel = () => window.clearInterval(carouselTimer);
+          const startCarousel = () => {
+              stopCarousel();
+              if (prefersReducedMotion || document.hidden) return;
+              carouselTimer = window.setInterval(() => showSlide(activeSlide + 1), 5000);
+          };
+
+          carousel.querySelector("[data-carousel-previous]").addEventListener("click", () => {
+              showSlide(activeSlide - 1);
+              startCarousel();
+          });
+          carousel.querySelector("[data-carousel-next]").addEventListener("click", () => {
+              showSlide(activeSlide + 1);
+              startCarousel();
+          });
+          dots.forEach(dot => {
+              dot.addEventListener("click", () => {
+                  showSlide(Number(dot.dataset.carouselDot));
+                  startCarousel();
+              });
+          });
+          startCarousel();
+
+          const serviceCarousel = document.getElementById("serviceCarousel");
+          let serviceCarouselTimer;
+          const scrollServices = direction => {
+              const firstCard = serviceCarousel.querySelector("article");
+              const amount = firstCard.getBoundingClientRect().width + 18;
+              serviceCarousel.scrollBy({
+                  left: amount * direction,
+                  behavior: prefersReducedMotion ? "auto" : "smooth"
+              });
+          };
+          const advanceServices = () => {
+              const reachedEnd = serviceCarousel.scrollLeft + serviceCarousel.clientWidth
+                  >= serviceCarousel.scrollWidth - 8;
+              if (reachedEnd) {
+                  serviceCarousel.scrollTo({
+                      left: 0,
+                      behavior: prefersReducedMotion ? "auto" : "smooth"
+                  });
+                  return;
+              }
+              scrollServices(1);
+          };
+          const stopServiceCarousel = () => window.clearInterval(serviceCarouselTimer);
+          const startServiceCarousel = () => {
+              stopServiceCarousel();
+              if (prefersReducedMotion || document.hidden) return;
+              serviceCarouselTimer = window.setInterval(advanceServices, 4500);
+          };
+          document.querySelector("[data-service-previous]").addEventListener("click", () => {
+              scrollServices(-1);
+              startServiceCarousel();
+          });
+          document.querySelector("[data-service-next]").addEventListener("click", () => {
+              scrollServices(1);
+              startServiceCarousel();
+          });
+          startServiceCarousel();
+
+          document.addEventListener("visibilitychange", () => {
+              if (document.hidden) {
+                  stopCarousel();
+                  stopServiceCarousel();
+                  return;
+              }
+              startCarousel();
+              startServiceCarousel();
+          });
+
+          document.querySelectorAll(".feature-toggle").forEach(button => {
+              button.addEventListener("click", () => {
+                  const card = button.closest(".capability-card");
+                  const details = card.querySelector(".feature-more");
+                  const isOpen = button.getAttribute("aria-expanded") === "true";
+                  button.setAttribute("aria-expanded", String(!isOpen));
+                  details.hidden = isOpen;
+                  card.classList.toggle("is-open", !isOpen);
+                  button.querySelector("i").className = isOpen ? "bi bi-plus" : "bi bi-dash";
+              });
+          });
+
+      })();
+    </script>
+    <script src="{% static 'js/password-toggle.js' %}"></script>
+  </body>
+</html>

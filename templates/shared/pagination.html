@@ -1,0 +1,44 @@
+<nav class="fmis-pagination" aria-label="Table pages">
+  {% if page_obj.has_previous %}
+    <a class="fmis-page-button"
+       href="?{% if preserved_query %}{{ preserved_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+       aria-label="Previous page">&lsaquo;</a>
+  {% else %}
+    <span class="fmis-page-button is-disabled" aria-hidden="true">&lsaquo;</span>
+  {% endif %}
+
+  {% for page_number in pages %}
+    {% if page_number == ellipsis %}
+      <span class="fmis-page-ellipsis" aria-hidden="true">&hellip;</span>
+    {% elif page_number == page_obj.number %}
+      <form class="fmis-page-jump" method="get" title="Type a page number and press Enter">
+        {% for name, value in preserved_fields %}
+          <input type="hidden" name="{{ name }}" value="{{ value }}">
+        {% endfor %}
+        <label class="visually-hidden" for="fmisPageJump">Go to page</label>
+        <input id="fmisPageJump"
+               class="fmis-page-input"
+               type="number"
+               name="page"
+               value="{{ page_obj.number }}"
+               min="1"
+               max="{{ page_obj.paginator.num_pages }}"
+               inputmode="numeric"
+               aria-label="Current page. Type a page number and press Enter."
+               onchange="this.form.requestSubmit()">
+      </form>
+    {% else %}
+      <a class="fmis-page-button"
+         href="?{% if preserved_query %}{{ preserved_query }}&amp;{% endif %}page={{ page_number }}"
+         aria-label="Go to page {{ page_number }}">{{ page_number }}</a>
+    {% endif %}
+  {% endfor %}
+
+  {% if page_obj.has_next %}
+    <a class="fmis-page-button"
+       href="?{% if preserved_query %}{{ preserved_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+       aria-label="Next page">&rsaquo;</a>
+  {% else %}
+    <span class="fmis-page-button is-disabled" aria-hidden="true">&rsaquo;</span>
+  {% endif %}
+</nav>

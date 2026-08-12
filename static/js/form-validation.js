@@ -1,5 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const controls = "input:not([type=hidden]):not([type=submit]):not([type=button]), select, textarea";
+  const loadingOverlay = document.getElementById("fmisSubmitLoading");
+  const loadingTitle = document.getElementById("fmisSubmitLoadingTitle");
   const mark = (field) => {
     field.classList.add("is-invalid");
     field.setAttribute("aria-invalid", "true");
@@ -16,11 +18,40 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   document.querySelectorAll("form").forEach((form) => {
-    form.addEventListener("submit", () => {
+    form.addEventListener("submit", (event) => {
       form.classList.add("fmis-form-submitted");
       form.querySelectorAll(controls).forEach((field) => {
         if (field.validity && !field.validity.valid) mark(field);
       });
+
+      const method = (form.getAttribute("method") || "get").toLowerCase();
+      const hasOwnLoadingState = form.id === "rsbsaRegistration";
+      const isDownload = form.id === "reportGenerator";
+      if (
+        event.defaultPrevented ||
+        method !== "post" ||
+        hasOwnLoadingState ||
+        isDownload ||
+        !form.checkValidity()
+      ) {
+        return;
+      }
+
+      const action = (form.getAttribute("action") || window.location.pathname).toLowerCase();
+      const requestedMessage = form.dataset.loadingMessage;
+      let message = requestedMessage || "Saving changes…";
+      if (!requestedMessage && action.includes("logout")) message = "Signing out…";
+      if (!requestedMessage && (action.includes("delete") || action.includes("deactivate"))) {
+        message = "Updating record status…";
+      }
+      if (loadingTitle) loadingTitle.textContent = message;
+      if (loadingOverlay) loadingOverlay.hidden = false;
+
+      const submitButton = event.submitter;
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.setAttribute("aria-busy", "true");
+      }
     });
     form.querySelectorAll(controls).forEach((field) => {
       field.addEventListener("invalid", () => mark(field));
@@ -92,6 +123,74 @@ document.addEventListener("DOMContentLoaded", () => {
       field.value = capitalizeFirst(field.value.trim());
     });
   });
+
+  document.querySelectorAll('select[name="civil_status"]').forEach((civilStatus) => {
+    const form = civilStatus.closest("form");
+    const spouse = form?.querySelector('[name="spouse_name"]');
+    if (!spouse) return;
+
+    const syncSpouseRequirement = () => {
+      const required = civilStatus.value === "MARRIED";
+      spouse.required = required;
+      spouse.toggleAttribute("aria-required", required);
+      if (!required) {
+        spouse.setCustomValidity("");
+        clear(spouse);
+      }
+
+      const container = spouse.closest(".registration-field, .form-group");
+      if (!container) return;
+      let marker = [...container.children].find(
+        (element) => element.tagName === "B" && element.textContent.trim() === "*"
+      );
+      if (required && !marker) {
+        marker = document.createElement("b");
+        marker.className = "conditional-required-marker";
+        marker.setAttribute("aria-hidden", "true");
+        marker.textContent = "*";
+        container.querySelector("label")?.insertAdjacentElement("afterend", marker);
+      }
+      if (!required && marker) marker.remove();
+    };
+
+    civilStatus.addEventListener("change", syncSpouseRequirement);
+    syncSpouseRequirement();
+  });
+
+  const cropSelector = 'select[name$="crop_type"]';
+  const syncOtherCropField = (cropSelect) => {
+    if (!cropSelect?.name || !cropSelect.form) return;
+    const detailName = cropSelect.name.replace(/crop_type$/, "other_crop_name");
+    const detail = cropSelect.form.elements.namedItem(detailName);
+    if (!detail || detail instanceof RadioNodeList) return;
+    const isOther = cropSelect.value === "Other Crop / Commodity";
+    const container = detail.closest(".registration-field, .form-group");
+    if (container) container.hidden = !isOther;
+    detail.required = isOther;
+    detail.toggleAttribute("aria-required", isOther);
+    detail.disabled = !isOther;
+    if (!isOther) {
+      detail.setCustomValidity("");
+      clear(detail);
+    }
+  };
+
+  const initializeOtherCropFields = (root = document) => {
+    if (root.matches?.(cropSelector)) syncOtherCropField(root);
+    root.querySelectorAll?.(cropSelector).forEach(syncOtherCropField);
+  };
+
+  initializeOtherCropFields();
+  document.addEventListener("change", (event) => {
+    if (event.target.matches?.(cropSelector)) syncOtherCropField(event.target);
+  });
+  new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) initializeOtherCropFields(node);
+      });
+    });
+  }).observe(document.body, {childList: true, subtree: true});
 
   document.querySelectorAll(".errorlist").forEach((errors) => {
     const container = errors.closest("label, .registration-field, .request-field, .account-field, .form-group, p") || errors.parentElement;

@@ -3,7 +3,7 @@
   Activity Log
 {% endblock %}
 {% block page_subtitle %}
-  See recent actions in a clear, easy-to-read format
+  Review who changed a record, when it changed, and the information recorded before and after
 {% endblock %}
 {% block content %}
   <style>
@@ -34,14 +34,31 @@
   }
   .activity-row{
       position:relative;
-      display:grid;
-      grid-template-columns:48px 1fr auto;
-      gap:16px;
-      align-items:start;
       border:1px solid #e4ebf0;
       border-radius:11px;
+      margin-bottom:10px;
+      overflow:hidden;
+      background:#fff
+  }
+  .activity-row[open]{
+      border-color:#b9d9c9;
+      box-shadow:0 8px 24px #153d2910
+  }
+  .activity-row.is-highlighted{
+      border-color:var(--fmis-accent);
+      box-shadow:0 0 0 3px color-mix(in srgb,var(--fmis-accent) 18%,transparent)
+  }
+  .activity-summary{
+      display:grid;
+      grid-template-columns:48px 1fr auto 18px;
+      gap:16px;
+      align-items:start;
       padding:20px;
-      margin-bottom:10px
+      cursor:pointer;
+      list-style:none
+  }
+  .activity-summary::-webkit-details-marker{
+      display:none
   }
   .activity-dot{
       width:46px;
@@ -83,6 +100,84 @@
       font-size:12px;
       font-weight:700
   }
+  .activity-chevron{
+      margin-top:7px;
+      color:#6d7b8b;
+      transition:transform .18s ease
+  }
+  .activity-row[open] .activity-chevron{
+      transform:rotate(180deg)
+  }
+  .activity-detail{
+      padding:0 20px 22px 84px;
+      border-top:1px solid #edf1f3;
+      background:#fbfcfb
+  }
+  .audit-facts{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+      padding:18px 0
+  }
+  .audit-fact{
+      padding:12px;
+      border:1px solid #e2e9e5;
+      border-radius:8px;
+      background:#fff
+  }
+  .audit-fact small{
+      display:block;
+      margin-bottom:4px;
+      color:#718078;
+      font-size:11px;
+      font-weight:700;
+      text-transform:uppercase;
+      letter-spacing:.04em
+  }
+  .audit-fact strong{
+      color:#26372e;
+      font-size:13px;
+      overflow-wrap:anywhere
+  }
+  .audit-reason{
+      margin:0 0 16px;
+      padding:12px 14px;
+      border-left:3px solid #198754;
+      background:#edf8f1;
+      color:#34483c;
+      font-size:13px
+  }
+  .audit-change-table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:13px
+  }
+  .audit-change-table th,.audit-change-table td{
+      padding:10px 12px;
+      border:1px solid #dfe7e2;
+      text-align:left;
+      vertical-align:top;
+      overflow-wrap:anywhere
+  }
+  .audit-change-table th{
+      background:#edf3ef;
+      color:#405348
+  }
+  .audit-before{
+      color:#8a4b45;
+      background:#fffafa
+  }
+  .audit-after{
+      color:#17623b;
+      background:#f8fffa
+  }
+  .audit-technical{
+      display:flex;
+      gap:16px;
+      flex-wrap:wrap;
+      color:#65736b;
+      font-size:12px
+  }
   .activity-empty{
       padding:50px;
       text-align:center;
@@ -106,12 +201,27 @@
       .activity-filters{
           grid-template-columns:1fr
       }
-      .activity-row{
-          grid-template-columns:45px 1fr
+      .activity-summary{
+          grid-template-columns:42px 1fr 18px;
+          padding:16px
       }
       .activity-status{
           grid-column:2;
           justify-self:start
+      }
+      .activity-chevron{
+          grid-column:3;
+          grid-row:1
+      }
+      .activity-detail{
+          padding:0 16px 18px
+      }
+      .audit-facts{
+          grid-template-columns:1fr 1fr
+      }
+      .audit-change-table{
+          display:block;
+          overflow-x:auto
       }
       .activity-pagination{
           align-items:flex-start;
@@ -133,27 +243,78 @@
       </select>
       <select name="user" onchange="this.form.submit()">
         <option value="">All Users</option>
-        {% for log in users %}
-          <option value="{{ log.actor_id }}"
-                  {% if request.GET.user == log.actor_id|stringformat:'s' %}selected{% endif %}>{{ log.actor.display_name }}</option>
+        {% for user in users %}
+          <option value="{{ user.pk }}"
+                  {% if request.GET.user == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.display_name }} ({{ user.username }})</option>
         {% endfor %}
       </select>
     </form>
     <section class="activity-table">
       {% for log in object_list %}
-        <article class="activity-row">
-          <div class="activity-dot">●</div>
-          <div class="activity-copy">
-            <h3>{{ log.title|default:'System Activity' }}</h3>
-            <p>{{ log.description|default:'A system record was updated.' }}</p>
-            <div class="activity-meta">
-              <span>Module: {{ log.module|default:'FMIS' }}</span>
-              <span>User: {{ log.actor.display_name|default:'System' }}</span>
-              <span>Time: {{ log.created_at|date:'M d, Y H:i' }}</span>
+        <details id="activity-{{ log.pk }}"
+                 class="activity-row{% if request.GET.highlight == log.pk|stringformat:'s' %} is-highlighted{% endif %}"
+                 {% if request.GET.highlight == log.pk|stringformat:'s' %}open{% endif %}>
+          <summary class="activity-summary">
+            <div class="activity-dot"><i class="bi bi-clock-history"></i></div>
+            <div class="activity-copy">
+              <h3>{{ log.title|default:'System Activity' }}</h3>
+              <p>{{ log.description|default:'A system record was updated.' }}</p>
+              <div class="activity-meta">
+                <span>{{ log.module|default:'FMIS' }}</span>
+                <span>{{ log.actor.display_name|default:'System' }}</span>
+                <span>{{ log.created_at|date:'M d, Y · g:i A' }}</span>
+              </div>
             </div>
+            <span class="activity-status">{{ log.status }}</span>
+            <i class="bi bi-chevron-down activity-chevron"></i>
+          </summary>
+          <div class="activity-detail">
+            <div class="audit-facts">
+              <div class="audit-fact">
+                <small>Who</small>
+                <strong>{{ log.actor.display_name|default:'System' }}{% if log.actor %} · {{ log.actor.username }}{% endif %}</strong>
+              </div>
+              <div class="audit-fact">
+                <small>When</small>
+                <strong>{{ log.created_at|date:'F d, Y · g:i:s A' }}</strong>
+              </div>
+              <div class="audit-fact">
+                <small>Module</small>
+                <strong>{{ log.module|default:'FMIS' }}</strong>
+              </div>
+              <div class="audit-fact">
+                <small>Affected record</small>
+                <strong>{{ log.target_label|default:'Not specified' }}</strong>
+              </div>
+            </div>
+            <p class="audit-reason"><strong>Reason:</strong> {{ log.reason|default:'No update reason was recorded for this activity.' }}</p>
+            {% if log.details %}
+              <table class="audit-change-table">
+                <thead>
+                  <tr>
+                    <th>Information changed</th>
+                    <th>Previous information</th>
+                    <th>Updated information</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for change in log.details %}
+                    <tr>
+                      <td><strong>{{ change.field }}</strong></td>
+                      <td class="audit-before">{{ change.before|default:'Not recorded' }}</td>
+                      <td class="audit-after">{{ change.after|default:'Not recorded' }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <div class="audit-technical">
+                <span><strong>Action:</strong> {{ log.action }}</span>
+                <span><strong>Page:</strong> {{ log.path }}</span>
+              </div>
+            {% endif %}
           </div>
-          <span class="activity-status">{{ log.status }}</span>
-        </article>
+        </details>
       {% empty %}
         <div class="activity-empty">
           <h3>No activity yet</h3>
@@ -163,17 +324,19 @@
     </section>
     {% if is_paginated %}
       <div class="activity-pagination">
-        <span>Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ paginator.count }} activities</span>
-        <div>
-          {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}">‹ Previous</a>
-          {% endif %}
-          <a href="?page={{ page_obj.number }}">{{ page_obj.number }}</a>
-          {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}">Next ›</a>
-          {% endif %}
-        </div>
+        <span class="table-count-summary">
+          Showing <strong>{{ page_start_display }}</strong>
+          to <strong>{{ page_end_display }}</strong>
+          of <strong class="table-count-total">{{ page_total_display }}</strong> activities
+        </span>
+        {% include 'shared/pagination.html' %}
       </div>
     {% endif %}
   </div>
+  <script>
+      (() => {
+          const search = document.querySelector('.activity-filters input[name="q"]');
+          if (search) search.placeholder = 'Search by activity details'
+      })();
+  </script>
 {% endblock %}

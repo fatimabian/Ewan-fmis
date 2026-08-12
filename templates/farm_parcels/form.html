@@ -17,13 +17,55 @@
         </i>
         <span>This page is for parcel updates of existing farmers. Register a new farmer and their initial parcels through Add Farmer.</span>
       </div>
-      <form method="post">
+      <form method="post" enctype="multipart/form-data" id="parcelForm">
         {% csrf_token %}
-        <div class="registration-grid three">
-          {% for field in form %}
-            {% include "farmers/registration_field.html" with field=field %}
-          {% endfor %}
-        </div>
+        <section class="form-section">
+          <h3>
+            <i class="bi bi-map"></i>
+            Parcel information
+          </h3>
+          <div class="registration-grid three">
+            {% for field in form %}
+              {% include "farmers/registration_field.html" with field=field %}
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="parcel-crops-section">
+          <div class="step-heading compact-heading">
+            <div>
+              <h2>Crops and Commodities</h2>
+              <p>At least one commodity is required for this parcel.</p>
+            </div>
+            <button type="button" class="btn btn-success btn-sm" id="addParcelCrop">
+              <i class="bi bi-plus-lg"></i>
+              Add Crop
+            </button>
+          </div>
+
+          {{ crop_formset.management_form }}
+          {% if crop_formset.non_form_errors %}
+            <div class="form-validation-alert" data-inline-validation>
+              {{ crop_formset.non_form_errors }}
+            </div>
+          {% endif %}
+
+          <div class="formset-rows" id="parcelCropRows">
+            {% for crop_form in crop_formset %}
+              {% include "farm_parcels/crop_form_row.html" with form=crop_form row_number=forloop.counter %}
+            {% endfor %}
+          </div>
+
+          <template id="parcelCropEmptyForm">
+            {% include "farm_parcels/crop_form_row.html" with form=crop_formset.empty_form row_number="__number__" %}
+          </template>
+
+          <div class="registration-note soft">
+            <i class="bi bi-info-circle"></i>
+            <span>One commodity is required. Additional commodity rows become required only after Add Crop is selected.</span>
+          </div>
+        </section>
+
         <div class="step-actions">
           <a class="btn btn-outline-secondary" href="{% url 'farm_parcels:list' %}">Cancel</a>
           <button class="btn btn-success">Save Parcel Update</button>
@@ -31,4 +73,58 @@
       </form>
     </section>
   </div>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    (() => {
+        const rows = document.getElementById("parcelCropRows");
+        const addButton = document.getElementById("addParcelCrop");
+        const template = document.getElementById("parcelCropEmptyForm");
+        const totalForms = document.getElementById("id_parcel_crops-TOTAL_FORMS");
+
+        if (!rows || !addButton || !template || !totalForms) return;
+
+        function activeRows() {
+            return [...rows.querySelectorAll("[data-crop-row]")].filter(
+                row => !row.classList.contains("deleted")
+            );
+        }
+
+        function updateRows() {
+            const currentRows = activeRows();
+            currentRows.forEach((row, index) => {
+                const number = row.querySelector(".row-number");
+                const remove = row.querySelector("[data-remove-crop]");
+                if (number) number.textContent = index + 1;
+                if (remove) remove.disabled = currentRows.length === 1;
+            });
+        }
+
+        addButton.addEventListener("click", () => {
+            const index = Number(totalForms.value);
+            const html = template.innerHTML
+                .replaceAll("__prefix__", index)
+                .replaceAll("__number__", activeRows().length + 1);
+            rows.insertAdjacentHTML("beforeend", html);
+            totalForms.value = index + 1;
+            updateRows();
+            rows.lastElementChild?.querySelector("input:not([type=hidden]), select")?.focus();
+        });
+
+        rows.addEventListener("click", event => {
+            const button = event.target.closest("[data-remove-crop]");
+            if (!button || button.disabled) return;
+            const row = button.closest("[data-crop-row]");
+            const deletion = row.querySelector('input[name$="-DELETE"]');
+            if (deletion) deletion.checked = true;
+            row.querySelectorAll("input, select, textarea").forEach(field => {
+                if (field !== deletion) field.disabled = true;
+            });
+            row.classList.add("deleted");
+            updateRows();
+        });
+
+        updateRows();
+    })();
+  </script>
 {% endblock %}

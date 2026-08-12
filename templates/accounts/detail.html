@@ -60,7 +60,9 @@
                 <div>
                   <dt>Account Status</dt>
                   <dd>
-                    {% if object.is_active %}
+                    {% if object.activation_pending %}
+                      Pending email verification
+                    {% elif object.is_active %}
                       Active
                     {% else %}
                       Inactive

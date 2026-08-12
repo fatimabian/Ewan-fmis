@@ -1,0 +1,58 @@
+{% extends 'base/base.html' %}
+{% block page_title %}
+  Notifications
+{% endblock %}
+{% block content %}
+  <div class="content notification-page">
+    <section class="notification-page-header">
+      <div>
+        <h2>Notifications</h2>
+        <p>Account, record, catalog, assignment, and system updates relevant to your role.</p>
+      </div>
+      {% if notification_unread_count %}
+        <form method="post" action="{% url 'notifications:mark_all' %}">
+          {% csrf_token %}
+          <button class="btn btn-outline-success" type="submit">Mark all as read</button>
+        </form>
+      {% endif %}
+    </section>
+    <section class="notification-list" aria-label="Your notifications">
+      {% for notification in notifications %}
+        <form class="notification-list-item{% if not notification.is_read %} is-unread{% endif %}"
+              method="post"
+              action="{% url 'notifications:open' notification.pk %}">
+          {% csrf_token %}
+          <button type="submit" aria-label="Open {{ notification.title }}">
+            <span class="notification-item-icon notification-category-{{ notification.category }}">
+              {% if notification.category == 'accounts' %}
+                <i class="bi bi-person-check"></i>
+              {% elif notification.category == 'records' %}
+                <i class="bi bi-file-earmark-check"></i>
+              {% elif notification.category == 'catalog' %}
+                <i class="bi bi-journal-check"></i>
+              {% else %}
+                <i class="bi bi-exclamation-triangle"></i>
+              {% endif %}
+            </span>
+            <span class="notification-item-copy">
+              <strong>{{ notification.title }}</strong>
+              <span>{{ notification.message }}</span>
+              <small>{{ notification.created_at|timesince }} ago</small>
+            </span>
+            {% if not notification.is_read %}<span class="notification-unread-marker">Unread</span>{% endif %}
+            <i class="bi bi-chevron-right"></i>
+          </button>
+        </form>
+      {% empty %}
+        <div class="notification-empty">
+          <i class="bi bi-bell"></i>
+          <strong>You are all caught up.</strong>
+          <p>Relevant system updates will appear here.</p>
+        </div>
+      {% endfor %}
+    </section>
+    {% if is_paginated %}
+      {% include 'shared/pagination.html' %}
+    {% endif %}
+  </div>
+{% endblock %}

@@ -1,12 +1,22 @@
 import hashlib
 
+from django.contrib import messages
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.views import LoginView, LogoutView
 from django.core.cache import cache
 from django.shortcuts import redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.views.generic import FormView, TemplateView
 
-from .forms import IdentifierPasswordResetForm, LoginForm
+from .activation import (
+    ACTIVATION_MAX_ATTEMPTS,
+    clear_activation_challenge,
+    get_activation_challenge,
+    masked_email,
+    send_activation_code,
+    verify_activation_code,
+)
+from .forms import ActivationOTPForm, IdentifierPasswordResetForm, LoginForm
 
 
 def _request_limit_key(scope, request, identifier):
@@ -24,15 +34,6 @@ def _record_attempt(key, timeout):
 
 def dashboard_for(user):
     return "dashboard:admin_home" if user.is_admin else "dashboard:staff_home"
-
-
-class LandingPageView(TemplateView):
-    template_name = "authentication/landing.html"
-
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return redirect(dashboard_for(request.user))
-        return super().dispatch(request, *args, **kwargs)
 
 
 class PrivacyNoticeView(TemplateView):
@@ -59,6 +60,32 @@ class UserLoginView(LoginView):
                 "username", "Too many unsuccessful sign-in attempts. Wait 10 minutes and try again."
             )
             return self.form_invalid(form)
+        pending_user = get_user_model().objects.filter(
+            username__iexact=request.POST.get("username", "").strip(),
+            is_active=False,
+            activation_pending=True,
+        ).first()
+        if pending_user and pending_user.check_password(request.POST.get("password", "")):
+            if not pending_user.email:
+                form = self.get_form()
+                form.add_error("username", "Ask an administrator to add an email address first.")
+                return self.form_invalid(form)
+            try:
+                send_activation_code(
+                    request,
+                    pending_user,
+                    remember_me=bool(request.POST.get("remember_me")),
+                )
+            except Exception:
+                form = self.get_form()
+                form.add_error(
+                    "username",
+                    "The activation email could not be sent. Check the email configuration and try again.",
+                )
+                return self.form_invalid(form)
+            cache.delete(self.login_limit_key)
+            messages.info(request, "A six-digit activation code was sent to the account email.")
+            return redirect("authentication:activate_account")
         return super().post(request, *args, **kwargs)
 
     def get_success_url(self):
@@ -83,8 +110,87 @@ class UserLoginView(LoginView):
         return super().form_invalid(form)
 
 
+class LandingPageView(UserLoginView):
+    """Public landing page with the same secure sign-in flow as /login/."""
+
+    template_name = "authentication/landing.html"
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        form.fields["username"].widget.attrs.pop("autofocus", None)
+        return form
+
+
 class UserLogoutView(LogoutView):
     next_page = reverse_lazy("authentication:landing")
+
+
+class AccountActivationView(FormView):
+    template_name = "authentication/account_activation.html"
+    form_class = ActivationOTPForm
+
+    def dispatch(self, request, *args, **kwargs):
+        nonce, challenge = get_activation_challenge(request)
+        if not nonce or not challenge:
+            messages.warning(request, "The activation code expired. Sign in again to request a new code.")
+            return redirect("authentication:login")
+        self.activation_nonce = nonce
+        self.activation_challenge = challenge
+        self.activation_user = get_user_model().objects.filter(
+            pk=challenge["user_id"],
+            is_active=False,
+            activation_pending=True,
+        ).first()
+        if not self.activation_user:
+            clear_activation_challenge(request, nonce)
+            return redirect("authentication:login")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["masked_email"] = masked_email(self.activation_user.email)
+        context["attempts_remaining"] = max(
+            0,
+            ACTIVATION_MAX_ATTEMPTS - self.activation_challenge["attempts"],
+        )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        if request.POST.get("action") == "resend":
+            remember_me = self.activation_challenge.get("remember_me", False)
+            clear_activation_challenge(request, self.activation_nonce)
+            try:
+                send_activation_code(request, self.activation_user, remember_me=remember_me)
+            except Exception:
+                messages.error(request, "The activation email could not be sent. Try again later.")
+                return redirect("authentication:login")
+            messages.success(request, "A new six-digit code was sent.")
+            return redirect("authentication:activate_account")
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        if not verify_activation_code(
+            self.activation_nonce,
+            self.activation_challenge,
+            form.cleaned_data["code"],
+        ):
+            form.add_error("code", "That code is incorrect or has expired.")
+            return self.form_invalid(form)
+
+        remember_me = self.activation_challenge.get("remember_me", False)
+        user = self.activation_user
+        user.is_active = True
+        user.activation_pending = False
+        user.save(update_fields=["is_active", "activation_pending"])
+        clear_activation_challenge(self.request, self.activation_nonce)
+        login(
+            self.request,
+            user,
+            backend="django.contrib.auth.backends.ModelBackend",
+        )
+        self.request.session.set_expiry(30 * 24 * 60 * 60 if remember_me else 0)
+        messages.success(self.request, "Your FMIS staff account is now active.")
+        return redirect(reverse(dashboard_for(user)))
 
 
 class PasswordRecoveryView(FormView):

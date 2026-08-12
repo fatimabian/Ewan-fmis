@@ -1,9 +1,9 @@
 {% extends base_template %}
 {% block page_title %}
-  Update Farmer Profile
+  Updating Slip A
 {% endblock %}
 {% block page_subtitle %}
-  Update the registrant's personal information using RSBSA Slip A
+  Change of Personal Information
 {% endblock %}
 {% block content %}
   <div class="content">
@@ -11,22 +11,41 @@
       <div class="registration-note">
         <i class="bi bi-info-circle">
         </i>
-        <span>This page updates personal information only (RSBSA Slip A). Use Farm Parcel or Crops for Slip B updates.</span>
+        <span>The previous information will be preserved automatically. Only save verified changes from the official RSBSA Updating Slip A.</span>
       </div>
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
-        <div class="registration-grid three">
-          {% for field in form %}
-            {% if not field.is_hidden %}
-              {% include "farmers/registration_field.html" with field=field %}
-            {% else %}
-              {{ field }}
-            {% endif %}
-          {% endfor %}
-        </div>
+        <section class="form-section">
+          <h3><i class="bi bi-person-vcard"></i> Registrant and personal information</h3>
+          <div class="registration-grid three">
+            {% for field in form %}
+              {% if field.name != 'transaction_code' and field.name != 'change_reason' and field.name != 'update_remarks' and field.name != 'date_signed' and field.name != 'date_received' and field.name != 'agriculturist_name' and field.name != 'registrant_declaration' %}
+                {% if not field.is_hidden %}
+                  {% include "farmers/registration_field.html" with field=field %}
+                {% else %}
+                  {{ field }}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+          </div>
+        </section>
+        <section class="form-section">
+          <h3><i class="bi bi-journal-check"></i> Official updating slip details</h3>
+          <div class="registration-grid three">
+            {% include "farmers/registration_field.html" with field=form.transaction_code %}
+            {% include "farmers/registration_field.html" with field=form.change_reason %}
+            {% include "farmers/registration_field.html" with field=form.agriculturist_name %}
+            {% include "farmers/registration_field.html" with field=form.date_signed %}
+            {% include "farmers/registration_field.html" with field=form.date_received %}
+            {% include "farmers/registration_field.html" with field=form.update_remarks %}
+          </div>
+          <div class="registration-consent">
+            {% include "farmers/registration_field.html" with field=form.registrant_declaration %}
+          </div>
+        </section>
         <div class="step-actions">
-          <a class="btn btn-outline-secondary" href="{% url 'farmers:list' %}">Cancel</a>
-          <button class="btn btn-success">Save Profile Update</button>
+          <a class="btn btn-outline-secondary" href="{% url 'farmers:detail' object.pk %}">Cancel</a>
+          <button class="btn btn-success">Save Slip A Update</button>
         </div>
       </form>
     </section>

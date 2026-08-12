@@ -13,12 +13,11 @@ class ProfileForm(InlineValidationMixin, forms.Form):
     last_name = forms.CharField(max_length=150, required=False)
     email = forms.EmailField(required=False)
     phone_number = forms.CharField(max_length=20, required=False)
-    theme = forms.ChoiceField(choices=[("light", "Light"), ("dark", "Dark"), ("system", "System")])
+    theme = forms.ChoiceField(
+        choices=[("system", "System (Recommended)"), ("light", "Light"), ("dark", "Dark")]
+    )
     primary_color = forms.CharField(max_length=7)
-    email_notifications = forms.BooleanField(required=False)
     in_app_notifications = forms.BooleanField(required=False)
-    weekly_summary = forms.BooleanField(required=False)
-    two_factor_enabled = forms.BooleanField(required=False)
     system_name = forms.CharField(max_length=150, required=False)
     timezone = forms.ChoiceField(
         choices=[("Asia/Manila", "Philippine Standard Time (PST, UTC+8)"), ("UTC", "UTC")],
@@ -31,7 +30,6 @@ class ProfileForm(InlineValidationMixin, forms.Form):
         choices=[("15", "15 minutes"), ("30", "30 minutes"), ("60", "1 hour")], required=False
     )
     automated_backups = forms.BooleanField(required=False)
-    two_factor_required = forms.BooleanField(required=False)
 
     def __init__(self, *args, user=None, **kwargs):
         self.user = user

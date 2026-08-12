@@ -27,6 +27,7 @@
     <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
     <link rel="stylesheet" href="{% static 'css/system-responsive.css' %}">
     {% block extra_css %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/human-ui.css' %}">
     <style>
     :root{
         --fmis-accent:{{ user_preference.primary_color|default:'#16a34a' }};
@@ -116,31 +117,21 @@
         min-width:0
     }
     .header-office{
-        display:flex;
+        display:block;
         min-width:0;
-        flex-direction:column
     }
     .header-office strong{
+        display:block;
         overflow:hidden;
         color:#17233a;
-        font-size:14px;
+        font-size:20px;
         font-weight:800;
         line-height:1.25;
         text-overflow:ellipsis;
         white-space:nowrap
     }
-    .header-office small{
-        color:#64748b;
-        font-size:10px;
-        font-weight:700;
-        letter-spacing:.55px;
-        text-transform:uppercase
-    }
     body[data-theme="dark"] .header-office strong{
         color:#edf3fa!important
-    }
-    body[data-theme="dark"] .header-office small{
-        color:#b7c4d5!important
     }
     @media(max-width:600px){
         .app-shell main{
@@ -150,24 +141,30 @@
             gap:9px
         }
         .header-office strong{
-            font-size:12px
-        }
-        .header-office small{
-            font-size:8px
+            font-size:17px
         }
     }
     </style>
+    <link rel="stylesheet" href="{% static 'css/dark-mode.css' %}">
   </head>
   <body class="{% if request.user.is_admin %}role-admin{% else %}role-staff{% endif %}"
-        data-theme="{{ user_preference.theme|default:'light' }}"
-        data-theme-preference="{{ user_preference.theme|default:'light' }}">
+        data-theme="{{ user_preference.theme|default:'system' }}"
+        data-theme-preference="{{ user_preference.theme|default:'system' }}">
+    <script>
+      (() => {
+          const body = document.body;
+          if (body.dataset.themePreference === "system") {
+              body.dataset.theme = window.matchMedia("(prefers-color-scheme: dark)").matches
+                  ? "dark"
+                  : "light";
+          }
+          document.documentElement.style.colorScheme = body.dataset.theme;
+      })();
+    </script>
     <div class="app-shell">
       <aside class="sidebar {% if not request.user.is_admin %}staff-sidebar{% endif %}">
         <a class="brand" href="{% url 'dashboard:home' %}" aria-label="FMIS Dashboard">
-          <span class="brand-mark">
-            <i class="bi bi-leaf-fill">
-            </i>
-          </span>
+          <span class="brand-mark" aria-hidden="true">F</span>
           <span class="brand-copy">
             <strong>FMIS</strong>
             <small>ROSARIO · BATANGAS</small>
@@ -177,7 +174,7 @@
           <a href="{% url 'dashboard:home' %}">
             <i class="bi bi-house-door">
             </i>
-            <span>Dashboard</span>
+            <span>Home</span>
           </a>
           {% if request.user.is_admin %}
             <p>MANAGEMENT</p>
@@ -220,8 +217,7 @@
               <span>Farm Parcel</span>
             </a>
             <a href="{% url 'crops:list' %}">
-              <i class="bi bi-flower1">
-              </i>
+              <span class="sidebar-agri-symbol" aria-hidden="true">🌾</span>
               <span>Crops</span>
             </a>
             <a href="{% url 'service_requests:list' %}">
@@ -270,8 +266,11 @@
               </i>
             </button>
             <div class="header-office">
-              <strong>Office for Agricultural Services</strong>
-              <small>Rosario, Batangas</small>
+              <strong>
+                {% block page_title %}
+                  Dashboard
+                {% endblock %}
+              </strong>
             </div>
           </div>
           <div class="header-actions">
@@ -280,11 +279,29 @@
                 <summary aria-label="Notifications">
                   <i class="bi bi-bell">
                   </i>
-                  <span class="notification-dot"></span>
+                  {% if notification_unread_count %}
+                    <span class="notification-count">{{ notification_unread_count }}</span>
+                  {% endif %}
                 </summary>
                 <div class="notification-panel">
-                  <strong>Notifications</strong>
-                  <p>You are all caught up. New system updates will appear here.</p>
+                  <div class="notification-panel-heading">
+                    <strong>Notifications</strong>
+                    <a href="{% url 'notifications:list' %}">View all</a>
+                  </div>
+                  <div class="notification-preview-list">
+                    {% for notification in notification_preview %}
+                      <form method="post" action="{% url 'notifications:open' notification.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="{% if not notification.is_read %}is-unread{% endif %}">
+                          <span>{{ notification.title }}</span>
+                          <small>{{ notification.message }}</small>
+                          <time>{{ notification.created_at|timesince }} ago</time>
+                        </button>
+                      </form>
+                    {% empty %}
+                      <p>You are all caught up. Relevant system updates will appear here.</p>
+                    {% endfor %}
+                  </div>
                 </div>
               </details>
             {% endif %}
@@ -305,29 +322,6 @@
             </a>
           </div>
         </header>
-        {% block page_intro %}
-          <section class="page-intro">
-            <div>
-              <span class="intro-kicker">
-                <i class="bi bi-leaf-fill">
-                </i> Office for Agricultural Services</span>
-                <h1>
-                  {% block page_title %}
-                    Dashboard
-                  {% endblock %}
-                </h1>
-                <p>
-                  {% block page_subtitle %}
-                    Office for Agricultural Services
-                  {% endblock %}
-                </p>
-              </div>
-              <span class="intro-leaf" aria-hidden="true">
-                <i class="bi bi-leaf">
-                </i>
-              </span>
-            </section>
-        {% endblock %}
         {% if messages %}
           <div id="fmisMessageQueue" hidden>
             {% for message in messages %}
@@ -365,7 +359,20 @@
         </div>
       </section>
     </div>
+    <div class="fmis-submit-loading"
+         id="fmisSubmitLoading"
+         hidden
+         role="status"
+         aria-live="polite"
+         aria-label="Please wait while the system processes your request">
+      <section class="fmis-submit-loading-card">
+        <span class="fmis-submit-spinner" aria-hidden="true"></span>
+        <strong id="fmisSubmitLoadingTitle">Saving changes…</strong>
+        <p>Please wait. Do not close or refresh this page.</p>
+      </section>
+    </div>
     <script src="{% static 'js/fmis.js' %}"></script>
+    <script src="{% static 'js/password-toggle.js' %}"></script>
     <script src="{% static 'js/form-validation.js' %}"></script>
     {% block extra_js %}{% endblock %}
   </body>

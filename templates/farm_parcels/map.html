@@ -3,7 +3,7 @@
   Farmer Location Map
 {% endblock %}
 {% block page_subtitle %}
-  Pin farmer residences and review their registered crops
+  Pin farmer residences within Rosario, Batangas and review their registered crops
 {% endblock %}
 {% block content %}
   <link rel="stylesheet"
@@ -35,6 +35,25 @@
       display:flex;
       gap:8px;
       flex-wrap:wrap
+  }
+  .map-scope-note{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:0 0 12px;
+      color:#4f5f54;
+      font-size:13px
+  }
+  .map-legend{
+      display:flex;
+      align-items:center;
+      gap:7px;
+      margin:0 0 12px;
+      color:#52645a;
+      font-size:11px
+  }
+  .map-legend i{
+      color:#167b43
   }
   .map-count{
       padding:8px 11px;
@@ -176,6 +195,82 @@
       color:inherit;
       text-decoration:none
   }
+  .farmer-map-label{
+      padding:4px 7px;
+      border:1px solid #b9cbbf;
+      border-radius:6px;
+      background:rgba(255,255,255,.94);
+      box-shadow:0 2px 7px rgba(24,54,36,.18);
+      color:#183b27;
+      font-size:11px;
+      font-weight:800;
+      white-space:nowrap
+  }
+  .farmer-map-label:before{
+      border-top-color:rgba(255,255,255,.94)!important
+  }
+  .farmer-pin-shell{
+      border:0;
+      background:transparent
+  }
+  .farmer-pin{
+      width:30px;
+      height:30px;
+      display:grid;
+      place-items:center;
+      border:3px solid #fff;
+      border-radius:50% 50% 50% 8px;
+      background:#168148;
+      box-shadow:0 3px 9px rgba(18,64,37,.35);
+      color:#fff;
+      font-size:13px;
+      transform:rotate(-45deg)
+  }
+  .farmer-pin i{
+      transform:rotate(45deg)
+  }
+  .farmer-pin-shell.is-moving .farmer-pin{
+      background:#e1841d;
+      box-shadow:0 0 0 6px rgba(225,132,29,.2),0 3px 9px rgba(18,64,37,.35)
+  }
+  .pin-edit-panel{
+      display:none;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      margin:0 0 12px;
+      padding:11px 13px;
+      border:1px solid #e2b36f;
+      border-radius:10px;
+      background:#fff8e9;
+      color:#523617
+  }
+  .pin-edit-panel.is-visible{
+      display:flex
+  }
+  .pin-edit-panel strong{
+      display:block;
+      margin-bottom:2px;
+      font-size:13px
+  }
+  .pin-edit-panel span{
+      font-size:12px
+  }
+  .pin-edit-actions{
+      display:flex;
+      gap:8px;
+      flex:0 0 auto
+  }
+  body[data-theme="dark"] .farmer-map-label{
+      border-color:#607166;
+      background:rgba(27,43,34,.96);
+      color:#f0f7f2
+  }
+  body[data-theme="dark"] .pin-edit-panel{
+      border-color:#906a36;
+      background:#382d1f;
+      color:#ffe7bd
+  }
   @media(max-width:850px){
       .map-toolbar{
           grid-template-columns:1fr 1fr
@@ -225,6 +320,13 @@
           font-size:12px;
           padding:7px 8px
       }
+      .pin-edit-panel{
+          align-items:stretch;
+          flex-direction:column
+      }
+      .pin-edit-actions .btn{
+          flex:1
+      }
   }
   </style>
   <div class="content farmer-map-page">
@@ -256,6 +358,26 @@
         <span class="map-count">
           <strong>{{ unmapped_count }}</strong> need a pin</span>
       </div>
+      <p class="map-scope-note">
+        <i class="bi bi-bounding-box-circles"></i>
+        Map movement and saved pins are limited to Rosario, Batangas. Satellite view is selected by default for accurate placement.
+      </p>
+      <p class="map-legend">
+        <i class="bi bi-info-circle-fill"></i>
+        Map labels identify roads and places. Right-click a green farmer pin to move it.
+      </p>
+      <div class="pin-edit-panel" id="pinEditPanel" role="status" aria-live="polite">
+        <div>
+          <strong id="pinEditFarmer">Moving farmer pin</strong>
+          <span>Drag the orange pin to the correct residence, then save or cancel.</span>
+        </div>
+        <div class="pin-edit-actions">
+          <button class="btn btn-outline-secondary" id="cancelPinMove" type="button">Cancel</button>
+          <button class="btn btn-success" id="savePinMove" type="button">
+            <i class="bi bi-check2"></i> Save New Location
+          </button>
+        </div>
+      </div>
       <p class="pin-help" id="pinHelp">
         <i class="bi bi-crosshair">
         </i> Click the farmer's residence on the map to save the pin.
@@ -281,6 +403,8 @@
       {% endif %}
     </div>
     {{ map_markers|json_script:"farmer-map-markers" }}
+    {{ rosario_map_bounds|json_script:"rosario-map-bounds" }}
+    {{ rosario_map_center|json_script:"rosario-map-center" }}
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
@@ -288,17 +412,89 @@
         (() => {
             const markers = JSON.parse(document.getElementById('farmer-map-markers').textContent),
                 mapNode = document.getElementById('farmerMap');
+            const scope = JSON.parse(document.getElementById('rosario-map-bounds').textContent),
+                rosarioCenter = JSON.parse(document.getElementById('rosario-map-center').textContent),
+                rosarioBounds = L.latLngBounds(
+                    [scope.south, scope.west],
+                    [scope.north, scope.east]
+                );
             const farmerSelect = document.getElementById('pinFarmer'),
                 startPin = document.getElementById('startPin'),
+                pinEditPanel = document.getElementById('pinEditPanel'),
+                pinEditFarmer = document.getElementById('pinEditFarmer'),
+                cancelPinMove = document.getElementById('cancelPinMove'),
+                savePinMove = document.getElementById('savePinMove'),
                 markerByFarmer = new Map();
             const map = L.map(mapNode, {
-                scrollWheelZoom: false
-            }).setView([13.8467, 121.2060], 12);
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                scrollWheelZoom: false,
+                maxBounds: rosarioBounds,
+                maxBoundsViscosity: 1,
+                minZoom: 11
+            });
+            const satelliteImagery = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                {
+                    maxNativeZoom: 18,
+                    maxZoom: 19,
+                    attribution: 'Tiles &copy; Esri and imagery providers'
+                }
+            );
+            const placeLabels = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                {
+                    maxNativeZoom: 18,
+                    maxZoom: 19,
+                    pane: 'overlayPane',
+                    attribution: 'Place labels &copy; Esri'
+                }
+            );
+            const satellite = L.layerGroup([satelliteImagery, placeLabels]);
+            const terrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+                maxNativeZoom: 18,
                 maxZoom: 19,
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
-            }).addTo(map);
+                attribution: 'Topographic map &copy; Esri and data providers'
+            });
+            const streets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                maxNativeZoom: 18,
+                maxZoom: 19,
+                attribution: 'Street map &copy; Esri and data providers'
+            });
+            satellite.addTo(map);
+            L.control.layers(
+                {
+                    'Satellite': satellite,
+                    'Terrain with place names': terrain,
+                    'Street map with place names': streets
+                },
+                {},
+                {
+                    collapsed: false,
+                    position: 'topright'
+                }
+            ).addTo(map);
+            map.fitBounds(rosarioBounds, {
+                padding: [18, 18]
+            });
+            L.rectangle(rosarioBounds, {
+                color: '#f1d34f',
+                weight: 2,
+                opacity: .9,
+                fill: false,
+                dashArray: '7 6',
+                interactive: false
+            }).addTo(map).bindTooltip('Rosario, Batangas map limit', {
+                permanent: false,
+                direction: 'center'
+            });
             const bounds = [];
+            const farmerIcon = L.divIcon({
+                className: 'farmer-pin-shell',
+                html: '<span class="farmer-pin"><i class="bi bi-person-fill"></i></span>',
+                iconSize: [30, 30],
+                iconAnchor: [15, 29],
+                popupAnchor: [0, -28],
+                tooltipAnchor: [0, -25]
+            });
             const make = (tag, className, text) => {
                 const node = document.createElement(tag);
                 if (className) node.className = className;
@@ -328,7 +524,7 @@
                             card.appendChild(image)
                         } else {
                             const blank = make('div', 'crop-placeholder');
-                            blank.innerHTML = '<i class="bi bi-flower1"></i>';
+                            blank.textContent = crop.symbol || '🌱';
                             card.appendChild(blank)
                         }
                         card.appendChild(make('span', '', crop.name));
@@ -342,11 +538,24 @@
                 edit.href = item.edit_url;
                 popup.appendChild(edit);
                 const mobilePopup = window.matchMedia('(max-width:560px)').matches;
-                const farmerMarker = L.marker([item.lat, item.lng]).addTo(map).bindPopup(popup, {
-                    maxWidth: mobilePopup ? 310 : 510,
-                    minWidth: mobilePopup ? 260 : 470,
-                    maxHeight: 620
-                });
+                const farmerMarker = L.marker([item.lat, item.lng], {
+                    icon: farmerIcon,
+                    draggable: false,
+                    title: `${item.farmer} — ${item.address || 'Rosario, Batangas'}`
+                })
+                    .addTo(map)
+                    .bindTooltip(item.farmer, {
+                        permanent: true,
+                        direction: 'top',
+                        offset: [0, -9],
+                        className: 'farmer-map-label'
+                    })
+                    .bindPopup(popup, {
+                        maxWidth: mobilePopup ? 310 : 510,
+                        minWidth: mobilePopup ? 260 : 470,
+                        maxHeight: 620
+                    });
+                farmerMarker.fmisFarmer = item;
                 markerByFarmer.set(String(item.id), farmerMarker);
                 bounds.push([item.lat, item.lng]);
             });
@@ -354,7 +563,20 @@
                 padding: [35, 35],
                 maxZoom: 16
             });
-            let pinning = false;
+            let pinning = false,
+                movingMarker = null,
+                originalMarkerPoint = null;
+            const stopMovingPin = restorePosition => {
+                if (!movingMarker) return;
+                if (restorePosition && originalMarkerPoint) {
+                    movingMarker.setLatLng(originalMarkerPoint)
+                }
+                movingMarker.dragging.disable();
+                movingMarker.getElement()?.classList.remove('is-moving');
+                movingMarker = null;
+                originalMarkerPoint = null;
+                pinEditPanel.classList.remove('is-visible')
+            };
             const resetPinMode = () => {
                 pinning = false;
                 document.body.classList.remove('map-pin-active')
@@ -389,28 +611,91 @@
                 pinning = true;
                 document.body.classList.add('map-pin-active')
             });
+            const saveFarmerPoint = async (farmerId, point, operation = 'create') => {
+                const form = new FormData(document.getElementById('pinForm'));
+                form.set('farmer_id', farmerId);
+                form.set('latitude', point.lat);
+                form.set('longitude', point.lng);
+                form.set('operation', operation);
+                const response = await fetch('{% url "farm_parcels:pin_farmer" %}', {
+                    method: 'POST',
+                    body: form,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                const result = await response.json();
+                if (!response.ok || !result.ok) {
+                    throw new Error(result.message || 'The pin could not be saved.')
+                }
+                return result
+            };
+            markers.forEach(item => {
+                const marker = markerByFarmer.get(String(item.id));
+                marker.on('contextmenu', event => {
+                    L.DomEvent.stopPropagation(event.originalEvent);
+                    if (movingMarker && movingMarker !== marker) stopMovingPin(true);
+                    window.fmisFeedback?.(
+                        `Move ${item.farmer}'s saved pin?`,
+                        'confirm',
+                        () => {
+                            resetPinMode();
+                            movingMarker = marker;
+                            originalMarkerPoint = L.latLng(marker.getLatLng());
+                            farmerSelect.value = String(item.id);
+                            pinEditFarmer.textContent = `Moving ${item.farmer}'s pin`;
+                            pinEditPanel.classList.add('is-visible');
+                            marker.closePopup();
+                            marker.dragging.enable();
+                            marker.getElement()?.classList.add('is-moving');
+                            map.panTo(marker.getLatLng())
+                        }
+                    )
+                })
+            });
+            cancelPinMove.addEventListener('click', () => stopMovingPin(true));
+            savePinMove.addEventListener('click', async () => {
+                if (!movingMarker) return;
+                const marker = movingMarker,
+                    point = marker.getLatLng(),
+                    item = marker.fmisFarmer;
+                if (!rosarioBounds.contains(point)) {
+                    window.fmisFeedback?.(
+                        'That point is outside Rosario, Batangas. Move the pin inside the highlighted boundary.',
+                        'error'
+                    );
+                    return
+                }
+                savePinMove.disabled = true;
+                try {
+                    const result = await saveFarmerPoint(item.id, point, 'move');
+                    stopMovingPin(false);
+                    window.fmisFeedback?.(result.message, 'success')
+                } catch (error) {
+                    window.fmisFeedback?.(error.message, 'error')
+                } finally {
+                    savePinMove.disabled = false
+                }
+            });
             map.on('click', async event => {
                 if (!pinning) return;
-                const form = new FormData(document.getElementById('pinForm'));
-                form.set('latitude', event.latlng.lat);
-                form.set('longitude', event.latlng.lng);
+                if (!rosarioBounds.contains(event.latlng)) {
+                    window.fmisFeedback?.(
+                        'That point is outside Rosario, Batangas. Choose a location inside the highlighted boundary.',
+                        'error'
+                    );
+                    return
+                }
                 try {
-                    const response = await fetch('{% url "farm_parcels:pin_farmer" %}', {
-                        method: 'POST',
-                        body: form,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-                    const result = await response.json();
-                    if (response.ok && result.ok) {
-                        window.fmisFeedback?.(result.message, 'success');
-                        setTimeout(() => window.location.reload(), 900);
-                        return
-                    }
-                    window.fmisFeedback?.(result.message || 'The pin could not be saved.', 'error')
+                    const result = await saveFarmerPoint(farmerSelect.value, event.latlng);
+                    window.fmisFeedback?.(result.message, 'success');
+                    setTimeout(() => window.location.reload(), 900);
+                    return
                 } catch (error) {
-                    window.fmisFeedback?.('The map location could not be saved. Check your connection and try again.', 'error')
+                    window.fmisFeedback?.(
+                        error.message || 'The map location could not be saved. Check your connection and try again.',
+                        'error'
+                    )
                 }
                 pinning = false;
                 document.body.classList.remove('map-pin-active')

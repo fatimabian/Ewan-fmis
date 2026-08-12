@@ -40,7 +40,10 @@ class AccountCreateView(FMISLoginRequiredMixin, AdminRequiredMixin, CreateView):
             return self.form_invalid(form)
         messages.success(
             self.request,
-            f"{self.object.display_name} can now sign in with the username and password you created.",
+            (
+                f"{self.object.display_name}'s staff account was created. "
+                "It will activate after the user verifies the email OTP on first sign-in."
+            ),
         )
         return response
 

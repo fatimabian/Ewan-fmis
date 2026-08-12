@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from apps.authentication.models import CustomUser
 from apps.common.forms import InlineValidationMixin, normalize_phone_digits
-from apps.common.constants import ASSIGNABLE_ROLE_CHOICES, ROLE_CHOICES
+from apps.common.constants import ASSIGNABLE_ROLE_CHOICES, ROLE_CHOICES, ROLE_STAFF
 
 
 class AccountValidationMixin:
@@ -34,9 +34,14 @@ class AccountValidationMixin:
 class AccountForm(AccountValidationMixin, InlineValidationMixin, UserCreationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name in ("first_name", "last_name", "email", "phone_number", "role"):
-            self.fields[name].required = True
-        self.fields["role"].choices = ASSIGNABLE_ROLE_CHOICES
+        self.fields["first_name"].required = False
+        self.fields["last_name"].required = False
+        self.fields["email"].required = True
+        self.fields["phone_number"].required = True
+        self.fields["password1"].label = "Password"
+        self.fields["password2"].label = "Confirm Password"
+        self.fields["password1"].help_text = ""
+        self.fields["password2"].help_text = ""
 
     def clean_username(self):
         username = self.cleaned_data.get("username", "").strip()
@@ -50,7 +55,9 @@ class AccountForm(AccountValidationMixin, InlineValidationMixin, UserCreationFor
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.is_active = True
+        user.role = ROLE_STAFF
+        user.is_active = False
+        user.activation_pending = True
         if commit:
             user.save()
         return user
@@ -63,13 +70,23 @@ class AccountForm(AccountValidationMixin, InlineValidationMixin, UserCreationFor
             "last_name",
             "email",
             "phone_number",
-            "role",
             "password1",
             "password2",
         ]
 
 
 class AccountUpdateForm(AccountValidationMixin, InlineValidationMixin, forms.ModelForm):
+    is_active = forms.TypedChoiceField(
+        choices=(
+            ("True", "Active"),
+            ("False", "Inactive"),
+        ),
+        coerce=lambda value: value in (True, "True", "true", "1", "on"),
+        empty_value=None,
+        label="Account Status",
+        required=True,
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name in ("first_name", "last_name", "email", "phone_number", "role"):
@@ -91,7 +108,6 @@ class AccountUpdateForm(AccountValidationMixin, InlineValidationMixin, forms.Mod
             "role",
             "is_active",
         ]
-        labels = {"is_active": "Account is active"}
 
     def clean_username(self):
         username = self.cleaned_data.get("username", "").strip()
@@ -106,3 +122,11 @@ class AccountUpdateForm(AccountValidationMixin, InlineValidationMixin, forms.Mod
                 "This username is already in use. Please choose another username."
             )
         return username
+
+    def clean_is_active(self):
+        is_active = self.cleaned_data.get("is_active", False)
+        if self.instance.activation_pending and is_active:
+            raise forms.ValidationError(
+                "This new account must complete first-login email verification before activation."
+            )
+        return is_active

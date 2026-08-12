@@ -114,6 +114,82 @@
       color:#61718a;
       margin:0
   }
+  .farmer-statistics-heading{
+      display:flex;
+      align-items:baseline;
+      gap:10px;
+      margin:4px 0 7px;
+      padding:0;
+      border:0;
+      background:transparent;
+      box-shadow:none
+  }
+  .farmer-statistics-heading h2{
+      margin:0;
+      color:#172033;
+      font-size:13px;
+      letter-spacing:.35px;
+      white-space:nowrap
+  }
+  .farmer-statistics-heading p{
+      margin:0;
+      color:#61718a;
+      font-size:11px!important;
+      line-height:1.35
+  }
+  .farmer-statistics-metrics{
+      grid-template-columns:repeat(7,minmax(128px,1fr))!important;
+      gap:8px;
+      margin:0 0 12px;
+      padding-bottom:2px;
+      overflow-x:auto;
+      scrollbar-width:thin
+  }
+  .farmer-statistics-metrics .report-metric{
+      min-width:0;
+      min-height:72px!important;
+      display:grid;
+      grid-template-columns:34px minmax(0,1fr);
+      grid-template-rows:auto auto;
+      align-content:center;
+      column-gap:9px;
+      padding:10px 11px!important
+  }
+  .farmer-statistics-metrics .report-metric i{
+      grid-row:1/3;
+      width:34px;
+      height:34px;
+      display:grid;
+      float:none;
+      place-items:center;
+      margin:0!important;
+      padding:0!important;
+      border-radius:8px;
+      font-size:16px
+  }
+  .farmer-statistics-metrics .report-metric small{
+      overflow:visible;
+      color:#374151!important;
+      font-size:11px!important;
+      font-weight:800;
+      line-height:1.25;
+      text-overflow:clip;
+      white-space:normal
+  }
+  .farmer-statistics-metrics .report-metric b{
+      margin-top:2px;
+      color:#172033!important;
+      font-size:22px!important;
+      line-height:1.05
+  }
+  body[data-theme="dark"] .farmer-statistics-heading h2,
+  body[data-theme="dark"] .farmer-statistics-metrics .report-metric b{
+      color:#f1f5f9!important
+  }
+  body[data-theme="dark"] .farmer-statistics-heading p,
+  body[data-theme="dark"] .farmer-statistics-metrics .report-metric small{
+      color:#cbd5e1!important
+  }
   .report-template-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -333,6 +409,12 @@
       }
       .summary-grid{
           grid-template-columns:repeat(2,1fr)
+      }
+      .farmer-statistics-heading{
+          display:block
+      }
+      .farmer-statistics-heading p{
+          margin-top:2px
       }
   }
   /* Client-requested DRRMIS-style vertical filters, limited to Rosario fields. */
@@ -575,8 +657,8 @@
   }
   </style>
   <div class="content reports-page">
-    <section class="report-metrics">
-      {% if request.user.is_admin %}
+    {% if request.user.is_admin %}
+      <section class="report-metrics">
         <article class="report-metric">
           <i class="bi bi-people">
           </i>
@@ -605,43 +687,37 @@
           <b>{{ admin_accounts }}</b>
           <em>{{ staff_accounts }} staff accounts</em>
         </article>
-      {% else %}
-        <article class="report-metric">
-          <i class="bi bi-people">
-          </i>
-          <small>REGISTERED FARMERS</small>
-          <b>{{ farmers }}</b>
-          <em>Current farmer records</em>
-        </article>
-        <article class="report-metric">
-          <i class="bi bi-map">
-          </i>
-          <small>REGISTERED FARM LOTS</small>
-          <b>{{ parcels }}</b>
-          <em>{{ total_area }} total hectares</em>
-        </article>
-        <article class="report-metric">
-          <i class="bi bi-flower1">
-          </i>
-          <small>REGISTERED COMMODITIES</small>
-          <b>{{ crops }}</b>
-          <em>{{ service_count }} active services</em>
-        </article>
-        <article class="report-metric">
-          <i class="bi bi-clipboard-check">
-          </i>
-          <small>PENDING SERVICE REQUESTS</small>
-          <b>{{ pending_requests }}</b>
-          <em>Requires attention</em>
-        </article>
-      {% endif %}
-    </section>
+      </section>
+    {% endif %}
+    {% if not request.user.is_admin %}
+      <header class="farmer-statistics-heading">
+        <h2>FARMER STATISTICS</h2>
+        <p>Current verified farmer profile indicators for Rosario, Batangas</p>
+      </header>
+      <section class="report-metrics farmer-statistics-metrics"
+               aria-label="Verified Rosario farmer statistics">
+        {% for item in farmer_statistics %}
+          <article class="report-metric">
+            <i class="bi bi-person-vcard"></i>
+            <small>{{ item.label }}</small>
+            <b>{{ item.total }}</b>
+          </article>
+        {% endfor %}
+      </section>
+    {% endif %}
     <section class="report-top">
       <article class="report-card report-filter-card">
-        <h3>Report Filters</h3>
-        <p>Choose Rosario-specific filters, then generate the report.</p>
+        <h3>{% if request.user.is_admin %}System Report Builder{% else %}Report Filters{% endif %}</h3>
+        <p>
+          {% if request.user.is_admin %}
+            Generate reports about FMIS accounts, access, audit activity, and service configuration.
+          {% else %}
+            Choose Rosario-specific filters, then generate the report.
+          {% endif %}
+        </p>
         <form class="generate-form" id="reportGenerator" method="post">
           {% csrf_token %}
+          {% if not request.user.is_admin %}
           <div class="report-filter-row">
             <label>Year</label>
             <select name="year">
@@ -672,10 +748,11 @@
               {% endfor %}
             </select>
           </div>
+          {% endif %}
           <div class="report-filter-row">
-            <label>Category</label>
+            <label>{% if request.user.is_admin %}System Report{% else %}Category{% endif %}</label>
             <select name="report_type" id="reportType" required>
-              <option value="">Choose a report</option>
+              <option value="">{% if request.user.is_admin %}Choose a system report{% else %}Choose a report{% endif %}</option>
               {% for template in report_templates %}
                 <option value="{{ template.key }}"
                         {% if selected_report_type == template.key %}selected{% endif %}>{{ template.title }}</option>
@@ -693,16 +770,46 @@
               {% endfor %}
             </select>
           </div>
-          <div class="report-filter-row">
-            <label>Status</label>
-            <select name="status">
-              <option value="">All request statuses</option>
-              {% for value,label in status_choices %}
-                <option value="{{ value }}"
-                        {% if selected_filters.status == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
+          {% if request.user.is_admin %}
+            <div class="report-filter-row">
+              <label>User Role</label>
+              <select name="role">
+                <option value="">All user roles</option>
+                {% for value,label in role_choices %}
+                  <option value="{{ value }}" {% if selected_filters.role == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="report-filter-row">
+              <label>Account Status</label>
+              <select name="account_status">
+                <option value="">All account statuses</option>
+                {% for value,label in account_status_choices %}
+                  <option value="{{ value }}" {% if selected_filters.account_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="report-filter-row">
+              <label>Activity Module</label>
+              <select name="module">
+                <option value="">All system modules</option>
+                {% for module in activity_modules %}
+                  <option value="{{ module }}" {% if selected_filters.module == module %}selected{% endif %}>{{ module }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% else %}
+            <div class="report-filter-row">
+              <label>Status</label>
+              <select name="status">
+                <option value="">All request statuses</option>
+                {% for value,label in status_choices %}
+                  <option value="{{ value }}"
+                          {% if selected_filters.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endif %}
           <div class="report-filter-row">
             <label>Format</label>
             <select name="format" required>
@@ -723,7 +830,13 @@
           <div class="preview-heading">
             <div>
               <h3>{{ report_preview.title|upper }}</h3>
-              <p>The graph and table below use the selected year, barangay, commodity, period, and status filters.</p>
+              <p>
+                {% if request.user.is_admin %}
+                  The graph and table use the selected system report, period, role, account status, and module filters.
+                {% else %}
+                  The graph and table use the selected year, barangay, commodity, period, and status filters.
+                {% endif %}
+              </p>
             </div>
             <div>
               <b>{{ report_preview.total_rows }}</b>
@@ -782,26 +895,16 @@
           <i class="bi bi-bar-chart-line">
           </i>
           <h3>No report selected yet</h3>
-          <p>Pick a report under <b>Category</b>, then adjust the filters on the left — your live preview will appear here automatically.</p>
+          <p>
+            {% if request.user.is_admin %}
+              Choose a <b>System Report</b>, then adjust the management filters. The live preview will appear here automatically.
+            {% else %}
+              Pick a report under <b>Category</b>, then adjust the filters on the left — your live preview will appear here automatically.
+            {% endif %}
+          </p>
         </article>
       {% endif %}
     </section>
-    <article class="report-card farmer-statistics-card">
-      <div class="farmer-statistics-heading">
-        <div>
-          <h3>FARMER STATISTICS</h3>
-          <p>Current verified farmer profile indicators for Rosario, Batangas</p>
-        </div>
-      </div>
-      <div class="farmer-statistics-grid">
-        {% for item in farmer_statistics %}
-          <div>
-            <b>{{ item.total }}</b>
-            <small>{{ item.label }}</small>
-          </div>
-        {% endfor %}
-      </div>
-    </article>
     <section class="analytics-grid">
       {% if request.user.is_admin %}
         <article class="report-card">

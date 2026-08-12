@@ -7,9 +7,12 @@ from django.http import HttpResponse
 from django.utils import timezone
 
 from apps.crops.models import CropRecord
+from apps.activity_logs.models import ActivityLog
+from apps.authentication.models import CustomUser
 from apps.common.constants import ROSARIO_BARANGAYS
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
+from apps.service_catalog.models import ServiceCatalog
 from apps.service_requests.models import ServiceRequest
 
 REPORT_TEMPLATES = [
@@ -57,6 +60,33 @@ REPORT_TEMPLATES = [
     },
 ]
 REPORT_KEYS = {item["key"] for item in REPORT_TEMPLATES}
+SYSTEM_REPORT_TEMPLATES = [
+    {
+        "key": "system_overview",
+        "title": "System Overview",
+        "description": "Accounts, service catalogs, and recorded system activity",
+        "icon": "bi-speedometer2",
+    },
+    {
+        "key": "user_accounts",
+        "title": "User Account Registry",
+        "description": "System users, roles, activation status, and last access",
+        "icon": "bi-person-lock",
+    },
+    {
+        "key": "activity_audit",
+        "title": "Activity Audit Trail",
+        "description": "Recorded system actions with user, module, and timestamp",
+        "icon": "bi-clock-history",
+    },
+    {
+        "key": "service_catalog_registry",
+        "title": "Service Catalog Registry",
+        "description": "Active, inactive, and draft agricultural service definitions",
+        "icon": "bi-journal-bookmark",
+    },
+]
+SYSTEM_REPORT_KEYS = {item["key"] for item in SYSTEM_REPORT_TEMPLATES}
 DATE_RANGES = {
     "all": "All Records",
     "3": "Last 3 Months",
@@ -65,10 +95,22 @@ DATE_RANGES = {
 }
 FORMATS = {"csv", "pdf"}
 FILTER_LABELS = {
+    "search": "Search",
     "year": "Year",
     "barangay": "Barangay",
     "commodity": "Commodity",
     "status": "Request Status",
+    "sex": "Sex",
+    "ownership": "Ownership",
+    "record_status": "Record Status",
+    "area": "Area",
+    "crop_status": "Crop Status",
+    "request_type": "Request Type",
+    "priority": "Priority",
+    "requested_date": "Date Requested",
+    "role": "User Role",
+    "account_status": "Account Status",
+    "module": "Activity Module",
 }
 
 
@@ -315,6 +357,126 @@ def build_report(report_type, date_range, filters=None):
     )
 
 
+def build_system_report(report_type, date_range, filters=None):
+    if report_type not in SYSTEM_REPORT_KEYS or date_range not in DATE_RANGES:
+        raise ValueError("Choose a valid system report and date range.")
+
+    filters = filters or {}
+    role = str(filters.get("role", "")).strip()
+    account_status = str(filters.get("account_status", "")).strip()
+    module = str(filters.get("module", "")).strip()
+    if role and role not in {"ADMIN", "STAFF"}:
+        raise ValueError("Choose a valid user role.")
+    if account_status and account_status not in {"ACTIVE", "INACTIVE", "PENDING"}:
+        raise ValueError("Choose a valid account status.")
+
+    accounts = _filter_period(CustomUser.objects.all(), "date_joined", date_range)
+    if role:
+        accounts = accounts.filter(role=role)
+    if account_status == "ACTIVE":
+        accounts = accounts.filter(is_active=True, activation_pending=False)
+    elif account_status == "INACTIVE":
+        accounts = accounts.filter(is_active=False, activation_pending=False)
+    elif account_status == "PENDING":
+        accounts = accounts.filter(activation_pending=True)
+
+    activities = _filter_period(
+        ActivityLog.objects.select_related("actor"),
+        "created_at",
+        date_range,
+    )
+    if role:
+        activities = activities.filter(actor__role=role)
+    if module:
+        activities = activities.filter(module=module)
+
+    catalogs = _filter_period(ServiceCatalog.objects.all(), "created_at", date_range)
+
+    if report_type == "system_overview":
+        return (
+            "FMIS System Overview",
+            ["System Indicator", "Total"],
+            [
+                ["User Accounts", accounts.count()],
+                ["Active Accounts", accounts.filter(is_active=True).count()],
+                ["Pending Activations", accounts.filter(activation_pending=True).count()],
+                ["Administrator Accounts", accounts.filter(role="ADMIN").count()],
+                ["Staff Accounts", accounts.filter(role="STAFF").count()],
+                ["Active Service Catalogs", catalogs.filter(is_active=True).count()],
+                ["Inactive Service Catalogs", catalogs.filter(is_active=False).count()],
+                ["Recorded System Activities", activities.count()],
+            ],
+        )
+
+    if report_type == "user_accounts":
+        rows = []
+        for account in accounts.order_by("role", "username"):
+            if account.activation_pending:
+                status = "Pending activation"
+            elif account.is_active:
+                status = "Active"
+            else:
+                status = "Inactive"
+            rows.append(
+                [
+                    account.username,
+                    account.display_name,
+                    account.email or "-",
+                    account.phone_number or "-",
+                    account.get_role_display(),
+                    status,
+                    timezone.localtime(account.date_joined).strftime("%b %d, %Y %I:%M %p"),
+                    (
+                        timezone.localtime(account.last_login).strftime("%b %d, %Y %I:%M %p")
+                        if account.last_login
+                        else "Never"
+                    ),
+                ]
+            )
+        return (
+            "User Account Registry",
+            ["Username", "Name", "Email", "Phone", "Role", "Status", "Created", "Last Access"],
+            rows,
+        )
+
+    if report_type == "activity_audit":
+        rows = [
+            [
+                timezone.localtime(log.created_at).strftime("%b %d, %Y %I:%M:%S %p"),
+                log.actor.display_name if log.actor else "System",
+                log.module or "FMIS",
+                log.title or log.action,
+                log.target_label or "-",
+                log.reason or "-",
+                log.status,
+            ]
+            for log in activities.order_by("-created_at")
+        ]
+        return (
+            "Activity Audit Trail",
+            ["Date and Time", "User", "Module", "Activity", "Affected Record", "Reason", "Status"],
+            rows,
+        )
+
+    rows = [
+        [
+            catalog.code,
+            catalog.name,
+            catalog.category,
+            "Active" if catalog.is_active else "Inactive / Draft",
+            catalog.availability or "-",
+            catalog.processing_time,
+            catalog.office_responsible or "-",
+        ]
+        for catalog in catalogs.order_by("name")
+    ]
+    return (
+        "Service Catalog Registry",
+        ["Code", "Service", "Category", "Status", "Availability", "Processing Time", "Responsible Office"],
+        rows,
+    )
+
+
 def _filename(title, extension):
     slug = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")
     return f"fmis_{slug}_{timezone.localdate():%Y%m%d}.{extension}"
@@ -409,6 +571,24 @@ def generate_report(report_type, output_format, date_range, filters=None):
     if output_format == "pdf":
         return _pdf_response(title, headers, rows, date_range, filters)
     return _csv_response(title, headers, rows, date_range, filters)
+
+
+def generate_system_report(report_type, output_format, date_range, filters=None):
+    if output_format not in FORMATS:
+        raise ValueError("Choose CSV or PDF format.")
+    title, headers, rows = build_system_report(report_type, date_range, filters)
+    if output_format == "pdf":
+        return _pdf_response(title, headers, rows, date_range, filters)
+    return _csv_response(title, headers, rows, date_range, filters)
+
+
+def generate_table_export(title, headers, rows, output_format, filters=None):
+    """Export a management table without routing the user through report previews."""
+    if output_format not in FORMATS:
+        raise ValueError("Choose CSV or PDF format.")
+    if output_format == "pdf":
+        return _pdf_response(title, headers, rows, "all", filters)
+    return _csv_response(title, headers, rows, "all", filters)
 
 
 def farmers_csv():

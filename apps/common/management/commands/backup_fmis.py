@@ -4,7 +4,7 @@ from apps.common.backups import create_verified_backup
 
 
 class Command(BaseCommand):
-    help = "Create a compressed, portable FMIS data backup and verify its JSON payload."
+    help = "Create, encrypt, verify, and optionally upload a complete FMIS recovery archive."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -27,6 +27,4 @@ class Command(BaseCommand):
             )
             return
         backup = create_verified_backup(options.get("output_dir"))
-        self.stdout.write(
-            self.style.SUCCESS(f"Verified backup: {backup.path} ({backup.record_count} records)")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Verified backup: {backup.storage_label}"))

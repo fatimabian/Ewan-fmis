@@ -1,0 +1,477 @@
+/* Final dark-mode surface pass. This file intentionally loads after module styles. */
+html body[data-theme="dark"]{
+    --ui-page:#202020;
+    --ui-surface:#2b2b2b;
+    --ui-surface-soft:#252525;
+    --ui-border:#454545;
+    --ui-text:#ededed;
+    --ui-muted:#bdbdbd;
+    --surface:#2b2b2b;
+    --surface-muted:#252525;
+    --border:#454545;
+    --fmis-surface:#2b2b2b;
+    --fmis-canvas:#202020;
+    --fmis-line:#454545;
+    background:#202020!important;
+    color:#ededed!important
+}
+
+html body[data-theme="dark"] .app-shell main,
+html body[data-theme="dark"] .page-scroll,
+html body[data-theme="dark"] .content,
+html body[data-theme="dark"] .rosario-dashboard,
+html body[data-theme="dark"] .reports-page,
+html body[data-theme="dark"] .settings-page,
+html body[data-theme="dark"] .catalog-page,
+html body[data-theme="dark"] .activity-page{
+    background:#202020!important;
+    color:#ededed!important
+}
+
+html body[data-theme="dark"] .app-header{
+    background:#292929!important;
+    border-color:#454545!important;
+    box-shadow:0 3px 14px #0005!important
+}
+
+html body[data-theme="dark"] :is(
+    .panel,
+    .report-card,
+    .report-metric,
+    .metric-card,
+    .dashboard-card,
+    .dashboard-metric,
+    .staff-metric-card,
+    .settings-card,
+    .settings-tab,
+    .catalog-card,
+    .catalog-toolbar,
+    .catalog-section,
+    .service-reference-card,
+    .service-icon,
+    .activity-table,
+    .activity-row,
+    .account-form-card,
+    .account-form-body,
+    .account-action,
+    .form-panel,
+    .form-section,
+    .formset-row,
+    .registration-shell,
+    .reference-card,
+    .record-hero,
+    .record-section,
+    .farmer-table-wrap,
+    .parcel-table-wrap,
+    .crop-table-wrap,
+    .request-table-wrap,
+    .table-panel,
+    .map-count,
+    .map-empty,
+    .unmapped-panel,
+    .notification-panel,
+    .fmis-feedback-dialog,
+    .fmis-submit-loading-card,
+    .fmis-password-dialog
+){
+    background:#2b2b2b!important;
+    color:#ededed!important;
+    border-color:#454545!important;
+    box-shadow:none!important
+}
+
+html body[data-theme="dark"] :is(
+    [class$="-card"],
+    [class*="-card "],
+    [class$="-panel"],
+    [class*="-panel "],
+    [class$="-section"],
+    [class*="-section "]
+){
+    background-color:#2b2b2b!important;
+    color:#ededed!important;
+    border-color:#454545!important
+}
+
+html body[data-theme="dark"] :is(
+    .summary-grid>div,
+    .review-grid article,
+    .template-row,
+    .audit-fact,
+    .audit-detail,
+    .audit-before,
+    .audit-after,
+    .account-form-notice,
+    .registration-note,
+    .consent-box,
+    .choice-grid label,
+    .icon-choice label,
+    .theme-choice,
+    .recommendation-evidence,
+    .weather-refresh,
+    .weather-details>span,
+    .forecast-day,
+    .quick-actions>a,
+    .request-queue>a,
+    .recent-list>a,
+    .related-list>a,
+    .related-list>div,
+    .record-data>div,
+    .farmer-picker-control,
+    .farmer-picker-list,
+    .farmer-picker-option,
+    .detail-item,
+    .completion-qr,
+    .farmer-qr-card,
+    .catalog-search,
+    .catalog-filter,
+    .service-action,
+    .report-preview-empty,
+    .preview-chart,
+    .crop-chart
+){
+    background:#252525!important;
+    color:#e2e2e2!important;
+    border-color:#454545!important;
+    box-shadow:none!important
+}
+
+html body[data-theme="dark"] :is(
+    .record-section-body,
+    .record-data>div,
+    .checkbox-stack label,
+    .checkbox-options>ul label,
+    .registration-checkbox>label,
+    .choice-grid>ul label,
+    .slip-parcel-card,
+    .history-entry,
+    .history-entry summary,
+    .last-editor-line,
+    .registration-stepper li span,
+    .security-table,
+    .notification-options label
+){
+    background:#252525!important;
+    color:#e2e2e2!important;
+    border-color:#454545!important
+}
+
+html body[data-theme="dark"] :is(
+    .record-section>h3 i,
+    .form-section>h3 i,
+    .settings-card>h3 i,
+    .catalog-section>h3 i
+){
+    background:#232323!important;
+    color:#9bd6b3!important;
+    border:1px solid #454545!important
+}
+
+html body[data-theme="dark"] :is(
+    h1,h2,h3,h4,h5,h6,
+    label,strong,b,dt,dd,
+    .header-office strong,
+    .header-profile strong,
+    .card-heading h2,
+    .weather-now b
+){
+    color:#ededed!important
+}
+
+html body[data-theme="dark"] :is(
+    p,small,em,
+    .text-muted,
+    .helptext,
+    .form-text,
+    .service-description,
+    .service-code,
+    .header-office small,
+    .header-profile small
+){
+    color:#bdbdbd!important
+}
+
+html body[data-theme="dark"] :is(
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea,
+    .form-control,
+    .activity-filters input,
+    .activity-filters select,
+    .farmer-toolbar input,
+    .farmer-toolbar select,
+    .catalog-editor input,
+    .catalog-editor select,
+    .catalog-editor textarea,
+    .report-filter-row select
+){
+    background:#1f1f1f!important;
+    color:#ededed!important;
+    border-color:#5a5a5a!important;
+    box-shadow:none!important
+}
+
+html body[data-theme="dark"] :is(input,textarea)::placeholder{
+    color:#a7a7a7!important;
+    opacity:1!important
+}
+
+html body[data-theme="dark"] select option{
+    background:#1f1f1f!important;
+    color:#ededed!important
+}
+
+html body[data-theme="dark"] :is(input,select,textarea,.form-control):focus{
+    border-color:#777!important;
+    outline:2px solid #7776!important;
+    outline-offset:1px!important
+}
+
+html body[data-theme="dark"] :is(input[type="checkbox"],input[type="radio"]){
+    background:#1f1f1f!important;
+    border-color:#666!important;
+    accent-color:var(--fmis-accent)
+}
+
+html body[data-theme="dark"] .app-shell table{
+    background:#2b2b2b!important;
+    color:#ededed!important;
+    border-color:#454545!important
+}
+
+html body[data-theme="dark"] .app-shell table :is(th,td){
+    border-color:#46566a!important
+}
+
+html body[data-theme="dark"] .app-shell table thead th{
+    background:#202d3d!important;
+    color:#f8fafc!important
+}
+
+html body[data-theme="dark"] .app-shell table tbody :is(tr,td),
+html body[data-theme="dark"] .report-preview-table tbody tr:nth-child(even){
+    background:#172230!important;
+    color:#e8eef5!important
+}
+
+html body[data-theme="dark"] .app-shell table tbody tr:nth-child(even) td{
+    background:#141f2c!important
+}
+
+html body[data-theme="dark"] .app-shell table tbody tr:hover td{
+    background:#213044!important
+}
+
+html body[data-theme="dark"] :is(
+    .audit-reason,
+    .registration-note,
+    .consent-box,
+    .field-security-banner,
+    .recommendation-card
+){
+    background:#14271e!important;
+    color:#d9f5e4!important;
+    border-color:#416451!important
+}
+
+html body[data-theme="dark"] :is(
+    .metric-icon,
+    .recommendation-icon,
+    .activity-dot,
+    .service-icon,
+    .catalog-empty-icon
+){
+    background:#202e3e!important;
+    color:#9bd6b3!important;
+    border-color:#52657a!important
+}
+
+html body[data-theme="dark"] :is(
+    .urgent-callout,
+    .reference-card .pending,
+    .reference-card .active,
+    .staff-urgent-note
+){
+    background:#2a2020!important;
+    color:#ffc2c2!important;
+    border-color:#75464a!important
+}
+
+html body[data-theme="dark"] :is(
+    .badge,
+    .status,
+    .service-status,
+    .service-tag,
+    .request-priority,
+    .activity-status,
+    .status-badge
+){
+    background:#263548!important;
+    color:#edf4fb!important;
+    border-color:#52657a!important
+}
+
+html body[data-theme="dark"] :is(
+    .btn-outline-secondary,
+    .catalog-view,
+    .weather-refresh,
+    .activity-pagination a
+){
+    background:transparent!important;
+    color:#dce7f2!important;
+    border-color:#728398!important
+}
+
+html body[data-theme="dark"] :is(
+    .dropdown-menu,
+    .dropdown-item,
+    .pagination,
+    .page-link,
+    .list-group-item
+){
+    background:#111a25!important;
+    color:#e8eef5!important;
+    border-color:#46566a!important
+}
+
+html body[data-theme="dark"] :is(.dropdown-item,.page-link,.list-group-item):hover{
+    background:#213044!important;
+    color:#fff!important
+}
+
+html body[data-theme="dark"] :is(
+    .notification-menu summary,
+    .header-profile,
+    .sidebar-toggle
+){
+    background:#0e1722!important;
+    color:#f1f5f9!important;
+    border-color:#46566a!important
+}
+
+html body[data-theme="dark"] :is(
+    .settings-card h3,
+    .record-section>h3,
+    .form-section>h3,
+    .catalog-section>h3
+){
+    background:#1d2c3b!important;
+    color:#f1f5f9!important;
+    border-color:#46566a!important
+}
+
+html body[data-theme="dark"] :is(
+    .password-meter,
+    .preview-chart-track,
+    .bar-track
+){
+    background:#0b121a!important;
+    border-color:#46566a!important
+}
+
+html body[data-theme="dark"] :is(
+    .leaflet-control,
+    .leaflet-control a,
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip
+){
+    background:#172230!important;
+    color:#f1f5f9!important;
+    border-color:#607086!important
+}
+
+html body[data-theme="dark"] .leaflet-popup-content :is(h3,strong,span,small,p,a){
+    color:#f1f5f9!important
+}
+
+html body[data-theme="dark"] .leaflet-tile-pane{
+    filter:brightness(.68) contrast(1.08) saturate(.82)
+}
+
+html body[data-theme="dark"] .switch-track,
+html body[data-theme="dark"] .toggle-track{
+    background:#263548!important;
+    border-color:#607086!important
+}
+
+html body[data-theme="dark"] .switch-track::after,
+html body[data-theme="dark"] .toggle-track::after,
+html body[data-theme="dark"] .toggle-list input[type="checkbox"]::before{
+    background:#8da0b5!important
+}
+
+html body[data-theme="dark"] :is(.form-validation-alert,.errorlist,.inline-form-error){
+    background:#2b171b!important;
+    color:#ffb8bd!important;
+    border-color:#87414a!important
+}
+
+html body[data-theme="dark"] hr{
+    border-color:#46566a!important;
+    opacity:1!important
+}
+
+/* Keep the approved icon categories recognizable on dark surfaces. */
+html body[data-theme="dark"] :is(
+    .metric-farmers .metric-icon,
+    .staff-metric-card:nth-child(4n+1)>i,
+    .metric-grid article:nth-child(4n+1) i,
+    .report-metric:nth-child(4n+1) i,
+    .quick-actions>a:nth-child(4n+1)>i,
+    .staff-quick-actions>div>a:nth-child(4n+1)>i
+){
+    background:#203b2b!important;
+    color:#85d49d!important;
+}
+
+html body[data-theme="dark"] :is(
+    .metric-crops .metric-icon,
+    .staff-metric-card:nth-child(4n+2)>i,
+    .metric-grid article:nth-child(4n+2) i,
+    .report-metric:nth-child(4n+2) i,
+    .quick-actions>a:nth-child(4n+2)>i,
+    .staff-quick-actions>div>a:nth-child(4n+2)>i
+){
+    background:#1d334d!important;
+    color:#8bbaff!important;
+}
+
+html body[data-theme="dark"] :is(
+    .metric-area .metric-icon,
+    .staff-metric-card:nth-child(4n+3)>i,
+    .metric-grid article:nth-child(4n+3) i,
+    .report-metric:nth-child(4n+3) i,
+    .quick-actions>a:nth-child(4n+3)>i,
+    .staff-quick-actions>div>a:nth-child(4n+3)>i
+){
+    background:#432c21!important;
+    color:#ffad7c!important;
+}
+
+html body[data-theme="dark"] :is(
+    .metric-requests .metric-icon,
+    .staff-metric-card:nth-child(4n)>i,
+    .metric-grid article:nth-child(4n) i,
+    .report-metric:nth-child(4n) i,
+    .quick-actions>a:nth-child(4n)>i,
+    .staff-quick-actions>div>a:nth-child(4n)>i
+){
+    background:#35294f!important;
+    color:#bba2ff!important;
+}
+
+html body[data-theme="dark"] :is(.fmis-page-button,.fmis-page-ellipsis){
+    border-color:#4a5b6e!important;
+    background:#172230!important;
+    color:#e8eef5!important
+}
+
+html body[data-theme="dark"] .fmis-page-button.is-disabled{
+    color:#748397!important
+}
+
+html body[data-theme="dark"] .fmis-page-input{
+    border-color:#42b96d!important;
+    background:#23804a!important;
+    color:#fff!important
+}

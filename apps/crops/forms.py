@@ -1,7 +1,13 @@
 from django import forms
 
 from apps.farm_parcels.models import FarmParcel
-from apps.common.forms import InlineValidationMixin
+from apps.common.constants import ROSARIO_CROP_CHOICES
+from apps.common.forms import (
+    InlineValidationMixin,
+    RequiredYesNoField,
+    add_other_crop_field,
+    resolve_other_crop,
+)
 
 from .models import CropRecord
 
@@ -24,15 +30,23 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
     parcel = ParcelChoiceField(
         queryset=FarmParcel.objects.select_related("farmer").filter(is_active=True)
     )
+    crop_type = forms.ChoiceField(
+        choices=ROSARIO_CROP_CHOICES,
+        label="Crop / Commodity",
+    )
+    is_organic = RequiredYesNoField(label="Organic production?")
+    is_intercrop = RequiredYesNoField(label="Intercropping commodity?")
 
     class Meta:
         model = CropRecord
         fields = [
             "parcel",
             "crop_type",
+            "cropping_schedule",
             "area_hectares",
             "number_of_heads",
             "is_organic",
+            "is_intercrop",
             "planting_date",
             "harvest_date",
             "image",
@@ -40,9 +54,11 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
         labels = {
             "parcel": "Existing Farmer ID and Farm Parcel",
             "crop_type": "Crop / Commodity",
+            "cropping_schedule": "Cropping schedule (for example, Jan-Mar)",
             "area_hectares": "Size / Area Planted (ha)",
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
+            "is_intercrop": "Intercropping commodity",
             "harvest_date": "Expected or actual harvest date",
             "image": "Crop photo (optional)",
         }
@@ -57,6 +73,21 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        add_other_crop_field(self)
+        self.order_fields(
+            ["parcel", "crop_type", "other_crop_name"]
+            + [
+                name
+                for name in self.fields
+                if name not in {"parcel", "crop_type", "other_crop_name"}
+            ]
+        )
+        existing_crop = self.instance.crop_type if self.instance and self.instance.pk else ""
+        available_crops = {value for value, _label in self.fields["crop_type"].choices}
+        if existing_crop and existing_crop not in available_crops:
+            self.fields["crop_type"].choices = tuple(self.fields["crop_type"].choices) + (
+                (existing_crop, existing_crop),
+            )
         self.fields["area_hectares"].min_value = 0.01
         for field in self.fields.values():
             if not isinstance(field.widget, forms.CheckboxInput):
@@ -64,6 +95,7 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        resolve_other_crop(self, cleaned)
         parcel = cleaned.get("parcel")
         area = cleaned.get("area_hectares")
         planting_date = cleaned.get("planting_date")

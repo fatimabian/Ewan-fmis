@@ -7,12 +7,9 @@ class UserPreference(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="preferences"
     )
-    theme = models.CharField(max_length=10, choices=THEME_CHOICES, default="light")
+    theme = models.CharField(max_length=10, choices=THEME_CHOICES, default="system")
     primary_color = models.CharField(max_length=7, default="#008552")
-    email_notifications = models.BooleanField(default=True)
     in_app_notifications = models.BooleanField(default=True)
-    weekly_summary = models.BooleanField(default=True)
-    two_factor_enabled = models.BooleanField(default=False)
     linked_email = models.EmailField(blank=True)
 
     def __str__(self):
@@ -27,10 +24,32 @@ class SystemSetting(models.Model):
     default_language = models.CharField(max_length=30, default="English")
     session_timeout = models.PositiveIntegerField(default=15)
     automated_backups = models.BooleanField(default=True)
-    two_factor_required = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     @classmethod
     def load(cls):
         setting, _ = cls.objects.get_or_create(pk=1)
         return setting
+
+
+class BackupRun(models.Model):
+    STATUS_CHOICES = [
+        ("RUNNING", "In progress"),
+        ("VERIFIED", "Verified"),
+        ("FAILED", "Needs attention"),
+    ]
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="RUNNING")
+    storage = models.CharField(max_length=100, blank=True)
+    archive_name = models.CharField(max_length=255, blank=True)
+    size_bytes = models.PositiveBigIntegerField(default=0)
+    checksum = models.CharField(max_length=64, blank=True)
+    offsite = models.BooleanField(default=False)
+    media_files = models.PositiveIntegerField(default=0)
+    retained_copies = models.PositiveIntegerField(default=0)
+    error_message = models.CharField(max_length=500, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at", "-pk"]

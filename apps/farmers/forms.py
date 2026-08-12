@@ -5,11 +5,22 @@ from django.core.exceptions import ValidationError
 from django.forms import BaseFormSet, formset_factory
 
 from apps.crops.models import CropRecord
-from apps.common.constants import ROSARIO_BARANGAY_CHOICES
-from apps.common.forms import InlineValidationMixin
+from apps.common.constants import (
+    ROSARIO_BARANGAY_CHOICES,
+    ROSARIO_CROP_CHOICES,
+    ROSARIO_MUNICIPALITY,
+    ROSARIO_PROVINCE,
+    ROSARIO_REGION,
+)
+from apps.common.forms import (
+    InlineValidationMixin,
+    RequiredYesNoField,
+    add_other_crop_field,
+    resolve_other_crop,
+)
 from apps.farm_parcels.models import FarmParcel
 
-from .models import Farmer, FarmerDocument
+from .models import Farmer, FarmerDocument, FarmerUpdateHistory
 
 ACTIVITY_CHOICES = [
     ("FARMER_CROPS", "Farmer - Crops"),
@@ -78,15 +89,18 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "highest_education",
             "valid_id_type",
             "valid_id_number",
+            "philsys_registered",
+            "philsys_pcn",
+            "philsys_trn",
             "religion",
             "is_indigenous",
             "indigenous_group",
             "is_pwd",
             "is_four_ps",
+            "fca_membership",
             "photo",
             "livelihood",
             "activities",
-            "remarks",
             "consent_given",
             "location_coordinates",
         ]
@@ -108,13 +122,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
                     "title": "Enter an 11-digit PH mobile number starting with 09",
                 }
             ),
-            "remarks": forms.Textarea(
-                attrs={
-                    "rows": 3,
-                    "maxlength": 1000,
-                    "placeholder": "Optional internal remarks for agricultural service follow-up",
-                }
-            ),
         }
         labels = {
             "extension_name": "Name extension (Jr., Sr., III)",
@@ -125,7 +132,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "is_pwd": "Person with Disability (PWD)",
             "is_four_ps": "4Ps beneficiary",
             "location_coordinates": "Home map coordinates (optional)",
-            "remarks": "Internal remarks (optional)",
         }
 
     def __init__(self, *args, **kwargs):
@@ -147,13 +153,24 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             if name in self.fields:
                 self.fields[name].required = True
         for name, fixed_value in (
-            ("city_municipality", "Rosario"),
-            ("province", "Batangas"),
-            ("region", "CALABARZON Region IV-A"),
+            ("city_municipality", ROSARIO_MUNICIPALITY),
+            ("province", ROSARIO_PROVINCE),
+            ("region", ROSARIO_REGION),
         ):
             if name in self.fields:
                 self.fields[name].initial = fixed_value
+                self.initial[name] = fixed_value
                 self.fields[name].disabled = True
+                self.fields[name].required = False
+        civil_status = (
+            self.data.get(self.add_prefix("civil_status"))
+            if self.is_bound
+            else self.initial.get("civil_status")
+            or getattr(self.instance, "civil_status", "")
+        )
+        if "spouse_name" in self.fields:
+            self.fields["spouse_name"].required = civil_status == "MARRIED"
+            self.fields["spouse_name"].widget.attrs["data-required-for-married"] = "true"
         self.apply_styles()
         if "phone_number" in self.fields and not (self.instance and self.instance.pk):
             self.initial.setdefault("phone_number", "09")
@@ -197,13 +214,56 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
                 )
         if cleaned.get("is_indigenous") and not cleaned.get("indigenous_group"):
             self.add_error("indigenous_group", "Enter the Indigenous People or ICC group name.")
-        if cleaned.get("civil_status") == "MARRIED" and not cleaned.get("spouse_name"):
+        if (
+            cleaned.get("civil_status") == "MARRIED"
+            and not cleaned.get("spouse_name")
+            and "spouse_name" not in self.errors
+        ):
             self.add_error("spouse_name", "Enter the spouse's name for a married registrant.")
+        if cleaned.get("philsys_registered") is True and not cleaned.get("philsys_pcn"):
+            self.add_error("philsys_pcn", "Enter the PhilID / ePhilID PCN.")
+        if cleaned.get("philsys_registered") is False and not cleaned.get("philsys_trn"):
+            self.add_error("philsys_trn", "Enter the PhilSys transaction reference number (TRN).")
         return cleaned
 
 
 class FarmerProfileUpdateForm(FarmerRegistrationForm):
+    activities = None
     consent_given = forms.BooleanField(required=False, widget=forms.HiddenInput)
+    transaction_code = forms.CharField(
+        max_length=80,
+        label="Transaction code",
+        help_text="Official Slip A transaction code assigned by the encoder.",
+    )
+    change_reason = forms.ChoiceField(
+        choices=FarmerUpdateHistory.CHANGE_REASON_CHOICES,
+        label="Reason for change",
+    )
+    update_remarks = forms.CharField(
+        required=False,
+        label="Update remarks",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+    date_signed = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    date_received = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    agriculturist_name = forms.CharField(
+        max_length=180,
+        required=False,
+        label="City / Municipal Agriculturist",
+    )
+    registrant_declaration = forms.BooleanField(
+        required=True,
+        label=(
+            "The registrant confirms that the changes are true and consents to their use "
+            "for RSBSA updating and legitimate agricultural services."
+        ),
+    )
 
     class Meta(FarmerRegistrationForm.Meta):
         fields = [
@@ -212,9 +272,60 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
             if field not in {"livelihood", "activities"}
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.apply_styles()
+
+
+class FarmerSlipBLivelihoodForm(StyledFormMixin, forms.ModelForm):
+    activities = forms.MultipleChoiceField(
+        choices=ACTIVITY_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+        label="Livelihood and kind of activity / involvement",
+    )
+    transaction_code = forms.CharField(max_length=80, label="Transaction code")
+    change_reason = forms.ChoiceField(
+        choices=FarmerUpdateHistory.CHANGE_REASON_CHOICES,
+        label="Reason for change",
+    )
+    update_remarks = forms.CharField(
+        required=False,
+        label="Slip B remarks",
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+    date_signed = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    date_received = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    agriculturist_name = forms.CharField(max_length=180, required=False)
+    registrant_declaration = forms.BooleanField(
+        required=True,
+        label="The registrant confirms the Slip B information and privacy declaration.",
+    )
+
+    class Meta:
+        model = Farmer
+        fields = ["livelihood", "activities"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.activities:
+            self.initial["activities"] = self.instance.activities.split(",")
+        self.apply_styles()
+
+    def clean_activities(self):
+        return ",".join(self.cleaned_data["activities"])
+
 
 class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
+    is_rsbsa_recorded = RequiredYesNoField(label="Already recorded in RSBSA?")
+    is_active = RequiredYesNoField(label="Currently cultivated / active?")
     farm_type = forms.CharField(
         max_length=30,
         required=True,
@@ -242,24 +353,42 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         for name in ("area_hectares", "ownership_type", "land_type"):
             self.fields[name].required = True
+        for name, fixed_value in (
+            ("municipality", ROSARIO_MUNICIPALITY),
+            ("province", ROSARIO_PROVINCE),
+        ):
+            self.fields[name].initial = fixed_value
+            self.initial[name] = fixed_value
+            self.fields[name].disabled = True
+        self.fields["gpx_status"].required = False
         self.apply_styles()
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get("not_applicable"):
-            return cleaned
         for name in ("barangay", "area_hectares", "ownership_type", "land_type", "farm_type"):
             if not cleaned.get(name):
-                self.add_error(name, "Complete this field or choose the N/A option above.")
+                self.add_error(name, "Complete this field for the farm parcel.")
         return cleaned
 
 
 class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
-    not_applicable = forms.BooleanField(
+    parcel_number = forms.IntegerField(
+        min_value=1,
         required=False,
-        label="N/A - no crop information yet; update it later in Crops",
+        label="Farm parcel",
+        help_text="Select which farm parcel this crop belongs to.",
+        widget=forms.Select(
+            choices=(("", "Select farm parcel"),)
+            + tuple((number, f"Farm Parcel {number}") for number in range(1, 51))
+        ),
     )
-    parcel_number = forms.IntegerField(min_value=1, required=False, label="Parcel number")
+    crop_type = forms.ChoiceField(
+        choices=ROSARIO_CROP_CHOICES,
+        required=False,
+        label="Crop / Commodity",
+    )
+    is_organic = RequiredYesNoField(label="Organic production?")
+    is_intercrop = RequiredYesNoField(label="Intercropping commodity?")
 
     class Meta:
         model = CropRecord
@@ -278,8 +407,14 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        add_other_crop_field(self)
         self.order_fields(
-            ["not_applicable"] + [name for name in self.fields if name != "not_applicable"]
+            ["parcel_number", "crop_type", "other_crop_name"]
+            + [
+                name
+                for name in self.fields
+                if name not in {"parcel_number", "crop_type", "other_crop_name"}
+            ]
         )
         for name in ("parcel_number", "crop_type", "area_hectares"):
             self.fields[name].required = False
@@ -288,11 +423,10 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        if cleaned.get("not_applicable"):
-            return cleaned
+        resolve_other_crop(self, cleaned)
         for name in ("parcel_number", "crop_type", "area_hectares"):
             if not cleaned.get(name):
-                self.add_error(name, "Complete this field or choose the N/A option above.")
+                self.add_error(name, "Complete this field for the crop or commodity.")
         start, end = cleaned.get("planting_date"), cleaned.get("harvest_date")
         if start and end and end < start:
             self.add_error("harvest_date", "Harvest date cannot be earlier than the planting date.")
@@ -333,7 +467,7 @@ class DocumentRegistrationForm(StyledFormMixin, forms.Form):
 
 
 class BaseRequiredRegistrationFormSet(BaseFormSet):
-    """Validate every row the browser says exists, including user-added rows."""
+    """Require the initial row and every row explicitly added by the user."""
 
     def add_fields(self, form, index):
         super().add_fields(form, index)

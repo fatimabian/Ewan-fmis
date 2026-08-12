@@ -71,6 +71,153 @@
     color:#64748b;
     font-size:13px!important
 }
+.management-export-row{
+    position:relative;
+    z-index:5;
+    display:flex;
+    justify-content:flex-end;
+    margin:-10px 0 10px
+}
+.table-export-control{
+    position:relative
+}
+.table-export-control>summary{
+    min-height:34px;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 11px;
+    border:1px solid #b9d4c2;
+    border-radius:7px;
+    background:#f5faf6;
+    color:#176b3a;
+    font-size:11px;
+    font-weight:800;
+    cursor:pointer;
+    list-style:none
+}
+.table-export-control>summary::-webkit-details-marker{
+    display:none
+}
+.table-export-control[open]>summary{
+    border-color:#16834f;
+    background:#eaf6ee
+}
+.table-export-popover{
+    position:absolute;
+    top:calc(100% + 7px);
+    right:0;
+    width:270px;
+    padding:14px;
+    border:1px solid #d9e4dc;
+    border-radius:9px;
+    background:#fff;
+    box-shadow:0 15px 38px rgba(24,48,33,.18)
+}
+.table-export-popover strong{
+    display:block;
+    color:#1d2b22;
+    font-size:12px
+}
+.table-export-popover p{
+    margin:3px 0 11px;
+    color:#6b766e;
+    font-size:9px;
+    line-height:1.4
+}
+.table-export-popover form{
+    display:grid;
+    grid-template-columns:1fr auto;
+    align-items:end;
+    gap:8px
+}
+.table-export-popover label{
+    display:grid;
+    gap:4px;
+    color:#4f5d54;
+    font-size:9px;
+    font-weight:750
+}
+.table-export-popover select{
+    min-height:35px;
+    padding:5px 8px;
+    border:1px solid #d5dfd8;
+    border-radius:6px;
+    background:#fff;
+    color:#26332a;
+    font-size:10px
+}
+.table-export-popover button{
+    min-height:35px;
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:6px 10px;
+    border:1px solid #16834f;
+    border-radius:6px;
+    background:#16834f;
+    color:#fff;
+    font-size:10px;
+    font-weight:800
+}
+body[data-theme="dark"] .table-export-control>summary{
+    border-color:#3f6550;
+    background:#1c3025;
+    color:#9be0b3
+}
+body[data-theme="dark"] .table-export-popover{
+    border-color:#405168;
+    background:#1c2735
+}
+body[data-theme="dark"] .table-export-popover strong,
+body[data-theme="dark"] .table-export-popover label{
+    color:#edf3fa
+}
+body[data-theme="dark"] .table-export-popover p{
+    color:#b7c4d5
+}
+body[data-theme="dark"] .table-export-popover select{
+    border-color:#405168;
+    background:#111b28;
+    color:#edf3fa
+}
+@media(max-width:600px){
+    .management-export-row{
+        margin-top:0
+    }
+    .table-export-popover{
+        position:fixed;
+        top:auto;
+        right:14px;
+        bottom:14px;
+        left:14px;
+        width:auto
+    }
+}
+.table-count-summary{
+    display:inline-flex;
+    align-items:baseline;
+    flex-wrap:wrap;
+    gap:0 5px;
+    color:#64748b!important;
+    font-size:13px!important;
+    line-height:1.55
+}
+.table-count-summary strong{
+    color:#17233a!important;
+    font-size:14px;
+    font-weight:800;
+    font-variant-numeric:tabular-nums
+}
+.table-count-summary .table-count-total{
+    font-weight:900
+}
+body[data-theme="dark"] .table-count-summary{
+    color:#9cabbc!important
+}
+body[data-theme="dark"] .table-count-summary strong{
+    color:#f4f7fb!important
+}
 body[data-theme="dark"] .app-shell table thead th,body[data-theme="dark"] .app-shell table tr:first-child th{
     background:#253244!important;
     color:#dce7f3!important;

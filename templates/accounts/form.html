@@ -10,45 +10,18 @@
   {% if object %}
     Update identity, role, and account access
   {% else %}
-    Create an administrator or staff account with immediate access
+    Create a staff account with first-login email verification
   {% endif %}
 {% endblock %}
 {% block content %}
   <style>
   .account-form-wrap{
       max-width:920px;
-      margin:0 auto
+      margin:0
   }
   .account-form-card{
       overflow:hidden;
       padding:0!important
-  }
-  .account-form-header{
-      display:flex;
-      align-items:center;
-      gap:15px;
-      padding:20px 24px;
-      background:linear-gradient(110deg,#075f3c,#11854e);
-      color:#fff
-  }
-  .account-form-header>i{
-      width:46px;
-      height:46px;
-      display:grid;
-      place-items:center;
-      border-radius:12px;
-      background:#ffffff1c;
-      font-size:22px
-  }
-  .account-form-header h2{
-      margin:0;
-      color:#fff;
-      font-size:21px
-  }
-  .account-form-header p{
-      margin:4px 0 0;
-      color:#d9f5e6;
-      font-size:13px
   }
   .account-form-body{
       padding:25px
@@ -67,7 +40,7 @@
   }
   .account-form-grid{
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
+      grid-template-columns:repeat(3,minmax(0,1fr));
       gap:17px
   }
   .account-field{
@@ -92,23 +65,34 @@
       outline:3px solid #15905218;
       border-color:#158a4f
   }
-  .account-check{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-height:45px;
-      padding:11px 13px;
-      border:1px solid #d8e2e8;
-      border-radius:9px
+  .account-password-wrap{
+      position:relative;
+      display:block
   }
-  .account-check label{
-      order:2;
-      margin:0
+  .account-password-wrap input{
+      padding-right:48px!important
   }
-  .account-check input{
-      width:18px;
-      height:18px;
-      accent-color:#087647
+  .account-password-toggle{
+      position:absolute;
+      top:50%;
+      right:7px;
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      padding:0;
+      border:0;
+      border-radius:7px;
+      background:transparent;
+      color:#66758a;
+      cursor:pointer;
+      transform:translateY(-50%)
+  }
+  .account-password-toggle:hover,
+  .account-password-toggle:focus-visible{
+      background:#e8f5ed;
+      color:#087443;
+      outline:2px solid #1590522b
   }
   .account-field .helptext{
       color:#6b7b8e;
@@ -135,15 +119,50 @@
       min-width:125px;
       padding:10px 16px
   }
+  .password-feedback{
+      display:grid;
+      gap:6px;
+      margin-top:2px
+  }
+  .password-meter{
+      height:5px;
+      overflow:hidden;
+      border-radius:999px;
+      background:#e4e9ec
+  }
+  .password-meter i{
+      display:block;
+      width:0;
+      height:100%;
+      border-radius:inherit;
+      background:#dc2626;
+      transition:width .18s ease,background .18s ease
+  }
+  .password-message,.password-match{
+      color:#66758a;
+      font-size:11px;
+      line-height:1.4
+  }
+  .password-message[data-strength="fair"]{
+      color:#a16207
+  }
+  .password-message[data-strength="strong"],.password-match.is-match{
+      color:#087443
+  }
+  .password-match.is-mismatch{
+      color:#b91c1c
+  }
+  @media(max-width:950px){
+      .account-form-grid{
+          grid-template-columns:repeat(2,minmax(0,1fr))
+      }
+  }
   @media(max-width:650px){
       .account-form-grid{
           grid-template-columns:1fr
       }
       .account-form-body{
           padding:19px
-      }
-      .account-form-header{
-          padding:18px
       }
       .account-form-actions{
           flex-direction:column-reverse
@@ -155,26 +174,6 @@
   </style>
   <div class="content account-form-wrap">
     <section class="panel account-form-card">
-      <header class="account-form-header">
-        <i class="bi {% if object %}bi-person-gear{% else %}bi-person-plus{% endif %}">
-        </i>
-        <div>
-          <h2>
-            {% if object %}
-              Edit User Account
-            {% else %}
-              Create User Account
-            {% endif %}
-          </h2>
-          <p>
-            {% if object %}
-              Changes take effect the next time the user opens a protected page.
-            {% else %}
-              The user can sign in as soon as this account is created.
-            {% endif %}
-          </p>
-        </div>
-      </header>
       <form class="account-form-body" method="post">
         {% csrf_token %}
         {% if form.non_field_errors %}
@@ -183,18 +182,48 @@
         <div class="account-form-notice">
           <i class="bi bi-shield-check">
           </i>
-          <span>Assign only the access level required for the user’s work. Administrator and staff pages are kept separate.</span>
+          <span>
+            {% if object %}
+              Select Active or Inactive to manage this account without deleting it.
+            {% else %}
+              Username, email, phone number, and password are required. New accounts are staff-only and remain inactive until email verification.
+            {% endif %}
+          </span>
         </div>
         <div class="account-form-grid">
           {% for field in form %}
-            <div class="account-field{% if field.name == 'is_active' %} account-check{% endif %}">
+            <div class="account-field">
               <label for="{{ field.id_for_label }}">
                 {{ field.label }}
                 {% if field.field.required %}
                   <span class="text-danger">*</span>
                 {% endif %}
               </label>
-              {{ field }}
+              {% if field.name == 'password1' or field.name == 'password2' %}
+                <span class="account-password-wrap">
+                  {{ field }}
+                  <button class="account-password-toggle"
+                          type="button"
+                          data-password-toggle
+                          aria-controls="{{ field.id_for_label }}"
+                          aria-label="Show {{ field.label|lower }}"
+                          aria-pressed="false"
+                          title="Show {{ field.label|lower }}">
+                    <i class="bi bi-eye" aria-hidden="true"></i>
+                  </button>
+                </span>
+              {% else %}
+                {{ field }}
+              {% endif %}
+              {% if field.name == 'password1' %}
+                <div class="password-feedback" aria-live="polite">
+                  <span class="password-meter" aria-hidden="true"><i id="passwordMeterFill"></i></span>
+                  <small class="password-message" id="passwordStrengthMessage">Enter a password to check its strength.</small>
+                </div>
+              {% endif %}
+              {% if field.name == 'password2' %}
+                <small class="password-match" id="passwordMatchMessage" aria-live="polite"></small>
+              {% endif %}
               {% if field.help_text %}
                 <span class="helptext">{{ field.help_text|safe }}</span>
               {% endif %}
@@ -212,11 +241,90 @@
             {% if object %}
               Save Account Changes
             {% else %}
-              Create Active Account
+              Create Account
             {% endif %}
           </button>
         </div>
       </form>
     </section>
   </div>
+  <script>
+      (() => {
+          const password = document.getElementById('id_password1');
+          const confirmation = document.getElementById('id_password2');
+          if (!password || !confirmation) return;
+
+          const meter = document.getElementById('passwordMeterFill');
+          const strengthMessage = document.getElementById('passwordStrengthMessage');
+          const matchMessage = document.getElementById('passwordMatchMessage');
+          const username = document.getElementById('id_username');
+          const email = document.getElementById('id_email');
+          const phone = document.getElementById('id_phone_number');
+          const commonPasswords = ['password', 'password123', '12345678', 'qwerty123', 'admin123'];
+
+          function personalValues() {
+              return [
+                  username?.value,
+                  email?.value.split('@')[0],
+                  phone?.value.replace(/\D/g, '')
+              ].filter(value => value && value.length >= 3).map(value => value.toLowerCase())
+          }
+
+          function updateStrength() {
+              const value = password.value;
+              const lower = value.toLowerCase();
+              let message = 'Enter a password to check its strength.';
+              let width = '0';
+              let color = '#dc2626';
+              let state = 'weak';
+
+              if (value) {
+                  width = '22%';
+                  message = 'Weak: use at least 8 characters.';
+                  if (value.length >= 8 && /^\d+$/.test(value)) {
+                      message = 'Weak: the password cannot be entirely numeric.'
+                  } else if (value.length >= 8 && commonPasswords.includes(lower)) {
+                      message = 'Weak: choose a less common password.'
+                  } else if (value.length >= 8 && personalValues().some(personal => lower.includes(personal))) {
+                      message = 'Weak: avoid the username, email, or phone number.'
+                  } else if (value.length >= 8) {
+                      const variety = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter(pattern => pattern.test(value)).length;
+                      if (value.length >= 12 && variety >= 3) {
+                          message = 'Strong password.';
+                          width = '100%';
+                          color = '#16834f';
+                          state = 'strong'
+                      } else {
+                          message = 'Fair: add length or another character type for a stronger password.';
+                          width = '62%';
+                          color = '#d99a12';
+                          state = 'fair'
+                      }
+                  }
+              }
+
+              meter.style.width = width;
+              meter.style.background = color;
+              strengthMessage.dataset.strength = state;
+              strengthMessage.textContent = message
+          }
+
+          function updateMatch() {
+              matchMessage.classList.remove('is-match', 'is-mismatch');
+              if (!confirmation.value) {
+                  matchMessage.textContent = '';
+                  return
+              }
+              const matches = password.value === confirmation.value;
+              matchMessage.classList.add(matches ? 'is-match' : 'is-mismatch');
+              matchMessage.textContent = matches ? 'Passwords match.' : 'Passwords do not match.'
+          }
+
+          [password, username, email, phone].forEach(field => field?.addEventListener('input', updateStrength));
+          password.addEventListener('input', updateMatch);
+          confirmation.addEventListener('input', updateMatch);
+          updateStrength();
+          updateMatch()
+      })();
+  </script>
 {% endblock %}

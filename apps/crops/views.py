@@ -2,10 +2,12 @@ from datetime import date
 
 from django.db.models import Q
 from django.urls import reverse_lazy
+from django.db import transaction
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
+from apps.farmers.history import farmer_snapshot, record_farmer_update
 from .forms import CropRecordForm
 from .models import CropRecord
 
@@ -81,13 +83,47 @@ class CropDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMi
         return context
 
 
-class CropCreateView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixin, CreateView):
+class CropHistoryMixin:
+    def post(self, request, *args, **kwargs):
+        if kwargs.get("pk"):
+            current = self.get_object()
+            self.snapshot_before_update = farmer_snapshot(current.parcel.farmer)
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        farmer = form.cleaned_data["parcel"].farmer
+        before = getattr(self, "snapshot_before_update", None) or farmer_snapshot(farmer)
+        with transaction.atomic():
+            response = super().form_valid(form)
+            record_farmer_update(
+                farmer=farmer,
+                actor=self.request.user,
+                update_type="SLIP_B",
+                before=before,
+                remarks=f"Commodity record updated: {self.object.crop_type}",
+            )
+        return response
+
+
+class CropCreateView(
+    FMISLoginRequiredMixin,
+    StaffRequiredMixin,
+    RoleAwareCropMixin,
+    CropHistoryMixin,
+    CreateView,
+):
     form_class = CropRecordForm
     template_name = "crops/form.html"
     success_url = reverse_lazy("crops:list")
 
 
-class CropUpdateView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixin, UpdateView):
+class CropUpdateView(
+    FMISLoginRequiredMixin,
+    StaffRequiredMixin,
+    RoleAwareCropMixin,
+    CropHistoryMixin,
+    UpdateView,
+):
     model = CropRecord
     form_class = CropRecordForm
     template_name = "crops/form.html"

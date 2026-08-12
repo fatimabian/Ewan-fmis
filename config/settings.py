@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.service_requests",
     "apps.reports",
     "apps.activity_logs",
+    "apps.notifications",
     "apps.settings_page",
 ]
 MIDDLEWARE = [
@@ -58,6 +59,9 @@ TEMPLATES = [
         "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
+            "libraries": {
+                "pagination_tags": "apps.common.templatetags.pagination_tags",
+            },
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
@@ -109,12 +113,18 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "authentication.CustomUser"
-LOGIN_URL = "authentication:login"
+LOGIN_URL = "authentication:landing"
 LOGIN_REDIRECT_URL = "dashboard:home"
 LOGOUT_REDIRECT_URL = "authentication:landing"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "FMIS <noreply@fmis.local>")
 STATIC_ROOT = BASE_DIR / "staticfiles"
 BACKUP_ROOT = Path(os.getenv("FMIS_BACKUP_ROOT", BASE_DIR / "backups"))
+FMIS_BACKUP_ENCRYPTION_KEY = os.getenv("FMIS_BACKUP_ENCRYPTION_KEY", "")
+BACKUP_AZURE_CONTAINER_URL = os.getenv("BACKUP_AZURE_CONTAINER_URL", "")
+MARIADB_DUMP_PATH = os.getenv("MARIADB_DUMP_PATH", "")
+FMIS_BACKUP_SCHEDULER_CONFIGURED = os.getenv(
+    "FMIS_BACKUP_SCHEDULER_CONFIGURED", "False"
+).lower() == "true"
 SESSION_COOKIE_NAME = "fmis_sessionid"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"

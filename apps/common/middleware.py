@@ -1,4 +1,5 @@
 import time
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth import logout
@@ -46,7 +47,10 @@ class SessionTimeoutMiddleware:
                 messages.warning(
                     request, "Your session expired due to inactivity. Please sign in again."
                 )
-                return redirect(f"{reverse('authentication:login')}?next={request.path}")
+                landing_url = reverse("authentication:landing")
+                return redirect(
+                    f"{landing_url}?{urlencode({'next': request.get_full_path()})}"
+                )
             request.session[self.SESSION_KEY] = now
         return self.get_response(request)
 

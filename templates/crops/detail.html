@@ -22,8 +22,7 @@
             {% if object.image %}
               <img src="{{ object.image.url }}" alt="{{ object.crop_type }}">
             {% else %}
-              <i class="bi bi-flower1">
-              </i>
+              <span class="crop-symbol crop-symbol-large" aria-hidden="true">{{ object.symbol }}</span>
             {% endif %}
           </div>
           <div class="record-hero-copy">

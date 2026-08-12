@@ -1,8 +1,9 @@
 from django.contrib import messages
+from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.cache import cache
-from django.http import FileResponse, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import FormView
@@ -10,8 +11,7 @@ from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.backups import create_verified_backup
 from apps.common.permissions import AdminRequiredMixin
 from .forms import ProfileForm
-from .models import UserPreference
-from .models import SystemSetting
+from .models import BackupRun, SystemSetting, UserPreference
 
 
 class SettingsView(FMISLoginRequiredMixin, FormView):
@@ -38,10 +38,7 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
                 for field in [
                     "theme",
                     "primary_color",
-                    "email_notifications",
                     "in_app_notifications",
-                    "weekly_summary",
-                    "two_factor_enabled",
                 ]
             }
         )
@@ -53,10 +50,28 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
                     "default_language": system_setting.default_language,
                     "session_timeout": str(system_setting.session_timeout),
                     "automated_backups": system_setting.automated_backups,
-                    "two_factor_required": system_setting.two_factor_required,
                 }
             )
         return initial
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.user.is_admin:
+            last_backup = BackupRun.objects.first()
+            context.update(
+                {
+                    "last_backup": last_backup,
+                    "backup_retained_copies": (
+                        last_backup.retained_copies
+                        if last_backup and last_backup.status == "VERIFIED"
+                        else 0
+                    ),
+                    "backup_encryption_configured": bool(settings.FMIS_BACKUP_ENCRYPTION_KEY),
+                    "backup_offsite_configured": bool(settings.BACKUP_AZURE_CONTAINER_URL),
+                    "backup_scheduler_configured": settings.FMIS_BACKUP_SCHEDULER_CONFIGURED,
+                }
+            )
+        return context
 
     def form_valid(self, form):
         user_fields = ["first_name", "last_name", "email", "phone_number"]
@@ -67,10 +82,7 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
         for field in [
             "theme",
             "primary_color",
-            "email_notifications",
             "in_app_notifications",
-            "weekly_summary",
-            "two_factor_enabled",
         ]:
             setattr(preference, field, form.cleaned_data[field])
         preference.save()
@@ -81,7 +93,6 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
                 "timezone",
                 "default_language",
                 "automated_backups",
-                "two_factor_required",
             ]:
                 setattr(system_setting, field, form.cleaned_data[field])
             system_setting.session_timeout = int(form.cleaned_data["session_timeout"])
@@ -120,21 +131,23 @@ class ChangePasswordView(FMISLoginRequiredMixin, View):
 
 
 class ManualBackupView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
-    """Create a verified server copy and return the same archive to the administrator."""
+    """Create an encrypted, verified recovery point without exposing its file format."""
 
     def post(self, request):
         try:
             backup = create_verified_backup()
-        except (OSError, RuntimeError, ValueError) as error:
-            messages.error(request, f"The manual backup could not be completed: {error}")
+        except Exception:
+            messages.error(
+                request,
+                "The backup could not be completed. Review the protected server backup log or ask the technical administrator to check the configuration.",
+            )
             return redirect("settings_page:home")
 
-        response = FileResponse(
-            backup.path.open("rb"),
-            as_attachment=True,
-            filename=backup.path.name,
-            content_type="application/gzip",
-        )
-        response["X-FMIS-Backup-Status"] = "verified"
-        response["X-FMIS-Backup-Records"] = str(backup.record_count)
-        return response
+        if backup.offsite:
+            messages.success(request, "Backup verified and stored in secure off-site storage.")
+        else:
+            messages.warning(
+                request,
+                "Backup verified in encrypted server storage. Configure off-site storage to complete disaster protection.",
+            )
+        return redirect("settings_page:home")

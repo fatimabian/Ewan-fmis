@@ -2,7 +2,8 @@ import re
 
 from django.db.models import Q
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from django.db import transaction
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import (
@@ -16,9 +17,31 @@ from django.views.generic import (
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
+from apps.common.crop_symbols import crop_symbol
+from apps.activity_logs.models import ActivityLog
 from apps.farmers.models import Farmer
-from .forms import FarmParcelForm
+from apps.farmers.history import farmer_snapshot, record_farmer_update
+from .forms import FarmParcelForm, ParcelCropFormSet
 from .models import FarmParcel
+
+
+# Municipal extent published in Rosario's planning references. The same extent
+# is enforced by the browser and the save endpoint so out-of-town coordinates
+# cannot be stored by bypassing the map controls.
+ROSARIO_MAP_BOUNDS = {
+    "south": 13.685278,
+    "west": 121.166667,
+    "north": 13.875278,
+    "east": 121.333333,
+}
+ROSARIO_MAP_CENTER = [13.8467, 121.2060]
+
+
+def is_within_rosario(latitude, longitude):
+    return (
+        ROSARIO_MAP_BOUNDS["south"] <= latitude <= ROSARIO_MAP_BOUNDS["north"]
+        and ROSARIO_MAP_BOUNDS["west"] <= longitude <= ROSARIO_MAP_BOUNDS["east"]
+    )
 
 
 class RoleAwareParcelMixin:
@@ -68,7 +91,7 @@ class FarmParcelListView(
             queryset = queryset.filter(area_hectares__gte=1, area_hectares__lte=2)
         elif area == "over2":
             queryset = queryset.filter(area_hectares__gt=2)
-        return queryset
+        return queryset.order_by("farmer__last_name", "farmer__first_name", "id")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -115,12 +138,15 @@ class FarmParcelMapView(
         unmapped = []
         for farmer in farmers:
             point = self.parse_coordinates(farmer.location_coordinates)
+            if point and not is_within_rosario(*point):
+                point = None
             if point is None:
                 point = next(
                     (
                         parsed
                         for parcel in farmer.parcels.all()
                         if (parsed := self.parse_coordinates(parcel.coordinates))
+                        and is_within_rosario(*parsed)
                     ),
                     None,
                 )
@@ -133,6 +159,7 @@ class FarmParcelMapView(
                     crops.append(
                         {
                             "name": crop.crop_type,
+                            "symbol": crop_symbol(crop.crop_type),
                             "image": crop.image.url if crop.image else "",
                         }
                     )
@@ -157,6 +184,8 @@ class FarmParcelMapView(
         context["unmapped_farmers"] = unmapped
         context["mapped_count"] = len(markers)
         context["unmapped_count"] = len(unmapped)
+        context["rosario_map_bounds"] = ROSARIO_MAP_BOUNDS
+        context["rosario_map_center"] = ROSARIO_MAP_CENTER
         return context
 
 
@@ -174,23 +203,139 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             return JsonResponse(
                 {"ok": False, "message": "The selected map coordinates are invalid."}, status=400
             )
-        farmer.location_coordinates = f"{latitude:.7f}, {longitude:.7f}"
+        if not is_within_rosario(latitude, longitude):
+            return JsonResponse(
+                {
+                    "ok": False,
+                    "message": (
+                        "That location is outside Rosario, Batangas. "
+                        "Choose a point inside the Rosario map boundary."
+                    ),
+                },
+                status=400,
+            )
+        previous_coordinates = farmer.location_coordinates.strip()
+        new_coordinates = f"{latitude:.7f}, {longitude:.7f}"
+        farmer.location_coordinates = new_coordinates
         farmer.save(update_fields=["location_coordinates"])
+        operation = request.POST.get("operation", "create")
+        if operation == "move" and previous_coordinates != new_coordinates:
+            activity = ActivityLog.objects.create(
+                actor=request.user,
+                action=f"POST {request.path}",
+                path=request.path,
+                title="Farmer Map Pin Moved",
+                description=f"{request.user.display_name} moved a farmer's saved map pin.",
+                module="Farmers",
+                target_label=farmer.full_name,
+                reason="Corrected the farmer residence location on the Rosario map.",
+                details=[
+                    {
+                        "field": "Map / Location Coordinates",
+                        "before": previous_coordinates or "Not previously pinned",
+                        "after": new_coordinates,
+                    }
+                ],
+            )
+            try:
+                from apps.notifications.services import create_activity_notifications
+
+                create_activity_notifications(activity)
+            except Exception:
+                pass
+            request._fmis_activity_recorded = True
         return JsonResponse(
-            {"ok": True, "message": f"{farmer.full_name}'s map location was saved."}
+            {
+                "ok": True,
+                "message": (
+                    f"{farmer.full_name}'s map pin was moved and recorded in activity history."
+                    if operation == "move"
+                    else f"{farmer.full_name}'s map location was saved."
+                ),
+            }
         )
 
 
+class ParcelCropFormSetMixin:
+    crop_prefix = "parcel_crops"
+
+    def get_crop_formset(self, instance, data=None, files=None):
+        return ParcelCropFormSet(
+            data=data,
+            files=files,
+            instance=instance,
+            prefix=self.crop_prefix,
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if "crop_formset" not in context:
+            context["crop_formset"] = self.get_crop_formset(self.object)
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object() if getattr(self, "model", None) else None
+        before = farmer_snapshot(self.object.farmer) if self.object else None
+        form = self.get_form()
+        if not form.is_valid():
+            return self.form_invalid(form)
+
+        parcel = form.save(commit=False)
+        farmer = parcel.farmer
+        if before is None:
+            before = farmer_snapshot(farmer)
+        crop_formset = self.get_crop_formset(parcel, request.POST, request.FILES)
+        if not crop_formset.is_valid():
+            return self.render_to_response(
+                self.get_context_data(form=form, crop_formset=crop_formset)
+            )
+
+        with transaction.atomic():
+            self.object = parcel
+            self.object.save()
+            form.save_m2m()
+            crop_formset.instance = self.object
+            crop_formset.save()
+            record_farmer_update(
+                farmer=farmer,
+                actor=request.user,
+                update_type="SLIP_B",
+                before=before,
+                transaction_code=form.cleaned_data["transaction_code"],
+                change_reason=form.cleaned_data["change_reason"],
+                remarks=form.cleaned_data.get("update_remarks", ""),
+                date_signed=form.cleaned_data.get("date_signed"),
+                date_received=form.cleaned_data.get("date_received"),
+                agriculturist_name=form.cleaned_data.get("agriculturist_name", ""),
+            )
+        return redirect(self.get_success_url())
+
+
 class FarmParcelCreateView(
-    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, CreateView
+    FMISLoginRequiredMixin,
+    StaffRequiredMixin,
+    RoleAwareParcelMixin,
+    ParcelCropFormSetMixin,
+    CreateView,
 ):
     form_class = FarmParcelForm
     template_name = "farm_parcels/form.html"
     success_url = reverse_lazy("farm_parcels:list")
 
+    def get_initial(self):
+        initial = super().get_initial()
+        farmer_id = self.request.GET.get("farmer", "")
+        if farmer_id.isdigit():
+            initial["farmer"] = farmer_id
+        return initial
+
 
 class FarmParcelUpdateView(
-    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, UpdateView
+    FMISLoginRequiredMixin,
+    StaffRequiredMixin,
+    RoleAwareParcelMixin,
+    ParcelCropFormSetMixin,
+    UpdateView,
 ):
     model = FarmParcel
     form_class = FarmParcelForm

@@ -3,6 +3,7 @@ from django.views.generic import ListView
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import AdminRequiredMixin
+from apps.authentication.models import CustomUser
 from .models import ActivityLog
 
 
@@ -37,8 +38,8 @@ class ActivityLogListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
             .order_by("module")
         )
         context["users"] = (
-            ActivityLog.objects.filter(actor__isnull=False)
-            .select_related("actor")
-            .order_by("actor__username")
+            CustomUser.objects.filter(activitylog__isnull=False)
+            .distinct()
+            .order_by("first_name", "last_name", "username")
         )
         return context
