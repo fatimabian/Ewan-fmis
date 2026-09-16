@@ -1,6 +1,6 @@
 # ISO/IEC 25010 Verification Matrix
 
-**Build assessed:** FMIS source updated July 20, 2026  
+**Build assessed:** FMIS source updated September 8, 2026
 **Automated command:** `python manage.py test --settings=config.settings_test -v 2`  
 **Deployment check:** `python manage.py check --deploy` using production-like environment values
 
@@ -24,6 +24,9 @@
 | Usability | Validation errors are associated with invalid fields and confirmations precede destructive actions | Form code and automated invalid-input tests | Pass |
 | Reliability | A clean database applies all migrations without failure | Full isolated test-database build | Pass |
 | Reliability | A portable compressed backup is created and immediately parsed | Automated backup test; verified `.json.gz` fixture | Pass |
+| Reliability | Archive controls preserve farmers, parcels, crops, dependent records, and staff attribution | Automated archive/restore regression tests | Pass |
+| Functional suitability | Cancelling a service request preserves it and records the responsible user and status history | Automated cancellation-history test | Pass |
+| Functional suitability | Active non-intercrop areas cannot cumulatively exceed the parent parcel area | Automated crop-area integrity test | Pass |
 | Reliability | Backup can be restored into a separate MySQL recovery database | Procedure in `BACKUP_AND_RECOVERY.md` | Pending deployment drill |
 | Security | Password hashing, CSRF, protected routes, role checks, clickjacking protection, secure cookies, HSTS, and HTTPS redirect are configured | Django configuration and production deployment check | Pass |
 | Security | Configured idle timeout ends an inactive authenticated session | Automated 15-minute timeout test | Pass |
@@ -33,4 +36,4 @@
 
 ## Automated result
 
-The final isolated run discovered **16 tests**, applied all migrations, reported no framework issues, and completed successfully. Targeted filtered-report and dashboard-graph tests also passed against the configured MariaDB database. Manual browser/device checks, a MySQL recovery drill, production SMTP, Google OAuth configuration, and HTTPS certificate installation must be executed in the real deployment environment because they depend on external infrastructure.
+The final isolated run discovered **47 tests**, applied all migrations, reported no framework issues, and completed successfully. Migration-drift detection reported no changes and the production security check reported no issues using production-like environment values. Manual browser/device checks, a MySQL recovery drill, production SMTP, Google OAuth configuration, and HTTPS certificate installation must still be executed in the real deployment environment because they depend on external infrastructure.

@@ -1810,21 +1810,13 @@ body:not([data-theme="dark"]) :is(.dashboard-metric,.staff-metric-card):hover{
     font-size:46px
 }
 
-.agri-symbol,
-.sidebar-agri-symbol{
+.agri-symbol{
     font-family:"Segoe UI Emoji","Apple Color Emoji",sans-serif;
     line-height:1
 }
 
 .agri-symbol{
     font-size:23px
-}
-
-.sidebar-agri-symbol{
-    width:20px;
-    display:inline-grid;
-    place-items:center;
-    font-size:16px
 }
 
 .crop-label>span{
@@ -2210,4 +2202,86 @@ body .landing-section{
     .app-shell .page-scroll > .content{
         padding-top:10px!important;
     }
+}
+
+/* Dashboard cards expose their destination through the whole surface. */
+.dashboard-card,
+.admin-dashboard .panel{
+    transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+.dashboard-click-card{
+    cursor:pointer;
+}
+.dashboard-click-card:focus-visible{
+    outline:3px solid color-mix(in srgb,var(--fmis-accent) 35%,transparent);
+    outline-offset:3px;
+}
+@media(hover:hover){
+    .dashboard-card:hover,
+    .admin-dashboard .panel:hover{
+        transform:translateY(-2px);
+        border-color:color-mix(in srgb,var(--fmis-accent) 48%,#d9dee3)!important;
+        box-shadow:0 10px 24px rgba(23,59,43,.10)!important;
+    }
+}
+
+/* Polished, consistent icon tiles across both dashboard roles. */
+body:not([data-theme="dark"]) :is(
+    .metric-farmers .metric-icon,
+    .staff-metric-card:nth-child(4n+1)>i,
+    .quick-actions>a:nth-child(4n+1)>i
+){--tile-bg:#d8f7e1;--tile-color:#2f7b3b}
+body:not([data-theme="dark"]) :is(
+    .metric-crops .metric-icon,
+    .staff-metric-card:nth-child(4n+2)>i,
+    .quick-actions>a:nth-child(4n+2)>i
+){--tile-bg:#dbeaff;--tile-color:#3975c3}
+body:not([data-theme="dark"]) :is(
+    .metric-area .metric-icon,
+    .staff-metric-card:nth-child(4n+3)>i,
+    .quick-actions>a:nth-child(4n+3)>i
+){--tile-bg:#ffead6;--tile-color:#c45131}
+body:not([data-theme="dark"]) :is(
+    .metric-requests .metric-icon,
+    .staff-metric-card:nth-child(4n)>i,
+    .quick-actions>a:nth-child(4n)>i
+){--tile-bg:#e9e2ff;--tile-color:#6a4cbb}
+body:not([data-theme="dark"]) :is(
+    .dashboard-metric .metric-icon,
+    .staff-metric-card>i,
+    .quick-actions>a>i
+){
+    position:relative;
+    overflow:hidden;
+    border:1px solid color-mix(in srgb,var(--tile-color) 18%,#fff)!important;
+    background:linear-gradient(145deg,#fff -28%,var(--tile-bg) 48%,color-mix(in srgb,var(--tile-bg) 82%,var(--tile-color)))!important;
+    color:var(--tile-color)!important;
+    box-shadow:0 6px 14px color-mix(in srgb,var(--tile-color) 17%,transparent),inset 0 1px 0 rgba(255,255,255,.9)!important;
+    transition:transform .18s ease,box-shadow .18s ease
+}
+body:not([data-theme="dark"]) :is(
+    .dashboard-metric .metric-icon,
+    .staff-metric-card>i,
+    .quick-actions>a>i
+)::after{
+    content:"";
+    position:absolute;
+    top:-10px;
+    right:-10px;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    background:rgba(255,255,255,.6)
+}
+@media(hover:hover){
+    .dashboard-metric:hover .metric-icon,
+    .staff-metric-card:hover>i,
+    .quick-actions>a:hover>i{
+        transform:translateY(-2px) scale(1.05);
+        box-shadow:0 9px 18px color-mix(in srgb,var(--tile-color) 24%,transparent),inset 0 1px 0 #fff!important
+    }
+}
+body[data-theme="dark"] :is(.dashboard-metric .metric-icon,.staff-metric-card>i,.quick-actions>a>i){
+    border:1px solid #526177!important;
+    box-shadow:0 6px 14px rgba(0,0,0,.24)!important
 }

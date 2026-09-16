@@ -1,5 +1,6 @@
 import re
 
+from django.contrib import messages
 from django.db.models import Q
 from django.http import JsonResponse
 from django.db import transaction
@@ -8,7 +9,6 @@ from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import (
     CreateView,
-    DeleteView,
     DetailView,
     ListView,
     TemplateView,
@@ -18,10 +18,11 @@ from django.views.generic import (
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
 from apps.common.crop_symbols import crop_symbol
+from apps.activity_logs.services import record_request_event
 from apps.activity_logs.models import ActivityLog
-from apps.farmers.models import Farmer
+from apps.common.record_history import activity_rows, farmer_update_rows
 from apps.farmers.history import farmer_snapshot, record_farmer_update
-from .forms import FarmParcelForm, ParcelCropFormSet
+from .forms import FarmParcelForm
 from .models import FarmParcel
 
 
@@ -109,7 +110,29 @@ class FarmParcelDetailView(
     template_name = "farm_parcels/detail.html"
 
     def get_queryset(self):
-        return FarmParcel.objects.select_related("farmer").prefetch_related("crops")
+        return FarmParcel.objects.select_related("farmer")
+
+
+class FarmParcelHistoryView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, DetailView
+):
+    model = FarmParcel
+    template_name = "shared/record_history.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        parcels = list(self.object.farmer.parcels.order_by("pk"))
+        parcel_number = next((index for index, parcel in enumerate(parcels, 1) if parcel.pk == self.object.pk), 0)
+        prefix = f"Parcel {parcel_number} /"
+        updates = []
+        for entry in self.object.farmer.update_history.filter(update_type="SLIP_B").select_related("actor"):
+            if any(change.get("field", "").startswith(prefix) for change in entry.changes):
+                updates.append(entry)
+        events = ActivityLog.objects.filter(module="Farm Parcels", target_label=f"{self.object.farmer.record_id} - {self.object.display_name}").select_related("actor")
+        rows = farmer_update_rows(updates) + activity_rows(events)
+        rows.sort(key=lambda row: row["date"], reverse=True)
+        context.update({"history_title": "Farm Parcel Update History", "record_label": f"{self.object.display_name} · {self.object.farmer.full_name}", "back_url": reverse("farm_parcels:detail", args=[self.object.pk]), "edit_url": reverse("farm_parcels:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Slip B", "history_entries": rows})
+        return context
 
 
 class FarmParcelMapView(
@@ -129,59 +152,47 @@ class FarmParcelMapView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        farmers = (
-            Farmer.objects.filter(is_active=True)
-            .prefetch_related("parcels__crops")
-            .order_by("last_name", "first_name")
+        parcels = (
+            FarmParcel.objects.filter(is_active=True, farmer__is_active=True)
+            .select_related("farmer")
+            .prefetch_related("crops")
+            .order_by("farmer__last_name", "farmer__first_name", "pk")
         )
         markers = []
         unmapped = []
-        for farmer in farmers:
-            point = self.parse_coordinates(farmer.location_coordinates)
+        for parcel in parcels:
+            farmer = parcel.farmer
+            point = self.parse_coordinates(parcel.coordinates)
             if point and not is_within_rosario(*point):
                 point = None
             if point is None:
-                point = next(
-                    (
-                        parsed
-                        for parcel in farmer.parcels.all()
-                        if (parsed := self.parse_coordinates(parcel.coordinates))
-                        and is_within_rosario(*parsed)
-                    ),
-                    None,
-                )
-            if point is None:
-                unmapped.append(farmer)
+                unmapped.append(parcel)
                 continue
-            crops = []
-            for parcel in farmer.parcels.all():
-                for crop in parcel.crops.all():
-                    crops.append(
-                        {
-                            "name": crop.crop_type,
-                            "symbol": crop_symbol(crop.crop_type),
-                            "image": crop.image.url if crop.image else "",
-                        }
-                    )
+            crops = [
+                {
+                    "name": crop.crop_type,
+                    "symbol": crop_symbol(crop.crop_type),
+                    "image": crop.image.url if crop.image else "",
+                }
+                for crop in parcel.crops.all()
+                if crop.is_active
+            ]
             markers.append(
                 {
-                    "id": farmer.pk,
+                    "id": parcel.pk,
                     "farmer_id": farmer.record_id,
                     "farmer": farmer.full_name,
-                    "address": ", ".join(
-                        part
-                        for part in (farmer.house_lot_purok, farmer.street_sitio, farmer.barangay)
-                        if part
-                    ),
+                    "parcel": parcel.display_name,
+                    "address": f"{parcel.barangay}, Rosario, Batangas",
                     "crops": crops,
                     "lat": point[0],
                     "lng": point[1],
-                    "edit_url": reverse("farmers:edit", args=[farmer.pk]),
+                    "edit_url": reverse("farm_parcels:detail", args=[parcel.pk]),
                 }
             )
         context["map_markers"] = markers
-        context["farmers"] = farmers
-        context["unmapped_farmers"] = unmapped
+        context["parcels"] = parcels
+        context["unmapped_parcels"] = unmapped
         context["mapped_count"] = len(markers)
         context["unmapped_count"] = len(unmapped)
         context["rosario_map_bounds"] = ROSARIO_MAP_BOUNDS
@@ -191,7 +202,12 @@ class FarmParcelMapView(
 
 class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
     def post(self, request):
-        farmer = get_object_or_404(Farmer, pk=request.POST.get("farmer_id"), is_active=True)
+        parcel = get_object_or_404(
+            FarmParcel,
+            pk=request.POST.get("parcel_id"),
+            is_active=True,
+            farmer__is_active=True,
+        )
         try:
             latitude = float(request.POST.get("latitude", ""))
             longitude = float(request.POST.get("longitude", ""))
@@ -214,91 +230,47 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 },
                 status=400,
             )
-        previous_coordinates = farmer.location_coordinates.strip()
+        previous_coordinates = parcel.coordinates.strip()
         new_coordinates = f"{latitude:.7f}, {longitude:.7f}"
-        farmer.location_coordinates = new_coordinates
-        farmer.save(update_fields=["location_coordinates"])
+        parcel.coordinates = new_coordinates
+        parcel.save(update_fields=["coordinates"])
         operation = request.POST.get("operation", "create")
-        if operation == "move" and previous_coordinates != new_coordinates:
-            activity = ActivityLog.objects.create(
-                actor=request.user,
-                action=f"POST {request.path}",
-                path=request.path,
-                title="Farmer Map Pin Moved",
-                description=f"{request.user.display_name} moved a farmer's saved map pin.",
-                module="Farmers",
-                target_label=farmer.full_name,
-                reason="Corrected the farmer residence location on the Rosario map.",
-                details=[
-                    {
-                        "field": "Map / Location Coordinates",
-                        "before": previous_coordinates or "Not previously pinned",
-                        "after": new_coordinates,
-                    }
-                ],
-            )
-            try:
-                from apps.notifications.services import create_activity_notifications
-
-                create_activity_notifications(activity)
-            except Exception:
-                pass
-            request._fmis_activity_recorded = True
+        record_request_event(
+            request,
+            title="Farm Parcel Map Pin Moved" if operation == "move" else "Farm Parcel Map Pin Saved",
+            module="Farm Parcels",
+            description=f"{request.user.display_name} recorded a farm parcel location within Rosario.",
+            target_label=f"{parcel.farmer.record_id} - {parcel.display_name}",
+            reason="Recorded or corrected the agricultural parcel location.",
+            details=[{
+                "field": "Farm parcel coordinates",
+                "before": previous_coordinates or "Not previously pinned",
+                "after": new_coordinates,
+            }],
+        )
         return JsonResponse(
             {
                 "ok": True,
                 "message": (
-                    f"{farmer.full_name}'s map pin was moved and recorded in activity history."
+                    f"{parcel.display_name}'s map pin was moved and recorded in activity history."
                     if operation == "move"
-                    else f"{farmer.full_name}'s map location was saved."
+                    else f"{parcel.display_name}'s farm location was saved."
                 ),
             }
         )
 
 
-class ParcelCropFormSetMixin:
-    crop_prefix = "parcel_crops"
+class ParcelSlipBAuditMixin:
+    """Save land-only changes as an official Slip B update."""
 
-    def get_crop_formset(self, instance, data=None, files=None):
-        return ParcelCropFormSet(
-            data=data,
-            files=files,
-            instance=instance,
-            prefix=self.crop_prefix,
-        )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        if "crop_formset" not in context:
-            context["crop_formset"] = self.get_crop_formset(self.object)
-        return context
-
-    def post(self, request, *args, **kwargs):
-        self.object = self.get_object() if getattr(self, "model", None) else None
-        before = farmer_snapshot(self.object.farmer) if self.object else None
-        form = self.get_form()
-        if not form.is_valid():
-            return self.form_invalid(form)
-
-        parcel = form.save(commit=False)
-        farmer = parcel.farmer
-        if before is None:
-            before = farmer_snapshot(farmer)
-        crop_formset = self.get_crop_formset(parcel, request.POST, request.FILES)
-        if not crop_formset.is_valid():
-            return self.render_to_response(
-                self.get_context_data(form=form, crop_formset=crop_formset)
-            )
-
+    def form_valid(self, form):
+        farmer = form.cleaned_data["farmer"]
+        before = farmer_snapshot(farmer)
         with transaction.atomic():
-            self.object = parcel
-            self.object.save()
-            form.save_m2m()
-            crop_formset.instance = self.object
-            crop_formset.save()
+            response = super().form_valid(form)
             record_farmer_update(
                 farmer=farmer,
-                actor=request.user,
+                actor=self.request.user,
                 update_type="SLIP_B",
                 before=before,
                 transaction_code=form.cleaned_data["transaction_code"],
@@ -308,14 +280,15 @@ class ParcelCropFormSetMixin:
                 date_received=form.cleaned_data.get("date_received"),
                 agriculturist_name=form.cleaned_data.get("agriculturist_name", ""),
             )
-        return redirect(self.get_success_url())
+        messages.success(self.request, "The farm parcel Slip B information was saved.")
+        return response
 
 
 class FarmParcelCreateView(
     FMISLoginRequiredMixin,
     StaffRequiredMixin,
     RoleAwareParcelMixin,
-    ParcelCropFormSetMixin,
+    ParcelSlipBAuditMixin,
     CreateView,
 ):
     form_class = FarmParcelForm
@@ -334,15 +307,32 @@ class FarmParcelUpdateView(
     FMISLoginRequiredMixin,
     StaffRequiredMixin,
     RoleAwareParcelMixin,
-    ParcelCropFormSetMixin,
+    ParcelSlipBAuditMixin,
     UpdateView,
 ):
     model = FarmParcel
     form_class = FarmParcelForm
     template_name = "farm_parcels/form.html"
-    success_url = reverse_lazy("farm_parcels:list")
+
+    def get_success_url(self):
+        return reverse("farm_parcels:detail", args=[self.object.pk])
 
 
-class FarmParcelDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, DeleteView):
-    model = FarmParcel
-    success_url = reverse_lazy("farm_parcels:list")
+class FarmParcelDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Archive or restore a parcel while retaining its crops and history."""
+
+    def post(self, request, pk):
+        parcel = get_object_or_404(FarmParcel, pk=pk)
+        restoring = request.POST.get("action") == "restore"
+        parcel.is_active = restoring
+        parcel.save(update_fields=["is_active"])
+        action = "restored" if restoring else "archived"
+        record_request_event(
+            request,
+            title=f"Farm Parcel {action.title()}",
+            module="Farm Parcels",
+            description=f"{request.user.display_name} {action} a farm parcel without deleting related records.",
+            target_label=f"{parcel.farmer.record_id} - {parcel.display_name}",
+        )
+        messages.success(request, f"{parcel.display_name} was {action}; related records were preserved.")
+        return redirect("farm_parcels:list")

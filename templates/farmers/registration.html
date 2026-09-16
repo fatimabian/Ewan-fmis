@@ -332,10 +332,10 @@
                       return false
                   }
               }
-              if (current === 3 && !document.querySelector('input[name="activities"]:checked')) {
-                  const first = document.querySelector('input[name="activities"]');
-                  first?.setCustomValidity('Select at least one livelihood activity.');
-                  showStepError(step, first, 'Select at least one livelihood activity before continuing.');
+              if (current === 3 && !document.querySelector('select[name="activities"]')?.value) {
+                  const first = document.querySelector('select[name="activities"]');
+                  first?.setCustomValidity('Select the farmer type or primary activity.');
+                  showStepError(step, first, 'Select the farmer type or primary activity before continuing.');
                   return false
               }
               if (current === 4) {
@@ -380,7 +380,7 @@
           document.querySelectorAll('.add-form-row').forEach(btn => btn.addEventListener('click', () => addRow(btn.dataset.prefix)));
           ['parcels', 'crops', 'documents'].forEach(updateRemoveButtons);
           document.addEventListener('change', event => {
-              if (event.target.name === 'activities') document.querySelectorAll('input[name="activities"]').forEach(input => input.setCustomValidity(''));
+              if (event.target.name === 'activities') event.target.setCustomValidity('');
               if (event.target.matches('#documents-rows select[name$="-document_type"]')) document.querySelectorAll('#documents-rows select[name$="-document_type"]').forEach(select => select.setCustomValidity(''))
           });
           document.addEventListener('click', event => {

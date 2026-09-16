@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.crops",
     "apps.service_catalog",
     "apps.service_requests",
+    "apps.interventions.apps.InterventionsConfig",
     "apps.reports",
     "apps.activity_logs",
     "apps.notifications",
@@ -74,6 +75,9 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASE_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+
+if not DEBUG and DATABASE_ENGINE != "mysql":
+    raise ImproperlyConfigured("Production FMIS requires DB_ENGINE=mysql.")
 
 if DATABASE_ENGINE == "mysql":
     mysql_engine = (
@@ -125,6 +129,7 @@ MARIADB_DUMP_PATH = os.getenv("MARIADB_DUMP_PATH", "")
 FMIS_BACKUP_SCHEDULER_CONFIGURED = os.getenv(
     "FMIS_BACKUP_SCHEDULER_CONFIGURED", "False"
 ).lower() == "true"
+FMIS_RELEASE_VERSION = os.getenv("FMIS_RELEASE_VERSION", "Unreleased build")
 SESSION_COOKIE_NAME = "fmis_sessionid"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -153,3 +158,8 @@ if os.getenv("EMAIL_HOST"):
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+if not DEBUG and not os.getenv("EMAIL_HOST"):
+    raise ImproperlyConfigured(
+        "Production FMIS requires EMAIL_HOST so activation and password recovery can operate."
+    )

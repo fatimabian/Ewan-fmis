@@ -1,130 +1,46 @@
 {% extends base_template %}
-{% block page_title %}
-  {% if object %}
-    Update Farm Parcel
-  {% else %}
-    Add Parcel Update
-  {% endif %}
-{% endblock %}
-{% block page_subtitle %}
-  Maintain an existing registrant's land information using RSBSA Slip B
-{% endblock %}
+{% block page_title %}{% if object %}Update Slip B{% else %}Add Farm Parcel{% endif %}{% endblock %}
+{% block page_subtitle %}{% if object %}Change of farm parcel information{% else %}Record land information for an existing farmer{% endif %}{% endblock %}
 {% block content %}
   <div class="content">
     <section class="panel form-panel rsbsa-update-form">
       <div class="registration-note">
-        <i class="bi bi-info-circle">
-        </i>
-        <span>This page is for parcel updates of existing farmers. Register a new farmer and their initial parcels through Add Farmer.</span>
+        <i class="bi bi-info-circle"></i>
+        <span>{% if object %}Slip B is for verified parcel and land changes. Previous values and the responsible staff member are preserved automatically.{% else %}This page records parcel and land information only. Add commodities separately in Crop Management.{% endif %}</span>
       </div>
       <form method="post" enctype="multipart/form-data" id="parcelForm">
         {% csrf_token %}
         <section class="form-section">
-          <h3>
-            <i class="bi bi-map"></i>
-            Parcel information
-          </h3>
+          <h3><i class="bi bi-map"></i> Parcel &amp; Land Information</h3>
           <div class="registration-grid three">
             {% for field in form %}
-              {% include "farmers/registration_field.html" with field=field %}
+              {% if field.name != 'transaction_code' and field.name != 'change_reason' and field.name != 'update_remarks' and field.name != 'date_signed' and field.name != 'date_received' and field.name != 'agriculturist_name' and field.name != 'registrant_declaration' %}
+                {% include "farmers/registration_field.html" with field=field %}
+              {% endif %}
             {% endfor %}
           </div>
         </section>
 
-        <section class="parcel-crops-section">
-          <div class="step-heading compact-heading">
-            <div>
-              <h2>Crops and Commodities</h2>
-              <p>At least one commodity is required for this parcel.</p>
-            </div>
-            <button type="button" class="btn btn-success btn-sm" id="addParcelCrop">
-              <i class="bi bi-plus-lg"></i>
-              Add Crop
-            </button>
+        <section class="form-section">
+          <h3><i class="bi bi-journal-check"></i> Official Slip B Details</h3>
+          <div class="registration-grid three">
+            {% include "farmers/registration_field.html" with field=form.transaction_code %}
+            {% include "farmers/registration_field.html" with field=form.change_reason %}
+            {% include "farmers/registration_field.html" with field=form.agriculturist_name %}
+            {% include "farmers/registration_field.html" with field=form.date_signed %}
+            {% include "farmers/registration_field.html" with field=form.date_received %}
+            {% include "farmers/registration_field.html" with field=form.update_remarks %}
           </div>
-
-          {{ crop_formset.management_form }}
-          {% if crop_formset.non_form_errors %}
-            <div class="form-validation-alert" data-inline-validation>
-              {{ crop_formset.non_form_errors }}
-            </div>
-          {% endif %}
-
-          <div class="formset-rows" id="parcelCropRows">
-            {% for crop_form in crop_formset %}
-              {% include "farm_parcels/crop_form_row.html" with form=crop_form row_number=forloop.counter %}
-            {% endfor %}
-          </div>
-
-          <template id="parcelCropEmptyForm">
-            {% include "farm_parcels/crop_form_row.html" with form=crop_formset.empty_form row_number="__number__" %}
-          </template>
-
-          <div class="registration-note soft">
-            <i class="bi bi-info-circle"></i>
-            <span>One commodity is required. Additional commodity rows become required only after Add Crop is selected.</span>
+          <div class="registration-consent">
+            {% include "farmers/registration_field.html" with field=form.registrant_declaration %}
           </div>
         </section>
 
         <div class="step-actions">
-          <a class="btn btn-outline-secondary" href="{% url 'farm_parcels:list' %}">Cancel</a>
-          <button class="btn btn-success">Save Parcel Update</button>
+          <a class="btn btn-outline-secondary" href="{% if object %}{% url 'farm_parcels:detail' object.pk %}{% else %}{% url 'farm_parcels:list' %}{% endif %}">Cancel</a>
+          <button class="btn btn-success">{% if object %}Save Slip B Update{% else %}Save Farm Parcel{% endif %}</button>
         </div>
       </form>
     </section>
   </div>
-{% endblock %}
-{% block extra_js %}
-  <script>
-    (() => {
-        const rows = document.getElementById("parcelCropRows");
-        const addButton = document.getElementById("addParcelCrop");
-        const template = document.getElementById("parcelCropEmptyForm");
-        const totalForms = document.getElementById("id_parcel_crops-TOTAL_FORMS");
-
-        if (!rows || !addButton || !template || !totalForms) return;
-
-        function activeRows() {
-            return [...rows.querySelectorAll("[data-crop-row]")].filter(
-                row => !row.classList.contains("deleted")
-            );
-        }
-
-        function updateRows() {
-            const currentRows = activeRows();
-            currentRows.forEach((row, index) => {
-                const number = row.querySelector(".row-number");
-                const remove = row.querySelector("[data-remove-crop]");
-                if (number) number.textContent = index + 1;
-                if (remove) remove.disabled = currentRows.length === 1;
-            });
-        }
-
-        addButton.addEventListener("click", () => {
-            const index = Number(totalForms.value);
-            const html = template.innerHTML
-                .replaceAll("__prefix__", index)
-                .replaceAll("__number__", activeRows().length + 1);
-            rows.insertAdjacentHTML("beforeend", html);
-            totalForms.value = index + 1;
-            updateRows();
-            rows.lastElementChild?.querySelector("input:not([type=hidden]), select")?.focus();
-        });
-
-        rows.addEventListener("click", event => {
-            const button = event.target.closest("[data-remove-crop]");
-            if (!button || button.disabled) return;
-            const row = button.closest("[data-crop-row]");
-            const deletion = row.querySelector('input[name$="-DELETE"]');
-            if (deletion) deletion.checked = true;
-            row.querySelectorAll("input, select, textarea").forEach(field => {
-                if (field !== deletion) field.disabled = true;
-            });
-            row.classList.add("deleted");
-            updateRows();
-        });
-
-        updateRows();
-    })();
-  </script>
 {% endblock %}

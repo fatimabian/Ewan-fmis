@@ -1,20 +1,20 @@
 # FMIS Quality Verification Results
 
-**Verification date:** July 21, 2026  
+**Verification date:** September 16, 2026
 **Test database:** Isolated in-memory SQLite database (no production/client records modified)
 
 ## Automated suite
 
-- Tests discovered: **16**
-- Tests passed: **16**
+- Tests discovered: **47**
+- Tests passed: **47**
 - Tests failed: **0**
-- Final runtime: **4.400 seconds**
+- Final runtime: **7.889 seconds**
 - Clean migration result: **Pass**
 - Framework system check: **No issues**
 - Migration drift check: **No changes detected**
 - Verified backup test: **Pass**
 
-Covered workflows: public/legal pages, authentication, role separation, idle session timeout, duplicate ID detection, invalid input handling, farmer records and remarks, parcel commodities, service-request creation/detail, filtered on-screen report graphs and result tables, dashboard trends, CSV export, database query ceiling, page response time, scheduled-command backup verification, and administrator-only manual backup download.
+Covered workflows include public/legal pages and shared branding, authentication, role separation, removal of legacy catalog/admin routes, the standardized request-type dropdown, the single farmer-type dropdown, idle timeout, validation, farmer and parcel workflows, record archiving and restoration, request cancellation history, protected supporting-document access, cumulative crop-area integrity, reports and exports, dashboard analytics, query ceilings, response time, audit resilience, and backup verification.
 
 ## Production security check
 
@@ -22,8 +22,12 @@ Covered workflows: public/legal pages, authentication, role separation, idle ses
 
 ## MySQL / MariaDB status
 
-The configured MariaDB database was reachable on July 21, 2026. Targeted database-backed tests for the filtered report graph and the six-month dashboard trend both passed, and the framework system check reported no issues. The complete 16-test regression suite also passed against an isolated test database. A signed recovery drill remains a deployment action under `BACKUP_AND_RECOVERY.md`. MariaDB 10.4 is running in legacy compatibility mode and should be upgraded to 10.5 or newer before production use.
+The local MariaDB 10.4.32 database was reachable. Corrupt `mysql.db` and `mysql.proxies_priv` Aria system tables were preserved, repaired, and rechecked. Extended integrity checks passed for every FMIS and MariaDB system table. FMIS now uses a dedicated `fmis_app` account scoped to the `fmis` database instead of passwordless `root`. MariaDB 10.4 remains a local compatibility environment only; use a dedicated MariaDB 10.11 instance for production and complete the documented recovery drill before acceptance.
 
 ## Browser/device status
 
-The environment denied launching installed desktop browsers for screenshot automation. Responsive code is present and key pages are covered by application tests, but the signable Chrome/Edge/Firefox/Android/iOS record remains pending in `BROWSER_DEVICE_TEST_RECORD.md`.
+Local visual QA passed at 1440×900, 768×1024, and 390×844 for public, staff, administrator, registration, service-request, report, settings, recovery, and backup screens. No page-level horizontal overflow was detected. The signable Chrome/Edge/Firefox/Android/iOS deployment record remains pending in `BROWSER_DEVICE_TEST_RECORD.md`.
+
+## Final recovery archive
+
+The post-cleanup encrypted archive `backups/turnover-20260916/fmis-backup-20260916-112929.fmisbak` was independently authenticated and opened successfully. SHA-256: `11B0A0A4395B9BA70CAD72524D8091BD00E7DFBD61BFAE80E62F568C0A2F4930`.

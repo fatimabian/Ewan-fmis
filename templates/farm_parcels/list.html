@@ -195,7 +195,6 @@
             </i> Add Parcel</a>
           </div>
         </form>
-        {% include "shared/table_export.html" with dataset="parcels" %}
         <div class="parcel-table-wrap universal-table-wrap">
           <table class="parcel-table universal-table">
             <thead>
@@ -234,16 +233,19 @@
                   </td>
                   <td>
                     <div class="parcel-actions">
-                      <a href="{% url 'farm_parcels:edit' parcel.pk %}" title="Edit parcel">
-                        <i class="bi bi-pencil-square">
-                        </i>
-                      </a>
+                      {% if parcel.is_active %}
+                        <a href="{% url 'farm_parcels:edit' parcel.pk %}" title="Update Slip B for {{ parcel.display_name }}">
+                          <i class="bi bi-pencil-square">
+                          </i>
+                        </a>
+                      {% endif %}
                       <form method="post"
                             action="{% url 'farm_parcels:delete' parcel.pk %}"
-                            data-confirm="Delete this farm parcel? This action cannot be undone.">
+                            data-confirm="{% if parcel.is_active %}Archive this farm parcel? Its crop records will be preserved.{% else %}Restore this farm parcel?{% endif %}">
                         {% csrf_token %}
-                        <button title="Delete parcel">
-                          <i class="bi bi-trash">
+                        {% if not parcel.is_active %}<input type="hidden" name="action" value="restore">{% endif %}
+                        <button title="{% if parcel.is_active %}Archive{% else %}Restore{% endif %} parcel">
+                          <i class="bi {% if parcel.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}">
                           </i>
                         </button>
                       </form>

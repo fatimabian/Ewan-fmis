@@ -54,11 +54,11 @@ class StyledFormMixin(InlineValidationMixin):
 
 class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
-    activities = forms.MultipleChoiceField(
-        choices=ACTIVITY_CHOICES,
-        widget=forms.CheckboxSelectMultiple,
+    activities = forms.ChoiceField(
+        choices=(("", "Select farmer type or primary activity"),) + tuple(ACTIVITY_CHOICES),
+        widget=forms.Select,
         required=True,
-        label="Livelihood activities (select all that apply)",
+        label="Farmer type / primary agricultural activity",
     )
     consent_given = forms.BooleanField(
         required=True,
@@ -102,7 +102,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "livelihood",
             "activities",
             "consent_given",
-            "location_coordinates",
         ]
         widgets = {
             "birth_date": forms.DateInput(attrs={"type": "date"}),
@@ -110,9 +109,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "civil_status": forms.Select,
             "livelihood": forms.Select,
             "photo": forms.ClearableFileInput(attrs={"accept": "image/*"}),
-            "location_coordinates": forms.TextInput(
-                attrs={"placeholder": "e.g., 13.8467, 121.2060"}
-            ),
             "phone_number": forms.TextInput(
                 attrs={
                     "placeholder": "09XXXXXXXXX",
@@ -131,7 +127,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "indigenous_group": "Indigenous group name",
             "is_pwd": "Person with Disability (PWD)",
             "is_four_ps": "4Ps beneficiary",
-            "location_coordinates": "Home map coordinates (optional)",
         }
 
     def __init__(self, *args, **kwargs):
@@ -180,7 +175,7 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             and self.instance.pk
             and self.instance.activities
         ):
-            self.initial["activities"] = self.instance.activities.split(",")
+            self.initial["activities"] = self.instance.activities.split(",")[0]
 
     def clean_phone_number(self):
         value = self.cleaned_data.get("phone_number", "")
@@ -194,7 +189,7 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         return digits
 
     def clean_activities(self):
-        return ",".join(self.cleaned_data["activities"])
+        return self.cleaned_data["activities"]
 
     def clean(self):
         cleaned = super().clean()
@@ -278,11 +273,11 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
 
 
 class FarmerSlipBLivelihoodForm(StyledFormMixin, forms.ModelForm):
-    activities = forms.MultipleChoiceField(
-        choices=ACTIVITY_CHOICES,
-        widget=forms.CheckboxSelectMultiple,
+    activities = forms.ChoiceField(
+        choices=(("", "Select farmer type or primary activity"),) + tuple(ACTIVITY_CHOICES),
+        widget=forms.Select,
         required=True,
-        label="Livelihood and kind of activity / involvement",
+        label="Farmer type / primary agricultural activity",
     )
     transaction_code = forms.CharField(max_length=80, label="Transaction code")
     change_reason = forms.ChoiceField(
@@ -315,22 +310,21 @@ class FarmerSlipBLivelihoodForm(StyledFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk and self.instance.activities:
-            self.initial["activities"] = self.instance.activities.split(",")
+            self.initial["activities"] = self.instance.activities.split(",")[0]
         self.apply_styles()
 
     def clean_activities(self):
-        return ",".join(self.cleaned_data["activities"])
+        return self.cleaned_data["activities"]
 
 
 class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
     is_rsbsa_recorded = RequiredYesNoField(label="Already recorded in RSBSA?")
     is_active = RequiredYesNoField(label="Currently cultivated / active?")
-    farm_type = forms.CharField(
-        max_length=30,
+    farm_type = forms.ChoiceField(
+        choices=FarmParcel.FARM_TYPE_CHOICES,
         required=True,
         label="Farm type",
-        widget=forms.TextInput(attrs={"placeholder": "Remarks"}),
     )
 
     class Meta:
@@ -392,7 +386,7 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
 
     class Meta:
         model = CropRecord
-        exclude = ["parcel"]
+        exclude = ["parcel", "is_active", "archived_at", "archived_by"]
         labels = {
             "crop_type": "Crop / Commodity",
             "number_of_heads": "Number of heads / trees (if applicable)",

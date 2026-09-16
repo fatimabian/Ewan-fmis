@@ -8,7 +8,6 @@ from apps.authentication.models import CustomUser
 from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
-from apps.service_catalog.models import ServiceCatalog
 from apps.service_requests.models import ServiceRequest
 from .export import _filter_period, build_report, build_system_report
 
@@ -27,7 +26,10 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
         if barangay:
             queryset = queryset.filter(barangay=barangay)
         if commodity:
-            queryset = queryset.filter(parcels__crops__crop_type=commodity).distinct()
+            queryset = queryset.filter(
+                parcels__crops__crop_type=commodity,
+                parcels__crops__is_active=True,
+            ).distinct()
     elif model_name == "parcel":
         queryset = _filter_period(queryset, "created_at", date_range)
         if year:
@@ -35,7 +37,7 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
         if barangay:
             queryset = queryset.filter(barangay=barangay)
         if commodity:
-            queryset = queryset.filter(crops__crop_type=commodity).distinct()
+            queryset = queryset.filter(crops__crop_type=commodity, crops__is_active=True).distinct()
     elif model_name == "crop":
         queryset = _filter_period(queryset, "planting_date", date_range, date_only=True)
         if year:
@@ -51,7 +53,10 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
         if barangay:
             queryset = queryset.filter(farmer__barangay=barangay)
         if commodity:
-            queryset = queryset.filter(farmer__parcels__crops__crop_type=commodity).distinct()
+            queryset = queryset.filter(
+                farmer__parcels__crops__crop_type=commodity,
+                farmer__parcels__crops__is_active=True,
+            ).distinct()
         if status:
             queryset = queryset.filter(status=status)
     return queryset
@@ -76,10 +81,6 @@ def report_preview(report_type, date_range, filters, system_report=False):
         for row in rows:
             chart_values[row[2] or "FMIS"] += 1
         value_label = "Activities"
-    elif report_type == "service_catalog_registry":
-        for row in rows:
-            chart_values[row[3] or "Not recorded"] += 1
-        value_label = "Services"
     elif report_type == "farmer_master":
         for row in rows:
             chart_values[row[2] or "Not recorded"] += 1
@@ -135,7 +136,9 @@ def report_metrics(date_range="all", filters=None):
         filters,
     )
     crops = _apply_report_filters(
-        CropRecord.objects.filter(parcel__is_active=True, parcel__farmer__is_active=True),
+        CropRecord.objects.filter(
+            is_active=True, parcel__is_active=True, parcel__farmer__is_active=True
+        ),
         "crop",
         date_range,
         filters,
@@ -234,12 +237,12 @@ def report_metrics(date_range="all", filters=None):
         .annotate(total=Count("id"))
         .order_by("-total")[:5],
         "farmer_statistics": farmer_statistics,
-        "service_count": ServiceCatalog.objects.filter(is_active=True).count(),
         "total_accounts": CustomUser.objects.count(),
         "active_accounts": CustomUser.objects.filter(is_active=True).count(),
         "admin_accounts": CustomUser.objects.filter(role="ADMIN", is_active=True).count(),
         "staff_accounts": CustomUser.objects.filter(role="STAFF", is_active=True).count(),
         "inactive_accounts": CustomUser.objects.filter(is_active=False).count(),
-        "inactive_catalogs": ServiceCatalog.objects.filter(is_active=False).count(),
+        "pending_activations": CustomUser.objects.filter(activation_pending=True).count(),
         "total_activities": ActivityLog.objects.count(),
+        "failed_activities": ActivityLog.objects.exclude(status__iexact="Success").count(),
     }

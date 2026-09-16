@@ -286,7 +286,6 @@
         <i class="bi bi-plus-lg">
         </i> New Request</a>
       </form>
-      {% include "shared/table_export.html" with dataset="requests" %}
       <div class="request-table-wrap universal-table-wrap">
         <table class="request-table universal-table">
           <thead>
@@ -327,25 +326,26 @@
                 </td>
                 <td>
                   <div class="request-actions">
-                    <a href="{% url 'service_requests:detail' item.pk %}"
-                       title="View {{ item.request_id }}">
-                      <i class="bi bi-eye">
-                      </i>
+                    <a href="{% url 'interventions:create' %}?service_request={{ item.pk }}"
+                       title="Record intervention for {{ item.request_id }}">
+                      <i class="bi bi-box2-heart"></i>
                     </a>
                     <a href="{% url 'service_requests:edit' item.pk %}"
                        title="Edit {{ item.request_id }}">
                       <i class="bi bi-pencil-square">
                       </i>
                     </a>
-                    <form method="post"
-                          action="{% url 'service_requests:delete' item.pk %}"
-                          data-confirm="Delete service request {{ item.request_id }}? This action cannot be undone.">
-                      {% csrf_token %}
-                      <button title="Delete {{ item.request_id }}">
-                        <i class="bi bi-trash">
-                        </i>
-                      </button>
-                    </form>
+                    {% if item.status != 'CANCELLED' %}
+                      <form method="post"
+                            action="{% url 'service_requests:delete' item.pk %}"
+                            data-confirm="Cancel service request {{ item.request_id }}? The record and its history will be preserved.">
+                        {% csrf_token %}
+                        <button title="Cancel {{ item.request_id }}">
+                          <i class="bi bi-x-circle">
+                          </i>
+                        </button>
+                      </form>
+                    {% endif %}
                   </div>
                 </td>
               </tr>

@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 STAFF_MODULES = {"Farmers", "Farm Parcels", "Crops", "Service Requests"}
 ADMIN_MODULES = {"User Accounts"}
-SHARED_MODULES = {"Service Catalogs"}
 
 
 def create_activity_notifications(activity):
@@ -25,9 +24,6 @@ def create_activity_notifications(activity):
     elif activity.module in ADMIN_MODULES:
         role_filter = Q(role="ADMIN") | Q(is_superuser=True)
         category = "accounts"
-    elif activity.module in SHARED_MODULES:
-        role_filter = Q()
-        category = "catalog"
     else:
         return 0
 

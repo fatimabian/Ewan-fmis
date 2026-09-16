@@ -256,12 +256,26 @@ document.addEventListener("DOMContentLoaded", () => {
       modal.querySelector('input[name="old_password"]').focus();
     });
   }
+  document.querySelectorAll("[data-card-url]").forEach((card) => {
+    const openCard = () => {
+      if (card.dataset.cardUrl) window.location.href = card.dataset.cardUrl;
+    };
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("a,button,input,select,textarea,form,summary")) return;
+      openCard();
+    });
+    card.addEventListener("keydown", (event) => {
+      if (event.target !== card || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      openCard();
+    });
+  });
   document.querySelectorAll("[data-record-url]").forEach((row) => {
     const openRecord = () => {
       if (row.dataset.recordUrl) window.location.href = row.dataset.recordUrl;
     };
     row.addEventListener("click", (event) => {
-      if (event.target.closest("a,button,input,select,textarea,form")) return;
+      if (event.target.closest("a,button,input,select,textarea,form,details,summary")) return;
       openRecord();
     });
     row.addEventListener("keydown", (event) => {

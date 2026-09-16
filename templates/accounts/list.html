@@ -51,7 +51,7 @@
   .new-account-button{
       display:flex;
       width:max-content;
-      margin:0 0 16px auto;
+      margin:0;
       padding:9px 13px;
       font-size:13px!important;
       font-weight:700;
@@ -59,6 +59,16 @@
   }
   .new-account-button i{
       margin-right:5px
+  }
+  .accounts-table-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:10px
+  }
+  .accounts-table-header h3{
+      margin:0
   }
   .account-row-actions{
       display:flex;
@@ -117,12 +127,14 @@
         <b>{{ staff }}</b>
       </article>
     </div>
-    <a class="btn btn-success new-account-button" href="{% url 'accounts:create' %}">
-      <i class="bi bi-plus-lg"></i>
-      New Account
-    </a>
-      <section class="panel table-panel account-table-panel">
-        <h3>All Accounts</h3>
+    <section class="panel table-panel account-table-panel">
+        <div class="accounts-table-header">
+          <h3>All Accounts</h3>
+          <a class="btn btn-success new-account-button" href="{% url 'accounts:create' %}">
+            <i class="bi bi-plus-lg"></i>
+            New Account
+          </a>
+        </div>
         <table class="account-table">
           <thead>
             <tr>
@@ -162,13 +174,14 @@
                       <i class="bi bi-pencil-square">
                       </i>
                     </a>
-                    {% if user.pk != request.user.pk %}
+                    {% if user.pk != request.user.pk and not user.activation_pending %}
                       <form method="post"
                             action="{% url 'accounts:delete' user.pk %}"
-                            data-confirm="Delete {{ user.display_name|escape }}'s account? They will no longer be able to sign in.">
+                            data-confirm="{% if user.is_active %}Deactivate {{ user.display_name|escape }}'s account? Their history will be preserved.{% else %}Reactivate {{ user.display_name|escape }}'s account?{% endif %}">
                         {% csrf_token %}
-                        <button type="submit" title="Delete {{ user.display_name }}">
-                          <i class="bi bi-trash">
+                        {% if not user.is_active %}<input type="hidden" name="action" value="restore">{% endif %}
+                        <button type="submit" title="{% if user.is_active %}Deactivate{% else %}Reactivate{% endif %} {{ user.display_name }}">
+                          <i class="bi {% if user.is_active %}bi-person-slash{% else %}bi-person-check{% endif %}">
                           </i>
                         </button>
                       </form>
@@ -183,6 +196,6 @@
             {% endfor %}
           </tbody>
         </table>
-      </section>
-    </div>
+    </section>
+  </div>
 {% endblock %}

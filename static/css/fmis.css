@@ -54,6 +54,23 @@ body{
     background:#087e56;
     font-size:32px
 }
+.brand-logo-shell{
+    display:grid;
+    place-items:center;
+    width:52px;
+    height:52px;
+    min-width:52px;
+    padding:5px;
+    border-radius:13px;
+    background:#f5f1df;
+    box-shadow:0 6px 16px rgba(0,0,0,.18)
+}
+.brand-logo{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain
+}
 .sidebar nav{
     padding-top:22px
 }
@@ -354,7 +371,7 @@ td{
     box-shadow:0 18px 50px #143b2a30
 }
 .login-art{
-    background:linear-gradient(135deg,#063f2d99,#37a65a99),url('https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=900&q=80') center/cover;
+    background:linear-gradient(135deg,#063f2d99,#37a65a99),url('../images/rosario-farmer-hero-v1.webp') center/cover;
     color:white;
     padding:42px
 }

@@ -8,6 +8,8 @@ from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import FormView, TemplateView
 
+from apps.activity_logs.services import record_event, record_request_event
+
 from .activation import (
     ACTIVATION_MAX_ATTEMPTS,
     clear_activation_challenge,
@@ -98,6 +100,13 @@ class UserLoginView(LoginView):
         if getattr(self, "login_limit_key", None):
             cache.delete(self.login_limit_key)
         response = super().form_valid(form)
+        record_request_event(
+            self.request,
+            title="Successful sign-in",
+            module="Security",
+            description=f"{self.request.user.display_name} signed in successfully.",
+            target_label=self.request.user.username,
+        )
         if form.cleaned_data.get("remember_me"):
             self.request.session.set_expiry(30 * 24 * 60 * 60)
         else:
@@ -107,6 +116,21 @@ class UserLoginView(LoginView):
     def form_invalid(self, form):
         if getattr(self, "login_limit_key", None) and not getattr(self, "login_is_limited", False):
             _record_attempt(self.login_limit_key, timeout=10 * 60)
+        if self.request.method == "POST":
+            identifier = self.request.POST.get("username", "").strip()[:150]
+            limited = getattr(self, "login_is_limited", False)
+            record_event(
+                title="Sign-in blocked" if limited else "Failed sign-in",
+                module="Security",
+                description=(
+                    "A sign-in attempt was blocked after repeated failures."
+                    if limited
+                    else "A sign-in attempt did not pass authentication."
+                ),
+                path=self.request.path,
+                status="Blocked" if limited else "Warning",
+                target_label=identifier or "Unknown account",
+            )
         return super().form_invalid(form)
 
 
@@ -133,7 +157,7 @@ class AccountActivationView(FormView):
         nonce, challenge = get_activation_challenge(request)
         if not nonce or not challenge:
             messages.warning(request, "The activation code expired. Sign in again to request a new code.")
-            return redirect("authentication:login")
+            return redirect("authentication:landing")
         self.activation_nonce = nonce
         self.activation_challenge = challenge
         self.activation_user = get_user_model().objects.filter(
@@ -143,7 +167,7 @@ class AccountActivationView(FormView):
         ).first()
         if not self.activation_user:
             clear_activation_challenge(request, nonce)
-            return redirect("authentication:login")
+            return redirect("authentication:landing")
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -163,7 +187,7 @@ class AccountActivationView(FormView):
                 send_activation_code(request, self.activation_user, remember_me=remember_me)
             except Exception:
                 messages.error(request, "The activation email could not be sent. Try again later.")
-                return redirect("authentication:login")
+                return redirect("authentication:landing")
             messages.success(request, "A new six-digit code was sent.")
             return redirect("authentication:activate_account")
         return super().post(request, *args, **kwargs)
@@ -189,6 +213,13 @@ class AccountActivationView(FormView):
             backend="django.contrib.auth.backends.ModelBackend",
         )
         self.request.session.set_expiry(30 * 24 * 60 * 60 if remember_me else 0)
+        record_request_event(
+            self.request,
+            title="Account activated",
+            module="Security",
+            description=f"{user.display_name} completed first-time account activation.",
+            target_label=user.username,
+        )
         messages.success(self.request, "Your FMIS staff account is now active.")
         return redirect(reverse(dashboard_for(user)))
 

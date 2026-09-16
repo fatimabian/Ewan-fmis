@@ -9,6 +9,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
+from django import forms as django_forms
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
@@ -34,11 +35,12 @@ from apps.farmers.forms import (
     FarmerRegistrationForm,
     ParcelRegistrationFormSet,
 )
-from apps.farmers.models import Farmer, FarmerUpdateHistory
+from apps.farmers.models import Farmer, FarmerDocument, FarmerUpdateHistory
+from apps.interventions.models import Intervention
 from apps.reports.export import build_report
 from apps.service_catalog.models import ServiceCatalog
 from apps.service_requests.forms import ServiceRequestForm
-from apps.service_requests.models import ServiceRequest
+from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
 
 
 class FMISRequirementTests(TestCase):
@@ -83,44 +85,52 @@ class FMISRequirementTests(TestCase):
             area_hectares=Decimal("2.00"),
             planting_date=date.today(),
         )
-        cls.service = ServiceCatalog.objects.create(
-            name="Seed Distribution",
+        cls.service, _ = ServiceCatalog.objects.update_or_create(
             code="SEED",
-            category="Farm Inputs",
-            description="Qualified seed distribution",
-            processing_time="3 days",
+            defaults={
+                "name": "Seed Assistance",
+                "category": "Farm Inputs",
+                "description": "Qualified seed distribution",
+                "processing_time": "3 days",
+            },
         )
 
-    def test_public_legal_pages_and_login_are_available(self):
+    def test_public_pages_use_the_landing_page_as_the_only_login(self):
         for name in (
             "authentication:landing",
-            "authentication:login",
             "authentication:privacy",
             "authentication:terms",
         ):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 200)
+        self.assertRedirects(
+            self.client.get(reverse("authentication:login")),
+            reverse("authentication:landing"),
+        )
         self.assertContains(
             self.client.get(reverse("authentication:privacy")), "Information collected"
         )
         landing = self.client.get(reverse("authentication:landing"))
-        self.assertContains(landing, "rosario-rice-fields-v2.webp")
-        self.assertContains(landing, "rosario-seed-support-v2.webp")
-        self.assertContains(landing, "rosario-field-consultation-v2.webp")
-        self.assertContains(landing, "data-carousel-next")
+        self.assertContains(landing, "rice-field-data-collection.webp")
+        self.assertContains(landing, "images/brand/fmis-logo.png")
+        self.assertNotContains(landing, 'id="heroCarousel"')
+        self.assertNotContains(landing, "data-carousel-next")
+        self.assertNotContains(landing, "scope-carousel")
         self.assertContains(landing, "data-service-next")
         self.assertContains(landing, "feature-toggle")
         self.assertContains(landing, "landingProgress")
-        self.assertContains(landing, "setInterval(() => showSlide(activeSlide + 1), 5000)")
         self.assertContains(landing, "startServiceCarousel")
         self.assertContains(landing, "advanceServices")
 
     def test_application_header_shows_only_the_current_page_title(self):
         self.client.force_login(self.admin)
-        admin_response = self.client.get(reverse("service_catalog:list"))
+        admin_response = self.client.get(reverse("dashboard:admin_home"))
         self.assertEqual(admin_response.status_code, 200)
-        self.assertContains(admin_response, "Service Catalogs")
+        self.assertContains(admin_response, "PENDING ACTIVATIONS")
+        self.assertNotContains(admin_response, "Service Catalog")
         self.assertNotContains(admin_response, "Administrator Workspace")
+        self.assertEqual(self.client.get("/catalog/").status_code, 404)
+        self.assertEqual(self.client.get("/admin/").status_code, 404)
 
         self.client.force_login(self.staff)
         staff_response = self.client.get(reverse("farmers:list"))
@@ -133,9 +143,8 @@ class FMISRequirementTests(TestCase):
         self.assertContains(landing, 'aria-controls="id_password"')
         self.assertContains(landing, "password-toggle.js")
 
-        login = self.client.get(reverse("authentication:login"))
-        self.assertContains(login, "data-password-toggle", count=1)
-        self.assertContains(login, 'aria-controls="id_password"')
+        login_alias = self.client.get(reverse("authentication:login"))
+        self.assertRedirects(login_alias, reverse("authentication:landing"))
 
         self.client.force_login(self.admin)
         account_form = self.client.get(reverse("accounts:create"))
@@ -146,17 +155,6 @@ class FMISRequirementTests(TestCase):
         self.assertContains(account_form, 'aria-controls="id_password2"')
 
     def test_authentication_accepts_valid_credentials_and_rejects_invalid(self):
-        response = self.client.post(
-            reverse("authentication:login"), {"username": "staff", "password": "wrong"}
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "auth-inline-error")
-        self.assertContains(response, "The username or password is incorrect.")
-        self.assertContains(response, "has-error", count=2)
-        self.assertContains(response, "novalidate")
-        self.assertNotContains(response, "authMessage")
-        self.assertNotContains(response, "form-validation.js")
-
         landing_error = self.client.post(
             reverse("authentication:landing"),
             {"username": "staff", "password": "wrong"},
@@ -167,7 +165,8 @@ class FMISRequirementTests(TestCase):
         self.assertContains(landing_error, "has-error", count=2)
         self.assertContains(landing_error, "novalidate")
         response = self.client.post(
-            reverse("authentication:login"), {"username": "staff", "password": "StrongPass123!"}
+            reverse("authentication:landing"),
+            {"username": "staff", "password": "StrongPass123!"},
         )
         self.assertEqual(response.status_code, 302)
 
@@ -201,7 +200,7 @@ class FMISRequirementTests(TestCase):
             activation_pending=True,
         )
         response = self.client.post(
-            reverse("authentication:login"),
+            reverse("authentication:landing"),
             {"username": pending.username, "password": "Ready4Field!Secure"},
         )
         self.assertRedirects(response, reverse("authentication:activate_account"))
@@ -277,7 +276,7 @@ class FMISRequirementTests(TestCase):
                 "valid_id_type": "National ID",
                 "valid_id_number": "ID-001",
                 "livelihood": "FARMER",
-                "activities": ["FARMER_CROPS"],
+                "activities": "FARMER_CROPS",
                 "consent_given": "on",
             }
         )
@@ -298,6 +297,34 @@ class FMISRequirementTests(TestCase):
         )
         self.assertFalse(form.is_valid())
         self.assertIn("at least 5", form.errors["subject"][0])
+
+    def test_service_requests_use_protected_standard_dropdown(self):
+        self.assertTrue(ServiceCatalog.objects.filter(code="OTHER", is_active=True).exists())
+        self.assertGreaterEqual(ServiceCatalog.objects.filter(is_active=True).count(), 23)
+        legacy = ServiceCatalog.objects.create(
+            code="LEGACY-QA",
+            name="Legacy Sample Service",
+            category="Other",
+            description="Legacy sample entry",
+            processing_time="Not applicable",
+            is_active=True,
+        )
+        form = ServiceRequestForm()
+        self.assertIsInstance(form.fields["service"].widget, django_forms.Select)
+        self.assertNotIn(legacy.pk, form.fields["service"].queryset.values_list("pk", flat=True))
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("service_requests:create"))
+        self.assertContains(response, "Other Agricultural Concern")
+        self.assertContains(response, "Select an agricultural request type")
+        self.assertNotContains(response, "Legacy Sample Service")
+
+    def test_farmer_type_is_a_single_dropdown(self):
+        form = FarmerRegistrationForm()
+        self.assertIsInstance(form.fields["activities"].widget, django_forms.Select)
+        self.assertNotIsInstance(
+            form.fields["activities"].widget, django_forms.CheckboxSelectMultiple
+        )
+        self.assertEqual(form.fields["activities"].label, "Farmer type / primary agricultural activity")
 
     def test_staff_can_create_and_view_service_request(self):
         self.client.force_login(self.staff)
@@ -322,12 +349,21 @@ class FMISRequirementTests(TestCase):
             200,
         )
 
-    def test_farmer_records_remarks_and_commodity_are_visible(self):
+    def test_record_details_are_separated_by_management_context(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("farmers:detail", args=[self.farmer.pk]))
         self.assertContains(response, "Follow up before seed distribution")
+        self.assertContains(response, "Personal Information")
+        self.assertNotContains(response, "Farm Parcels")
+        self.assertNotContains(response, '<h3><i class="bi bi-headset"></i> Service Requests</h3>')
         parcel_response = self.client.get(reverse("farm_parcels:detail", args=[self.parcel.pk]))
-        self.assertContains(parcel_response, "Rice")
+        self.assertContains(parcel_response, "Parcel Information")
+        self.assertNotContains(parcel_response, "Registered Farmer")
+        self.assertNotContains(parcel_response, "Crops on This Parcel")
+        crop_response = self.client.get(reverse("crops:detail", args=[self.crop.pk]))
+        self.assertContains(crop_response, "Crop &amp; Production Information")
+        self.assertNotContains(crop_response, "Registered Farmer")
+        self.assertNotContains(crop_response, '<h3><i class="bi bi-map"></i> Farm Parcel</h3>')
 
     def test_slip_a_preserves_before_after_values_and_last_editor(self):
         self.client.force_login(self.staff)
@@ -379,24 +415,75 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(phone_change["before"], "09171234567")
         self.assertEqual(phone_change["after"], "09179999999")
         detail = self.client.get(reverse("farmers:detail", args=[self.farmer.pk]))
-        self.assertContains(detail, "SLIP-A-001")
-        self.assertContains(detail, self.staff.display_name)
+        self.assertContains(detail, reverse("farmers:history", args=[self.farmer.pk]))
+        self.assertNotContains(detail, "SLIP-A-001")
+        history_page = self.client.get(reverse("farmers:history", args=[self.farmer.pk]))
+        self.assertEqual(history_page.status_code, 200)
+        self.assertContains(history_page, "Farmer Information Update History")
+        self.assertContains(history_page, "SLIP-A-001")
+        self.assertContains(history_page, self.staff.display_name)
         farmer_list = self.client.get(reverse("farmers:list"))
         self.assertContains(farmer_list, "Last Updated By")
-        self.assertContains(farmer_list, "Latest Change")
+        self.assertNotContains(farmer_list, "Latest Change")
+        self.assertContains(farmer_list, "farmer-update-details")
         self.assertContains(farmer_list, self.staff.display_name)
         self.assertContains(farmer_list, "Personal / Phone Number")
+
+    def test_management_records_use_dedicated_history_pages(self):
+        self.client.force_login(self.staff)
+        request_record = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Seed request",
+        )
+        ServiceRequestHistory.objects.create(
+            service_request=request_record,
+            actor=self.staff,
+            action="CREATED",
+            to_status="PENDING",
+        )
+        intervention = Intervention.objects.create(
+            farmer=self.farmer,
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Certified rice seed distribution",
+            recorded_by=self.staff,
+        )
+
+        records = (
+            ("farmers", self.farmer.pk, "Farmer Information Update History"),
+            ("farm_parcels", self.parcel.pk, "Farm Parcel Update History"),
+            ("crops", self.crop.pk, "Crop Record Update History"),
+            ("service_requests", request_record.pk, "Service Request History"),
+            ("interventions", intervention.pk, "Intervention Update History"),
+        )
+        for namespace, pk, title in records:
+            with self.subTest(namespace=namespace):
+                detail = self.client.get(reverse(f"{namespace}:detail", args=[pk]))
+                history_url = reverse(f"{namespace}:history", args=[pk])
+                self.assertEqual(detail.status_code, 200)
+                self.assertContains(detail, history_url)
+                history_page = self.client.get(history_url)
+                self.assertEqual(history_page.status_code, 200)
+                self.assertContains(history_page, title)
+
+        service_detail = self.client.get(
+            reverse("service_requests:detail", args=[request_record.pk])
+        )
+        self.assertNotContains(service_detail, 'class="request-history"')
 
     def test_slip_b_is_separate_and_contains_official_parcel_workflow(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("farmers:slip_b", args=[self.farmer.pk]))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Change of Farm Parcel Information")
-        self.assertContains(response, "Livelihood and activity / involvement")
-        self.assertContains(response, "Edit Parcel &amp; Crops")
+        self.assertRedirects(
+            response,
+            reverse("farm_parcels:edit", args=[self.parcel.pk]),
+        )
         parcel_form = self.client.get(reverse("farm_parcels:edit", args=[self.parcel.pk]))
+        self.assertContains(parcel_form, "Update Slip B")
+        self.assertContains(parcel_form, "Slip B is for verified parcel and land changes")
+        self.assertNotContains(parcel_form, "Crops and Commodities")
         for field_name in (
-            "cropping_schedule",
             "gpx_status",
             "rotational_tiller",
             "land_owner_rsbsa_number",
@@ -404,75 +491,76 @@ class FMISRequirementTests(TestCase):
         ):
             self.assertContains(parcel_form, field_name)
 
-    def test_parcel_table_hides_rsbsa_column_and_map_can_focus_saved_farmer(self):
+    def test_parcel_table_hides_rsbsa_column_and_map_can_focus_saved_parcel(self):
         self.client.force_login(self.staff)
         parcel_list = self.client.get(reverse("farm_parcels:list"))
         self.assertEqual(parcel_list.status_code, 200)
         self.assertNotContains(parcel_list, "RSBSA Record")
 
-        self.farmer.location_coordinates = "13.8467000, 121.2060000"
-        self.farmer.save(update_fields=["location_coordinates"])
+        self.parcel.coordinates = "13.8467000, 121.2060000"
+        self.parcel.save(update_fields=["coordinates"])
         map_response = self.client.get(reverse("farm_parcels:map"))
         self.assertEqual(map_response.status_code, 200)
         self.assertEqual(map_response.context["mapped_count"], 1)
-        self.assertEqual(map_response.context["map_markers"][0]["id"], self.farmer.pk)
+        self.assertEqual(map_response.context["map_markers"][0]["id"], self.parcel.pk)
         self.assertContains(map_response, "markerByFarmer")
-        self.assertContains(map_response, "Location Already Pinned")
+        self.assertContains(map_response, "Parcel Already Pinned")
         self.assertContains(map_response, "farmerMarker.openPopup()")
         self.assertContains(map_response, "Satellite")
         self.assertContains(map_response, "Terrain")
         self.assertContains(map_response, "maxBounds: rosarioBounds")
 
-    def test_farmer_map_rejects_pins_outside_rosario_batangas(self):
+    def test_parcel_map_rejects_pins_outside_rosario_batangas(self):
         self.client.force_login(self.staff)
         response = self.client.post(
             reverse("farm_parcels:pin_farmer"),
             {
-                "farmer_id": self.farmer.pk,
+                "parcel_id": self.parcel.pk,
                 "latitude": "14.5995",
                 "longitude": "120.9842",
             },
         )
         self.assertEqual(response.status_code, 400)
         self.assertIn("outside Rosario", response.json()["message"])
-        self.farmer.refresh_from_db()
-        self.assertEqual(self.farmer.location_coordinates, "")
+        self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, "")
 
-    def test_staff_can_move_farmer_pin_and_change_is_audited(self):
-        self.farmer.location_coordinates = "13.8467000, 121.2060000"
-        self.farmer.save(update_fields=["location_coordinates"])
+    def test_staff_can_move_parcel_pin_and_change_is_audited(self):
+        self.parcel.coordinates = "13.8467000, 121.2060000"
+        self.parcel.save(update_fields=["coordinates"])
         self.client.force_login(self.staff)
         response = self.client.post(
             reverse("farm_parcels:pin_farmer"),
             {
-                "farmer_id": self.farmer.pk,
+                "parcel_id": self.parcel.pk,
                 "latitude": "13.8501000",
                 "longitude": "121.2102000",
                 "operation": "move",
             },
         )
         self.assertEqual(response.status_code, 200)
-        self.farmer.refresh_from_db()
-        self.assertEqual(self.farmer.location_coordinates, "13.8501000, 121.2102000")
+        self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, "13.8501000, 121.2102000")
         activity = ActivityLog.objects.get(
-            title="Farmer Map Pin Moved",
-            target_label=self.farmer.full_name,
+            title="Farm Parcel Map Pin Moved",
+            target_label=f"{self.farmer.record_id} - {self.parcel.display_name}",
         )
         self.assertEqual(activity.actor, self.staff)
         self.assertEqual(activity.details[0]["before"], "13.8467000, 121.2060000")
         self.assertEqual(activity.details[0]["after"], "13.8501000, 121.2102000")
 
         map_response = self.client.get(reverse("farm_parcels:map"))
-        self.assertContains(map_response, "Right-click a green farmer pin to move it")
+        self.assertContains(map_response, "Right-click a green parcel pin to move it")
         self.assertContains(map_response, "Save New Location")
 
-    def test_parcel_form_requires_one_crop_and_validates_only_added_rows(self):
+    def test_parcel_form_is_land_only_and_crops_are_managed_separately(self):
         self.client.force_login(self.staff)
         create_url = reverse("farm_parcels:create")
         response = self.client.get(create_url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["crop_formset"].total_form_count(), 1)
-        self.assertContains(response, "Add Crop")
+        self.assertNotIn("crop_formset", response.context)
+        self.assertNotContains(response, "Add Crop")
+        self.assertContains(response, "Add commodities separately in Crop Management")
 
         base_data = {
             "farmer": self.farmer.pk,
@@ -485,29 +573,11 @@ class FMISRequirementTests(TestCase):
             "farm_type": "Irrigated",
             "is_active": "on",
             "is_rsbsa_recorded": "False",
-            "parcel_crops-TOTAL_FORMS": "1",
-            "parcel_crops-INITIAL_FORMS": "0",
-            "parcel_crops-MIN_NUM_FORMS": "1",
-            "parcel_crops-MAX_NUM_FORMS": "1000",
-            "parcel_crops-0-crop_type": "Corn",
-            "parcel_crops-0-area_hectares": "1.00",
-            "parcel_crops-0-is_organic": "False",
-            "parcel_crops-0-is_intercrop": "False",
         }
         valid = self.client.post(create_url, base_data)
         self.assertEqual(valid.status_code, 302)
         created_parcel = FarmParcel.objects.exclude(pk=self.parcel.pk).get()
-        self.assertEqual(created_parcel.crops.get().crop_type, "Corn")
-
-        invalid_data = {
-            **base_data,
-            "parcel_crops-TOTAL_FORMS": "2",
-            "parcel_crops-1-crop_type": "",
-            "parcel_crops-1-area_hectares": "",
-        }
-        invalid = self.client.post(create_url, invalid_data)
-        self.assertEqual(invalid.status_code, 200)
-        self.assertTrue(invalid.context["crop_formset"].forms[1].errors)
+        self.assertFalse(created_parcel.crops.exists())
 
     def test_other_crop_requires_specific_name_and_saves_it_to_crop_database(self):
         missing_name = CropRegistrationFormSet(
@@ -594,6 +664,14 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["parcel_formset"].total_form_count(), 1)
         self.assertEqual(response.context["crop_formset"].total_form_count(), 1)
         self.assertEqual(response.context["document_formset"].total_form_count(), 1)
+        self.assertIsInstance(
+            response.context["parcel_formset"].empty_form.fields["farm_type"].widget,
+            django_forms.Select,
+        )
+        crop_fields = response.context["crop_formset"].empty_form.fields
+        self.assertNotIn("is_active", crop_fields)
+        self.assertNotIn("archived_at", crop_fields)
+        self.assertNotIn("archived_by", crop_fields)
 
         parcel_formset = ParcelRegistrationFormSet(
             {
@@ -750,14 +828,28 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(response, "Farmer Statistics")
         self.assertContains(response, "Rosario, Batangas")
         self.assertContains(response, 'data-latitude="13.8442"')
-        self.assertContains(response, "Area Planted by Crop")
-        self.assertContains(response, "Evidence coverage")
-        self.assertContains(response, "baseline score")
-        self.assertContains(response, "50% season")
+        self.assertContains(response, "Farmers per Commodity")
+        self.assertContains(response, "Service Request Overview")
+        self.assertContains(response, 'data-card-url="/crops/"')
+        self.assertNotContains(response, "View crop records")
+        self.assertEqual(response.context["crop_chart"][0]["farmers"], 1)
+        self.assertEqual(response.context["crop_chart_ticks"][0], 1)
+        self.assertEqual(response.context["crop_chart_ticks"][-1], 0)
+        self.assertContains(response, "SUGGESTED CROP")
+        self.assertContains(response, 'class="dashboard-utility-row"')
+        self.assertContains(response, "Wet season")
+        self.assertNotContains(response, "Local FMIS data")
+        self.assertNotContains(response, "Planning aid only")
+        self.assertNotContains(response, "confidence")
         self.assertEqual(response.context["crop_recommendation"]["crop"], "Rice")
         self.assertEqual(response.context["crop_recommendation"]["confidence"], "Low")
+        page = response.content.decode()
+        self.assertLess(page.index("Farmers per Commodity"), page.index("Service Request Overview"))
+        self.assertLess(page.index("Rosario Weather"), page.index("Rosario reference"))
         self.assertNotContains(response, "Inventor")
         self.assertNotContains(response, "Pending Projects")
+        self.assertNotContains(response, "Requests by Service")
+        self.assertNotContains(response, "recorded requests")
 
         reports = self.client.get(reverse("reports:home"))
         self.assertContains(reports, "FARMER STATISTICS")
@@ -782,8 +874,20 @@ class FMISRequirementTests(TestCase):
         self.assertContains(admin_response, 'class="activity-line-path"')
         self.assertNotContains(admin_response, 'class="staff-bar-column"')
         self.assertNotContains(admin_response, "Export Dashboard")
+        self.assertContains(admin_response, "Backup &amp; Recovery Readiness")
+        self.assertContains(admin_response, "Automatic schedule")
+        self.assertContains(admin_response, "No backup has been recorded")
+        self.assertNotContains(admin_response, "Manage User Accounts")
+        self.assertNotContains(admin_response, "Review Audit Activity")
 
-    def test_management_tables_export_current_filters_without_report_preview(self):
+        admin_reports = self.client.get(reverse("reports:home"))
+        self.assertContains(admin_reports, "Governance Reports")
+        self.assertContains(admin_reports, "User Account Registry")
+        self.assertContains(admin_reports, "Activity Audit Trail")
+        self.assertNotContains(admin_reports, "System Report Builder")
+        self.assertNotContains(admin_reports, "No report selected yet")
+
+    def test_management_tables_do_not_show_export_controls(self):
         ServiceRequest.objects.create(
             farmer=self.farmer,
             service=self.service,
@@ -802,11 +906,8 @@ class FMISRequirementTests(TestCase):
         ):
             page = self.client.get(reverse(page_name))
             self.assertEqual(page.status_code, 200)
-            self.assertContains(page, "Export filtered records")
-            self.assertContains(
-                page,
-                reverse("reports:management_export", args=[dataset]),
-            )
+            self.assertNotContains(page, "Export filtered records")
+            self.assertNotContains(page, reverse("reports:management_export", args=[dataset]))
             self.assertNotContains(page, "No report selected yet")
 
         farmer_export = self.client.get(
@@ -868,7 +969,7 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(locally_supported["crop"], "Banana")
         self.assertEqual(locally_supported["confidence"], "High")
-        self.assertIn("sample 20/20", locally_supported["evidence"])
+        self.assertIn("20 crop record(s)", locally_supported["evidence"])
 
     def test_activity_log_accepts_detailed_audit_fields(self):
         activity = log_activity(
@@ -889,6 +990,124 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "Activity Log")
         self.assertNotContains(response, "pagination_tags is not a registered tag library")
 
+    def test_operational_delete_actions_preserve_records(self):
+        request_item = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Archive workflow check",
+            assigned_to=self.staff,
+        )
+        self.client.force_login(self.staff)
+
+        self.client.post(reverse("crops:delete", args=[self.crop.pk]))
+        self.crop.refresh_from_db()
+        self.assertFalse(self.crop.is_active)
+        self.assertIsNotNone(self.crop.archived_at)
+
+        self.client.post(reverse("farm_parcels:delete", args=[self.parcel.pk]))
+        self.parcel.refresh_from_db()
+        self.assertFalse(self.parcel.is_active)
+        self.assertTrue(CropRecord.objects.filter(pk=self.crop.pk).exists())
+
+        self.client.post(reverse("farmers:delete", args=[self.farmer.pk]))
+        self.farmer.refresh_from_db()
+        self.assertFalse(self.farmer.is_active)
+        self.assertTrue(FarmParcel.objects.filter(pk=self.parcel.pk).exists())
+
+        self.client.post(reverse("service_requests:delete", args=[request_item.pk]))
+        request_item.refresh_from_db()
+        self.assertEqual(request_item.status, "CANCELLED")
+        self.assertTrue(
+            ServiceRequestHistory.objects.filter(
+                service_request=request_item,
+                action="CANCELLED",
+                actor=self.staff,
+            ).exists()
+        )
+
+    def test_archived_records_can_be_restored(self):
+        self.crop.is_active = False
+        self.crop.save(update_fields=["is_active"])
+        self.parcel.is_active = False
+        self.parcel.save(update_fields=["is_active"])
+        self.farmer.is_active = False
+        self.farmer.save(update_fields=["is_active"])
+        self.client.force_login(self.staff)
+
+        self.client.post(reverse("crops:delete", args=[self.crop.pk]), {"action": "restore"})
+        self.client.post(
+            reverse("farm_parcels:delete", args=[self.parcel.pk]), {"action": "restore"}
+        )
+        self.client.post(reverse("farmers:delete", args=[self.farmer.pk]), {"action": "restore"})
+        self.crop.refresh_from_db()
+        self.parcel.refresh_from_db()
+        self.farmer.refresh_from_db()
+        self.assertTrue(self.crop.is_active)
+        self.assertTrue(self.parcel.is_active)
+        self.assertTrue(self.farmer.is_active)
+
+    def test_crop_area_cannot_overstate_non_intercrop_parcel_use(self):
+        form = CropRecordForm(
+            data={
+                "parcel": self.parcel.pk,
+                "crop_type": "Corn",
+                "cropping_schedule": "Jan-Mar",
+                "area_hectares": "1.00",
+                "number_of_heads": "",
+                "is_organic": "False",
+                "is_intercrop": "False",
+                "planting_date": date.today().isoformat(),
+                "harvest_date": "",
+            }
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("exceeds this parcel", form.errors["area_hectares"][0])
+
+    def test_farmer_supporting_documents_require_staff_access(self):
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            document = FarmerDocument.objects.create(
+                farmer=self.farmer,
+                document_type="OTHER",
+                description="Access-control test",
+                file=SimpleUploadedFile("private.txt", b"protected farmer record"),
+            )
+            url = reverse("farmers:document", args=[document.pk])
+            anonymous = self.client.get(url)
+            self.assertEqual(anonymous.status_code, 302)
+
+            self.client.force_login(self.staff)
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+            self.assertTrue(
+                ActivityLog.objects.filter(
+                    title="Supporting Document Accessed",
+                    actor=self.staff,
+                ).exists()
+            )
+            response.close()
+
+    def test_missing_farmer_supporting_document_redirects_without_server_error(self):
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            document = FarmerDocument.objects.create(
+                farmer=self.farmer,
+                document_type="ADDITIONAL",
+                description="Missing legacy upload",
+                file="farm_documents/file-that-no-longer-exists.pdf",
+            )
+            self.client.force_login(self.staff)
+            response = self.client.get(reverse("farmers:document", args=[document.pk]))
+            self.assertRedirects(response, reverse("farmers:detail", args=[self.farmer.pk]))
+            detail = self.client.get(reverse("farmers:detail", args=[self.farmer.pk]))
+            self.assertContains(detail, "File unavailable")
+            self.assertNotContains(detail, reverse("farmers:document", args=[document.pk]))
+            self.assertTrue(
+                ActivityLog.objects.filter(
+                    title="Supporting Document Unavailable",
+                    actor=self.staff,
+                ).exists()
+            )
+
     def test_in_app_notifications_are_private_linked_and_markable_as_read(self):
         User = get_user_model()
         recipient = User.objects.create_user(
@@ -897,7 +1116,7 @@ class FMISRequirementTests(TestCase):
             role="STAFF",
             email="notice@example.com",
         )
-        activity = log_activity(self.admin, "POST /catalog/new/", "/catalog/new/")
+        activity = log_activity(self.admin, "POST /farmers/new/", "/farmers/new/")
 
         from apps.notifications.models import Notification
         from apps.settings_page.models import UserPreference
@@ -931,7 +1150,7 @@ class FMISRequirementTests(TestCase):
         preference = UserPreference.objects.get(user=recipient)
         preference.in_app_notifications = False
         preference.save(update_fields=("in_app_notifications",))
-        log_activity(self.admin, "POST /catalog/new/", "/catalog/new/")
+        log_activity(self.admin, "POST /farmers/new/", "/farmers/new/")
         self.assertEqual(Notification.objects.filter(recipient=recipient).count(), 1)
 
         settings_page = self.client.get(reverse("settings_page:home"))
@@ -976,6 +1195,11 @@ class FMISRequirementTests(TestCase):
             },
         )
         self.assertRedirects(response, reverse("settings_page:home"))
+        settings_page = self.client.get(reverse("settings_page:home"))
+        self.assertNotContains(settings_page, "System Configuration &amp; Localization")
+        self.assertNotContains(settings_page, "Session Policy")
+        self.assertNotContains(settings_page, "Idle Session Timeout")
+        self.assertContains(settings_page, "Backup &amp; Recovery")
 
     def test_system_theme_is_default_and_resolves_before_page_content(self):
         self.client.force_login(self.staff)
@@ -988,6 +1212,8 @@ class FMISRequirementTests(TestCase):
         settings_page = self.client.get(reverse("settings_page:home"))
         self.assertContains(settings_page, "System (Recommended)")
         self.assertContains(settings_page, "follows your computer's light or dark appearance")
+        self.assertNotContains(settings_page, "Profile &amp; Account")
+        self.assertContains(settings_page, "Profile Details")
 
     def test_report_query_count_remains_bounded(self):
         with CaptureQueriesContext(connection) as captured:

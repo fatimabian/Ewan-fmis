@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from apps.farm_parcels.models import FarmParcel
@@ -18,6 +19,15 @@ class CropRecord(models.Model):
     planting_date = models.DateField(null=True, blank=True)
     harvest_date = models.DateField(null=True, blank=True)
     image = models.ImageField(upload_to="crop_photos/", blank=True)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="archived_crop_records",
+    )
 
     def __str__(self):
         return self.crop_type

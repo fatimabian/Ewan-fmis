@@ -611,7 +611,8 @@
     display:block;
     margin-top:10px;
     color:#8b94a2;
-    font-size:7px!important
+    font-size:10.5px!important;
+    line-height:1.4
 }
 .weather-source a{
     color:#4c7860
@@ -950,6 +951,24 @@ body[data-theme="dark"] .crop-chart{
     }
 }
 
+.dashboard-card{
+    transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease
+}
+.dashboard-click-card{
+    cursor:pointer
+}
+@media(hover:hover){
+    .dashboard-card:hover{
+        transform:translateY(-2px);
+        border-color:#a8d8b8;
+        box-shadow:0 10px 24px rgba(23,59,43,.1)!important
+    }
+}
+.dashboard-click-card:focus-visible{
+    outline:3px solid rgba(22,139,70,.22);
+    outline-offset:2px
+}
+
 /* Weather is intentionally secondary to farmer records and office workload. */
 .dashboard-operations{
     grid-template-columns:minmax(220px,.58fr) minmax(0,2.42fr)
@@ -1020,7 +1039,7 @@ body[data-theme="dark"] .crop-chart{
 }
 .weather-source{
     margin-top:4px;
-    font-size:6px!important
+    font-size:10.5px!important
 }
 .weather-error{
     min-height:70px
@@ -1518,7 +1537,7 @@ body[data-theme="dark"] .service-pie-legend>a{
 }
 .rosario-dashboard .weather-card .weather-source{
     margin-top:4px;
-    font-size:6px!important
+    font-size:10.5px!important
 }
 @media(max-width:700px){
     .rosario-dashboard .dashboard-operations{
@@ -1527,4 +1546,357 @@ body[data-theme="dark"] .service-pie-legend>a{
     .rosario-dashboard .weather-card{
         width:100%
     }
+}
+
+.dashboard-simplified .crop-chart-layout{
+    display:grid;
+    grid-template-columns:28px minmax(0,1fr);
+    align-items:stretch;
+    gap:5px
+}
+.dashboard-simplified .crop-chart-axis{
+    height:170px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    box-sizing:border-box;
+    padding:20px 0 27px;
+    color:#7a8492;
+    font-size:7px;
+    line-height:1;
+    text-align:right
+}
+.dashboard-simplified .crop-chart-layout .crop-chart{
+    min-width:0;
+    padding-left:7px;
+    background-color:transparent;
+    background-image:linear-gradient(to top,rgba(82,108,92,.13) 1px,transparent 1px);
+    background-position:0 16px;
+    background-size:100% calc((100% - 42px)/var(--chart-divisions));
+}
+.dashboard-simplified .crop-bar-track{
+    background:transparent
+}
+.dashboard-simplified .crop-bar-track i{
+    width:min(42px,52%);
+    border-radius:4px 4px 0 0;
+    box-shadow:none
+}
+.request-overview-card{
+    padding:14px 16px!important
+}
+.request-overview-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+    margin-top:12px
+}
+.request-overview-grid>a{
+    display:grid;
+    grid-template-columns:8px minmax(0,1fr) auto;
+    align-items:center;
+    gap:7px;
+    padding:12px 10px;
+    border:1px solid #dce7e0;
+    border-radius:9px;
+    background:#fff;
+    color:var(--dash-ink);
+    text-decoration:none
+}
+.request-overview-grid small{
+    color:var(--dash-muted);
+    font-size:9px;
+    font-weight:700
+}
+.request-overview-grid b{
+    font-size:18px
+}
+.status-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%
+}
+.status-dot.pending{background:#f59e0b}
+.status-dot.progress{background:#2563eb}
+.status-dot.completed{background:#16a34a}
+.status-dot.urgent{background:#dc2626}
+.dashboard-simplified .dashboard-three-column{
+    grid-template-columns:repeat(2,minmax(0,1fr))
+}
+.dashboard-three-column .recommendation-compact{
+    align-self:start;
+    min-height:0
+}
+.dashboard-three-column .dashboard-wide-card{
+    grid-column:1/-1
+}
+.weather-planning-row{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(260px,.72fr);
+    align-items:start;
+    gap:12px
+}
+.weather-planning-row>.dashboard-card{
+    min-width:0
+}
+.dashboard-actions-row{
+    display:grid;
+    grid-template-columns:1fr
+}
+.dashboard-actions-row .dashboard-wide-card{
+    grid-column:auto
+}
+body[data-theme="dark"] .request-overview-grid>a{
+    border-color:#405168;
+    background:#16202d;
+    color:#edf3fa
+}
+@media(min-width:761px) and (max-width:1100px){
+    .dashboard-three-column .quick-actions-card{
+        grid-column:auto
+    }
+}
+.dashboard-simplified .recommendation-compact{
+    padding:14px 16px;
+    background:linear-gradient(145deg,#f3faf5 0%,#fff 76%)
+}
+.recommendation-compact .technology-label{
+    margin:0 0 5px;
+    font-size:8px
+}
+.recommendation-compact .season-label{
+    margin:0!important
+}
+.recommendation-compact h2{
+    margin:5px 0 8px;
+    font-size:21px!important
+}
+.planning-summary{
+    display:grid;
+    gap:9px;
+    margin-top:10px
+}
+.planning-summary>div{
+    padding:11px 12px;
+    border:1px solid #dce9df;
+    border-radius:9px;
+    background:#fff
+}
+.planning-summary span,.planning-summary strong{
+    display:block
+}
+.planning-summary span{
+    margin-bottom:3px;
+    color:#687587;
+    font-size:8px;
+    font-weight:800;
+    letter-spacing:.05em
+}
+.planning-summary strong{
+    color:#13251b;
+    font-size:17px;
+    line-height:1.2
+}
+.planning-summary strong i{
+    margin-right:7px;
+    font-style:normal
+}
+.planning-evidence{
+    display:grid;
+    gap:6px
+}
+.planning-evidence>span{
+    display:grid;
+    grid-template-columns:18px minmax(0,1fr);
+    padding:7px 8px;
+    border:1px solid #dce9df;
+    border-radius:8px;
+    background:#fff
+}
+.planning-evidence i{
+    grid-row:1/3;
+    align-self:center;
+    color:#188345;
+    font-size:13px
+}
+.planning-evidence b{
+    color:#26372d;
+    font-size:8px
+}
+.planning-evidence small{
+    margin-top:1px;
+    overflow-wrap:anywhere;
+    color:#667268;
+    font-size:7px;
+    line-height:1.35
+}
+.recommendation-compact .recommendation-reason{
+    margin:7px 0 5px;
+    font-size:8px;
+    line-height:1.4
+}
+.planning-footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding-top:6px;
+    border-top:1px solid #dce9df
+}
+.planning-footer small{
+    color:#6a756d;
+    font-size:7px
+}
+.planning-footer a{
+    color:var(--dash-green-dark);
+    font-size:8px;
+    font-weight:800;
+    text-decoration:none;
+    white-space:nowrap
+}
+body[data-theme="dark"] .dashboard-simplified .recommendation-compact,
+body[data-theme="dark"] .planning-evidence>span{
+    border-color:#405168;
+    background:#1c2735
+}
+body[data-theme="dark"] .planning-summary>div{
+    border-color:#405168;
+    background:#16202d
+}
+body[data-theme="dark"] .planning-summary strong{
+    color:#edf3fa
+}
+body[data-theme="dark"] .planning-evidence b{
+    color:#edf3fa
+}
+body[data-theme="dark"] .planning-evidence small,
+body[data-theme="dark"] .planning-footer small{
+    color:#b7c4d5!important
+}
+@media(max-width:700px){
+    .dashboard-simplified .crop-chart-axis{
+        height:175px
+    }
+    .dashboard-simplified .dashboard-three-column{
+        grid-template-columns:1fr
+    }
+}
+@media(max-width:600px){
+    .weather-planning-row{
+        grid-template-columns:1fr
+    }
+}
+
+/* Keep common staff actions compact and visible in one row on desktop. */
+.dashboard-actions-row .quick-actions-card{
+    padding:13px 16px
+}
+.dashboard-actions-row .quick-actions-card .card-heading h2{
+    margin-bottom:0
+}
+.dashboard-actions-row .quick-actions{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;
+    margin-top:9px
+}
+.dashboard-actions-row .quick-actions>a{
+    min-width:0;
+    min-height:56px;
+    padding:9px 11px
+}
+.dashboard-actions-row .quick-actions>a span{
+    min-width:0
+}
+.dashboard-actions-row .quick-actions b,
+.dashboard-actions-row .quick-actions small{
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap
+}
+@media(max-width:1000px){
+    .dashboard-actions-row .quick-actions{
+        grid-template-columns:repeat(2,minmax(0,1fr))
+    }
+}
+@media(max-width:520px){
+    .dashboard-actions-row .quick-actions{
+        grid-template-columns:1fr
+    }
+}
+
+/* Compact operational row: weather, season, crop and tasks stay side by side on desktop. */
+.dashboard-utility-row{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:12px;
+    align-items:stretch;
+    margin-top:14px
+}
+.dashboard-utility-row>.dashboard-card{
+    min-width:0;
+    margin:0;
+    padding:14px;
+    min-height:190px
+}
+.dashboard-utility-row .weather-card .card-heading h2,
+.dashboard-utility-row .compact-actions-card .card-heading h2{
+    font-size:17px
+}
+.dashboard-utility-row .weather-details{
+    gap:6px
+}
+.dashboard-utility-row .weather-details>span{
+    padding:8px 4px
+}
+.planning-mini-card{
+    display:flex;
+    flex-direction:column;
+    justify-content:flex-start;
+    align-self:start;
+    gap:5px!important;
+    min-height:112px!important
+}
+.planning-mini-card .technology-label{
+    margin:0 0 14px;
+    font-size:11px
+}
+.mini-card-label{
+    color:#66758b;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.7px
+}
+.mini-card-value{
+    color:#101828;
+    font-size:22px;
+    line-height:1.15
+}
+.compact-actions-card .card-heading{
+    margin-bottom:10px
+}
+.compact-actions-card .quick-actions{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px
+}
+.compact-actions-card .quick-actions>a{
+    min-height:48px;
+    padding:7px;
+    gap:8px
+}
+.compact-actions-card .quick-actions>a>i{
+    width:34px;
+    height:34px;
+    flex:0 0 34px
+}
+.compact-actions-card .quick-actions b{
+    font-size:11px;
+    line-height:1.2
+}
+@media(max-width:900px){
+    .dashboard-utility-row{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:700px){
+    .dashboard-utility-row{grid-template-columns:1fr!important}
+    .compact-actions-card .quick-actions{grid-template-columns:1fr 1fr}
 }

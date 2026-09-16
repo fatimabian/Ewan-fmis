@@ -33,3 +33,36 @@ class ServiceRequest(models.Model):
 
     def __str__(self):
         return f"{self.request_id} - {self.subject}"
+
+
+class ServiceRequestHistory(models.Model):
+    ACTION_CHOICES = [
+        ("CREATED", "Created"),
+        ("UPDATED", "Updated"),
+        ("CANCELLED", "Cancelled"),
+        ("REOPENED", "Reopened"),
+    ]
+
+    service_request = models.ForeignKey(
+        ServiceRequest,
+        on_delete=models.CASCADE,
+        related_name="history",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="service_request_updates",
+    )
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    from_status = models.CharField(max_length=20, blank=True)
+    to_status = models.CharField(max_length=20, blank=True)
+    changes = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.service_request.request_id} - {self.get_action_display()}"

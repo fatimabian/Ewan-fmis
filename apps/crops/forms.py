@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Sum
 
 from apps.farm_parcels.models import FarmParcel
 from apps.common.constants import ROSARIO_CROP_CHOICES
@@ -105,6 +106,23 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
                 "area_hectares",
                 f"Area planted cannot exceed the parcel area of {parcel.area_hectares} ha.",
             )
+        if parcel and area and cleaned.get("is_intercrop") is False:
+            existing = CropRecord.objects.filter(
+                parcel=parcel,
+                is_active=True,
+                is_intercrop=False,
+            )
+            if self.instance and self.instance.pk:
+                existing = existing.exclude(pk=self.instance.pk)
+            recorded_area = existing.aggregate(total=Sum("area_hectares"))["total"] or 0
+            if recorded_area + area > parcel.area_hectares:
+                self.add_error(
+                    "area_hectares",
+                    (
+                        f"Active non-intercrop crops would total {recorded_area + area} ha, "
+                        f"which exceeds this parcel's {parcel.area_hectares} ha."
+                    ),
+                )
         if planting_date and harvest_date and harvest_date < planting_date:
             self.add_error("harvest_date", "Harvest date cannot be earlier than the planting date.")
         return cleaned

@@ -6,6 +6,7 @@ from django.views.generic import CreateView, DeleteView, DetailView, ListView, U
 from apps.authentication.models import CustomUser
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import AdminRequiredMixin
+from apps.activity_logs.services import record_request_event
 from .forms import AccountForm, AccountUpdateForm
 from .services import account_summary
 
@@ -38,6 +39,17 @@ class AccountCreateView(FMISLoginRequiredMixin, AdminRequiredMixin, CreateView):
                 "username", "This username is already in use. Please choose another username."
             )
             return self.form_invalid(form)
+        record_request_event(
+            self.request,
+            title="User Account Created",
+            module="User Accounts",
+            description=f"{self.request.user.display_name} created a staff account.",
+            target_label=self.object.display_name,
+            details=[
+                {"field": "Role", "after": self.object.get_role_display()},
+                {"field": "Status", "after": "Pending activation"},
+            ],
+        )
         messages.success(
             self.request,
             (
@@ -73,8 +85,30 @@ class AccountUpdateView(FMISLoginRequiredMixin, AdminRequiredMixin, UpdateView):
         ):
             form.add_error("role", "At least one active administrator account must remain.")
             return self.form_invalid(form)
+        response = super().form_valid(form)
+        changes = []
+        if original_account.role != self.object.role:
+            changes.append({
+                "field": "Role",
+                "before": original_account.get_role_display(),
+                "after": self.object.get_role_display(),
+            })
+        if original_account.is_active != self.object.is_active:
+            changes.append({
+                "field": "Account status",
+                "before": "Active" if original_account.is_active else "Inactive",
+                "after": "Active" if self.object.is_active else "Inactive",
+            })
+        record_request_event(
+            self.request,
+            title="User Account Updated",
+            module="User Accounts",
+            description=f"{self.request.user.display_name} updated a user account.",
+            target_label=self.object.display_name,
+            details=changes,
+        )
         messages.success(self.request, f"{form.instance.display_name}'s account was updated.")
-        return super().form_valid(form)
+        return response
 
 
 class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
@@ -83,8 +117,9 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
 
     def post(self, request, *args, **kwargs):
         account = self.get_object()
-        if account.pk == request.user.pk:
-            messages.error(request, "You cannot delete the account you are currently using.")
+        restoring = request.POST.get("action") == "restore"
+        if account.pk == request.user.pk and not restoring:
+            messages.error(request, "You cannot deactivate the account you are currently using.")
             return redirect("accounts:list")
         if (
             account.is_admin
@@ -92,9 +127,22 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
             .exclude(pk=account.pk)
             .exists()
         ):
-            messages.error(request, "The final active administrator account cannot be deleted.")
+            messages.error(request, "The final active administrator account cannot be deactivated.")
             return redirect("accounts:list")
-        display_name = account.display_name
-        account.delete()
-        messages.success(request, f"{display_name}'s account was deleted.")
+        account.is_active = restoring
+        account.save(update_fields=["is_active"])
+        action = "reactivated" if restoring else "deactivated"
+        record_request_event(
+            request,
+            title=f"User Account {action.title()}",
+            module="User Accounts",
+            description=f"{request.user.display_name} {action} a user account.",
+            target_label=account.display_name,
+            details=[{
+                "field": "Account status",
+                "before": "Inactive" if restoring else "Active",
+                "after": "Active" if restoring else "Inactive",
+            }],
+        )
+        messages.success(request, f"{account.display_name}'s account was {action}; its history was preserved.")
         return redirect("accounts:list")

@@ -12,7 +12,6 @@ from apps.authentication.models import CustomUser
 from apps.common.constants import ROSARIO_BARANGAYS
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
-from apps.service_catalog.models import ServiceCatalog
 from apps.service_requests.models import ServiceRequest
 
 REPORT_TEMPLATES = [
@@ -64,7 +63,7 @@ SYSTEM_REPORT_TEMPLATES = [
     {
         "key": "system_overview",
         "title": "System Overview",
-        "description": "Accounts, service catalogs, and recorded system activity",
+        "description": "Accounts, activation status, and recorded system activity",
         "icon": "bi-speedometer2",
     },
     {
@@ -78,12 +77,6 @@ SYSTEM_REPORT_TEMPLATES = [
         "title": "Activity Audit Trail",
         "description": "Recorded system actions with user, module, and timestamp",
         "icon": "bi-clock-history",
-    },
-    {
-        "key": "service_catalog_registry",
-        "title": "Service Catalog Registry",
-        "description": "Active, inactive, and draft agricultural service definitions",
-        "icon": "bi-journal-bookmark",
     },
 ]
 SYSTEM_REPORT_KEYS = {item["key"] for item in SYSTEM_REPORT_TEMPLATES}
@@ -160,7 +153,10 @@ def build_report(report_type, date_range, filters=None):
         if barangay:
             queryset = queryset.filter(barangay=barangay)
         if commodity:
-            queryset = queryset.filter(parcels__crops__crop_type=commodity).distinct()
+            queryset = queryset.filter(
+                parcels__crops__crop_type=commodity,
+                parcels__crops__is_active=True,
+            ).distinct()
         rows = [
             [
                 farmer.record_id,
@@ -194,7 +190,10 @@ def build_report(report_type, date_range, filters=None):
         if barangay:
             queryset = queryset.filter(barangay=barangay)
         if commodity:
-            queryset = queryset.filter(parcels__crops__crop_type=commodity).distinct()
+            queryset = queryset.filter(
+                parcels__crops__crop_type=commodity,
+                parcels__crops__is_active=True,
+            ).distinct()
         data = queryset.values("barangay").annotate(total=Count("id")).order_by("barangay")
         return (
             "Total Farmers per Barangay",
@@ -213,7 +212,7 @@ def build_report(report_type, date_range, filters=None):
         if barangay:
             queryset = queryset.filter(barangay=barangay)
         if commodity:
-            queryset = queryset.filter(crops__crop_type=commodity).distinct()
+            queryset = queryset.filter(crops__crop_type=commodity, crops__is_active=True).distinct()
         data = (
             queryset.values("barangay")
             .annotate(parcels=Count("id"), area=Sum("area_hectares"))
@@ -236,7 +235,7 @@ def build_report(report_type, date_range, filters=None):
         if barangay:
             queryset = queryset.filter(barangay=barangay)
         if commodity:
-            queryset = queryset.filter(crops__crop_type=commodity).distinct()
+            queryset = queryset.filter(crops__crop_type=commodity, crops__is_active=True).distinct()
         data = (
             queryset.values("ownership_type")
             .annotate(
@@ -263,7 +262,9 @@ def build_report(report_type, date_range, filters=None):
 
     if report_type == "crop_summary":
         queryset = _filter_period(
-            CropRecord.objects.filter(parcel__is_active=True, parcel__farmer__is_active=True),
+            CropRecord.objects.filter(
+                is_active=True, parcel__is_active=True, parcel__farmer__is_active=True
+            ),
             "planting_date",
             date_range,
             date_only=True,
@@ -295,7 +296,7 @@ def build_report(report_type, date_range, filters=None):
     if report_type == "commodity_per_parcel":
         queryset = _filter_period(
             CropRecord.objects.filter(
-                parcel__is_active=True, parcel__farmer__is_active=True
+                is_active=True, parcel__is_active=True, parcel__farmer__is_active=True
             ).select_related("parcel__farmer"),
             "planting_date",
             date_range,
@@ -345,7 +346,10 @@ def build_report(report_type, date_range, filters=None):
     if barangay:
         queryset = queryset.filter(farmer__barangay=barangay)
     if commodity:
-        queryset = queryset.filter(farmer__parcels__crops__crop_type=commodity).distinct()
+        queryset = queryset.filter(
+            farmer__parcels__crops__crop_type=commodity,
+            farmer__parcels__crops__is_active=True,
+        ).distinct()
     if status:
         queryset = queryset.filter(status=status)
     data = queryset.values("status").annotate(total=Count("id")).order_by("status")
@@ -390,8 +394,6 @@ def build_system_report(report_type, date_range, filters=None):
     if module:
         activities = activities.filter(module=module)
 
-    catalogs = _filter_period(ServiceCatalog.objects.all(), "created_at", date_range)
-
     if report_type == "system_overview":
         return (
             "FMIS System Overview",
@@ -402,8 +404,6 @@ def build_system_report(report_type, date_range, filters=None):
                 ["Pending Activations", accounts.filter(activation_pending=True).count()],
                 ["Administrator Accounts", accounts.filter(role="ADMIN").count()],
                 ["Staff Accounts", accounts.filter(role="STAFF").count()],
-                ["Active Service Catalogs", catalogs.filter(is_active=True).count()],
-                ["Inactive Service Catalogs", catalogs.filter(is_active=False).count()],
                 ["Recorded System Activities", activities.count()],
             ],
         )
@@ -458,23 +458,7 @@ def build_system_report(report_type, date_range, filters=None):
             rows,
         )
 
-    rows = [
-        [
-            catalog.code,
-            catalog.name,
-            catalog.category,
-            "Active" if catalog.is_active else "Inactive / Draft",
-            catalog.availability or "-",
-            catalog.processing_time,
-            catalog.office_responsible or "-",
-        ]
-        for catalog in catalogs.order_by("name")
-    ]
-    return (
-        "Service Catalog Registry",
-        ["Code", "Service", "Category", "Status", "Availability", "Processing Time", "Responsible Office"],
-        rows,
-    )
+    raise ValueError("Choose a valid system report.")
 
 
 def _filename(title, extension):

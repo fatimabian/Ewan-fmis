@@ -1,5 +1,7 @@
 from datetime import date, datetime, time, timedelta
+from math import ceil, floor, log10
 
+from django.conf import settings
 from django.db.models import Count, Max, Q, Sum
 from django.utils import timezone
 
@@ -11,12 +13,28 @@ from apps.authentication.models import CustomUser
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 from apps.service_requests.models import ServiceRequest
-from apps.service_catalog.models import ServiceCatalog
+from apps.settings_page.models import BackupRun
 
 
 def _day_boundary(value):
     """Return a timezone-aware local midnight without relying on DB timezone tables."""
     return timezone.make_aware(datetime.combine(value, time.min), timezone.get_current_timezone())
+
+
+def _farmer_chart_scale(peak):
+    """Return a readable scale that keeps small datasets visually meaningful."""
+    if peak <= 4:
+        ceiling = max(peak, 1)
+        step = 1
+        return ceiling, list(range(ceiling, -1, -step))
+    else:
+        rough_step = peak / 4
+        magnitude = 10 ** floor(log10(rough_step))
+        normalized = rough_step / magnitude
+        nice_factor = next(value for value in (1, 2, 5, 10) if normalized <= value)
+        step = int(nice_factor * magnitude)
+    ceiling = step * ceil(peak / step)
+    return ceiling, list(range(ceiling, -1, -step))
 
 
 def dashboard_metrics():
@@ -53,18 +71,28 @@ def dashboard_metrics():
     activity_line_points = " ".join(
         f'{item["chart_x"]},{item["chart_y"]}' for item in activity_trend
     )
+    latest_backup = BackupRun.objects.first()
     return {
         "accounts": CustomUser.objects.count(),
         "active_accounts": CustomUser.objects.filter(is_active=True).count(),
         "admins": CustomUser.objects.filter(role="ADMIN", is_active=True).count(),
         "staff": CustomUser.objects.filter(role="STAFF", is_active=True).count(),
-        "service_catalogs": ServiceCatalog.objects.filter(is_active=True).count(),
-        "draft_catalogs": ServiceCatalog.objects.filter(is_active=False).count(),
+        "pending_activations": CustomUser.objects.filter(activation_pending=True).count(),
+        "inactive_accounts": CustomUser.objects.filter(is_active=False).count(),
         "events_today": ActivityLog.objects.filter(
             created_at__gte=_day_boundary(today),
             created_at__lt=_day_boundary(today + timedelta(days=1)),
         ).count(),
-        "failed_events": ActivityLog.objects.exclude(status__iexact="Success").count(),
+        "failed_events": (
+            ActivityLog.objects.filter(
+                module="Security",
+                created_at__gte=_day_boundary(first_day),
+            ).exclude(status__iexact="Success").count()
+            + BackupRun.objects.filter(
+                status="FAILED",
+                started_at__gte=_day_boundary(first_day),
+            ).count()
+        ),
         "activity_trend": activity_trend,
         "activity_line_points": activity_line_points,
         "activity_area_points": (
@@ -73,6 +101,18 @@ def dashboard_metrics():
         ),
         "activity_week_total": sum(item["total"] for item in activity_trend),
         "recent_activity": ActivityLog.objects.select_related("actor")[:6],
+        "latest_backup": latest_backup,
+        "backup_scheduler_configured": settings.FMIS_BACKUP_SCHEDULER_CONFIGURED,
+        "backup_encryption_configured": bool(settings.FMIS_BACKUP_ENCRYPTION_KEY),
+        "backup_offsite_configured": bool(settings.BACKUP_AZURE_CONTAINER_URL),
+        "deployment_mode": "Development" if settings.DEBUG else "Production",
+        "database_label": (
+            "MariaDB / MySQL"
+            if "mysql" in settings.DATABASES["default"]["ENGINE"]
+            else "SQLite development database"
+        ),
+        "email_configured": settings.EMAIL_BACKEND.endswith("smtp.EmailBackend"),
+        "system_version": getattr(settings, "FMIS_RELEASE_VERSION", "Unreleased build"),
     }
 
 
@@ -199,13 +239,12 @@ def _crop_recommendation(today, crop_rows):
 
     if recognized_records:
         evidence = (
-            f"{selected['crop']}: {selected['records']} record(s) · "
-            f"{selected['area']:.2f} ha · sample {min(selected['records'], 20)}/20 · "
-            f"{coverage}% recognized-label coverage"
+            f"{selected['records']} crop record(s) · {selected['area']:.2f} ha · "
+            f"{coverage}% recognized labels"
         )
         reason = (
-            f"{selected['crop']} ranked highest after comparing the season baseline "
-            "with Rosario's recorded area, frequency, and planting recency."
+            f"{selected['crop']} leads after comparing seasonal fit with Rosario's "
+            "recorded area, frequency, and planting recency."
         )
     else:
         evidence = "No recognized Rosario crop records yet · seasonal baseline only"
@@ -228,9 +267,9 @@ def _crop_recommendation(today, crop_rows):
             "50% season · up to 25% area · 15% records · 10% recency; "
             "local weight grows with sample size"
         ),
-        "source": "PAGASA national season window + recorded Rosario crop data",
+        "source": "Seasonal baseline plus active Rosario crop records; live weather is shown separately.",
         "note": (
-            "Planning support only—not a planting instruction. Validate soil, drainage, "
+            "Seasonal reference only—not a planting instruction. Validate soil, drainage, "
             "water access, seed availability, and current DA/PAGASA advisories first."
         ),
     }
@@ -252,22 +291,29 @@ def staff_dashboard_metrics():
         municipality__iexact="Rosario",
         province__iexact="Batangas",
     )
-    rosario_crops = CropRecord.objects.filter(parcel__in=rosario_parcels)
+    rosario_crops = CropRecord.objects.filter(is_active=True, parcel__in=rosario_parcels)
     recommendation_rows = list(
         rosario_crops.values("crop_type")
         .annotate(
             area=Sum("area_hectares"),
             records=Count("id"),
+            farmers=Count("parcel__farmer", distinct=True),
             latest_planting=Max("planting_date"),
         )
-        .order_by("-area", "crop_type")
+        .order_by("-farmers", "-area", "crop_type")
     )
     crop_rows = recommendation_rows[:5]
-    crop_peak = max((float(row["area"] or 0) for row in crop_rows), default=0)
+    farmer_peak = max((int(row["farmers"] or 0) for row in crop_rows), default=0)
+    farmer_chart_max, farmer_chart_ticks = _farmer_chart_scale(farmer_peak)
     for index, row in enumerate(crop_rows):
         row["area"] = float(row["area"] or 0)
+        row["farmers"] = int(row["farmers"] or 0)
         row["symbol"] = crop_symbol(row["crop_type"])
-        row["height"] = max(8, round((row["area"] / crop_peak) * 100)) if crop_peak else 8
+        row["height"] = (
+            max(8, round((row["farmers"] / farmer_chart_max) * 100))
+            if farmer_chart_max
+            else 8
+        )
         row["is_largest"] = index == 0
 
     status_counts = {
@@ -277,33 +323,6 @@ def staff_dashboard_metrics():
     }
     total_area = rosario_crops.aggregate(total=Sum("area_hectares"))["total"] or 0
     total_farmers = rosario_farmers.count()
-
-    service_rows = list(
-        requests.values("service__name", "service__icon_name")
-        .annotate(total=Count("id"))
-        .order_by("-total", "service__name")
-    )
-    service_request_total = sum(row["total"] for row in service_rows)
-    service_colors = ["#16a34a", "#2563eb", "#f59e0b", "#7c3aed", "#e85d3f", "#0891b2"]
-    service_chart = []
-    chart_cursor = 0.0
-    chart_segments = []
-    for index, row in enumerate(service_rows):
-        percentage = (row["total"] / service_request_total * 100) if service_request_total else 0
-        color = service_colors[index % len(service_colors)]
-        chart_segments.append(f"{color} {chart_cursor:.2f}% {chart_cursor + percentage:.2f}%")
-        service_chart.append(
-            {
-                "name": row["service__name"],
-                "icon": row["service__icon_name"] or "bi-journal-text",
-                "total": row["total"],
-                "percentage": round(percentage),
-                "color": color,
-                "is_largest": index == 0,
-            }
-        )
-        chart_cursor += percentage
-
     return {
         "farmers": total_farmers,
         "parcels": rosario_parcels.count(),
@@ -316,15 +335,10 @@ def staff_dashboard_metrics():
         ).count(),
         "request_status": status_counts,
         "crop_chart": crop_rows,
+        "crop_chart_ticks": farmer_chart_ticks,
+        "crop_chart_divisions": max(len(farmer_chart_ticks) - 1, 1),
         "crop_chart_total": sum(row["records"] for row in crop_rows),
         "crop_recommendation": _crop_recommendation(today, recommendation_rows),
         "recent_requests": requests.filter(open_filter)[:5],
-        "service_request_chart": service_chart,
-        "service_request_total": service_request_total,
-        "service_request_gradient": (
-            f"conic-gradient({', '.join(chart_segments)})"
-            if chart_segments
-            else "conic-gradient(#dfe7e2 0 100%)"
-        ),
         "dashboard_date": today,
     }

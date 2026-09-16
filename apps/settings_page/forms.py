@@ -18,25 +18,11 @@ class ProfileForm(InlineValidationMixin, forms.Form):
     )
     primary_color = forms.CharField(max_length=7)
     in_app_notifications = forms.BooleanField(required=False)
-    system_name = forms.CharField(max_length=150, required=False)
-    timezone = forms.ChoiceField(
-        choices=[("Asia/Manila", "Philippine Standard Time (PST, UTC+8)"), ("UTC", "UTC")],
-        required=False,
-    )
-    default_language = forms.ChoiceField(
-        choices=[("English", "English"), ("Filipino", "Filipino")], required=False
-    )
-    session_timeout = forms.ChoiceField(
-        choices=[("15", "15 minutes"), ("30", "30 minutes"), ("60", "1 hour")], required=False
-    )
     automated_backups = forms.BooleanField(required=False)
 
     def __init__(self, *args, user=None, **kwargs):
         self.user = user
         super().__init__(*args, **kwargs)
-        if user and user.is_admin:
-            for name in ("system_name", "timezone", "default_language", "session_timeout"):
-                self.fields[name].required = True
 
     def clean_email(self):
         email = self.cleaned_data.get("email", "").strip().lower()

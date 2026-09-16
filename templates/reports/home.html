@@ -118,11 +118,32 @@
       display:flex;
       align-items:baseline;
       gap:10px;
+      height:auto!important;
+      min-height:0!important;
       margin:4px 0 7px;
-      padding:0;
+      padding:0!important;
       border:0;
       background:transparent;
       box-shadow:none
+  }
+  .farmer-statistics-strip{
+      display:grid;
+      grid-template-rows:max-content max-content;
+      align-content:start;
+      align-self:start;
+      gap:8px;
+      min-height:0!important;
+      height:max-content;
+      margin:0 0 12px
+  }
+  .farmer-statistics-strip .farmer-statistics-heading,
+  .farmer-statistics-strip .farmer-statistics-metrics{
+      margin:0!important
+  }
+  .farmer-statistics-strip .farmer-statistics-metrics{
+      min-height:0!important;
+      padding:0 0 2px!important;
+      align-self:start
   }
   .farmer-statistics-heading h2{
       margin:0;
@@ -647,12 +668,95 @@
   body[data-theme="dark"] .report-filter-card{
       background:#1c2735!important
   }
+  body[data-theme="dark"] .report-filter-row>label{
+      background:#214132!important;
+      color:#d8f7e4!important;
+      border-color:#3f8d62!important
+  }
+  body[data-theme="dark"] .report-filter-row>select{
+      background:#101923!important;
+      color:#f1f5f9!important;
+      border-color:#53657b!important
+  }
   body[data-theme="dark"] .report-filter-row .selected-report{
       background:#111b28!important
   }
   @media(max-width:760px){
       .preview-chart-row{
           grid-template-columns:100px 1fr 70px
+      }
+  }
+  .admin-report-library{
+      margin-top:16px
+  }
+  .admin-report-library-heading{
+      margin-bottom:10px
+  }
+  .admin-report-library-heading h2{
+      margin:0 0 3px;
+      font-size:18px
+  }
+  .admin-report-library-heading p{
+      margin:0;
+      color:#687587;
+      font-size:11px
+  }
+  .admin-report-cards{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px
+  }
+  .admin-report-card{
+      display:grid;
+      grid-template-columns:38px minmax(0,1fr);
+      gap:10px;
+      padding:15px
+  }
+  .admin-report-card>i{
+      width:38px;
+      height:38px;
+      display:grid;
+      place-items:center;
+      border-radius:9px;
+      background:#e8f6ed;
+      color:#08753e;
+      font-size:17px
+  }
+  .admin-report-card h3{
+      margin:0 0 3px
+  }
+  .admin-report-card p{
+      min-height:32px;
+      margin:0
+  }
+  .admin-report-actions{
+      grid-column:1/-1;
+      display:flex;
+      gap:7px;
+      margin-top:3px
+  }
+  .admin-report-actions button{
+      flex:1;
+      padding:7px 9px;
+      border:1px solid #cdded3;
+      border-radius:7px;
+      background:#fff;
+      color:#176438;
+      font-size:9px;
+      font-weight:800;
+      cursor:pointer
+  }
+  .admin-report-actions button:first-of-type{
+      border-color:#087b45;
+      background:#087b45;
+      color:#fff
+  }
+  @media(max-width:900px){
+      .admin-report-cards{
+          grid-template-columns:1fr
+      }
+      .admin-report-card p{
+          min-height:0
       }
   }
   </style>
@@ -667,11 +771,11 @@
           <em>{{ active_accounts }} active accounts</em>
         </article>
         <article class="report-metric">
-          <i class="bi bi-journal-bookmark">
+          <i class="bi bi-person-check">
           </i>
-          <small>ACTIVE SERVICE CATALOGS</small>
-          <b>{{ service_count }}</b>
-          <em>{{ inactive_catalogs }} inactive or draft</em>
+          <small>PENDING ACTIVATIONS</small>
+          <b>{{ pending_activations }}</b>
+          <em>{{ inactive_accounts }} inactive accounts</em>
         </article>
         <article class="report-metric">
           <i class="bi bi-clock-history">
@@ -690,33 +794,70 @@
       </section>
     {% endif %}
     {% if not request.user.is_admin %}
-      <header class="farmer-statistics-heading">
-        <h2>FARMER STATISTICS</h2>
-        <p>Current verified farmer profile indicators for Rosario, Batangas</p>
-      </header>
-      <section class="report-metrics farmer-statistics-metrics"
-               aria-label="Verified Rosario farmer statistics">
-        {% for item in farmer_statistics %}
-          <article class="report-metric">
-            <i class="bi bi-person-vcard"></i>
-            <small>{{ item.label }}</small>
-            <b>{{ item.total }}</b>
-          </article>
-        {% endfor %}
+      <section class="farmer-statistics-strip" aria-label="Verified Rosario farmer statistics">
+        <header class="farmer-statistics-heading">
+          <h2>FARMER STATISTICS</h2>
+          <p>Current verified farmer profile indicators for Rosario, Batangas</p>
+        </header>
+        <div class="report-metrics farmer-statistics-metrics">
+          {% for item in farmer_statistics %}
+            <article class="report-metric">
+              <i class="bi bi-person-vcard"></i>
+              <small>{{ item.label }}</small>
+              <b>{{ item.total }}</b>
+            </article>
+          {% endfor %}
+        </div>
       </section>
     {% endif %}
+    {% if request.user.is_admin %}
+      <section class="admin-report-library" aria-labelledby="adminReportLibraryTitle">
+        <div class="admin-report-library-heading">
+          <h2 id="adminReportLibraryTitle">Governance Reports</h2>
+          <p>Download only the records administrators need for access review, accountability, and turnover.</p>
+        </div>
+        <div class="admin-report-cards">
+          {% for template in report_templates %}
+            <article class="report-card admin-report-card">
+              <i class="bi {{ template.icon }}" aria-hidden="true"></i>
+              <div>
+                <h3>{{ template.title }}</h3>
+                <p>{{ template.description }}</p>
+              </div>
+              <form class="admin-report-actions" method="post">
+                {% csrf_token %}
+                <input type="hidden" name="report_type" value="{{ template.key }}">
+                <input type="hidden" name="date_range" value="all">
+                <button type="submit" name="format" value="pdf"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+                <button type="submit" name="format" value="csv"><i class="bi bi-filetype-csv"></i> CSV</button>
+              </form>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% else %}
     <section class="report-top">
       <article class="report-card report-filter-card">
         <h3>{% if request.user.is_admin %}System Report Builder{% else %}Report Filters{% endif %}</h3>
         <p>
           {% if request.user.is_admin %}
-            Generate reports about FMIS accounts, access, audit activity, and service configuration.
+            Generate reports about FMIS accounts, access, and audit activity.
           {% else %}
             Choose Rosario-specific filters, then generate the report.
           {% endif %}
         </p>
         <form class="generate-form" id="reportGenerator" method="post">
           {% csrf_token %}
+          <div class="report-filter-row">
+            <label>{% if request.user.is_admin %}System Report{% else %}Category{% endif %}</label>
+            <select name="report_type" id="reportType" required>
+              <option value="">{% if request.user.is_admin %}Choose a system report{% else %}Choose a report{% endif %}</option>
+              {% for template in report_templates %}
+                <option value="{{ template.key }}"
+                        {% if selected_report_type == template.key %}selected{% endif %}>{{ template.title }}</option>
+              {% endfor %}
+            </select>
+          </div>
           {% if not request.user.is_admin %}
           <div class="report-filter-row">
             <label>Year</label>
@@ -749,16 +890,6 @@
             </select>
           </div>
           {% endif %}
-          <div class="report-filter-row">
-            <label>{% if request.user.is_admin %}System Report{% else %}Category{% endif %}</label>
-            <select name="report_type" id="reportType" required>
-              <option value="">{% if request.user.is_admin %}Choose a system report{% else %}Choose a report{% endif %}</option>
-              {% for template in report_templates %}
-                <option value="{{ template.key }}"
-                        {% if selected_report_type == template.key %}selected{% endif %}>{{ template.title }}</option>
-              {% endfor %}
-            </select>
-          </div>
           {% if report_error %}
             <span class="inline-form-error">{{ report_error }}</span>
           {% endif %}
@@ -905,6 +1036,7 @@
         </article>
       {% endif %}
     </section>
+    {% endif %}
     <section class="analytics-grid">
       {% if request.user.is_admin %}
         <article class="report-card">
@@ -927,23 +1059,23 @@
           <a class="panel-link d-block mt-3" href="{% url 'accounts:list' %}">Manage user access →</a>
         </article>
         <article class="report-card" style="grid-column:span 2">
-          <h3>SERVICE CATALOG OVERSIGHT</h3>
-          <p>Services made available to operational staff</p>
+          <h3>SECURITY &amp; AUDIT READINESS</h3>
+          <p>Account activation and audit records requiring administrator attention</p>
           <div class="summary-grid">
             <div>
-              <b>{{ service_count }}</b>
-              <small>Active Catalogs</small>
+              <b>{{ pending_activations }}</b>
+              <small>Pending Activations</small>
             </div>
             <div>
-              <b>{{ inactive_catalogs }}</b>
-              <small>Inactive / Draft</small>
+              <b>{{ failed_activities }}</b>
+              <small>Flagged Events</small>
             </div>
             <div>
-              <b>{{ pending_requests }}</b>
-              <small>Pending Requests</small>
+              <b>{{ total_activities }}</b>
+              <small>Audit Records</small>
             </div>
           </div>
-          <a class="panel-link d-block mt-3" href="{% url 'service_catalog:list' %}">Manage service catalogs →</a>
+          <a class="panel-link d-block mt-3" href="{% url 'activity_logs:list' %}">Review audit activity →</a>
         </article>
       {% else %}
         <article class="report-card" style="grid-column:1/-1">

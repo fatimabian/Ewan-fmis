@@ -146,6 +146,12 @@ header{
     font-size:22px!important;
     box-shadow:0 6px 16px rgba(22,163,74,.22)
 }
+.sidebar .brand-logo-shell{
+    width:44px!important;
+    height:44px!important;
+    min-width:44px;
+    border-radius:10px!important
+}
 .sidebar .brand-copy{
     min-width:0
 }

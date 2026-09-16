@@ -20,3 +20,9 @@ For each cell verify: text is readable; no horizontal page overflow; navigation 
 - `farmer-form-mobile.png`, `report-filters-mobile.png`
 
 Do not create “Customer Dashboard” screenshots. FMIS has no customer account role; farmers are indirect service beneficiaries whose records are managed by authorized staff.
+
+## Local preflight completed September 16, 2026
+
+The Codex in-app Chromium browser passed local preflight checks at 1440×900, 768×1024, and 390×844 for the landing/login page, staff dashboard, farmer registration, service requests, reports, administrator accounts, governance reports, settings, password recovery, and backup status. No page-level horizontal overflow was detected. The report statistics heading-to-card gap measured 8 pixels after correction.
+
+This local preflight does not replace the production HTTPS and real-device/browser rows above; those remain pending until the deployment URL and devices are available.

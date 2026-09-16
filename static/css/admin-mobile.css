@@ -41,10 +41,18 @@
         overflow:hidden!important;
         padding:0!important
     }
-    .role-admin .account-table-panel>h3{
+    .role-admin .accounts-table-header{
         margin:0!important;
         padding:13px 12px!important;
+        gap:10px!important
+    }
+    .role-admin .accounts-table-header h3{
         font-size:15px!important
+    }
+    .role-admin .accounts-table-header .new-account-button{
+        min-height:38px!important;
+        padding:8px 10px!important;
+        font-size:12px!important
     }
     .role-admin .account-table{
         width:100%!important;

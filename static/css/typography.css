@@ -1,8 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap');
-/* FMIS type system: Inter for headings/UI emphasis and Open Sans for readable body copy. */
+/* Offline-safe FMIS type system using fonts available on standard Windows clients. */
 :root{
-    --font-ui:"Open Sans",Arial,Helvetica,sans-serif;
-    --font-heading:"Inter","Segoe UI",Arial,sans-serif;
+    --font-ui:"Segoe UI",Arial,Helvetica,sans-serif;
+    --font-heading:"Segoe UI",Arial,Helvetica,sans-serif;
     --text-xs:.75rem;
     /* 12px */
     --text-sm:.8125rem;

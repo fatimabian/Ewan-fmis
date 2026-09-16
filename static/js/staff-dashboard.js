@@ -37,41 +37,17 @@
   const describe = (code) => weatherCodes[code] || ["Mixed conditions", "bi-cloud-sun"];
   const round = (value) => Math.round(Number(value || 0));
 
-  function forecastDay(dateValue, code, high, low, rainChance) {
-    const condition = describe(code);
-    const item = document.createElement("span");
-    item.className = "forecast-day";
-
-    const icon = document.createElement("i");
-    icon.className = `bi ${condition[1]}`;
-    icon.setAttribute("aria-hidden", "true");
-
-    const label = document.createElement("span");
-    const day = document.createElement("b");
-    day.textContent = new Intl.DateTimeFormat("en-PH", {
-      weekday: "short"
-    }).format(new Date(`${dateValue}T12:00:00`));
-    const description = document.createElement("small");
-    description.textContent = condition[0];
-    label.append(day, description);
-
-    const values = document.createElement("span");
-    const temperatures = document.createElement("b");
-    temperatures.textContent = `${round(high)}° / ${round(low)}°`;
-    const rain = document.createElement("small");
-    rain.textContent = `${round(rainChance)}% rain`;
-    values.append(temperatures, rain);
-    item.append(icon, label, values);
-    return item;
-  }
-
   function render(data, cached = false) {
     const current = data.current;
     const daily = data.daily;
     const condition = describe(current.weather_code);
+    const planningWeather = document.getElementById("planningWeatherEvidence");
     document.getElementById("weatherTemperature").textContent = `${round(current.temperature_2m)}°C`;
     document.getElementById("weatherDescription").textContent = condition[0];
     document.getElementById("weatherFeelsLike").textContent = `${round(current.apparent_temperature)}°C`;
+    if (planningWeather) {
+      planningWeather.textContent = `${round(current.temperature_2m)}°C · ${round(daily.precipitation_probability_max[0])}% rain · ${round(current.relative_humidity_2m)}% humidity`;
+    }
     document.getElementById("weatherHumidity").textContent = `${round(current.relative_humidity_2m)}%`;
     document.getElementById("weatherRainChance").textContent = `${round(daily.precipitation_probability_max[0])}%`;
     document.getElementById("weatherWind").textContent = `${round(current.wind_speed_10m)} km/h`;
@@ -79,19 +55,6 @@
 
     const updated = new Date(current.time);
     document.getElementById("weatherUpdated").textContent = `${updated.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}${cached ? " (cached)" : ""}`;
-
-    const forecast = document.getElementById("weatherForecast");
-    forecast.replaceChildren();
-    daily.time.slice(1, 4).forEach((dateValue, offset) => {
-      const index = offset + 1;
-      forecast.append(forecastDay(
-        dateValue,
-        daily.weather_code[index],
-        daily.temperature_2m_max[index],
-        daily.temperature_2m_min[index],
-        daily.precipitation_probability_max[index]
-      ));
-    });
 
     loading.hidden = true;
     error.hidden = true;
@@ -123,7 +86,7 @@
       current: "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
       daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum",
       timezone: "Asia/Manila",
-      forecast_days: "4",
+      forecast_days: "1",
     });
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10000);
@@ -145,6 +108,8 @@
         loading.hidden = true;
         content.hidden = true;
         error.hidden = false;
+        const planningWeather = document.getElementById("planningWeatherEvidence");
+        if (planningWeather) planningWeather.textContent = "Live forecast temporarily unavailable";
       }
     } finally {
       window.clearTimeout(timeout);

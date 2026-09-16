@@ -1,0 +1,53 @@
+{% extends base_template %}
+{% block page_title %}{% if object %}Update Intervention{% else %}New Intervention{% endif %}{% endblock %}
+{% block page_subtitle %}Record assistance delivered to a registered farmer{% endblock %}
+{% block content %}
+<style>
+.intervention-form-card{max-width:1180px;margin:auto}
+.intervention-form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.intervention-field{display:grid;align-content:start;gap:7px;min-width:0}
+.intervention-field.full{grid-column:1/-1}
+.intervention-field label{font-weight:700}
+.intervention-field input,.intervention-field select,.intervention-field textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:11px;background:var(--surface);color:inherit}
+.intervention-field input[type="checkbox"]{width:auto;justify-self:start}
+.intervention-errors{color:#c62828;font-size:13px}
+.intervention-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
+.linked-request-note{display:flex;align-items:flex-start;gap:10px;margin:0 0 22px;padding:13px 15px;border:1px solid #b9dec8;border-radius:9px;background:#edf9f1;color:#185b36}
+body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#183126;color:#c7f5d8}
+@media(max-width:950px){.intervention-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.intervention-form-grid{grid-template-columns:1fr}.intervention-field.full{grid-column:auto}}
+</style>
+<div class="content">
+  <section class="panel intervention-form-card">
+    <div class="mb-4">
+      <h2>{% if object %}Update {{ object.reference_id }}{% else %}Record Delivered Assistance{% endif %}</h2>
+      <p class="text-muted mb-0">Use this form after assistance has been provided or formally delivered.</p>
+    </div>
+    {% if request.GET.service_request %}
+      <div class="linked-request-note"><i class="bi bi-link-45deg"></i><span>The farmer and related service request were filled from the selected request. Confirm the details before saving.</span></div>
+    {% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-validation-alert">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="intervention-form-grid">
+        <div class="intervention-field"><label>{{ form.farmer.label }}</label>{{ form.farmer }}<span class="intervention-errors">{{ form.farmer.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.service_request.label }}</label>{{ form.service_request }}<small class="text-muted">{{ form.service_request.help_text }}</small><span class="intervention-errors">{{ form.service_request.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.intervention_type.label }}</label>{{ form.intervention_type }}<span class="intervention-errors">{{ form.intervention_type.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.intervention_date.label }}</label>{{ form.intervention_date }}<span class="intervention-errors">{{ form.intervention_date.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.quantity.label }}</label>{{ form.quantity }}<span class="intervention-errors">{{ form.quantity.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.unit.label }}</label>{{ form.unit }}<span class="intervention-errors">{{ form.unit.errors }}</span></div>
+        <div class="intervention-field full"><label>{{ form.description.label }}</label>{{ form.description }}<span class="intervention-errors">{{ form.description.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.estimated_value.label }}</label>{{ form.estimated_value }}<span class="intervention-errors">{{ form.estimated_value.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.funding_source.label }}</label>{{ form.funding_source }}<span class="intervention-errors">{{ form.funding_source.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.provider.label }}</label>{{ form.provider }}<span class="intervention-errors">{{ form.provider.errors }}</span></div>
+        <div class="intervention-field full"><label>{{ form.remarks.label }}</label>{{ form.remarks }}<span class="intervention-errors">{{ form.remarks.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.is_active.label }}</label>{{ form.is_active }}<span class="intervention-errors">{{ form.is_active.errors }}</span></div>
+      </div>
+      <div class="intervention-form-actions">
+        <a class="btn btn-outline-secondary" href="{% if object %}{% url 'interventions:detail' object.pk %}{% else %}{% url 'interventions:list' %}{% endif %}">Cancel</a>
+        <button class="btn btn-success" type="submit">{% if object %}Save Changes{% else %}Save Intervention{% endif %}</button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

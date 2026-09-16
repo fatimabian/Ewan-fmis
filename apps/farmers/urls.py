@@ -2,7 +2,9 @@ from django.urls import path
 
 from .views import (
     FarmerDeleteView,
+    FarmerDocumentDownloadView,
     FarmerDetailView,
+    FarmerHistoryView,
     FarmerListView,
     FarmerQRPrintView,
     FarmerRegistrationCompleteView,
@@ -20,6 +22,7 @@ urlpatterns = [
     path("field/<str:token>/", FarmerSecureQRDetailView.as_view(), name="qr_access"),
     path("<int:pk>/qr/", FarmerQRPrintView.as_view(), name="qr_print"),
     path("<int:pk>/", FarmerDetailView.as_view(), name="detail"),
+    path("<int:pk>/history/", FarmerHistoryView.as_view(), name="history"),
     path(
         "<int:pk>/registration-complete/",
         FarmerRegistrationCompleteView.as_view(),
@@ -28,4 +31,5 @@ urlpatterns = [
     path("<int:pk>/edit/", FarmerUpdateView.as_view(), name="edit"),
     path("<int:pk>/update-slip-b/", FarmerSlipBUpdateView.as_view(), name="slip_b"),
     path("<int:pk>/delete/", FarmerDeleteView.as_view(), name="delete"),
+    path("documents/<int:pk>/", FarmerDocumentDownloadView.as_view(), name="document"),
 ]

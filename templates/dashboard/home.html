@@ -14,13 +14,13 @@
           <em>{{ active_accounts }} active accounts</em>
         </span>
       </a>
-      <a class="staff-metric-card" href="{% url 'service_catalog:list' %}">
-        <i class="bi bi-journal-bookmark">
+      <a class="staff-metric-card" href="{% url 'accounts:list' %}">
+        <i class="bi bi-person-check">
         </i>
         <span>
-          <small>ACTIVE SERVICE CATALOGS</small>
-          <b>{{ service_catalogs }}</b>
-          <em>{{ draft_catalogs }} inactive or draft</em>
+          <small>PENDING ACTIVATIONS</small>
+          <b>{{ pending_activations }}</b>
+          <em>{{ inactive_accounts }} inactive accounts</em>
         </span>
       </a>
       <a class="staff-metric-card" href="{% url 'activity_logs:list' %}">
@@ -36,23 +36,23 @@
         <i class="bi bi-shield-check">
         </i>
         <span>
-          <small>SECURITY EVENTS</small>
+          <small>SECURITY ALERTS · 7 DAYS</small>
           <b>{{ failed_events }}</b>
-          <em>Events requiring review</em>
+          <em>Failed or blocked security events</em>
         </span>
       </a>
     </section>
     <section class="staff-dashboard-main">
-      <article class="panel staff-primary-chart">
+      <article class="panel staff-primary-chart dashboard-click-card"
+               data-card-url="{% url 'activity_logs:list' %}"
+               role="link"
+               tabindex="0">
         <div class="staff-panel-heading">
           <div>
             <span class="staff-section-label">MAIN FOCUS</span>
             <h3>System Activity — Last 7 Days</h3>
-            <p>Recorded account, catalog, security, and administrator actions</p>
+            <p>Recorded account, security, configuration, and administrator actions</p>
           </div>
-          <a href="{% url 'activity_logs:list' %}">Open activity log <i class="bi bi-arrow-right">
-            </i>
-          </a>
         </div>
         <div class="activity-line-chart"
              role="img"
@@ -112,8 +112,6 @@
             <b>{{ admins }}</b>
             <small>Active administrators</small>
           </span>
-          <i class="bi bi-chevron-right">
-          </i>
         </a>
         <a href="{% url 'accounts:list' %}">
           <span class="queue-dot progress"></span>
@@ -121,18 +119,21 @@
             <b>{{ staff }}</b>
             <small>Active staff accounts</small>
           </span>
-          <i class="bi bi-chevron-right">
-          </i>
         </a>
-        <a href="{% url 'service_catalog:list' %}">
+        <a href="{% url 'accounts:list' %}">
           <span class="queue-dot pending"></span>
           <span>
-            <b>{{ draft_catalogs }}</b>
-            <small>Inactive catalog items</small>
+            <b>{{ pending_activations }}</b>
+            <small>Accounts awaiting first-time activation</small>
           </span>
-          <i class="bi bi-chevron-right">
-          </i>
         </a>
+        <div class="staff-urgent-note">
+          <i class="bi bi-hdd-network"></i>
+          <span>
+            <b>{{ deployment_mode }} · {{ system_version }}</b>
+            <small>{{ database_label }} · Email {% if email_configured %}configured{% else %}not configured{% endif %}</small>
+          </span>
+        </div>
         <div class="staff-urgent-note">
           <i class="bi bi-shield-lock">
           </i>
@@ -176,38 +177,47 @@
           {% endfor %}
         </div>
       </article>
-      <article class="panel staff-quick-actions">
+      <article class="panel admin-readiness dashboard-click-card"
+               data-card-url="{% url 'settings_page:home' %}"
+               role="link"
+               tabindex="0">
         <div class="staff-panel-heading">
           <div>
-            <span class="staff-section-label">SHORTCUTS</span>
-            <h3>Administration</h3>
+            <span class="staff-section-label">SYSTEM STATUS</span>
+            <h3>Backup &amp; Recovery Readiness</h3>
           </div>
         </div>
-        <div>
-          <a href="{% url 'accounts:list' %}">
-            <i class="bi bi-people">
-            </i>
+        <div class="admin-readiness-list">
+          <div class="admin-readiness-item {% if latest_backup.status == 'VERIFIED' %}is-ready{% elif latest_backup.status == 'RUNNING' %}is-progress{% else %}needs-attention{% endif %}">
+            <i class="bi bi-database-check"></i>
             <span>
-              <b>Manage User Accounts</b>
-              <small>Edit roles and account access</small>
+              <b>Latest backup</b>
+              <small>
+                {% if latest_backup %}
+                  {{ latest_backup.get_status_display }} · {{ latest_backup.started_at|date:'M d, Y h:i A' }}
+                {% else %}
+                  No backup has been recorded
+                {% endif %}
+              </small>
             </span>
-          </a>
-          <a href="{% url 'service_catalog:list' %}">
-            <i class="bi bi-journal-bookmark">
-            </i>
+            <i class="bi {% if latest_backup.status == 'VERIFIED' %}bi-check-circle-fill{% elif latest_backup.status == 'RUNNING' %}bi-hourglass-split{% else %}bi-exclamation-circle-fill{% endif %}"></i>
+          </div>
+          <div class="admin-readiness-item {% if backup_scheduler_configured %}is-ready{% else %}needs-attention{% endif %}">
+            <i class="bi bi-clock-history"></i>
             <span>
-              <b>Manage Service Catalogs</b>
-              <small>Control services available to staff</small>
+              <b>Automatic schedule</b>
+              <small>{% if backup_scheduler_configured %}Daily backup scheduler is configured{% else %}Backup scheduler setup is required{% endif %}</small>
             </span>
-          </a>
-          <a href="{% url 'settings_page:home' %}">
-            <i class="bi bi-gear">
-            </i>
+            <i class="bi {% if backup_scheduler_configured %}bi-check-circle-fill{% else %}bi-exclamation-circle-fill{% endif %}"></i>
+          </div>
+          <div class="admin-readiness-item {% if backup_offsite_configured and backup_encryption_configured %}is-ready{% else %}needs-attention{% endif %}">
+            <i class="bi bi-cloud-check"></i>
             <span>
-              <b>Security &amp; System</b>
-              <small>Review security, sessions, and backups</small>
+              <b>Recovery protection</b>
+              <small>{% if backup_offsite_configured and backup_encryption_configured %}Encrypted off-site storage is configured{% else %}Off-site storage or encryption is incomplete{% endif %}</small>
             </span>
-          </a>
+            <i class="bi {% if backup_offsite_configured and backup_encryption_configured %}bi-check-circle-fill{% else %}bi-exclamation-circle-fill{% endif %}"></i>
+          </div>
         </div>
       </article>
     </section>

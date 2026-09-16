@@ -10,14 +10,62 @@ from .models import ActivityLog
 logger = logging.getLogger(__name__)
 
 
+def record_event(
+    *,
+    actor=None,
+    title,
+    module,
+    description,
+    path,
+    status="Success",
+    target_label="",
+    reason="",
+    details=None,
+):
+    """Write a deliberate audit event and notify the appropriate role."""
+    values = {
+        "actor": actor if actor and actor.is_authenticated else None,
+        "action": title,
+        "path": path,
+        "title": title,
+        "module": module,
+        "description": description,
+        "status": status,
+        "target_label": target_label,
+        "reason": reason,
+        "details": details or [],
+    }
+    try:
+        activity = ActivityLog.objects.create(**values)
+    except TypeError as error:
+        if "unexpected keyword arguments" not in str(error):
+            raise
+        logger.warning(
+            "ActivityLog model was stale; writing a basic compatible activity entry.",
+            exc_info=True,
+        )
+        for optional_field in ("target_label", "reason", "details"):
+            values.pop(optional_field, None)
+        activity = ActivityLog.objects.create(**values)
+    try:
+        from apps.notifications.services import create_activity_notifications
+
+        create_activity_notifications(activity)
+    except Exception:
+        logger.exception("In-app notification creation failed for activity %s.", activity.pk)
+    return activity
+
+
+def record_request_event(request, **values):
+    """Record one explicit event and prevent the generic middleware duplicate."""
+    request._fmis_activity_recorded = True
+    values.setdefault("actor", request.user)
+    values.setdefault("path", request.path)
+    return record_event(**values)
+
+
 def _friendly_activity(method, path):
     labels = [
-        (
-            "/catalog/",
-            "Service Catalog",
-            "Service Catalogs",
-            "added or updated an agricultural service in the catalog.",
-        ),
         ("/farmers/", "Farmer Record", "Farmers", "added or updated a farmer record."),
         ("/parcels/", "Farm Parcel", "Farm Parcels", "added or updated a farm parcel record."),
         ("/crops/", "Crop Record", "Crops", "added or updated a crop record."),
@@ -92,33 +140,13 @@ def log_activity(user, action, path):
     title, module, phrase = _friendly_activity(action.split()[0], path)
     actor_name = user.display_name if user.is_authenticated else "A user"
     audit = _recent_farmer_audit(user, path)
-    values = {
-        "actor": user if user.is_authenticated else None,
-        "action": action,
-        "path": path,
-        "title": title,
-        "module": module,
-        "description": f"{actor_name} {phrase}",
-        "target_label": audit.get("target_label", ""),
-        "reason": audit.get("reason", ""),
-        "details": audit.get("details", []),
-    }
-    try:
-        activity = ActivityLog.objects.create(**values)
-    except TypeError as error:
-        if "unexpected keyword arguments" not in str(error):
-            raise
-        logger.warning(
-            "ActivityLog model was stale; writing a basic compatible activity entry.",
-            exc_info=True,
-        )
-        for optional_field in ("target_label", "reason", "details"):
-            values.pop(optional_field, None)
-        activity = ActivityLog.objects.create(**values)
-    try:
-        from apps.notifications.services import create_activity_notifications
-
-        create_activity_notifications(activity)
-    except Exception:
-        logger.exception("In-app notification creation failed for activity %s.", activity.pk)
-    return activity
+    return record_event(
+        actor=user,
+        title=title,
+        module=module,
+        description=f"{actor_name} {phrase}",
+        path=path,
+        target_label=audit.get("target_label", ""),
+        reason=audit.get("reason", ""),
+        details=audit.get("details", []),
+    )

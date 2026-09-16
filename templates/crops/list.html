@@ -166,16 +166,16 @@
       </label>
       <label>
         Status<select name="status" onchange="this.form.submit()">
-        <option value="">All</option>
+        <option value="">Current records</option>
         <option value="growing" {% if request.GET.status == 'growing' %}selected{% endif %}>Growing</option>
         <option value="harvested" {% if request.GET.status == 'harvested' %}selected{% endif %}>Harvested</option>
+        <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option>
         </select>
       </label>
       <a class="btn btn-success" href="{% url 'crops:create' %}">
         <i class="bi bi-plus-lg">
         </i> Add Crop</a>
       </form>
-      {% include "shared/table_export.html" with dataset="crops" %}
       <div class="crop-table-wrap universal-table-wrap">
         <table class="crop-table universal-table">
           <thead>
@@ -207,7 +207,9 @@
                 <td>{{ crop.planting_date|date:"M d, Y"|default:"Not set" }}</td>
                 <td>{{ crop.harvest_date|date:"M d, Y"|default:"Not set" }}</td>
                 <td>
-                  {% if crop.harvest_date and crop.harvest_date <= today %}
+                  {% if not crop.is_active %}
+                    <span class="crop-status harvested">Archived</span>
+                  {% elif crop.harvest_date and crop.harvest_date <= today %}
                     <span class="crop-status harvested">Harvested</span>
                   {% else %}
                     <span class="crop-status">Growing</span>
@@ -215,16 +217,19 @@
                 </td>
                 <td>
                   <div class="crop-actions">
-                    <a href="{% url 'crops:edit' crop.pk %}" title="Edit {{ crop.crop_type }}">
-                      <i class="bi bi-pencil-square">
-                      </i>
-                    </a>
+                    {% if crop.is_active %}
+                      <a href="{% url 'crops:edit' crop.pk %}" title="Edit {{ crop.crop_type }}">
+                        <i class="bi bi-pencil-square">
+                        </i>
+                      </a>
+                    {% endif %}
                     <form method="post"
                           action="{% url 'crops:delete' crop.pk %}"
-                          data-confirm="Delete this {{ crop.crop_type|escape }} crop record? This action cannot be undone.">
+                          data-confirm="{% if crop.is_active %}Archive this {{ crop.crop_type|escape }} crop record? No data will be deleted.{% else %}Restore this {{ crop.crop_type|escape }} crop record?{% endif %}">
                       {% csrf_token %}
-                      <button title="Delete {{ crop.crop_type }}">
-                        <i class="bi bi-trash">
+                      {% if not crop.is_active %}<input type="hidden" name="action" value="restore">{% endif %}
+                      <button title="{% if crop.is_active %}Archive{% else %}Restore{% endif %} {{ crop.crop_type }}">
+                        <i class="bi {% if crop.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}">
                         </i>
                       </button>
                     </form>

@@ -1,0 +1,34 @@
+{% extends base_template %}
+{% block page_title %}{{ history_title }}{% endblock %}
+{% block page_subtitle %}Complete change history for {{ record_label }}{% endblock %}
+{% block content %}
+<div class="content record-detail history-page">
+  <div class="record-detail-nav">
+    <a href="{{ back_url }}"><i class="bi bi-arrow-left"></i> Back to Record</a>
+    {% if edit_url %}<a class="btn btn-success" href="{{ edit_url }}"><i class="bi bi-pencil-square"></i> {{ edit_label }}</a>{% endif %}
+  </div>
+  <section class="record-single-section history-page-card">
+    <h3><i class="bi bi-clock-history"></i> {{ history_title }}</h3>
+    <p class="history-record-label">{{ record_label }}</p>
+    <div class="farmer-history-list">
+      {% for entry in history_entries %}
+        <details class="history-entry" {% if forloop.first %}open{% endif %}>
+          <summary>
+            <span><strong>{{ entry.title }}</strong><small>{{ entry.date|date:'M d, Y · g:i A' }} · {{ entry.actor }}</small></span>
+            {% if entry.status %}<span class="history-code">{{ entry.status }}</span>{% endif %}
+          </summary>
+          {% if entry.reason %}<div class="history-meta"><span>{{ entry.reason }}</span></div>{% endif %}
+          <div class="history-change-table-wrap">
+            <table class="history-change-table">
+              <thead><tr><th>Information</th><th>Before</th><th>After</th></tr></thead>
+              <tbody>
+                {% for change in entry.changes %}<tr><td>{{ change.field }}</td><td>{{ change.before|default:'—' }}</td><td>{{ change.after|default:'—' }}</td></tr>{% empty %}<tr><td colspan="3">The action was recorded without field-level changes.</td></tr>{% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      {% empty %}<div class="empty-state"><i class="bi bi-clock-history"></i><p>No update history has been recorded for this record yet.</p></div>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

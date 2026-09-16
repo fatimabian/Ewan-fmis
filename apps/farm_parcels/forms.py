@@ -1,5 +1,6 @@
 from django import forms
 from django.forms import BaseInlineFormSet, inlineformset_factory
+from django.utils import timezone
 
 from apps.common.constants import (
     ROSARIO_BARANGAY_CHOICES,
@@ -228,11 +229,21 @@ class RequiredParcelCropFormSet(BaseInlineFormSet):
         super().add_fields(form, index)
         form.empty_permitted = False
 
+    def delete_existing(self, obj, commit=True):
+        """Archive removed crop rows instead of erasing operational history."""
+        obj.is_active = False
+        obj.archived_at = timezone.now()
+        obj.archived_by = getattr(self, "archive_actor", None)
+        if commit:
+            obj.save(update_fields=["is_active", "archived_at", "archived_by"])
+
     def clean(self):
         super().clean()
         if any(self.errors):
             return
         parcel_area = self.instance.area_hectares
+        primary_crop_area = 0
+        primary_crop_forms = []
         for form in self.forms:
             if not form.cleaned_data or form.cleaned_data.get("DELETE"):
                 continue
@@ -242,6 +253,16 @@ class RequiredParcelCropFormSet(BaseInlineFormSet):
                     "area_hectares",
                     f"Area planted cannot exceed the parcel area of {parcel_area} ha.",
                 )
+            if crop_area and form.cleaned_data.get("is_intercrop") is False:
+                primary_crop_area += crop_area
+                primary_crop_forms.append(form)
+        if parcel_area and primary_crop_area > parcel_area:
+            message = (
+                f"Active non-intercrop crops total {primary_crop_area} ha, "
+                f"which exceeds the parcel area of {parcel_area} ha."
+            )
+            for form in primary_crop_forms:
+                form.add_error("area_hectares", message)
 
 
 ParcelCropFormSet = inlineformset_factory(

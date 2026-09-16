@@ -47,7 +47,9 @@ def farmer_snapshot(farmer):
             display = getattr(parcel, f"get_{field.name}_display", None)
             value = display() if callable(display) else getattr(parcel, field.name)
             snapshot[f"{parcel_prefix} / {str(field.verbose_name).title()}"] = _json_value(value)
-        for crop_number, crop in enumerate(parcel.crops.all().order_by("pk"), start=1):
+        for crop_number, crop in enumerate(
+            parcel.crops.filter(is_active=True).order_by("pk"), start=1
+        ):
             crop_prefix = f"{parcel_prefix} / Commodity {crop_number}"
             for field in crop._meta.concrete_fields:
                 if field.name in {"parcel", "image"} or field.is_relation:

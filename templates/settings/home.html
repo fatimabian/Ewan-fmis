@@ -3,7 +3,7 @@
   Settings
 {% endblock %}
 {% block page_subtitle %}
-  Manage your account, preferences, and system configuration
+  Manage your account, interface preferences, and recovery protection
 {% endblock %}
 {% block content %}
   <style>
@@ -42,11 +42,18 @@
   .settings-pane.active{
       display:block
   }
+  .staff-profile-only .settings-grid-reference{
+      margin-top:0!important
+  }
   .settings-grid-reference{
       display:grid;
       grid-template-columns:.85fr 1.15fr;
       gap:16px;
       margin-top:10px
+  }
+  .system-settings-grid{
+      grid-template-columns:minmax(0,760px);
+      justify-content:center
   }
   .settings-card{
       background:#fff;
@@ -333,7 +340,7 @@
       color:#0b7c49
   }
   </style>
-  <div class="content settings-page">
+  <div class="content settings-page{% if not request.user.is_admin %} staff-profile-only{% endif %}">
     <form method="post">
       {% csrf_token %}
       {% if form.non_field_errors %}
@@ -351,18 +358,18 @@
           </ul>
         </div>
       {% endif %}
-      <div class="settings-tabs">
-        <button type="button" class="settings-tab active" data-tab="profile">
-          <i class="bi bi-person">
-          </i> Profile &amp; Account
-        </button>
-        {% if request.user.is_admin %}
-          <button type="button" class="settings-tab" data-tab="system">
-            <i class="bi bi-shield-check">
-            </i> Security &amp; System
+      {% if request.user.is_admin %}
+        <div class="settings-tabs">
+          <button type="button" class="settings-tab active" data-tab="profile">
+            <i class="bi bi-person">
+            </i> Profile &amp; Account
           </button>
-        {% endif %}
-      </div>
+          <button type="button" class="settings-tab" data-tab="system">
+            <i class="bi bi-cloud-check">
+            </i> Backup &amp; Recovery
+          </button>
+        </div>
+      {% endif %}
       <section id="profile" class="settings-pane active">
         <div class="settings-grid-reference">
           <div>
@@ -392,7 +399,7 @@
                 <i class="bi bi-shield-lock">
                 </i> Security &amp; Accounts
               </h3>
-              <p class="text-muted">Protect your account with a secure password and two-factor authentication.</p>
+              <p class="text-muted">Protect your account with a strong, unique password and secure first-time email activation.</p>
               <a class="btn btn-outline-success" href="#" data-password-modal>Change Password</a>
             </article>
           </div>
@@ -475,34 +482,7 @@
       </section>
       {% if request.user.is_admin %}
         <section id="system" class="settings-pane">
-          <div class="settings-grid-reference">
-            <div>
-              <article class="settings-card">
-                <h3>
-                  <i class="bi bi-globe2">
-                  </i> System Configuration &amp; Localization
-                </h3>
-                <div class="system-form">
-                  <label>System Name{{ form.system_name }}{{ form.system_name.errors }}</label>
-                  <label>Timezone{{ form.timezone }}{{ form.timezone.errors }}</label>
-                  <label>Default Language{{ form.default_language }}{{ form.default_language.errors }}</label>
-                </div>
-              </article>
-              <article class="settings-card">
-                <h3>
-                  <i class="bi bi-key">
-                  </i> Session Policy
-                </h3>
-                <div class="system-form">
-                  <label class="session-policy-field">
-                    <span>Idle Session Timeout (System-wide)</span>
-                    {{ form.session_timeout }}
-                    <small>Applies to every administrator and staff account. Activity on any protected FMIS page resets the timer.</small>
-                    {{ form.session_timeout.errors }}
-                  </label>
-                </div>
-              </article>
-            </div>
+          <div class="settings-grid-reference system-settings-grid">
             <div>
               <article class="settings-card">
                 <h3>

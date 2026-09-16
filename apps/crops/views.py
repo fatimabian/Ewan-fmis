@@ -1,12 +1,19 @@
 from datetime import date
 
+from django.contrib import messages
 from django.db.models import Q
-from django.urls import reverse_lazy
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
 from django.db import transaction
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.utils import timezone
+from django.views import View
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
+from apps.activity_logs.services import record_request_event
+from apps.activity_logs.models import ActivityLog
+from apps.common.record_history import activity_rows, farmer_update_rows
 from apps.farmers.history import farmer_snapshot, record_farmer_update
 from .forms import CropRecordForm
 from .models import CropRecord
@@ -52,6 +59,10 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
             queryset = queryset.filter(crop_type=crop_type)
         if year.isdigit():
             queryset = queryset.filter(planting_date__year=int(year))
+        if status == "archived":
+            queryset = queryset.filter(is_active=False)
+        else:
+            queryset = queryset.filter(is_active=True)
         if status == "growing":
             queryset = queryset.filter(
                 Q(harvest_date__isnull=True) | Q(harvest_date__gt=date.today())
@@ -80,6 +91,32 @@ class CropDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMi
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["today"] = date.today()
+        return context
+
+
+class CropHistoryView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixin, DetailView):
+    model = CropRecord
+    template_name = "shared/record_history.html"
+
+    def get_queryset(self):
+        return CropRecord.objects.select_related("parcel", "parcel__farmer")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        farmer = self.object.parcel.farmer
+        parcels = list(farmer.parcels.order_by("pk"))
+        parcel_number = next((index for index, parcel in enumerate(parcels, 1) if parcel.pk == self.object.parcel_id), 0)
+        crops = list(self.object.parcel.crops.order_by("pk"))
+        crop_number = next((index for index, crop in enumerate(crops, 1) if crop.pk == self.object.pk), 0)
+        prefix = f"Parcel {parcel_number} / Commodity {crop_number} /"
+        updates = []
+        for entry in farmer.update_history.filter(update_type="SLIP_B").select_related("actor"):
+            if any(change.get("field", "").startswith(prefix) for change in entry.changes):
+                updates.append(entry)
+        events = ActivityLog.objects.filter(module="Crops", target_label=f"{farmer.record_id} - {self.object.crop_type}").select_related("actor")
+        rows = farmer_update_rows(updates) + activity_rows(events)
+        rows.sort(key=lambda row: row["date"], reverse=True)
+        context.update({"history_title": "Crop Record Update History", "record_label": f"{self.object.crop_type} · {farmer.full_name}", "back_url": reverse("crops:detail", args=[self.object.pk]), "edit_url": reverse("crops:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Edit Crop", "history_entries": rows})
         return context
 
 
@@ -130,6 +167,23 @@ class CropUpdateView(
     success_url = reverse_lazy("crops:list")
 
 
-class CropDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, DeleteView):
-    model = CropRecord
-    success_url = reverse_lazy("crops:list")
+class CropDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Archive or restore a crop record without destroying its audit history."""
+
+    def post(self, request, pk):
+        crop = get_object_or_404(CropRecord, pk=pk)
+        restoring = request.POST.get("action") == "restore"
+        crop.is_active = restoring
+        crop.archived_at = None if restoring else timezone.now()
+        crop.archived_by = None if restoring else request.user
+        crop.save(update_fields=["is_active", "archived_at", "archived_by"])
+        action = "restored" if restoring else "archived"
+        record_request_event(
+            request,
+            title=f"Crop Record {action.title()}",
+            module="Crops",
+            description=f"{request.user.display_name} {action} a crop record without deleting it.",
+            target_label=f"{crop.parcel.farmer.record_id} - {crop.crop_type}",
+        )
+        messages.success(request, f"{crop.crop_type} crop record was {action}; no data was deleted.")
+        return redirect("crops:list")

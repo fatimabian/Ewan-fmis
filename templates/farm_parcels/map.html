@@ -1,15 +1,13 @@
 {% extends base_template %}
+{% load static %}
 {% block page_title %}
-  Farmer Location Map
+  Farm Parcel Map
 {% endblock %}
 {% block page_subtitle %}
-  Pin farmer residences within Rosario, Batangas and review their registered crops
+  Map agricultural parcels within Rosario, Batangas and review their registered crops
 {% endblock %}
 {% block content %}
-  <link rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin="">
+  <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
   <style>
   .farmer-map-page{
       max-width:1400px;
@@ -333,20 +331,20 @@
     <form id="pinForm" class="map-toolbar">
       {% csrf_token %}
       <label>
-        Find Farmer<select id="pinFarmer"
-        name="farmer_id"
+        Find Farm Parcel<select id="pinFarmer"
+        name="parcel_id"
         required
         data-farmer-picker="true"
-        data-search-placeholder="Type Farmer ID or name...">
-        <option value="">Select a farmer</option>
-        {% for farmer in farmers %}
-          <option value="{{ farmer.pk }}">{{ farmer.record_id }} — {{ farmer.full_name }} ({{ farmer.barangay }})</option>
+        data-search-placeholder="Type Farmer ID, farmer name, or parcel...">
+        <option value="">Select a farm parcel</option>
+        {% for parcel in parcels %}
+          <option value="{{ parcel.pk }}">{{ parcel.farmer.record_id }} — {{ parcel.farmer.full_name }} / {{ parcel.display_name }} ({{ parcel.barangay }})</option>
         {% endfor %}
         </select>
       </label>
       <button class="btn btn-success" id="startPin" type="button">
         <i class="bi bi-pin-map">
-        </i> Pin Farmer Location
+        </i> Pin Farm Parcel
       </button>
       <a class="btn btn-outline-success" href="{% url 'farm_parcels:list' %}">
         <i class="bi bi-table">
@@ -354,9 +352,9 @@
       </form>
       <div class="map-counts">
         <span class="map-count">
-          <strong>{{ mapped_count }}</strong> mapped farmers</span>
+          <strong>{{ mapped_count }}</strong> mapped parcels</span>
         <span class="map-count">
-          <strong>{{ unmapped_count }}</strong> need a pin</span>
+          <strong>{{ unmapped_count }}</strong> parcels need a pin</span>
       </div>
       <p class="map-scope-note">
         <i class="bi bi-bounding-box-circles"></i>
@@ -364,12 +362,12 @@
       </p>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
-        Map labels identify roads and places. Right-click a green farmer pin to move it.
+        Map labels identify roads and places. Right-click a green parcel pin to move it.
       </p>
       <div class="pin-edit-panel" id="pinEditPanel" role="status" aria-live="polite">
         <div>
-          <strong id="pinEditFarmer">Moving farmer pin</strong>
-          <span>Drag the orange pin to the correct residence, then save or cancel.</span>
+          <strong id="pinEditFarmer">Moving farm parcel pin</strong>
+          <span>Drag the orange pin to the correct agricultural parcel, then save or cancel.</span>
         </div>
         <div class="pin-edit-actions">
           <button class="btn btn-outline-secondary" id="cancelPinMove" type="button">Cancel</button>
@@ -380,23 +378,23 @@
       </div>
       <p class="pin-help" id="pinHelp">
         <i class="bi bi-crosshair">
-        </i> Click the farmer's residence on the map to save the pin.
+        </i> Click the agricultural parcel on the map to save the pin.
       </p>
-      <div id="farmerMap" aria-label="Interactive map of farmer locations"></div>
+      <div id="farmerMap" aria-label="Interactive map of agricultural parcel locations"></div>
       <div class="map-empty" id="mapEmpty">
         <div>
           <i class="bi bi-geo-alt">
           </i>
-          <h2>No farmer locations pinned yet</h2>
-          <p>Select a farmer above, choose Pin Farmer Location, then click their residence on the map.</p>
+          <h2>No farm parcels pinned yet</h2>
+          <p>Select a parcel above, choose Pin Farm Parcel, then click its agricultural location on the map.</p>
         </div>
       </div>
-      {% if unmapped_farmers %}
+      {% if unmapped_parcels %}
         <details class="unmapped-panel">
-          <summary>{{ unmapped_count }} farmer{{ unmapped_count|pluralize }} without a saved home pin</summary>
+          <summary>{{ unmapped_count }} parcel{{ unmapped_count|pluralize }} without a saved farm pin</summary>
           <div class="unmapped-list">
-            {% for farmer in unmapped_farmers %}
-              <a href="{% url 'farmers:edit' farmer.pk %}">{{ farmer.record_id }} — {{ farmer.full_name }}</a>
+            {% for parcel in unmapped_parcels %}
+              <a href="{% url 'farm_parcels:edit' parcel.pk %}">{{ parcel.farmer.record_id }} — {{ parcel.display_name }}</a>
             {% endfor %}
           </div>
         </details>
@@ -405,9 +403,7 @@
     {{ map_markers|json_script:"farmer-map-markers" }}
     {{ rosario_map_bounds|json_script:"rosario-map-bounds" }}
     {{ rosario_map_center|json_script:"rosario-map-center" }}
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-            crossorigin=""></script>
+    <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
     <script>
         (() => {
             const markers = JSON.parse(document.getElementById('farmer-map-markers').textContent),
@@ -509,7 +505,7 @@
                 farmerBadge.innerHTML = '<i class="bi bi-person"></i>';
                 head.appendChild(farmerBadge);
                 identity.appendChild(make('h3', '', item.farmer));
-                identity.appendChild(make('small', '', item.farmer_id));
+                identity.appendChild(make('small', '', `${item.farmer_id} · ${item.parcel}`));
                 head.appendChild(identity);
                 popup.appendChild(head);
                 popup.appendChild(make('p', 'farmer-popup-address', item.address || 'Address not completed'));
@@ -534,17 +530,17 @@
                     gallery.appendChild(make('span', '', 'No crops recorded'))
                 }
                 popup.appendChild(gallery);
-                const edit = make('a', '', 'Open farmer profile');
+                const edit = make('a', '', 'Open farm parcel');
                 edit.href = item.edit_url;
                 popup.appendChild(edit);
                 const mobilePopup = window.matchMedia('(max-width:560px)').matches;
                 const farmerMarker = L.marker([item.lat, item.lng], {
                     icon: farmerIcon,
                     draggable: false,
-                    title: `${item.farmer} — ${item.address || 'Rosario, Batangas'}`
+                    title: `${item.parcel} — ${item.farmer}`
                 })
                     .addTo(map)
-                    .bindTooltip(item.farmer, {
+                    .bindTooltip(item.parcel, {
                         permanent: true,
                         direction: 'top',
                         offset: [0, -9],
@@ -583,7 +579,7 @@
             };
             const setPinButton = (mapped) => {
                 startPin.disabled = mapped;
-                startPin.innerHTML = mapped ? '<i class="bi bi-geo-alt-fill"></i> Location Already Pinned' : '<i class="bi bi-pin-map"></i> Pin Farmer Location'
+                startPin.innerHTML = mapped ? '<i class="bi bi-geo-alt-fill"></i> Parcel Already Pinned' : '<i class="bi bi-pin-map"></i> Pin Farm Parcel'
             };
             const showSelectedFarmer = () => {
                 resetPinMode();
@@ -611,9 +607,9 @@
                 pinning = true;
                 document.body.classList.add('map-pin-active')
             });
-            const saveFarmerPoint = async (farmerId, point, operation = 'create') => {
+            const saveFarmerPoint = async (parcelId, point, operation = 'create') => {
                 const form = new FormData(document.getElementById('pinForm'));
-                form.set('farmer_id', farmerId);
+                form.set('parcel_id', parcelId);
                 form.set('latitude', point.lat);
                 form.set('longitude', point.lng);
                 form.set('operation', operation);
@@ -643,7 +639,7 @@
                             movingMarker = marker;
                             originalMarkerPoint = L.latLng(marker.getLatLng());
                             farmerSelect.value = String(item.id);
-                            pinEditFarmer.textContent = `Moving ${item.farmer}'s pin`;
+                            pinEditFarmer.textContent = `Moving ${item.parcel} · ${item.farmer}`;
                             pinEditPanel.classList.add('is-visible');
                             marker.closePopup();
                             marker.dragging.enable();

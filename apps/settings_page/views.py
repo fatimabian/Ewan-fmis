@@ -2,7 +2,6 @@ from django.contrib import messages
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
-from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.views import View
@@ -10,6 +9,7 @@ from django.views.generic import FormView
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.backups import create_verified_backup
 from apps.common.permissions import AdminRequiredMixin
+from apps.activity_logs.services import record_request_event
 from .forms import ProfileForm
 from .models import BackupRun, SystemSetting, UserPreference
 
@@ -43,15 +43,7 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
             }
         )
         if self.request.user.is_admin:
-            initial.update(
-                {
-                    "system_name": system_setting.system_name,
-                    "timezone": system_setting.timezone,
-                    "default_language": system_setting.default_language,
-                    "session_timeout": str(system_setting.session_timeout),
-                    "automated_backups": system_setting.automated_backups,
-                }
-            )
+            initial["automated_backups"] = system_setting.automated_backups
         return initial
 
     def get_context_data(self, **kwargs):
@@ -88,16 +80,8 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
         preference.save()
         if self.request.user.is_admin:
             system_setting = SystemSetting.load()
-            for field in [
-                "system_name",
-                "timezone",
-                "default_language",
-                "automated_backups",
-            ]:
-                setattr(system_setting, field, form.cleaned_data[field])
-            system_setting.session_timeout = int(form.cleaned_data["session_timeout"])
-            system_setting.save()
-            cache.delete("fmis:session-timeout-minutes")
+            system_setting.automated_backups = form.cleaned_data["automated_backups"]
+            system_setting.save(update_fields=("automated_backups", "updated_at"))
         messages.success(self.request, "Settings saved successfully.")
         return redirect("settings_page:home")
 
@@ -137,11 +121,31 @@ class ManualBackupView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
         try:
             backup = create_verified_backup()
         except Exception:
+            record_request_event(
+                request,
+                title="Backup Failed",
+                module="Security",
+                description="A manual backup attempt failed and requires technical review.",
+                status="Failed",
+                target_label="FMIS recovery backup",
+            )
             messages.error(
                 request,
                 "The backup could not be completed. Review the protected server backup log or ask the technical administrator to check the configuration.",
             )
             return redirect("settings_page:home")
+
+        record_request_event(
+            request,
+            title="Backup Verified",
+            module="Security",
+            description=f"{request.user.display_name} created a verified recovery backup.",
+            target_label=backup.storage_label,
+            details=[
+                {"field": "Off-site copy", "after": "Yes" if backup.offsite else "No"},
+                {"field": "Included media files", "after": backup.media_files},
+            ],
+        )
 
         if backup.offsite:
             messages.success(request, "Backup verified and stored in secure off-site storage.")

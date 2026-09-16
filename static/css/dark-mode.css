@@ -475,3 +475,74 @@ html body[data-theme="dark"] .fmis-page-input{
     background:#23804a!important;
     color:#fff!important
 }
+
+/* Final contrast pass for operational cards, record sections and report controls. */
+html body[data-theme="dark"] :is(
+    .dashboard-card,.planning-mini-card,.compact-actions-card,
+    .record-single-card,.record-single-hero,.record-single-section,
+    .content-card,.management-card,.form-card,.report-card,.report-metric,
+    .report-filter-card,.report-preview,.quick-actions>a,.weather-details>span
+){
+    background:#172230!important;
+    border-color:#405168!important;
+    color:#f1f5f9!important
+}
+html body[data-theme="dark"] :is(
+    .dashboard-card,.record-single-card,.content-card,.report-card
+) :is(h1,h2,h3,h4,strong,b,dt,dd,label,p,span,summary){
+    color:#f1f5f9!important
+}
+html body[data-theme="dark"] :is(
+    .dashboard-card,.record-single-card,.content-card,.report-card
+) :is(small,.mini-card-label,.card-kicker,.technology-label){
+    color:#bdc9d8!important
+}
+html body[data-theme="dark"] .record-single-section>h3{
+    background:#20382b!important;
+    color:#d9f7e4!important;
+    border-color:#476454!important
+}
+html body[data-theme="dark"] .record-single-section>h3 i{
+    background:#294936!important;
+    color:#9be0b3!important
+}
+html body[data-theme="dark"] .record-single-section>.record-data>div{
+    background:transparent!important;
+    border:0!important;
+    border-bottom:1px solid #405168!important;
+    border-radius:0!important;
+    box-shadow:none!important
+}
+html body[data-theme="dark"] :is(.management-filters,.form-grid) :is(input,select,textarea){
+    background:#101923!important;
+    color:#f1f5f9!important;
+    border-color:#53657b!important
+}
+html body[data-theme="dark"] :is(.management-filters,.form-grid) :is(input,textarea)::placeholder{
+    color:#91a1b4!important
+}
+html body[data-theme="dark"] :is(.table-actions,.request-actions) :is(a,button,i){
+    color:#8dc2ff!important
+}
+html body[data-theme="dark"] .mini-card-value{
+    color:#fff!important
+}
+html body[data-theme="dark"] .weather-symbol{
+    background:#3a3218!important;
+    color:#ffc83d!important;
+    border:1px solid #665827!important
+}
+html body[data-theme="dark"] .weather-symbol :is(i,i::before){
+    color:#ffc83d!important
+}
+html body[data-theme="dark"] .report-filter-row>label{
+    background:#214132!important;
+    color:#d8f7e4!important;
+    border-color:#3f8d62!important
+}
+html body[data-theme="dark"] .report-filter-row>select,
+html body[data-theme="dark"] .report-filter-row>.selected-report{
+    background:#101923!important;
+    color:#f1f5f9!important;
+    border-color:#53657b!important
+}

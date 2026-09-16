@@ -1,0 +1,77 @@
+/*
+ * FMIS global shape language
+ *
+ * The interface deliberately uses only two silhouettes:
+ *   1. rectangular/square surfaces (0 radius), and
+ *   2. fully rounded controls and compact indicators (90px radius).
+ *
+ * This file is loaded after page-level styles so older component rules cannot
+ * reintroduce a mixture of unrelated corner radii.
+ */
+:root{
+    --fmis-radius-square:0;
+    --fmis-radius-round:90px;
+    --radius:var(--fmis-radius-square);
+    --ui-radius:var(--fmis-radius-square);
+    --card-radius:var(--fmis-radius-square)
+}
+
+html body *:not(#fmis-shape-specificity),
+html body *:not(#fmis-shape-specificity)::before,
+html body *:not(#fmis-shape-specificity)::after{
+    border-radius:var(--fmis-radius-square)!important
+}
+
+/* Actions and navigation affordances use the single rounded silhouette. */
+html body :is(
+    button,
+    .btn,
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    .page-link,
+    .pagination a,
+    .sidebar nav a,
+    .sidebar-toggle,
+    .notification-btn,
+    .showcase-links a,
+    .hero-location,
+    .hero-secondary,
+    .landing-signin-submit,
+    .catalog-add,
+    .panel-link
+):not(#fmis-shape-specificity){
+    border-radius:var(--fmis-radius-round)!important
+}
+
+/* Compact labels, identities, and icon holders remain circles or capsules. */
+html body :is(
+    .badge,
+    .status,
+    .tag,
+    .chip,
+    .pill,
+    [class*="badge"],
+    [class*="status"],
+    [class*="avatar"],
+    [class*="icon"],
+    input[type="radio"]
+):not(#fmis-shape-specificity){
+    border-radius:var(--fmis-radius-round)!important
+}
+
+/* The map location marker is a round marker, not a rotated teardrop. */
+html body .farmer-pin:not(#fmis-shape-specificity){
+    border-radius:var(--fmis-radius-round)!important;
+    transform:none!important
+}
+
+html body .farmer-pin i:not(#fmis-shape-specificity){
+    transform:none!important
+}
+
+/* Preserve the native distinction between a square checkbox and round radio. */
+html body input[type="checkbox"]:not(#fmis-shape-specificity){
+    border-radius:var(--fmis-radius-square)!important
+}

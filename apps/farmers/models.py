@@ -113,9 +113,34 @@ class Farmer(models.Model):
         return f"F-{self.pk:04d}" if self.pk else "New"
 
     @property
+    def photo_available(self):
+        """Avoid rendering a broken media URL when a legacy file is missing."""
+        if not self.photo or not self.photo.name:
+            return False
+        try:
+            return self.photo.storage.exists(self.photo.name)
+        except (OSError, ValueError):
+            return False
+
+    @property
     def registration_reference(self):
         year = self.submitted_at.year if self.submitted_at else self.created_at.year
         return f"FR-{year}-{self.pk:06d}"
+
+    @property
+    def activities_display(self):
+        labels = {
+            "FARMER_CROPS": "Farmer - Crops", "FARMER_LIVESTOCK": "Farmer - Livestock",
+            "FARMER_POULTRY": "Farmer - Poultry", "WORK_LAND_PREPARATION": "Farm Worker - Land Preparation",
+            "WORK_PLANTING": "Farm Worker - Planting / Transplanting", "WORK_CULTIVATION": "Farm Worker - Cultivation",
+            "WORK_HARVESTING": "Farm Worker - Harvesting", "FISH_CAPTURE": "Fisherfolk - Fish Capture",
+            "FISH_AQUACULTURE": "Fisherfolk - Aquaculture", "FISH_GLEANING": "Fisherfolk - Gleaning",
+            "FISH_PROCESSING": "Fisherfolk - Processing", "FISH_VENDING": "Fisherfolk - Vending",
+            "YOUTH_HOUSEHOLD": "Agri-Youth - Farming Household Member", "YOUTH_FORMAL": "Agri-Youth - Formal Agriculture Course",
+            "YOUTH_NONFORMAL": "Agri-Youth - Non-formal Agriculture Course", "YOUTH_PROGRAM": "Agri-Youth - Agriculture Activity / Program",
+        }
+        values = [value.strip() for value in self.activities.split(",") if value.strip()]
+        return ", ".join(labels.get(value, value.replace("_", " ").title()) for value in values)
 
     @property
     def age(self):
@@ -132,7 +157,7 @@ class Farmer(models.Model):
     @property
     def primary_commodity(self):
         for parcel in self.parcels.all():
-            crop = next(iter(parcel.crops.all()), None)
+            crop = next(iter(parcel.crops.filter(is_active=True)), None)
             if crop:
                 return crop.crop_type
         return "Not recorded"
@@ -154,6 +179,16 @@ class FarmerDocument(models.Model):
     description = models.CharField(max_length=180, blank=True)
     file = models.FileField(upload_to="farm_documents/")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def file_available(self):
+        """Return False for legacy database rows whose uploaded file was removed."""
+        if not self.file or not self.file.name:
+            return False
+        try:
+            return self.file.storage.exists(self.file.name)
+        except (OSError, ValueError):
+            return False
 
     def __str__(self):
         return f"{self.get_document_type_display()} - {self.farmer}"

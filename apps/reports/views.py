@@ -10,6 +10,7 @@ from apps.common.permissions import StaffRequiredMixin
 from apps.common.constants import ROSARIO_BARANGAYS
 from apps.crops.models import CropRecord
 from apps.activity_logs.models import ActivityLog
+from apps.activity_logs.services import record_request_event
 from apps.farmers.models import Farmer
 from apps.service_requests.models import ServiceRequest
 from .analytics import report_metrics, report_preview
@@ -81,7 +82,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             "date_ranges": DATE_RANGES,
             "report_years": range(current_year, current_year - 11, -1),
             "barangays": ROSARIO_BARANGAYS,
-            "commodities": CropRecord.objects.exclude(crop_type="")
+            "commodities": CropRecord.objects.filter(is_active=True).exclude(crop_type="")
             .values_list("crop_type", flat=True)
             .distinct()
             .order_by("crop_type"),
@@ -107,7 +108,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         try:
             generator = generate_system_report if request.user.is_admin else generate_report
-            return generator(
+            response = generator(
                 request.POST.get("report_type", ""),
                 request.POST.get("format", ""),
                 request.POST.get("date_range", ""),
@@ -121,15 +122,32 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
                     "module": request.POST.get("module", ""),
                 },
             )
+            record_request_event(
+                request,
+                title="Report Exported",
+                module="Reports",
+                description=f"{request.user.display_name} exported an FMIS report.",
+                target_label=request.POST.get("report_type", "Unspecified report")[:255],
+                details=[{"field": "Format", "after": request.POST.get("format", "").upper()}],
+            )
+            return response
         except (ValueError, ImportError) as error:
             context = self.get_context_data(form_data=request.POST)
             context["report_error"] = str(error) or "The report could not be generated."
             return self.render_to_response(context, status=400)
 
 
-class FarmerExportView(FMISLoginRequiredMixin, View):
+class FarmerExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
     def get(self, request):
-        return farmers_csv()
+        response = farmers_csv()
+        record_request_event(
+            request,
+            title="Farmer Data Exported",
+            module="Reports",
+            description=f"{request.user.display_name} exported the farmer management list.",
+            target_label="Farmer Management List",
+        )
+        return response
 
 
 class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
@@ -321,12 +339,25 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
     def get(self, request, dataset):
         try:
             title, headers, rows, filters = self._dataset(request, dataset)
-            return generate_table_export(
+            export_format = request.GET.get("format", "csv").lower()
+            response = generate_table_export(
                 title,
                 headers,
                 rows,
-                request.GET.get("format", "csv").lower(),
+                export_format,
                 filters,
             )
+            record_request_event(
+                request,
+                title="Management Data Exported",
+                module="Reports",
+                description=f"{request.user.display_name} exported a filtered management table.",
+                target_label=title,
+                details=[
+                    {"field": "Format", "after": export_format.upper()},
+                    {"field": "Rows", "after": len(rows)},
+                ],
+            )
+            return response
         except (ValueError, ImportError) as error:
             return HttpResponseBadRequest(str(error) or "The table export could not be generated.")

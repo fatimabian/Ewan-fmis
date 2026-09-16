@@ -68,6 +68,35 @@
       color:#69778e;
       margin-bottom:6px
   }
+  .linked-intervention-heading{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:12px
+  }
+  .linked-intervention-heading small{
+      margin:0
+  }
+  .linked-intervention-list{
+      display:grid;
+      gap:8px
+  }
+  .linked-intervention-list a{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 12px;
+      border:1px solid var(--border);
+      border-radius:8px;
+      color:inherit;
+      text-decoration:none
+  }
+  .linked-intervention-list a:hover{
+      border-color:var(--fmis-accent);
+      color:var(--fmis-accent)
+  }
   .detail-actions{
       display:flex;
       justify-content:flex-end;
@@ -121,9 +150,21 @@
           <small>Request Details</small>
           <strong>{{ object.notes|default:"No additional details provided."|linebreaksbr }}</strong>
         </div>
+        <div class="detail-item full">
+          <div class="linked-intervention-heading">
+            <small>Delivered Interventions</small>
+            <a class="btn btn-sm btn-outline-success" href="{% url 'interventions:create' %}?service_request={{ object.pk }}"><i class="bi bi-box2-heart"></i> Record Intervention</a>
+          </div>
+          <div class="linked-intervention-list">
+            {% for intervention in object.interventions.all %}
+              <a href="{% url 'interventions:detail' intervention.pk %}"><span><strong>{{ intervention.reference_id }} · {{ intervention.get_intervention_type_display }}</strong><small>{{ intervention.intervention_date|date:"M d, Y" }} · {{ intervention.description }}</small></span><i class="bi bi-chevron-right"></i></a>
+            {% empty %}<span class="text-muted">No delivered intervention has been linked to this request yet.</span>{% endfor %}
+          </div>
+        </div>
       </div>
       <div class="detail-actions">
         <a class="btn btn-outline-secondary" href="{% url 'service_requests:list' %}">Back</a>
+        <a class="btn btn-outline-success" href="{% url 'service_requests:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
         <a class="btn btn-success" href="{% url 'service_requests:edit' object.pk %}">Edit Request</a>
       </div>
     </section>

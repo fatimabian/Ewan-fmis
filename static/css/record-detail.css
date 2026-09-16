@@ -293,6 +293,15 @@ body[data-theme="dark"] .record-row:hover td{
     color:#fff;
     font-size:22px
 }
+.qr-office-logo{
+    display:block;
+    width:100%;
+    height:100%;
+    padding:3px;
+    object-fit:contain;
+    border-radius:inherit;
+    background:#f5f1df
+}
 .farmer-qr-body{
     display:grid;
     grid-template-columns:250px minmax(0,1fr);
@@ -397,6 +406,93 @@ body[data-theme="dark"] .field-security-banner{
 body[data-theme="dark"] .field-security-banner small{
     color:#bcd8c7!important
 }
+.record-single-card{
+    display:grid;
+    gap:16px;
+    overflow:visible;
+    border:0;
+    background:transparent;
+    box-shadow:none
+}
+.record-single-card .record-single-hero{
+    margin:0;
+    border:1px solid #dbe5df;
+    box-shadow:0 5px 16px rgba(24,51,38,.06)
+}
+.record-single-section{
+    overflow:hidden;
+    padding:0 28px 16px;
+    border:1px solid #dbe5df;
+    background:#fff;
+    box-shadow:0 5px 16px rgba(24,51,38,.05)
+}
+.record-single-section+ .record-single-section{
+    border-top:1px solid #dbe5df
+}
+.record-single-section>h3{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0 -28px 2px;
+    padding:15px 28px;
+    background:#e8f5ed;
+    border-bottom:1px solid #cfe5d7;
+    color:#0b6b3b;
+    font-size:17px
+}
+.record-single-section>h3 i{
+    width:34px;
+    height:34px;
+    display:grid;
+    place-items:center;
+    background:#e9f7ef;
+    color:#07874a
+}
+.record-single-section>.record-data{
+    margin:0;
+    gap:0 30px
+}
+.record-single-section>.record-data>div{
+    padding:14px 2px!important;
+    border:0!important;
+    border-bottom:1px solid #e5ebe7!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important
+}
+.record-single-section>.related-list{
+    margin:0
+}
+body[data-theme="dark"] .record-single-card,
+body[data-theme="dark"] .record-single-card .record-single-hero,
+body[data-theme="dark"] .record-single-section+ .record-single-section{
+    border-color:#354457!important
+}
+body[data-theme="dark"] .record-single-card{
+    background:transparent!important
+}
+body[data-theme="dark"] .record-single-section{
+    background:#172230!important;
+    border-color:#405168!important
+}
+body[data-theme="dark"] .record-single-section>.record-data>div{
+    background:transparent!important;
+    border-color:#354457!important
+}
+body[data-theme="dark"] .record-single-section>h3{
+    color:#d9f7e4!important;
+    background:#20382b!important;
+    border-color:#3e5d49!important
+}
+@media(max-width:650px){
+    .record-single-section{
+        padding:0 16px 14px
+    }
+    .record-single-section>h3{
+        margin:0 -16px 2px;
+        padding:13px 16px
+    }
+}
 @media(max-width:650px){
     .farmer-qr-body{
         grid-template-columns:1fr;
@@ -493,4 +589,28 @@ body[data-theme="dark"] .field-security-banner small{
     .record-cell-link{
         font-size:11px
     }
+}
+
+.history-page-card{
+    padding:0 28px 28px
+}
+.history-record-label{
+    margin:-4px 0 20px;
+    color:var(--text-muted,#64748b)
+}
+.history-page .empty-state{
+    min-height:180px;
+    display:grid;
+    place-content:center;
+    justify-items:center;
+    gap:8px;
+    color:var(--text-muted,#64748b);
+    text-align:center
+}
+.history-page .empty-state i{
+    font-size:28px
+}
+@media(max-width:600px){
+    .history-page-card{padding:0 16px 18px}
+    .history-change-table{min-width:520px}
 }

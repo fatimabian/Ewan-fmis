@@ -59,7 +59,7 @@ a{
 
 .showcase-nav{
     width:min(1380px,calc(100% - 40px));
-    min-height:74px;
+    min-height:62px;
     display:flex;
     align-items:center;
     justify-content:space-between;
@@ -86,6 +86,16 @@ a{
     font-family:"Trebuchet MS",Arial,sans-serif;
     font-size:19px;
     font-weight:800;
+}
+.showcase-brand-logo{
+    display:block;
+    width:30px;
+    height:30px;
+    padding:1px;
+    object-fit:contain;
+    border-radius:9px;
+    background:#f5f1df;
+    box-shadow:0 5px 14px rgba(0,0,0,.2)
 }
 
 .showcase-brand strong,
@@ -302,114 +312,6 @@ a{
     color:#8bd09e;
 }
 
-.scope-carousel{
-    position:relative;
-    z-index:8;
-    width:min(1180px,calc(100% - 40px));
-    height:430px;
-    margin:-34px auto 0;
-    overflow:hidden;
-    border:1px solid var(--landing-line);
-    border-radius:16px;
-    background:#24432f;
-    box-shadow:0 18px 44px rgba(25,56,36,.18);
-}
-
-.scope-slide{
-    position:absolute;
-    inset:0;
-    margin:0;
-    opacity:0;
-    transform:scale(1.025);
-    transition:opacity .65s ease,transform 6.5s ease;
-}
-
-.scope-slide.is-active{
-    opacity:1;
-    transform:scale(1);
-}
-
-.scope-slide:after{
-    content:"";
-    position:absolute;
-    inset:0;
-    background:linear-gradient(0deg,rgba(13,31,20,.72),transparent 58%);
-}
-
-.scope-slide img{
-    width:100%;
-    height:100%;
-    display:block;
-    object-fit:cover;
-}
-
-.scope-slide figcaption{
-    position:absolute;
-    z-index:2;
-    right:115px;
-    bottom:28px;
-    left:30px;
-    color:#fff;
-    font:700 clamp(19px,2.2vw,30px)/1.2 "Trebuchet MS",Arial,sans-serif;
-}
-
-.scope-carousel-controls{
-    position:absolute;
-    z-index:4;
-    right:24px;
-    bottom:23px;
-    display:flex;
-    gap:8px;
-}
-
-.scope-carousel-controls button{
-    width:42px;
-    height:42px;
-    display:grid;
-    place-items:center;
-    border:1px solid rgba(255,255,255,.55);
-    border-radius:50%;
-    background:rgba(25,52,34,.48);
-    color:#fff;
-    cursor:pointer;
-    backdrop-filter:blur(8px);
-}
-
-.scope-dots{
-    position:absolute;
-    z-index:4;
-    top:22px;
-    left:24px;
-    display:flex;
-    gap:7px;
-}
-
-.scope-dots button{
-    width:9px;
-    height:9px;
-    padding:0;
-    border:0;
-    border-radius:999px;
-    background:rgba(255,255,255,.6);
-    cursor:pointer;
-    transition:width .2s ease,background .2s ease;
-}
-
-.scope-dots button.is-active{
-    width:28px;
-    background:#fff;
-}
-
-.hero-carousel-controls{
-    position:absolute;
-    z-index:5;
-    right:28px;
-    bottom:30px;
-    display:flex;
-    gap:8px;
-}
-
-.hero-carousel-controls button,
 .service-controls button{
     width:42px;
     height:42px;
@@ -421,32 +323,6 @@ a{
     color:#fff;
     cursor:pointer;
     backdrop-filter:blur(8px);
-}
-
-.hero-dots{
-    position:absolute;
-    z-index:5;
-    bottom:37px;
-    left:50%;
-    display:flex;
-    gap:7px;
-    transform:translateX(-50%);
-}
-
-.hero-dots button{
-    width:8px;
-    height:8px;
-    padding:0;
-    border:0;
-    border-radius:999px;
-    background:rgba(255,255,255,.55);
-    cursor:pointer;
-    transition:width .2s ease,background .2s ease;
-}
-
-.hero-dots button.is-active{
-    width:28px;
-    background:#fff;
 }
 
 .landing-signin-card{
@@ -722,6 +598,7 @@ a{
     margin:auto;
     overflow-x:auto;
     scroll-snap-type:x mandatory;
+    padding:20px 8px 26px;
     scrollbar-width:none;
 }
 
@@ -732,11 +609,25 @@ a{
 .service-carousel article{
     min-width:min(390px,82vw);
     flex:0 0 min(390px,82vw);
-    scroll-snap-align:start;
+    position:relative;
+    z-index:1;
+    scroll-snap-align:center;
     border:1px solid var(--landing-line);
     border-radius:15px;
     background:var(--landing-surface);
     overflow:hidden;
+    opacity:.78;
+    transform:scale(.94);
+    transform-origin:center;
+    transition:opacity .3s ease,transform .3s ease,box-shadow .3s ease,border-color .3s ease;
+}
+
+.service-carousel article.is-centered{
+    z-index:2;
+    border-color:rgba(22,124,72,.35);
+    box-shadow:0 20px 42px rgba(19,61,37,.16);
+    opacity:1;
+    transform:scale(1.035);
 }
 
 .service-photo-card img{
@@ -1140,7 +1031,15 @@ a{
         width:calc(100% - 32px);
         grid-template-columns:1fr;
         gap:30px;
-        padding:270px 0 25px;
+        padding:110px 0 25px;
+    }
+
+    .landing-signin-card{
+        grid-row:1;
+    }
+
+    .hero-copy{
+        grid-row:2;
     }
 
     .hero-copy h1{
@@ -1149,13 +1048,6 @@ a{
 
     .hero-summary{
         font-size:14px;
-    }
-
-    .hero-caption,
-    .scope-carousel{
-        width:calc(100% - 32px);
-        height:360px;
-        margin-top:-18px;
     }
 
     .landing-signin-card{
@@ -1209,7 +1101,7 @@ a{
     }
 
     .hero-content{
-        padding-top:235px;
+        padding-top:95px;
     }
 
     .landing-signin-card{
@@ -1227,22 +1119,6 @@ a{
 
     .hero-actions{
         display:grid;
-    }
-
-    .scope-carousel{
-        height:290px;
-    }
-
-    .scope-slide figcaption{
-        right:24px;
-        bottom:78px;
-        left:22px;
-        font-size:20px;
-    }
-
-    .scope-carousel-controls{
-        right:18px;
-        bottom:18px;
     }
 
     .landing-assurance{
