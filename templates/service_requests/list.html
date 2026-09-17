@@ -198,6 +198,9 @@
       .request-table-wrap{
           overflow-x:auto
       }
+      .request-table{
+          min-width:1180px
+      }
   }
   @media(max-width:700px){
       .request-toolbar{
@@ -223,27 +226,6 @@
   body[data-theme="dark"] .request-table td{
       color:#edf3fa!important;
       border-color:#354457!important
-  }
-  </style>
-  <style>
-  @media(max-width:700px){
-      .request-table{
-          min-width:0!important;
-          table-layout:fixed
-      }
-      .request-table th,.request-table td{
-          padding:10px 6px!important;
-          font-size:10px!important;
-          white-space:normal!important;
-          overflow-wrap:anywhere
-      }
-      .request-table :is(th,td):nth-child(4),.request-table :is(th,td):nth-child(5),.request-table :is(th,td):nth-child(6),.request-table :is(th,td):nth-child(7),.request-table :is(th,td):nth-child(9),.request-table :is(th,td):nth-child(10){
-          display:none
-      }
-      .request-status{
-          padding:4px 6px!important;
-          font-size:9px!important
-      }
   }
   </style>
   <div class="content request-page">
@@ -282,7 +264,7 @@
        value="{{ request.GET.date }}"
        onchange="this.form.submit()">
       </label>
-      <a class="btn btn-success" href="{% url 'service_requests:create' %}">
+      <a class="btn btn-success btn-add-outline" href="{% url 'service_requests:create' %}">
         <i class="bi bi-plus-lg">
         </i> New Request</a>
       </form>
@@ -326,10 +308,6 @@
                 </td>
                 <td>
                   <div class="request-actions">
-                    <a href="{% url 'interventions:create' %}?service_request={{ item.pk }}"
-                       title="Record intervention for {{ item.request_id }}">
-                      <i class="bi bi-box2-heart"></i>
-                    </a>
                     <a href="{% url 'service_requests:edit' item.pk %}"
                        title="Edit {{ item.request_id }}">
                       <i class="bi bi-pencil-square">

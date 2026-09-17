@@ -11,6 +11,9 @@ from django.urls import reverse
 from django.utils.cache import patch_cache_control, patch_vary_headers
 
 
+REMEMBER_UNTIL_SESSION_KEY = "fmis_remember_until"
+
+
 class SessionTimeoutMiddleware:
     """End authenticated sessions after the administrator's idle-time limit."""
 
@@ -37,6 +40,31 @@ class SessionTimeoutMiddleware:
     def __call__(self, request):
         if request.user.is_authenticated:
             now = int(time.time())
+            remember_until = request.session.get(REMEMBER_UNTIL_SESSION_KEY)
+            if remember_until:
+                try:
+                    remembered_session_expired = now >= int(remember_until)
+                except (TypeError, ValueError):
+                    remembered_session_expired = True
+                if remembered_session_expired:
+                    logout(request)
+                    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                        return JsonResponse(
+                            {"detail": "Your seven-day remembered sign-in has expired."},
+                            status=401,
+                        )
+                    messages.info(
+                        request,
+                        "For your security, please sign in again after seven days.",
+                    )
+                    landing_url = reverse("authentication:landing")
+                    return redirect(
+                        f"{landing_url}?{urlencode({'next': request.get_full_path()})}"
+                    )
+                # A remembered device uses the fixed seven-day limit instead
+                # of the much shorter ordinary idle timeout.
+                request.session[self.SESSION_KEY] = now
+                return self.get_response(request)
             last_activity = request.session.get(self.SESSION_KEY)
             if last_activity and now - int(last_activity) > self._timeout_seconds():
                 logout(request)

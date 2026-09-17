@@ -1020,40 +1020,83 @@ a{
     }
 
     .showcase-hero{
-        padding-bottom:45px;
+        padding-bottom:34px;
     }
 
     .hero-shade{
-        background:linear-gradient(0deg,rgba(7,20,11,.93),rgba(7,20,11,.2) 78%);
+        background:
+            linear-gradient(180deg,rgba(5,18,10,.5),rgba(5,18,10,.74) 48%,rgba(5,18,10,.94)),
+            linear-gradient(90deg,rgba(5,18,10,.48),rgba(5,18,10,.2));
     }
 
     .hero-content{
         width:calc(100% - 32px);
         grid-template-columns:1fr;
-        gap:30px;
-        padding:110px 0 25px;
+        gap:18px;
+        padding:96px 0 18px;
     }
 
     .landing-signin-card{
-        grid-row:1;
-    }
-
-    .hero-copy{
         grid-row:2;
     }
 
+    .hero-copy{
+        grid-row:1;
+        width:100%;
+        max-width:500px;
+        margin:auto;
+        padding:26px 24px;
+        border:1px solid rgba(255,255,255,.2);
+        border-radius:20px;
+        background:linear-gradient(135deg,rgba(5,25,13,.82),rgba(5,25,13,.58));
+        box-shadow:0 18px 42px rgba(0,0,0,.28);
+        backdrop-filter:blur(7px);
+    }
+
     .hero-copy h1{
-        font-size:43px;
+        color:#fff;
+        font-size:clamp(36px,8.5vw,43px);
+        line-height:1.06;
+        text-shadow:0 2px 12px rgba(0,0,0,.34);
     }
 
     .hero-summary{
+        margin:19px 0 22px;
+        color:#f2f7f3;
         font-size:14px;
+        line-height:1.62;
+        text-shadow:0 1px 5px rgba(0,0,0,.45);
+    }
+
+    .hero-overline{
+        color:#aef2c4;
+        text-shadow:0 1px 5px rgba(0,0,0,.5);
+    }
+
+    .hero-location{
+        border-color:rgba(255,255,255,.46);
+        background:rgba(5,20,11,.48);
+        color:#fff;
+    }
+
+    .hero-secondary{
+        border-color:rgba(255,255,255,.58);
+        background:rgba(255,255,255,.12);
+    }
+
+    .hero-caption{
+        margin-top:24px;
+        color:#f0f7f2;
     }
 
     .landing-signin-card{
         max-width:500px;
         width:100%;
         margin:auto;
+        border:1px solid rgba(255,255,255,.7);
+        background:#f3f7f4;
+        box-shadow:0 18px 42px rgba(0,0,0,.25);
+        backdrop-filter:none;
     }
 
     .service-section,
@@ -1101,24 +1144,79 @@ a{
     }
 
     .hero-content{
-        padding-top:95px;
+        width:calc(100% - 24px);
+        padding-top:82px;
     }
 
     .landing-signin-card{
-        padding:25px 20px;
+        padding:26px 20px 22px;
+        border-radius:16px;
+    }
+
+    .landing-signin-heading{
+        margin-bottom:22px;
+    }
+
+    .landing-signin-heading h2{
+        font-size:26px;
+    }
+
+    .landing-signin-heading p{
+        font-size:13px;
     }
 
     .hero-location{
-        margin-bottom:15px;
+        margin-bottom:14px;
+        font-size:10px;
+    }
+
+    .hero-copy{
+        padding:22px 18px;
+        border-radius:16px;
+    }
+
+    .hero-overline{
+        font-size:10px;
+        letter-spacing:.9px;
+        line-height:1.45;
     }
 
     .hero-copy h1{
-        font-size:36px;
+        font-size:clamp(31px,9.5vw,36px);
         letter-spacing:-1px;
     }
 
     .hero-actions{
         display:grid;
+    }
+
+    .hero-actions a{
+        min-height:48px;
+    }
+
+    .hero-caption{
+        align-items:flex-start;
+        margin-top:20px;
+        line-height:1.5;
+    }
+
+    .landing-input-wrap{
+        height:50px;
+        padding:0 14px;
+    }
+
+    .landing-signin-options{
+        align-items:flex-start;
+        flex-direction:column;
+        gap:10px;
+    }
+
+    .landing-signin-submit{
+        min-height:50px;
+    }
+
+    .signin-copyright{
+        margin-top:25px;
     }
 
     .landing-assurance{

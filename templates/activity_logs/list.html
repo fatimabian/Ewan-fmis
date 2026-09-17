@@ -289,7 +289,8 @@
             </div>
             <p class="audit-reason"><strong>Reason:</strong> {{ log.reason|default:'No update reason was recorded for this activity.' }}</p>
             {% if log.details %}
-              <table class="audit-change-table">
+              <div class="universal-table-wrap audit-change-table-wrap">
+              <table class="audit-change-table universal-table">
                 <thead>
                   <tr>
                     <th>Information changed</th>
@@ -307,6 +308,7 @@
                   {% endfor %}
                 </tbody>
               </table>
+              </div>
             {% else %}
               <div class="audit-technical">
                 <span><strong>Action:</strong> {{ log.action }}</span>

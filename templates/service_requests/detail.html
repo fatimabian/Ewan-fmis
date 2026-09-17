@@ -1,172 +1,58 @@
 {% extends base_template %}
-{% block page_title %}
-  Service Request {{ object.request_id }}
-{% endblock %}
-{% block page_subtitle %}
-  Review the complete request information
-{% endblock %}
+{% block page_title %}Service Request {{ object.request_id }}{% endblock %}
+{% block page_subtitle %}Review the complete request information{% endblock %}
 {% block content %}
-  <style>
-  .request-status{
-      display:inline-block;
-      border-radius:20px;
-      padding:6px 13px;
-      font-size:12px!important;
-      font-weight:700
-  }
-  .request-status.pending{
-      background:#d9f7e5;
-      color:#087f49
-  }
-  .request-status.in_progress{
-      background:#dfebff;
-      color:#1765d8
-  }
-  .request-status.completed{
-      background:#e6eaf0;
-      color:#445369
-  }
-  .request-status.cancelled{
-      background:#ffe0e0;
-      color:#d32626
-  }
-  body[data-theme="dark"] .detail-item{
-      background:#253244!important;
-      border-color:#354457!important
-  }
-  </style>
-  <style>
-  .request-detail{
-      max-width:950px;
-      margin:auto
-  }
-  .detail-heading{
-      display:flex;
-      justify-content:space-between;
-      gap:18px;
-      align-items:flex-start
-  }
-  .detail-grid{
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:18px;
-      margin-top:24px
-  }
-  .detail-item{
-      border:1px solid var(--border);
-      background:var(--surface-muted);
-      border-radius:10px;
-      padding:16px
-  }
-  .detail-item.full{
-      grid-column:1/-1
-  }
-  .detail-item small,.detail-item strong{
-      display:block
-  }
-  .detail-item small{
-      color:#69778e;
-      margin-bottom:6px
-  }
-  .linked-intervention-heading{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:12px
-  }
-  .linked-intervention-heading small{
-      margin:0
-  }
-  .linked-intervention-list{
-      display:grid;
-      gap:8px
-  }
-  .linked-intervention-list a{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:10px 12px;
-      border:1px solid var(--border);
-      border-radius:8px;
-      color:inherit;
-      text-decoration:none
-  }
-  .linked-intervention-list a:hover{
-      border-color:var(--fmis-accent);
-      color:var(--fmis-accent)
-  }
-  .detail-actions{
-      display:flex;
-      justify-content:flex-end;
-      gap:10px;
-      margin-top:24px
-  }
-  @media(max-width:650px){
-      .detail-grid{
-          grid-template-columns:1fr
-      }
-      .detail-item.full{
-          grid-column:auto
-      }
-  }
-  </style>
-  <div class="content">
-    <section class="panel request-detail">
-      <div class="detail-heading">
-        <div>
-          <h2>{{ object.subject }}</h2>
-          <p class="text-muted">{{ object.service.name }}</p>
-        </div>
-        <span class="request-status {{ object.status|lower }}">{{ object.get_status_display }}</span>
-      </div>
-      <div class="detail-grid">
-        <div class="detail-item">
-          <small>Farmer</small>
-          <strong>{{ object.farmer.list_name }}</strong>
-        </div>
-        <div class="detail-item">
-          <small>Barangay</small>
-          <strong>{{ object.farmer.barangay }}</strong>
-        </div>
-        <div class="detail-item">
-          <small>Priority</small>
-          <strong>{{ object.get_priority_display }}</strong>
-        </div>
-        <div class="detail-item">
-          <small>Assigned Staff</small>
-          <strong>{{ object.assigned_to.display_name|default:"Unassigned" }}</strong>
-        </div>
-        <div class="detail-item">
-          <small>Date Requested</small>
-          <strong>{{ object.created_at|date:"M d, Y h:i A" }}</strong>
-        </div>
-        <div class="detail-item">
-          <small>Last Updated</small>
-          <strong>{{ object.updated_at|date:"M d, Y h:i A" }}</strong>
-        </div>
-        <div class="detail-item full">
-          <small>Request Details</small>
-          <strong>{{ object.notes|default:"No additional details provided."|linebreaksbr }}</strong>
-        </div>
-        <div class="detail-item full">
-          <div class="linked-intervention-heading">
-            <small>Delivered Interventions</small>
-            <a class="btn btn-sm btn-outline-success" href="{% url 'interventions:create' %}?service_request={{ object.pk }}"><i class="bi bi-box2-heart"></i> Record Intervention</a>
-          </div>
-          <div class="linked-intervention-list">
-            {% for intervention in object.interventions.all %}
-              <a href="{% url 'interventions:detail' intervention.pk %}"><span><strong>{{ intervention.reference_id }} · {{ intervention.get_intervention_type_display }}</strong><small>{{ intervention.intervention_date|date:"M d, Y" }} · {{ intervention.description }}</small></span><i class="bi bi-chevron-right"></i></a>
-            {% empty %}<span class="text-muted">No delivered intervention has been linked to this request yet.</span>{% endfor %}
-          </div>
-        </div>
-      </div>
-      <div class="detail-actions">
-        <a class="btn btn-outline-secondary" href="{% url 'service_requests:list' %}">Back</a>
+  <div class="content record-detail">
+    <div class="record-detail-nav">
+      <a href="{% url 'service_requests:list' %}"><i class="bi bi-arrow-left"></i> Back to Service Requests</a>
+      <div class="record-detail-actions">
         <a class="btn btn-outline-success" href="{% url 'service_requests:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
-        <a class="btn btn-success" href="{% url 'service_requests:edit' object.pk %}">Edit Request</a>
+        <a class="btn btn-outline-success" href="{% url 'service_requests:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Edit Request</a>
       </div>
-    </section>
+    </div>
+    <div class="record-single-card">
+      <header class="record-hero record-single-hero">
+        <div class="record-avatar square"><i class="bi bi-chat-square-text"></i></div>
+        <div class="record-hero-copy">
+          <small>{{ object.request_id }} · {{ object.get_status_display }}</small>
+          <h2>{{ object.subject }}</h2>
+          <p>{{ object.service.name }} · {{ object.farmer.list_name }}</p>
+        </div>
+        <span class="request-status {{ object.status|lower }} record-hero-status">{{ object.get_status_display }}</span>
+      </header>
+      <section class="record-single-section">
+        <h3><i class="bi bi-card-checklist"></i> Request Information</h3>
+        <dl class="record-data">
+          <div><dt>Farmer</dt><dd>{{ object.farmer.list_name }}</dd></div>
+          <div><dt>Barangay</dt><dd>{{ object.farmer.barangay }}</dd></div>
+          <div><dt>Priority</dt><dd>{{ object.get_priority_display }}</dd></div>
+          <div><dt>Assigned Staff</dt><dd>{{ object.assigned_to.display_name|default:"Unassigned" }}</dd></div>
+          <div><dt>Date Requested</dt><dd>{{ object.created_at|date:"M d, Y h:i A" }}</dd></div>
+          <div><dt>Last Updated</dt><dd>{{ object.updated_at|date:"M d, Y h:i A" }}</dd></div>
+        </dl>
+      </section>
+      <section class="record-single-section">
+        <h3><i class="bi bi-file-text"></i> Request Details</h3>
+        <dl class="record-data record-data-single">
+          <div><dt>Details</dt><dd>{{ object.notes|default:"No additional details provided."|linebreaksbr }}</dd></div>
+        </dl>
+      </section>
+      <section class="record-single-section">
+        <h3><i class="bi bi-box2-heart"></i> Delivered Interventions</h3>
+        <div class="record-section-toolbar">
+          <a class="btn btn-sm btn-outline-success" href="{% url 'interventions:create' %}?service_request={{ object.pk }}"><i class="bi bi-plus-lg"></i> Record Intervention</a>
+        </div>
+        <div class="related-list">
+          {% for intervention in object.interventions.all %}
+            <a href="{% url 'interventions:detail' intervention.pk %}">
+              <span><strong>{{ intervention.reference_id }} · {{ intervention.get_intervention_type_display }}</strong><small>{{ intervention.intervention_date|date:"M d, Y" }} · {{ intervention.description }}</small></span>
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          {% empty %}
+            <div class="text-muted">No delivered intervention has been linked to this request yet.</div>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
   </div>
 {% endblock %}

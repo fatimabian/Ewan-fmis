@@ -28,6 +28,7 @@ from .forms import (
 )
 from .models import Farmer, FarmerDocument, FarmerUpdateHistory
 from .history import farmer_snapshot, record_farmer_update
+from .rsbsa_pdf import rsbsa_pdf_response
 from apps.activity_logs.services import record_request_event
 
 FARMER_QR_SALT = "fmis.farmers.field-record.v1"
@@ -160,6 +161,24 @@ class FarmerHistoryView(
             ),
         })
         return context
+
+
+class FarmerRSBSAExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    def get(self, request, pk):
+        farmer = get_object_or_404(
+            Farmer.objects.prefetch_related("parcels__crops"),
+            pk=pk,
+        )
+        response = rsbsa_pdf_response(farmer)
+        record_request_event(
+            request,
+            title="RSBSA Form Exported",
+            module="Reports",
+            description=f"{request.user.display_name} exported one farmer's official RSBSA form.",
+            target_label=farmer.record_id,
+            details=[{"field": "Farmer", "after": farmer.full_name}],
+        )
+        return response
 
 
 class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):

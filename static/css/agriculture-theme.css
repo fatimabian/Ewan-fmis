@@ -2,8 +2,8 @@
 :root{
     --ag-navy:#111c2b;
     --ag-navy-soft:#1e2a3a;
-    --ag-green:#16a34a;
-    --ag-green-deep:#0e7f3b;
+    --ag-green:#2f7d5c;
+    --ag-green-deep:#225e47;
     --ag-mint:#eaf8ef;
     --ag-mint-soft:#f3faf5;
     --ag-gold:#d8a62b;
@@ -17,7 +17,7 @@ body{
     color:var(--ag-ink)
 }
 .app-shell main{
-    background:radial-gradient(circle at 96% 4%,rgba(22,163,74,.075),transparent 22%),#f5f8f6!important
+    background:radial-gradient(circle at 96% 4%,rgba(47,125,92,.075),transparent 22%),#f5f8f6!important
 }
 body,button,input,select,textarea,.btn,table,td,th,label,small,.badge,.status,p{
     font-family:Arial,Helvetica,sans-serif!important;
@@ -65,7 +65,7 @@ body .sidebar{
 }
 .sidebar .brand-mark{
     background:linear-gradient(145deg,var(--fmis-accent),var(--ag-green-deep))!important;
-    box-shadow:0 9px 22px rgba(22,163,74,.28)!important
+    box-shadow:0 9px 22px rgba(47,125,92,.24)!important
 }
 .sidebar .brand small{
     color:#a8b8c9!important
@@ -81,7 +81,7 @@ body .sidebar nav a .bi{
     color:#aebdca!important
 }
 body .sidebar nav a:hover{
-    background:rgba(22,163,74,.16)!important;
+    background:rgba(47,125,92,.16)!important;
     color:#fff!important;
     transform:none!important
 }
@@ -115,7 +115,7 @@ body .app-header{
     background:var(--ag-mint-soft)!important
 }
 .profile-circle{
-    box-shadow:0 5px 15px rgba(22,163,74,.2)
+    box-shadow:0 5px 15px rgba(47,125,92,.18)
 }
 .role-admin .profile-copy small{
     color:#0f8a42!important
@@ -146,7 +146,7 @@ body .app-header{
     bottom:-54px;
     width:135px;
     height:135px;
-    border:18px solid rgba(22,163,74,.045);
+    border:18px solid rgba(47,125,92,.045);
     border-radius:50%;
     transform:rotate(-18deg)
 }
@@ -181,7 +181,7 @@ body .app-header{
     border:1px solid #c8e9d4;
     border-radius:12px;
     background:rgba(255,255,255,.74);
-    color:rgba(22,163,74,.5);
+    color:rgba(47,125,92,.5);
     font-size:21px;
     transform:rotate(-8deg)
 }
@@ -208,7 +208,7 @@ body .app-header{
     width:82px;
     height:82px;
     border-radius:50%;
-    background:rgba(22,163,74,.055)
+    background:rgba(47,125,92,.055)
 }
 .metric-grid i,.report-metric i,.summary-card i{
     background:var(--ag-mint)!important;
@@ -242,7 +242,7 @@ input:not([type=checkbox]):not([type=radio]),select,textarea,.form-control{
 }
 input:focus,select:focus,textarea:focus,.form-control:focus{
     border-color:var(--fmis-accent)!important;
-    box-shadow:0 0 0 3px rgba(22,163,74,.11)!important;
+    box-shadow:0 0 0 3px rgba(47,125,92,.11)!important;
     outline:0
 }
 .btn-success,.catalog-add,.auth-submit{
@@ -478,7 +478,7 @@ body[data-theme="dark"] .leaflet-popup-content :is(h3,strong,span,small,p){
 }
 .farmer-picker:focus-within .farmer-picker-control{
     border-color:var(--fmis-accent);
-    box-shadow:0 0 0 3px rgba(22,163,74,.11)
+    box-shadow:0 0 0 3px rgba(47,125,92,.11)
 }
 .farmer-picker-list{
     position:absolute;
@@ -552,7 +552,7 @@ body[data-theme="dark"] .farmer-picker-option:hover,body[data-theme="dark"] .far
 }
 .farmer-picker-control input:focus{
     border-color:var(--fmis-accent)!important;
-    box-shadow:0 0 0 3px rgba(22,163,74,.11)!important
+    box-shadow:0 0 0 3px rgba(47,125,92,.11)!important
 }
 body[data-theme="dark"] .farmer-picker-control{
     background:transparent!important;
@@ -820,7 +820,7 @@ body[data-theme="dark"] .farmer-picker-control input{
     background:#3b82f6
 }
 .queue-dot.completed{
-    background:#16a34a
+    background:#2f7d5c
 }
 .staff-urgent-note{
     display:flex;

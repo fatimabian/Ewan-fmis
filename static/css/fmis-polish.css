@@ -196,7 +196,7 @@ header{
     font-size:16px!important
 }
 body .sidebar nav a:hover,body .sidebar nav a.active{
-    background:#16a34a!important;
+    background:#2f7d5c!important;
     color:#fff!important;
     transform:translateX(2px)
 }
@@ -217,9 +217,21 @@ body .sidebar nav a:hover,body .sidebar nav a.active{
     justify-content:center;
     gap:10px;
     margin:0!important;
-    background:#ef3b2d!important;
+    background:transparent!important;
+    color:#ff9696!important;
+    border:1.5px solid #d85f5f!important;
     border-radius:8px!important;
-    font-weight:700
+    font-weight:700;
+    box-shadow:none!important
+}
+.sidebar-footer .logout:hover,
+.sidebar-footer .logout:focus-visible{
+    background:rgba(216,95,95,.12)!important;
+    color:#ffc0c0!important;
+    border-color:#ef8585!important
+}
+.sidebar-footer .logout :is(i,span){
+    color:inherit!important
 }
 .app-header{
     height:78px!important;

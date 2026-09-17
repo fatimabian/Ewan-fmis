@@ -40,19 +40,38 @@ def _farmer_chart_scale(peak):
 def dashboard_metrics():
     today = timezone.localdate()
     first_day = today - timedelta(days=6)
-    activity_trend = []
+    day_ranges = []
     for offset in range(7):
         day = first_day + timedelta(days=offset)
-        activity_trend.append(
+        day_ranges.append(
             {
                 "date": day,
                 "label": day.strftime("%a"),
-                "total": ActivityLog.objects.filter(
-                    created_at__gte=_day_boundary(day),
-                    created_at__lt=_day_boundary(day + timedelta(days=1)),
-                ).count(),
             }
         )
+    activity_summary = ActivityLog.objects.aggregate(
+        **{
+            f"day_{offset}": Count(
+                "pk",
+                filter=Q(
+                    created_at__gte=_day_boundary(item["date"]),
+                    created_at__lt=_day_boundary(item["date"] + timedelta(days=1)),
+                ),
+            )
+            for offset, item in enumerate(day_ranges)
+        },
+        failed_events=Count(
+            "pk",
+            filter=(
+                Q(module="Security", created_at__gte=_day_boundary(first_day))
+                & ~Q(status__iexact="Success")
+            ),
+        ),
+    )
+    activity_trend = [
+        {**item, "total": activity_summary[f"day_{offset}"]}
+        for offset, item in enumerate(day_ranges)
+    ]
     peak = max((item["total"] for item in activity_trend), default=0)
     chart_left = 45
     chart_right = 655
@@ -71,23 +90,20 @@ def dashboard_metrics():
     activity_line_points = " ".join(
         f'{item["chart_x"]},{item["chart_y"]}' for item in activity_trend
     )
+    account_summary = CustomUser.objects.aggregate(
+        accounts=Count("pk"),
+        active_accounts=Count("pk", filter=Q(is_active=True)),
+        admins=Count("pk", filter=Q(role="ADMIN", is_active=True)),
+        staff=Count("pk", filter=Q(role="STAFF", is_active=True)),
+        pending_activations=Count("pk", filter=Q(activation_pending=True)),
+        inactive_accounts=Count("pk", filter=Q(is_active=False)),
+    )
     latest_backup = BackupRun.objects.first()
     return {
-        "accounts": CustomUser.objects.count(),
-        "active_accounts": CustomUser.objects.filter(is_active=True).count(),
-        "admins": CustomUser.objects.filter(role="ADMIN", is_active=True).count(),
-        "staff": CustomUser.objects.filter(role="STAFF", is_active=True).count(),
-        "pending_activations": CustomUser.objects.filter(activation_pending=True).count(),
-        "inactive_accounts": CustomUser.objects.filter(is_active=False).count(),
-        "events_today": ActivityLog.objects.filter(
-            created_at__gte=_day_boundary(today),
-            created_at__lt=_day_boundary(today + timedelta(days=1)),
-        ).count(),
+        **account_summary,
+        "events_today": activity_summary["day_6"],
         "failed_events": (
-            ActivityLog.objects.filter(
-                module="Security",
-                created_at__gte=_day_boundary(first_day),
-            ).exclude(status__iexact="Success").count()
+            activity_summary["failed_events"]
             + BackupRun.objects.filter(
                 status="FAILED",
                 started_at__gte=_day_boundary(first_day),
@@ -105,14 +121,6 @@ def dashboard_metrics():
         "backup_scheduler_configured": settings.FMIS_BACKUP_SCHEDULER_CONFIGURED,
         "backup_encryption_configured": bool(settings.FMIS_BACKUP_ENCRYPTION_KEY),
         "backup_offsite_configured": bool(settings.BACKUP_AZURE_CONTAINER_URL),
-        "deployment_mode": "Development" if settings.DEBUG else "Production",
-        "database_label": (
-            "MariaDB / MySQL"
-            if "mysql" in settings.DATABASES["default"]["ENGINE"]
-            else "SQLite development database"
-        ),
-        "email_configured": settings.EMAIL_BACKEND.endswith("smtp.EmailBackend"),
-        "system_version": getattr(settings, "FMIS_RELEASE_VERSION", "Unreleased build"),
     }
 
 
@@ -316,23 +324,33 @@ def staff_dashboard_metrics():
         )
         row["is_largest"] = index == 0
 
+    request_summary = requests.aggregate(
+        pending=Count("pk", filter=Q(status="PENDING")),
+        in_progress=Count("pk", filter=Q(status="IN_PROGRESS")),
+        completed=Count("pk", filter=Q(status="COMPLETED")),
+        open_requests=Count("pk", filter=open_filter),
+        urgent_requests=Count("pk", filter=open_filter & Q(priority="HIGH")),
+        completed_this_month=Count(
+            "pk",
+            filter=Q(status="COMPLETED", updated_at__gte=_day_boundary(current_month)),
+        ),
+    )
     status_counts = {
-        "pending": requests.filter(status="PENDING").count(),
-        "in_progress": requests.filter(status="IN_PROGRESS").count(),
-        "completed": requests.filter(status="COMPLETED").count(),
+        "pending": request_summary["pending"],
+        "in_progress": request_summary["in_progress"],
+        "completed": request_summary["completed"],
     }
-    total_area = rosario_crops.aggregate(total=Sum("area_hectares"))["total"] or 0
+    total_area = sum((row["area"] or 0 for row in recommendation_rows), 0)
+    total_crops = sum(int(row["records"] or 0) for row in recommendation_rows)
     total_farmers = rosario_farmers.count()
     return {
         "farmers": total_farmers,
         "parcels": rosario_parcels.count(),
-        "crops": rosario_crops.count(),
+        "crops": total_crops,
         "area_planted": total_area,
-        "open_requests": requests.filter(open_filter).count(),
-        "urgent_requests": requests.filter(open_filter, priority="HIGH").count(),
-        "completed_this_month": requests.filter(
-            status="COMPLETED", updated_at__gte=_day_boundary(current_month)
-        ).count(),
+        "open_requests": request_summary["open_requests"],
+        "urgent_requests": request_summary["urgent_requests"],
+        "completed_this_month": request_summary["completed_this_month"],
         "request_status": status_counts,
         "crop_chart": crop_rows,
         "crop_chart_ticks": farmer_chart_ticks,

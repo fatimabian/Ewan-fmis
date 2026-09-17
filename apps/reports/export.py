@@ -491,60 +491,203 @@ def _csv_response(title, headers, rows, date_range, filters=None):
 
 
 def _pdf_response(title, headers, rows, date_range, filters=None):
+    from pathlib import Path
+    from xml.sax.saxutils import escape
+
+    from django.conf import settings
     from reportlab.lib import colors
+    from reportlab.lib.enums import TA_LEFT
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import getSampleStyleSheet
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
 
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{_filename(title, "pdf")}"'
     document = SimpleDocTemplate(
         response,
         pagesize=landscape(A4),
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=28,
-        bottomMargin=28,
+        rightMargin=14 * mm,
+        leftMargin=14 * mm,
+        topMargin=31 * mm,
+        bottomMargin=16 * mm,
         title=title,
+        author="Office for Agricultural Services - Rosario, Batangas",
+        subject="FMIS generated management report",
     )
     styles = getSampleStyleSheet()
-    active_filters = (
-        ", ".join(f"{label}: {value}" for label, value in _active_filter_rows(filters)) or "None"
+    generated_at = timezone.localtime()
+    active_filter_rows = _active_filter_rows(filters)
+    active_filters = ", ".join(
+        f"{label}: {value}" for label, value in active_filter_rows
+    ) or "None"
+
+    title_style = ParagraphStyle(
+        "ReportTitle",
+        parent=styles["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=18,
+        leading=22,
+        textColor=colors.HexColor("#153c2a"),
+        alignment=TA_LEFT,
+        spaceAfter=4,
     )
+    subtitle_style = ParagraphStyle(
+        "ReportSubtitle",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=8.5,
+        leading=12,
+        textColor=colors.HexColor("#5f6f66"),
+    )
+    meta_label_style = ParagraphStyle(
+        "MetaLabel",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=6.5,
+        leading=8,
+        textColor=colors.HexColor("#527061"),
+        spaceAfter=2,
+    )
+    meta_value_style = ParagraphStyle(
+        "MetaValue",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=9,
+        leading=11,
+        textColor=colors.HexColor("#18271f"),
+    )
+    header_style = ParagraphStyle(
+        "TableHeader",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=7.2,
+        leading=9,
+        textColor=colors.white,
+        alignment=TA_LEFT,
+    )
+    cell_style = ParagraphStyle(
+        "TableCell",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=7.2,
+        leading=9.2,
+        textColor=colors.HexColor("#17231d"),
+        alignment=TA_LEFT,
+    )
+
+    summary = Table(
+        [[
+            [Paragraph("DATE RANGE", meta_label_style), Paragraph(escape(DATE_RANGES[date_range]), meta_value_style)],
+            [Paragraph("RECORDS", meta_label_style), Paragraph(f"{len(rows):,}", meta_value_style)],
+            [Paragraph("GENERATED", meta_label_style), Paragraph(generated_at.strftime("%b %d, %Y - %I:%M %p"), meta_value_style)],
+        ]],
+        colWidths=[document.width * .30, document.width * .20, document.width * .50],
+    )
+    summary.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f0f7f2")),
+        ("BOX", (0, 0), (-1, -1), .6, colors.HexColor("#c8ddce")),
+        ("INNERGRID", (0, 0), (-1, -1), .4, colors.HexColor("#d7e6db")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 9),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+    ]))
     story = [
-        Paragraph("FMIS - Office for Agricultural Services", styles["Heading2"]),
-        Paragraph(title, styles["Title"]),
-        Paragraph(
-            f"Date range: {DATE_RANGES[date_range]} | Filters: {active_filters} | Generated: {timezone.localtime():%B %d, %Y %I:%M %p}",
-            styles["Normal"],
-        ),
-        Spacer(1, 14),
+        Paragraph(escape(title), title_style),
+        Paragraph("Official FMIS operational report for Rosario, Batangas", subtitle_style),
+        Spacer(1, 8),
+        summary,
+        Spacer(1, 7),
+        Paragraph(f"<b>Applied filters:</b> {escape(active_filters)}", subtitle_style),
+        Spacer(1, 12),
     ]
-    table_data = [headers] + [
-        [str(value if value is not None else "-") for value in row] for row in rows
+
+    string_rows = [[str(value if value not in (None, "") else "-") for value in row] for row in rows]
+    table_data = [[Paragraph(escape(str(header)), header_style) for header in headers]] + [
+        [Paragraph(escape(value), cell_style) for value in row] for row in string_rows
     ]
     if not rows:
         table_data.append(
-            ["No records found for the selected date range."] + [""] * (len(headers) - 1)
+            [Paragraph("No records found for the selected report criteria.", cell_style)]
+            + [Paragraph("", cell_style)] * (len(headers) - 1)
         )
-    table = Table(table_data, repeatRows=1, hAlign="LEFT")
+
+    lengths = []
+    for index, header in enumerate(headers):
+        values = [str(row[index]) for row in string_rows if index < len(row)]
+        sample_length = max([len(str(header)), *(min(len(value), 42) for value in values)] or [8])
+        lengths.append(max(7, min(sample_length, 30)))
+    total_weight = sum(lengths) or 1
+    column_widths = [document.width * weight / total_weight for weight in lengths]
+    table = Table(table_data, colWidths=column_widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#153c2a")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cfded4")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f1f8f3")]),
+                ("GRID", (0, 0), (-1, 0), .4, colors.HexColor("#6e8c7b")),
+                ("LINEBELOW", (0, 1), (-1, -1), .35, colors.HexColor("#d5e2d9")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f4f8f5")]),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, 0), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+                ("TOPPADDING", (0, 1), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
+                ("SPAN", (0, 1), (-1, 1)) if not rows else ("LEFTPADDING", (0, 1), (-1, -1), 7),
             ]
         )
     )
     story.append(table)
-    document.build(story)
+
+    logo_path = Path(settings.BASE_DIR) / "static" / "images" / "brand" / "fmis-logo.png"
+
+    def decorate_page(canvas, doc):
+        page_width, page_height = landscape(A4)
+        canvas.saveState()
+        canvas.setFillColor(colors.HexColor("#112f23"))
+        canvas.rect(0, page_height - 24 * mm, page_width, 24 * mm, fill=1, stroke=0)
+        if logo_path.exists():
+            canvas.drawImage(
+                str(logo_path),
+                14 * mm,
+                page_height - 20.5 * mm,
+                15 * mm,
+                15 * mm,
+                preserveAspectRatio=True,
+                anchor="c",
+                mask="auto",
+            )
+        canvas.setFillColor(colors.white)
+        canvas.setFont("Helvetica-Bold", 12)
+        canvas.drawString(33 * mm, page_height - 10.5 * mm, "OFFICE FOR AGRICULTURAL SERVICES")
+        canvas.setFont("Helvetica", 8)
+        canvas.setFillColor(colors.HexColor("#d6e8dc"))
+        canvas.drawString(33 * mm, page_height - 15 * mm, "Municipality of Rosario, Batangas")
+        canvas.drawString(33 * mm, page_height - 19 * mm, "Farmer Management Information System")
+        canvas.setFillColor(colors.HexColor("#d8a62a"))
+        canvas.rect(0, page_height - 24.7 * mm, page_width, .7 * mm, fill=1, stroke=0)
+
+        canvas.setStrokeColor(colors.HexColor("#c8d8cd"))
+        canvas.setLineWidth(.5)
+        canvas.line(14 * mm, 12 * mm, page_width - 14 * mm, 12 * mm)
+        canvas.setFillColor(colors.HexColor("#607067"))
+        canvas.setFont("Helvetica", 7)
+        canvas.drawString(14 * mm, 8 * mm, "FMIS generated report - For authorized municipal use")
+        canvas.drawRightString(page_width - 14 * mm, 8 * mm, f"Page {doc.page}")
+        canvas.restoreState()
+
+    document.build(story, onFirstPage=decorate_page, onLaterPages=decorate_page)
     return response
 
 

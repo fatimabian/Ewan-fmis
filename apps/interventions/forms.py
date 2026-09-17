@@ -13,14 +13,14 @@ class InterventionForm(forms.ModelForm):
         fields = [
             "farmer", "service_request", "intervention_type", "intervention_date",
             "description", "quantity", "unit", "estimated_value", "funding_source",
-            "provider", "remarks", "is_active",
+            "provider", "remarks",
         ]
         widgets = {
             "intervention_date": forms.DateInput(attrs={"type": "date"}),
             "description": forms.TextInput(attrs={"placeholder": "Describe what was provided"}),
             "remarks": forms.Textarea(attrs={"rows": 3}),
         }
-        labels = {"is_active": "Active record", "service_request": "Related service request (optional)"}
+        labels = {"service_request": "Related service request (optional)"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

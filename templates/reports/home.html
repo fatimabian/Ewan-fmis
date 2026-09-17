@@ -824,7 +824,7 @@
                 <h3>{{ template.title }}</h3>
                 <p>{{ template.description }}</p>
               </div>
-              <form class="admin-report-actions" method="post">
+              <form class="admin-report-actions" method="post" data-download-form>
                 {% csrf_token %}
                 <input type="hidden" name="report_type" value="{{ template.key }}">
                 <input type="hidden" name="date_range" value="all">
@@ -1114,7 +1114,8 @@
               </div>
               <div>
                 <h4>Recent Requests</h4>
-                <table class="recent-requests-table">
+                <div class="universal-table-wrap recent-requests-table-wrap">
+                <table class="recent-requests-table universal-table">
                   <thead>
                     <tr>
                       <th>Farmer</th>
@@ -1140,6 +1141,7 @@
                     {% endfor %}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           </div>

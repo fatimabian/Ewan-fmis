@@ -53,6 +53,11 @@ class InterventionModuleTests(TestCase):
         archived = self.client.get(reverse("interventions:list"), {"status": "archived"})
         self.assertContains(archived, intervention.reference_id)
 
+    def test_active_status_is_managed_only_by_archive_actions(self):
+        from .forms import InterventionForm
+
+        self.assertNotIn("is_active", InterventionForm().fields)
+
     def test_admin_is_kept_out_of_operational_intervention_pages(self):
         self.client.force_login(self.admin)
         response = self.client.get(reverse("interventions:list"))

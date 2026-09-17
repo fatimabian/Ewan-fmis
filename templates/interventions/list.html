@@ -10,17 +10,17 @@
 .intervention-toolbar .btn{height:50px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 22px;white-space:nowrap;font-weight:700}
 .intervention-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto;box-shadow:var(--shadow)}
 .intervention-table{width:100%;border-collapse:collapse;table-layout:fixed!important}
-.intervention-table th{background:var(--surface-muted);padding:15px 12px;border-bottom:1px solid var(--border);line-height:1.3}
+.app-shell .intervention-table thead th{background:var(--surface-muted);padding:14px 10px!important;border-bottom:1px solid var(--border);line-height:1.2;white-space:normal!important;overflow-wrap:normal;word-break:normal;vertical-align:middle}
 .intervention-table td{padding:15px 12px;border-bottom:1px solid var(--border);vertical-align:middle;overflow-wrap:anywhere}
 .intervention-table small{display:block;color:#6b7890;margin-top:3px}
-.intervention-table :is(th,td):nth-child(1){width:8%}.intervention-table :is(th,td):nth-child(2){width:10%}.intervention-table :is(th,td):nth-child(3){width:9%}.intervention-table :is(th,td):nth-child(4){width:14%}.intervention-table :is(th,td):nth-child(5){width:12%}.intervention-table :is(th,td):nth-child(6){width:20%}.intervention-table :is(th,td):nth-child(7){width:9%}.intervention-table :is(th,td):nth-child(8){width:8%;text-align:center}.intervention-table :is(th,td):nth-child(9){width:10%;text-align:center}
+.intervention-table :is(th,td):nth-child(1){width:8%}.intervention-table :is(th,td):nth-child(2){width:10%}.intervention-table :is(th,td):nth-child(3){width:9%}.intervention-table :is(th,td):nth-child(4){width:18%}.intervention-table :is(th,td):nth-child(5){width:27%}.intervention-table :is(th,td):nth-child(6){width:10%}.intervention-table :is(th,td):nth-child(7){width:9%;text-align:center}.intervention-table :is(th,td):nth-child(8){width:9%;text-align:center}
 .intervention-status{display:inline-block;border-radius:20px;padding:5px 12px;font-size:12px!important;font-weight:700;white-space:nowrap}
 .intervention-status.active{background:#d9f7e5;color:#087f49}.intervention-status.archived{background:#e6eaf0;color:#445369}
 .intervention-actions{display:flex;gap:9px;align-items:center;justify-content:center}.intervention-actions a,.intervention-actions button{border:0;background:transparent;color:#086cff;font-size:18px;padding:2px}.intervention-actions button{color:#e22323}
 .intervention-footer{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
 body[data-theme="dark"] .intervention-table-wrap,body[data-theme="dark"] .intervention-toolbar input,body[data-theme="dark"] .intervention-toolbar select{background:#1c2735!important;color:#edf3fa!important;border-color:#354457!important}
 body[data-theme="dark"] .intervention-table th{background:#253244!important;color:#edf3fa!important}body[data-theme="dark"] .intervention-table td{color:#edf3fa!important;border-color:#354457!important}
-@media(max-width:1100px){.intervention-toolbar{grid-template-columns:repeat(2,1fr)}.intervention-table{min-width:980px}}
+@media(max-width:1100px){.intervention-toolbar{grid-template-columns:repeat(2,1fr)}.intervention-table{min-width:1000px}}
 @media(max-width:700px){.intervention-toolbar{grid-template-columns:1fr}.intervention-footer{align-items:flex-start;flex-direction:column;gap:12px}}
 </style>
 <div class="content intervention-page">
@@ -28,11 +28,11 @@ body[data-theme="dark"] .intervention-table th{background:#253244!important;colo
     <label>Search Intervention<input name="q" value="{{ request.GET.q }}" placeholder="Reference, farmer, RSBSA or description"></label>
     <label>Intervention Type<select name="type" onchange="this.form.submit()"><option value="">All types</option>{% for value,label in type_choices %}<option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
     <label>Record Status<select name="status" onchange="this.form.submit()"><option value="active" {% if request.GET.status != 'archived' and request.GET.status != 'all' %}selected{% endif %}>Active</option><option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option><option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All</option></select></label>
-    <a class="btn btn-success" href="{% url 'interventions:create' %}"><i class="bi bi-plus-lg"></i> New Intervention</a>
+    <a class="btn btn-success btn-add-outline" href="{% url 'interventions:create' %}"><i class="bi bi-plus-lg"></i> New Intervention</a>
   </form>
   <div class="intervention-table-wrap universal-table-wrap">
     <table class="intervention-table universal-table">
-      <thead><tr><th>ID</th><th>Date</th><th>Farmer ID</th><th>Farmer Name</th><th>Related Request</th><th>Intervention</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th>ID</th><th>Date</th><th>Farmer<br>ID</th><th>Farmer<br>Name</th><th>Intervention</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
       {% for item in object_list %}
         <tr class="record-row" data-record-url="{% url 'interventions:detail' item.pk %}" tabindex="0">
@@ -40,13 +40,12 @@ body[data-theme="dark"] .intervention-table th{background:#253244!important;colo
           <td>{{ item.intervention_date|date:"M d, Y" }}</td>
           <td>{{ item.farmer.record_id }}</td>
           <td>{{ item.farmer.list_name }}<small>{{ item.farmer.barangay }}</small></td>
-          <td>{% if item.service_request %}<a href="{% url 'service_requests:detail' item.service_request.pk %}">{{ item.service_request.request_id }}</a>{% else %}<span class="text-muted">Not linked</span>{% endif %}</td>
           <td>{{ item.get_intervention_type_display }}<small>{{ item.description }}</small></td>
           <td>{% if item.quantity != None %}{{ item.quantity|floatformat:2 }} {{ item.unit }}{% else %}—{% endif %}</td>
           <td><span class="intervention-status {% if item.is_active %}active{% else %}archived{% endif %}">{% if item.is_active %}Active{% else %}Archived{% endif %}</span></td>
           <td><div class="intervention-actions"><a href="{% url 'interventions:edit' item.pk %}" title="Edit {{ item.reference_id }}"><i class="bi bi-pencil-square"></i></a><form method="post" action="{% url 'interventions:archive' item.pk %}" data-confirm="{% if item.is_active %}Archive{% else %}Restore{% endif %} {{ item.reference_id }}?">{% csrf_token %}<input type="hidden" name="action" value="{% if item.is_active %}archive{% else %}restore{% endif %}"><button type="submit" title="{% if item.is_active %}Archive{% else %}Restore{% endif %}"><i class="bi {% if item.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}"></i></button></form></div></td>
         </tr>
-      {% empty %}<tr><td colspan="9" class="text-center py-5">No interventions matched your filters.</td></tr>{% endfor %}
+      {% empty %}<tr><td colspan="8" class="text-center py-5">No interventions matched your filters.</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

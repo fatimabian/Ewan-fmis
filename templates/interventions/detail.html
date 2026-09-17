@@ -2,55 +2,51 @@
 {% block page_title %}Intervention {{ object.reference_id }}{% endblock %}
 {% block page_subtitle %}Review assistance delivered to the registered farmer{% endblock %}
 {% block content %}
-<style>
-.intervention-detail{max-width:950px;margin:auto}
-.intervention-heading{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
-.intervention-heading p{margin-bottom:0}
-.intervention-status{display:inline-block;padding:6px 13px;border-radius:20px;font-size:12px!important;font-weight:700;white-space:nowrap}
-.intervention-status.active{background:#d9f7e5;color:#087f49}
-.intervention-status.archived{background:#e6eaf0;color:#445369}
-.intervention-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:24px}
-.intervention-item{border:1px solid var(--border);background:var(--surface-muted);border-radius:10px;padding:16px;min-width:0}
-.intervention-item.full{grid-column:1/-1}
-.intervention-item small,.intervention-item strong{display:block}
-.intervention-item small{color:#69778e;margin-bottom:6px}
-.intervention-item strong{overflow-wrap:anywhere}
-.intervention-item a{font-weight:800;text-decoration:none}
-.intervention-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:24px}
-body[data-theme="dark"] .intervention-item{background:#253244!important;border-color:#354457!important}
-@media(max-width:650px){.intervention-grid{grid-template-columns:1fr}.intervention-item.full{grid-column:auto}.intervention-actions>a{flex:1;text-align:center}}
-</style>
-<div class="content">
-  <section class="panel intervention-detail">
-    <div class="intervention-heading">
-      <div>
-        <h2>{{ object.get_intervention_type_display }}</h2>
-        <p class="text-muted">{{ object.farmer.list_name }} · {{ object.intervention_date|date:"F d, Y" }}</p>
+  <div class="content record-detail">
+    <div class="record-detail-nav">
+      <a href="{% url 'interventions:list' %}"><i class="bi bi-arrow-left"></i> Back to Interventions</a>
+      <div class="record-detail-actions">
+        <a class="btn btn-outline-success" href="{% url 'interventions:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
+        {% if object.is_active %}<a class="btn btn-outline-success" href="{% url 'interventions:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Edit Intervention</a>{% endif %}
       </div>
-      <span class="intervention-status {% if object.is_active %}active{% else %}archived{% endif %}">{% if object.is_active %}Active{% else %}Archived{% endif %}</span>
     </div>
-    <div class="intervention-grid">
-      <div class="intervention-item"><small>Farmer</small><strong>{{ object.farmer.list_name }}</strong></div>
-      <div class="intervention-item"><small>Farmer ID</small><strong>{{ object.farmer.record_id }}</strong></div>
-      <div class="intervention-item"><small>Barangay</small><strong>{{ object.farmer.barangay }}</strong></div>
-      <div class="intervention-item">
-        <small>Related Service Request</small>
-        <strong>{% if object.service_request %}<a href="{% url 'service_requests:detail' object.service_request.pk %}">{{ object.service_request.request_id }} · {{ object.service_request.subject }}</a>{% else %}Not linked{% endif %}</strong>
-      </div>
-      <div class="intervention-item full"><small>Description</small><strong>{{ object.description }}</strong></div>
-      <div class="intervention-item"><small>Quantity</small><strong>{% if object.quantity != None %}{{ object.quantity|floatformat:2 }} {{ object.unit }}{% else %}Not recorded{% endif %}</strong></div>
-      <div class="intervention-item"><small>Estimated Value</small><strong>{% if object.estimated_value != None %}₱{{ object.estimated_value|floatformat:2 }}{% else %}Not recorded{% endif %}</strong></div>
-      <div class="intervention-item"><small>Provider</small><strong>{{ object.provider }}</strong></div>
-      <div class="intervention-item"><small>Funding Source</small><strong>{{ object.funding_source|default:"Not recorded" }}</strong></div>
-      <div class="intervention-item"><small>Recorded By</small><strong>{% if object.recorded_by %}{{ object.recorded_by.display_name }}{% else %}System{% endif %}</strong></div>
-      <div class="intervention-item"><small>Last Updated</small><strong>{{ object.updated_at|date:"M d, Y h:i A" }}</strong></div>
-      <div class="intervention-item full"><small>Remarks</small><strong>{{ object.remarks|default:"No remarks recorded."|linebreaksbr }}</strong></div>
+    <div class="record-single-card">
+      <header class="record-hero record-single-hero">
+        <div class="record-avatar square"><i class="bi bi-box2-heart"></i></div>
+        <div class="record-hero-copy">
+          <small>{{ object.reference_id }} · {% if object.is_active %}Active intervention{% else %}Archived intervention{% endif %}</small>
+          <h2>{{ object.get_intervention_type_display }}</h2>
+          <p>{{ object.farmer.list_name }} · {{ object.intervention_date|date:"F d, Y" }}</p>
+        </div>
+        <span class="intervention-status {% if object.is_active %}active{% else %}archived{% endif %} record-hero-status">{% if object.is_active %}Active{% else %}Archived{% endif %}</span>
+      </header>
+      <section class="record-single-section">
+        <h3><i class="bi bi-person-vcard"></i> Farmer &amp; Request Reference</h3>
+        <dl class="record-data">
+          <div><dt>Farmer</dt><dd>{{ object.farmer.list_name }}</dd></div>
+          <div><dt>Farmer ID</dt><dd>{{ object.farmer.record_id }}</dd></div>
+          <div><dt>Barangay</dt><dd>{{ object.farmer.barangay }}</dd></div>
+          <div><dt>Related Service Request</dt><dd>{% if object.service_request %}<a href="{% url 'service_requests:detail' object.service_request.pk %}">{{ object.service_request.request_id }} · {{ object.service_request.subject }}</a>{% else %}Not linked{% endif %}</dd></div>
+        </dl>
+      </section>
+      <section class="record-single-section">
+        <h3><i class="bi bi-box-seam"></i> Intervention Information</h3>
+        <dl class="record-data">
+          <div class="record-data-wide"><dt>Description</dt><dd>{{ object.description }}</dd></div>
+          <div><dt>Quantity</dt><dd>{% if object.quantity != None %}{{ object.quantity|floatformat:2 }} {{ object.unit }}{% else %}Not recorded{% endif %}</dd></div>
+          <div><dt>Estimated Value</dt><dd>{% if object.estimated_value != None %}₱{{ object.estimated_value|floatformat:2 }}{% else %}Not recorded{% endif %}</dd></div>
+          <div><dt>Provider</dt><dd>{{ object.provider }}</dd></div>
+          <div><dt>Funding Source</dt><dd>{{ object.funding_source|default:"Not recorded" }}</dd></div>
+        </dl>
+      </section>
+      <section class="record-single-section">
+        <h3><i class="bi bi-journal-check"></i> Record Details</h3>
+        <dl class="record-data">
+          <div><dt>Recorded By</dt><dd>{% if object.recorded_by %}{{ object.recorded_by.display_name }}{% else %}System{% endif %}</dd></div>
+          <div><dt>Last Updated</dt><dd>{{ object.updated_at|date:"M d, Y h:i A" }}</dd></div>
+          <div class="record-data-wide"><dt>Remarks</dt><dd>{{ object.remarks|default:"No remarks recorded."|linebreaksbr }}</dd></div>
+        </dl>
+      </section>
     </div>
-    <div class="intervention-actions">
-      <a class="btn btn-outline-secondary" href="{% url 'interventions:list' %}">Back</a>
-      <a class="btn btn-outline-success" href="{% url 'interventions:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
-      {% if object.is_active %}<a class="btn btn-success" href="{% url 'interventions:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Edit Intervention</a>{% endif %}
-    </div>
-  </section>
-</div>
+  </div>
 {% endblock %}

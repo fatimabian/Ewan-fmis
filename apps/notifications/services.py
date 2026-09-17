@@ -12,6 +12,62 @@ logger = logging.getLogger(__name__)
 STAFF_MODULES = {"Farmers", "Farm Parcels", "Crops", "Service Requests"}
 ADMIN_MODULES = {"User Accounts"}
 
+RECORD_LABELS = {
+    "Farmers": "farmer record",
+    "Farm Parcels": "farm parcel",
+    "Crops": "crop record",
+    "Service Requests": "service request",
+    "User Accounts": "user account",
+}
+
+
+def _actor_name(activity):
+    return activity.actor.display_name if activity.actor else "The system"
+
+
+def _notification_copy(activity):
+    """Translate audit details into short, non-technical notification text."""
+    title = (activity.title or "").casefold()
+    actor_name = _actor_name(activity)
+
+    if activity.module == "Security" or activity.status.casefold() != "success":
+        if "access denied" in title:
+            return (
+                "Restricted page blocked",
+                f"{actor_name} tried to open a page that is not available for their account. No changes were made.",
+            )
+        if "sign-in blocked" in title:
+            return (
+                "Sign-in temporarily blocked",
+                "Several incorrect sign-in attempts were blocked. No account access was granted.",
+            )
+        if "failed sign-in" in title:
+            return (
+                "Unsuccessful sign-in",
+                "Someone entered incorrect sign-in details. No account access was granted.",
+            )
+        return (
+            "Action needs attention",
+            activity.description or "An action could not be completed. Open the activity page for more information.",
+        )
+
+    record_label = RECORD_LABELS.get(activity.module, "record")
+    if "created" in title:
+        verb = "created"
+    elif "archived" in title:
+        verb = "archived"
+    elif "restored" in title:
+        verb = "restored"
+    else:
+        verb = "updated"
+
+    target = (activity.target_label or "").strip()
+    if target and not target.startswith("/"):
+        message = f"{actor_name} {verb} the {record_label} for {target}."
+    else:
+        message = f"{actor_name} {verb} a {record_label}."
+    return activity.title or f"{record_label.title()} updated", message
+
 
 def create_activity_notifications(activity):
     """Create privacy-safe notices for meaningful, successful audited changes."""
@@ -36,19 +92,15 @@ def create_activity_notifications(activity):
     if activity.actor_id:
         recipients = recipients.exclude(pk=activity.actor_id)
 
-    actor_name = activity.actor.display_name if activity.actor else "The system"
-    if activity.target_label:
-        message = f"{activity.target_label}'s record was updated by {actor_name}."
-    else:
-        message = f"{actor_name} completed an update in {activity.module}."
+    title, message = _notification_copy(activity)
     secure_url = f'{reverse("activity_logs:list")}?highlight={activity.pk}#activity-{activity.pk}'
 
     notifications = [
         Notification(
             recipient=recipient,
             source_activity=activity,
-            title=activity.title or "System update",
-            message=message,
+            title=title,
+            message=message[:255],
             category=category,
             url=secure_url,
         )

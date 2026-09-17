@@ -546,3 +546,84 @@ html body[data-theme="dark"] .report-filter-row>.selected-report{
     color:#f1f5f9!important;
     border-color:#53657b!important
 }
+
+/*
+ * Operational badge standard.
+ * Broad dark-mode typography rules previously forced every badge label to
+ * white, including labels on pale yellow/green/red backgrounds. Use dark
+ * tinted surfaces with explicit high-contrast text across every management
+ * table and detail page.
+ */
+html body[data-theme="dark"] .app-shell :is(
+    .priority-badge,
+    .request-status,
+    .intervention-status,
+    .farmer-status,
+    .parcel-status,
+    .crop-status
+){
+    border:1px solid transparent!important;
+    border-radius:90px!important;
+    box-shadow:none!important;
+    font-weight:800!important
+}
+
+html body[data-theme="dark"] .app-shell :is(.priority-badge.low,.request-status.pending,.intervention-status.active,.farmer-status.active,.parcel-status,.crop-status.harvested){
+    background:#173a2a!important;
+    color:#9be6b7!important;
+    border-color:#34664b!important
+}
+
+html body[data-theme="dark"] .app-shell .priority-badge.medium{
+    background:#493b18!important;
+    color:#ffdc83!important;
+    border-color:#79652d!important
+}
+
+html body[data-theme="dark"] .app-shell .crop-status:not(.harvested){
+    background:#493b18!important;
+    color:#ffdc83!important;
+    border-color:#79652d!important
+}
+
+html body[data-theme="dark"] .app-shell :is(.priority-badge.high,.request-status.cancelled,.parcel-status.inactive){
+    background:#48232a!important;
+    color:#ffb8c1!important;
+    border-color:#78414b!important
+}
+
+html body[data-theme="dark"] .app-shell .request-status.in_progress{
+    background:#1c3554!important;
+    color:#a9ceff!important;
+    border-color:#3d628e!important
+}
+
+html body[data-theme="dark"] .app-shell :is(.request-status.completed,.intervention-status.archived,.farmer-status.archived,.crop-status.archived){
+    background:#334155!important;
+    color:#e7edf5!important;
+    border-color:#5b6c82!important
+}
+
+html body[data-theme="dark"] .app-shell :is(
+    .priority-badge,
+    .request-status,
+    .intervention-status,
+    .farmer-status,
+    .parcel-status,
+    .crop-status
+) :is(span,strong,b,small,i){
+    color:inherit!important
+}
+
+/* Keep the selected appearance mode unmistakable in dark mode. */
+html body[data-theme="dark"] .app-shell .theme-choice:has(input:checked){
+    background:#18362a!important;
+    color:#c8ecd9!important;
+    border-color:#65a989!important;
+    box-shadow:0 0 0 3px #65a98938!important
+}
+
+html body[data-theme="dark"] .app-shell .theme-choice:has(input:checked):after{
+    background:#65a989!important;
+    color:#10251a!important
+}

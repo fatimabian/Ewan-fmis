@@ -3,7 +3,7 @@
  * Every module table inherits these rules so spacing, typography, states,
  * actions, pagination, dark mode, and mobile behavior stay consistent.
  */
-.app-shell .table-panel, .app-shell .universal-table-wrap, .app-shell .farmer-table-wrap, .app-shell .parcel-table-wrap, .app-shell .crop-table-wrap, .app-shell .request-table-wrap, .app-shell .activity-table{
+.app-shell .table-panel, .app-shell .universal-table-wrap, .app-shell .farmer-table-wrap, .app-shell .parcel-table-wrap, .app-shell .crop-table-wrap, .app-shell .request-table-wrap, .app-shell .activity-table, .app-shell .history-change-table-wrap{
     width:100%;
     max-width:100%;
     overflow-x:auto;
@@ -194,6 +194,46 @@ body[data-theme="dark"] .table-export-popover select{
         width:auto
     }
 }
+
+/* Keep data columns readable at every viewport width. The wrapper, rather
+ * than the table, owns horizontal scrolling so columns never get crushed. */
+.app-shell :is(.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.intervention-table-wrap,.report-table-wrap,.history-change-table-wrap,.audit-change-table-wrap,.recent-requests-table-wrap){
+    width:100%;
+    max-width:100%;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior-inline:contain;
+    touch-action:pan-x pan-y;
+    scrollbar-width:thin;
+    scrollbar-color:#6f9b86 #e7efe9
+}
+.app-shell :is(.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.intervention-table-wrap,.report-table-wrap,.history-change-table-wrap,.audit-change-table-wrap,.recent-requests-table-wrap)>table{
+    width:max-content!important;
+    min-width:100%!important;
+    table-layout:auto!important
+}
+.app-shell .farmer-table{min-width:1050px!important}
+.app-shell .parcel-table{min-width:960px!important}
+.app-shell .crop-table{min-width:960px!important}
+.app-shell .request-table{min-width:1180px!important}
+.app-shell .intervention-table{min-width:1000px!important}
+.app-shell .account-table{min-width:820px!important}
+.app-shell :is(.report-preview-table,.recent-requests-table){min-width:760px!important}
+.app-shell :is(.history-change-table,.audit-change-table){min-width:720px!important}
+.app-shell .universal-table :is(th,td){
+    white-space:nowrap!important;
+    word-break:normal!important
+}
+.app-shell .universal-table td :is(small,.cell-description){
+    display:block;
+    min-width:160px;
+    max-width:270px;
+    white-space:normal!important
+}
+body[data-theme="dark"] .app-shell :is(.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.intervention-table-wrap,.report-table-wrap,.history-change-table-wrap,.audit-change-table-wrap,.recent-requests-table-wrap){
+    scrollbar-color:#60758d #172230
+}
 .table-count-summary{
     display:inline-flex;
     align-items:baseline;
@@ -231,20 +271,50 @@ body[data-theme="dark"] .app-shell table tbody tr:hover{
     background:#223041!important
 }
 @media(max-width:900px){
-    .app-shell .table-panel,.app-shell .farmer-table-wrap,.app-shell .parcel-table-wrap,.app-shell .crop-table-wrap,.app-shell .request-table-wrap,.app-shell .activity-table{
+    .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap){
         overflow-x:auto!important;
-        -webkit-overflow-scrolling:touch
+        overflow-y:hidden!important;
+        -webkit-overflow-scrolling:touch;
+        overscroll-behavior-inline:contain;
+        touch-action:pan-x pan-y;
+        scrollbar-width:thin;
+        scrollbar-color:#6f9b86 #e7efe9;
+        scrollbar-gutter:stable
     }
-    .app-shell table{
-        min-width:760px
+    .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap)::-webkit-scrollbar{
+        height:11px
     }
-    .app-shell table th,.app-shell table td{
+    .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap)::-webkit-scrollbar-track{
+        background:#e7efe9
+    }
+    .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap)::-webkit-scrollbar-thumb{
+        background:#6f9b86;
+        border:2px solid #e7efe9;
+        border-radius:90px
+    }
+    .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap)>table{
+        width:100%!important;
+        min-width:960px!important;
+        table-layout:auto!important
+    }
+    .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap) table :is(th,td){
+        display:table-cell!important;
         white-space:nowrap!important
     }
     .app-shell table td.subject-cell{
         white-space:normal!important;
         min-width:210px
     }
+}
+body[data-theme="dark"] .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap){
+    scrollbar-color:#60758d #172230
+}
+body[data-theme="dark"] .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap)::-webkit-scrollbar-track{
+    background:#172230
+}
+body[data-theme="dark"] .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.report-table-wrap,.history-change-table-wrap)::-webkit-scrollbar-thumb{
+    background:#60758d;
+    border-color:#172230
 }
 @media(max-width:600px){
     .app-shell table thead th,.app-shell table tr:first-child th,.app-shell table tbody td,.app-shell table tr:not(:first-child) td{

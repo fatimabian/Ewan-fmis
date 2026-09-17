@@ -1,15 +1,3 @@
-function applyAccentColor(color) {
-  const hex = color.replace("#", "");
-  if (hex.length !== 6) return;
-  const red = parseInt(hex.slice(0, 2), 16);
-  const green = parseInt(hex.slice(2, 4), 16);
-  const blue = parseInt(hex.slice(4, 6), 16);
-  const brightness = (red * 299 + green * 587 + blue * 114) / 1000;
-  document.documentElement.style.setProperty("--fmis-accent", color);
-  document.documentElement.style.setProperty("--green", color);
-  document.documentElement.style.setProperty("--fmis-accent-text", brightness > 165 ? "#14202e" : "#ffffff");
-}
-
 function applySystemTheme() {
   const preference = document.body.dataset.themePreference || document.body.dataset.theme || "light";
   document.body.dataset.theme = preference === "system" ?
@@ -192,9 +180,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.dataset.themePreference = input.value;
     applySystemTheme();
   }));
-  const savedAccent = getComputedStyle(document.documentElement).getPropertyValue("--fmis-accent").trim();
-  if (savedAccent) applyAccentColor(savedAccent);
-  document.querySelectorAll('input[name="primary_color"]').forEach((input) => input.addEventListener("change", () => applyAccentColor(input.value)));
   const reportTemplates = document.querySelectorAll(".template-row");
   reportTemplates.forEach((row) => {
     row.classList.remove("selected");

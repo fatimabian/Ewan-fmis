@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const method = (form.getAttribute("method") || "get").toLowerCase();
       const hasOwnLoadingState = form.id === "rsbsaRegistration";
-      const isDownload = form.id === "reportGenerator";
+      const isDownload = form.id === "reportGenerator" || form.hasAttribute("data-download-form");
       if (
         event.defaultPrevented ||
         method !== "post" ||

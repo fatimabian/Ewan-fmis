@@ -104,48 +104,19 @@
       gap:2px;
       min-width:130px
   }
-  .farmer-update-details{
-      position:relative
-  }
-  .farmer-update-details summary{
+  .farmer-update-link{
       display:grid;
       gap:2px;
       color:#157a43;
-      cursor:pointer;
-      list-style:none
+      text-decoration:none
   }
-  .farmer-update-details summary::-webkit-details-marker{
-      display:none
-  }
-  .farmer-update-details summary:after{
-      content:'View update details';
+  .farmer-update-link span{
       color:#157a43;
       font-size:9px;
       font-weight:700
   }
-  .farmer-update-details[open] summary:after{
-      content:'Hide update details'
-  }
-  .farmer-update-popover{
-      min-width:230px;
-      display:grid;
-      gap:5px;
-      margin-top:8px;
-      padding:10px;
-      border:1px solid #cfe0d5;
-      border-radius:8px;
-      background:#f7fbf8;
-      color:#35445c;
-      font-size:10px;
-      line-height:1.35
-  }
-  .farmer-update-popover span{
-      display:block
-  }
-  .farmer-update-popover a{
-      color:#157a43;
-      font-weight:800;
-      text-decoration:none
+  .farmer-update-link:hover span{
+      text-decoration:underline
   }
   .farmer-update-person strong{
       color:#23374c;
@@ -269,12 +240,12 @@
         <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option>
         </select>
       </label>
-      <a class="btn btn-success" href="{% url 'farmers:create' %}">
+      <a class="btn btn-success btn-add-outline" href="{% url 'farmers:create' %}">
         <i class="bi bi-plus-lg">
         </i> Add Farmer</a>
       </form>
-      <div class="farmer-table-wrap">
-        <table class="farmer-table">
+      <div class="farmer-table-wrap universal-table-wrap">
+        <table class="farmer-table universal-table">
           <thead>
             <tr>
               <th>Farmer ID</th>
@@ -310,22 +281,11 @@
                   <div class="farmer-update-person">
                     {% with latest=farmer.latest_update_for_list.0 %}
                     {% if latest %}
-                      <details class="farmer-update-details">
-                        <summary>
-                          <strong>{{ latest.actor.display_name|default:'Former staff account' }}</strong>
-                          <small>{{ latest.created_at|date:'M d, Y · g:i A' }}</small>
-                        </summary>
-                        <div class="farmer-update-popover">
-                          <b>{{ latest.get_update_type_display }}</b>
-                          {% if latest.transaction_code %}<small>{{ latest.transaction_code }}</small>{% endif %}
-                          {% for change in latest.changes %}
-                            <span><strong>{{ change.field }}</strong>: {{ change.before }} → {{ change.after }}</span>
-                          {% empty %}
-                            <span>Update recorded; no field value changed.</span>
-                          {% endfor %}
-                          <a href="{% url 'farmers:detail' farmer.pk %}#update-history">View full history</a>
-                        </div>
-                      </details>
+                      <a class="farmer-update-link" href="{% url 'farmers:history' farmer.pk %}">
+                        <strong>{{ latest.actor.display_name|default:'Former staff account' }}</strong>
+                        <small>{{ latest.created_at|date:'M d, Y · g:i A' }}</small>
+                        <span>View update details</span>
+                      </a>
                     {% else %}
                       <small>No recorded update</small>
                     {% endif %}

@@ -1,5 +1,7 @@
 import hashlib
+import time
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.views import LoginView, LogoutView
@@ -9,6 +11,7 @@ from django.urls import reverse, reverse_lazy
 from django.views.generic import FormView, TemplateView
 
 from apps.activity_logs.services import record_event, record_request_event
+from apps.common.middleware import REMEMBER_UNTIL_SESSION_KEY
 
 from .activation import (
     ACTIVATION_MAX_ATTEMPTS,
@@ -36,6 +39,18 @@ def _record_attempt(key, timeout):
 
 def dashboard_for(user):
     return "dashboard:admin_home" if user.is_admin else "dashboard:staff_home"
+
+
+def configure_login_session(request, remember_me):
+    """Apply either a fixed remembered-login window or a browser-only session."""
+    if remember_me:
+        request.session.set_expiry(settings.REMEMBER_LOGIN_SECONDS)
+        request.session[REMEMBER_UNTIL_SESSION_KEY] = (
+            int(time.time()) + settings.REMEMBER_LOGIN_SECONDS
+        )
+    else:
+        request.session.set_expiry(0)
+        request.session.pop(REMEMBER_UNTIL_SESSION_KEY, None)
 
 
 class PrivacyNoticeView(TemplateView):
@@ -107,10 +122,7 @@ class UserLoginView(LoginView):
             description=f"{self.request.user.display_name} signed in successfully.",
             target_label=self.request.user.username,
         )
-        if form.cleaned_data.get("remember_me"):
-            self.request.session.set_expiry(30 * 24 * 60 * 60)
-        else:
-            self.request.session.set_expiry(0)
+        configure_login_session(self.request, form.cleaned_data.get("remember_me"))
         return response
 
     def form_invalid(self, form):
@@ -212,7 +224,7 @@ class AccountActivationView(FormView):
             user,
             backend="django.contrib.auth.backends.ModelBackend",
         )
-        self.request.session.set_expiry(30 * 24 * 60 * 60 if remember_me else 0)
+        configure_login_session(self.request, remember_me)
         record_request_event(
             self.request,
             title="Account activated",

@@ -9,11 +9,16 @@
       content="Farmer Management Information System for the Office for Agricultural Services of Rosario, Batangas">
     <title>FMIS | Rosario, Batangas</title>
     <link rel="icon" type="image/png" href="{% static 'images/brand/fmis-logo.png' %}">
+    <link rel="preload"
+          as="image"
+          href="{% static 'images/landing/office-gallery/rice-field-data-collection.webp' %}"
+          type="image/webp"
+          fetchpriority="high">
     <link
       href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}"
       rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/typography.css' %}">
-    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=6">
+    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=8">
     <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=1">
   </head>
   <body>
@@ -46,7 +51,7 @@
             src="{% static 'images/landing/office-gallery/rice-field-data-collection.webp' %}"
             alt="Rosario agricultural personnel collecting farm data in a rice field"
             width="1422"
-            height="664"
+            height="654"
             fetchpriority="high">
         </figure>
         <div class="hero-shade" aria-hidden="true"></div>
@@ -126,7 +131,7 @@
               <div class="landing-signin-options">
                 <label class="landing-remember">
                   {{ form.remember_me }}
-                  <span>Remember me</span>
+                  <span>Keep me signed in for 7 days</span>
                 </label>
                 <a href="{% url 'authentication:password_reset' %}">Forgot Password?</a>
               </div>
@@ -170,6 +175,9 @@
             <img
               src="{% static 'images/landing/office-gallery/farmer-registration-assistance.webp' %}"
               alt="Rosario personnel assisting farmers with registration records"
+              width="870"
+              height="645"
+              decoding="async"
               loading="lazy">
             <div>
               <span>Farmer registry</span>
@@ -182,6 +190,9 @@
             <img
               src="{% static 'images/landing/office-gallery/rice-field-georeferencing.webp' %}"
               alt="Rosario field personnel gathering parcel location information"
+              width="874"
+              height="651"
+              decoding="async"
               loading="lazy">
             <div>
               <span>Parcels and commodities</span>
@@ -194,6 +205,9 @@
             <img
               src="{% static 'images/landing/office-gallery/corn-field-monitoring.webp' %}"
               alt="Rosario personnel monitoring a recorded corn field"
+              width="1161"
+              height="656"
+              decoding="async"
               loading="lazy">
             <div>
               <span>Decision support</span>
@@ -206,6 +220,9 @@
             <img
               src="{% static 'images/landing/office-gallery/farmer-input-release.webp' %}"
               alt="Rosario personnel documenting agricultural support for a farmer"
+              width="551"
+              height="570"
+              decoding="async"
               loading="lazy">
             <div>
               <span>Service requests</span>
@@ -218,6 +235,9 @@
             <img
               src="{% static 'images/landing/office-gallery/rsbsa-record-encoding.webp' %}"
               alt="Rosario staff reviewing and encoding agricultural records"
+              width="551"
+              height="570"
+              decoding="async"
               loading="lazy">
             <div>
               <span>Record history</span>
@@ -230,6 +250,9 @@
             <img
               src="{% static 'images/landing/office-gallery/community-registration-assistance.webp' %}"
               alt="Authorized Rosario personnel assisting citizens with municipal records"
+              width="554"
+              height="570"
+              decoding="async"
               loading="lazy">
             <div>
               <span>Secure accounts</span>
@@ -335,6 +358,9 @@
           <img
             src="{% static 'images/landing/office-gallery/barangay-farmer-registration.webp' %}"
             alt="Rosario municipal personnel assisting farmers in a barangay"
+            width="551"
+            height="570"
+            decoding="async"
             loading="lazy">
           <div class="about-image-note">
             <i class="bi bi-flower1"></i>
@@ -548,6 +574,6 @@
 
       })();
     </script>
-    <script src="{% static 'js/password-toggle.js' %}"></script>
+    <script defer src="{% static 'js/password-toggle.js' %}"></script>
   </body>
 </html>

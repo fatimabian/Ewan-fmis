@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.gzip.GZipMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -133,6 +134,8 @@ FMIS_RELEASE_VERSION = os.getenv("FMIS_RELEASE_VERSION", "Unreleased build")
 SESSION_COOKIE_NAME = "fmis_sessionid"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
+REMEMBER_LOGIN_DAYS = max(1, int(os.getenv("REMEMBER_LOGIN_DAYS", "7")))
+REMEMBER_LOGIN_SECONDS = REMEMBER_LOGIN_DAYS * 24 * 60 * 60
 CSRF_COOKIE_SAMESITE = "Lax"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"

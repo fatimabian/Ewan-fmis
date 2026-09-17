@@ -41,7 +41,6 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
         <div class="intervention-field"><label>{{ form.funding_source.label }}</label>{{ form.funding_source }}<span class="intervention-errors">{{ form.funding_source.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.provider.label }}</label>{{ form.provider }}<span class="intervention-errors">{{ form.provider.errors }}</span></div>
         <div class="intervention-field full"><label>{{ form.remarks.label }}</label>{{ form.remarks }}<span class="intervention-errors">{{ form.remarks.errors }}</span></div>
-        <div class="intervention-field"><label>{{ form.is_active.label }}</label>{{ form.is_active }}<span class="intervention-errors">{{ form.is_active.errors }}</span></div>
       </div>
       <div class="intervention-form-actions">
         <a class="btn btn-outline-secondary" href="{% if object %}{% url 'interventions:detail' object.pk %}{% else %}{% url 'interventions:list' %}{% endif %}">Cancel</a>

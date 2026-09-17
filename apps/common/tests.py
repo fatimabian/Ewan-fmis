@@ -4,6 +4,7 @@ import json
 import re
 import tempfile
 import time
+from io import BytesIO
 from unittest.mock import Mock, patch
 from datetime import date
 from decimal import Decimal
@@ -232,7 +233,47 @@ class FMISRequirementTests(TestCase):
             },
         )
         self.assertRedirects(response, reverse("dashboard:staff_home"))
-        self.assertGreater(self.client.session.get_expiry_age(), 24 * 60 * 60)
+        session = self.client.session
+        self.assertGreaterEqual(session.get_expiry_age(), (7 * 24 * 60 * 60) - 5)
+        self.assertIn("fmis_remember_until", session)
+
+    def test_remembered_login_uses_a_fixed_seven_day_limit(self):
+        self.client.post(
+            reverse("authentication:landing"),
+            {
+                "username": "staff",
+                "password": "StrongPass123!",
+                "remember_me": "on",
+            },
+        )
+        session = self.client.session
+        session["fmis_last_activity"] = int(time.time()) - (24 * 60 * 60)
+        session.save()
+
+        # Remembered users are not incorrectly logged out by the ordinary
+        # short idle timeout.
+        response = self.client.get(reverse("dashboard:staff_home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("_auth_user_id", self.client.session)
+
+        # The remembered login still has a firm security boundary.
+        session = self.client.session
+        session["fmis_remember_until"] = int(time.time()) - 1
+        session.save()
+        response = self.client.get(reverse("dashboard:staff_home"))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith(reverse("authentication:landing")))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_unremembered_login_ends_with_the_browser_session(self):
+        response = self.client.post(
+            reverse("authentication:landing"),
+            {"username": "staff", "password": "StrongPass123!"},
+        )
+        self.assertRedirects(response, reverse("dashboard:staff_home"))
+        session = self.client.session
+        self.assertTrue(session.get_expire_at_browser_close())
+        self.assertNotIn("fmis_remember_until", session)
 
     def test_role_boundaries_are_enforced(self):
         self.client.force_login(self.admin)
@@ -244,6 +285,94 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("dashboard:home"))
         self.assertEqual(self.client.get(reverse("farmers:list")).status_code, 200)
+
+    def test_all_primary_pages_render_for_their_intended_roles(self):
+        """Smoke-test every user-facing GET page with realistic linked records."""
+        request_record = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Whole-system smoke test request",
+            assigned_to=self.staff,
+        )
+        intervention = Intervention.objects.create(
+            farmer=self.farmer,
+            service_request=request_record,
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Whole-system smoke test intervention",
+            recorded_by=self.staff,
+        )
+
+        public_pages = (
+            "authentication:landing",
+            "authentication:privacy",
+            "authentication:terms",
+            "authentication:password_reset",
+            "authentication:password_reset_done",
+            "authentication:password_reset_complete",
+        )
+        self.client.logout()
+        for name in public_pages:
+            with self.subTest(role="public", page=name):
+                self.assertEqual(self.client.get(reverse(name)).status_code, 200)
+
+        self.client.force_login(self.admin)
+        admin_pages = (
+            reverse("dashboard:home"),
+            reverse("dashboard:admin_home"),
+            reverse("accounts:list"),
+            reverse("accounts:create"),
+            reverse("accounts:detail", args=[self.staff.pk]),
+            reverse("accounts:edit", args=[self.staff.pk]),
+            reverse("activity_logs:list"),
+            reverse("reports:home"),
+            reverse("notifications:list"),
+            reverse("settings_page:home"),
+        )
+        for url in admin_pages:
+            with self.subTest(role="admin", page=url):
+                self.assertEqual(self.client.get(url, follow=True).status_code, 200)
+
+        self.client.force_login(self.staff)
+        staff_pages = (
+            reverse("dashboard:home"),
+            reverse("dashboard:staff_home"),
+            reverse("farmers:list"),
+            reverse("farmers:create"),
+            reverse("farmers:detail", args=[self.farmer.pk]),
+            reverse("farmers:history", args=[self.farmer.pk]),
+            reverse("farmers:registration_complete", args=[self.farmer.pk]),
+            reverse("farmers:edit", args=[self.farmer.pk]),
+            reverse("farmers:slip_b", args=[self.farmer.pk]),
+            reverse("farmers:qr_print", args=[self.farmer.pk]),
+            reverse("farm_parcels:list"),
+            reverse("farm_parcels:map"),
+            reverse("farm_parcels:create"),
+            reverse("farm_parcels:detail", args=[self.parcel.pk]),
+            reverse("farm_parcels:history", args=[self.parcel.pk]),
+            reverse("farm_parcels:edit", args=[self.parcel.pk]),
+            reverse("crops:list"),
+            reverse("crops:create"),
+            reverse("crops:detail", args=[self.crop.pk]),
+            reverse("crops:history", args=[self.crop.pk]),
+            reverse("crops:edit", args=[self.crop.pk]),
+            reverse("service_requests:list"),
+            reverse("service_requests:create"),
+            reverse("service_requests:detail", args=[request_record.pk]),
+            reverse("service_requests:history", args=[request_record.pk]),
+            reverse("service_requests:edit", args=[request_record.pk]),
+            reverse("interventions:list"),
+            reverse("interventions:create"),
+            reverse("interventions:detail", args=[intervention.pk]),
+            reverse("interventions:history", args=[intervention.pk]),
+            reverse("interventions:edit", args=[intervention.pk]),
+            reverse("reports:home"),
+            reverse("notifications:list"),
+            reverse("settings_page:home"),
+        )
+        for url in staff_pages:
+            with self.subTest(role="staff", page=url):
+                self.assertEqual(self.client.get(url, follow=True).status_code, 200)
 
     def test_idle_session_timeout_logs_user_out(self):
         self.client.force_login(self.staff)
@@ -425,9 +554,11 @@ class FMISRequirementTests(TestCase):
         farmer_list = self.client.get(reverse("farmers:list"))
         self.assertContains(farmer_list, "Last Updated By")
         self.assertNotContains(farmer_list, "Latest Change")
-        self.assertContains(farmer_list, "farmer-update-details")
+        self.assertNotContains(farmer_list, "farmer-update-details")
+        self.assertContains(farmer_list, reverse("farmers:history", args=[self.farmer.pk]))
+        self.assertContains(farmer_list, "View update details")
         self.assertContains(farmer_list, self.staff.display_name)
-        self.assertContains(farmer_list, "Personal / Phone Number")
+        self.assertNotContains(farmer_list, "Personal / Phone Number")
 
     def test_management_records_use_dedicated_history_pages(self):
         self.client.force_login(self.staff)
@@ -444,6 +575,7 @@ class FMISRequirementTests(TestCase):
         )
         intervention = Intervention.objects.create(
             farmer=self.farmer,
+            service_request=request_record,
             intervention_type="SEEDS",
             intervention_date=date.today(),
             description="Certified rice seed distribution",
@@ -471,6 +603,96 @@ class FMISRequirementTests(TestCase):
             reverse("service_requests:detail", args=[request_record.pk])
         )
         self.assertNotContains(service_detail, 'class="request-history"')
+        self.assertContains(service_detail, intervention.reference_id)
+        self.assertContains(
+            service_detail,
+            f"{reverse('interventions:create')}?service_request={request_record.pk}",
+        )
+        linked_form = self.client.get(
+            reverse("interventions:create"),
+            {"service_request": request_record.pk},
+        )
+        self.assertEqual(linked_form.status_code, 200)
+        self.assertEqual(
+            linked_form.context["form"].initial["service_request"], request_record
+        )
+        self.assertEqual(linked_form.context["form"].initial["farmer"], self.farmer)
+
+    def test_single_farmer_rsbsa_export_uses_official_two_page_form(self):
+        from pypdf import PdfReader
+
+        self.client.force_login(self.staff)
+        farmer_detail = self.client.get(reverse("farmers:detail", args=[self.farmer.pk]))
+        export_url = reverse("farmers:rsbsa_export", args=[self.farmer.pk])
+        self.assertContains(farmer_detail, export_url)
+
+        response = self.client.get(export_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn("attachment", response["Content-Disposition"])
+        self.assertTrue(response.content.startswith(b"%PDF"))
+        reader = PdfReader(BytesIO(response.content))
+        self.assertEqual(len(reader.pages), 2)
+        self.assertEqual(reader.metadata.title, f"RSBSA Enrollment Form - {self.farmer.full_name}")
+        exported_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        exported_compact = "".join(exported_text.split())
+        for expected in (
+            self.farmer.first_name.upper(),
+            self.farmer.last_name.upper(),
+            self.farmer.barangay.upper(),
+            self.farmer.rsbsa_number,
+            self.parcel.barangay.upper(),
+            self.crop.crop_type.upper(),
+        ):
+            self.assertIn(expected, exported_text)
+        # The official template supplies the leading "09" as static artwork;
+        # the PDF overlay contributes the remaining digits box by box.
+        phone_tail = self.farmer.phone_number[2:] if self.farmer.phone_number.startswith("09") else self.farmer.phone_number
+        self.assertIn(phone_tail, exported_compact)
+
+    def test_completed_service_request_moves_to_interventions_once(self):
+        self.client.force_login(self.staff)
+        request_item = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Distribute certified rice seed",
+            priority="MEDIUM",
+            status="IN_PROGRESS",
+            notes="Two bags approved for release.",
+            assigned_to=self.staff,
+        )
+        update_url = reverse("service_requests:edit", args=[request_item.pk])
+        payload = {
+            "farmer": self.farmer.pk,
+            "service": self.service.pk,
+            "subject": request_item.subject,
+            "priority": "MEDIUM",
+            "status": "COMPLETED",
+            "notes": request_item.notes,
+            "assigned_to": self.staff.pk,
+        }
+        response = self.client.post(update_url, payload)
+        self.assertRedirects(response, reverse("service_requests:list"))
+        intervention = Intervention.objects.get(service_request=request_item)
+        self.assertEqual(intervention.farmer, self.farmer)
+        self.assertEqual(intervention.intervention_type, "SEEDS")
+        self.assertEqual(intervention.recorded_by, self.staff)
+        self.assertEqual(intervention.description, request_item.subject)
+
+        default_list = self.client.get(reverse("service_requests:list"))
+        self.assertNotContains(default_list, request_item.subject)
+        self.assertNotContains(default_list, "Record intervention for")
+        completed_list = self.client.get(
+            reverse("service_requests:list"),
+            {"status": "COMPLETED"},
+        )
+        self.assertContains(completed_list, request_item.subject)
+
+        self.client.post(update_url, payload)
+        self.assertEqual(
+            Intervention.objects.filter(service_request=request_item).count(),
+            1,
+        )
 
     def test_slip_b_is_separate_and_contains_official_parcel_workflow(self):
         self.client.force_login(self.staff)
@@ -884,8 +1106,29 @@ class FMISRequirementTests(TestCase):
         self.assertContains(admin_reports, "Governance Reports")
         self.assertContains(admin_reports, "User Account Registry")
         self.assertContains(admin_reports, "Activity Audit Trail")
+        self.assertContains(admin_reports, "data-download-form", count=3)
         self.assertNotContains(admin_reports, "System Report Builder")
         self.assertNotContains(admin_reports, "No report selected yet")
+
+    def test_governance_report_buttons_download_every_pdf_and_csv(self):
+        self.client.force_login(self.admin)
+        for report_type in ("system_overview", "user_accounts", "activity_audit"):
+            for output_format, content_type in (
+                ("pdf", "application/pdf"),
+                ("csv", "text/csv; charset=utf-8"),
+            ):
+                with self.subTest(report_type=report_type, output_format=output_format):
+                    response = self.client.post(
+                        reverse("reports:home"),
+                        {
+                            "report_type": report_type,
+                            "date_range": "all",
+                            "format": output_format,
+                        },
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response["Content-Type"], content_type)
+                    self.assertIn("attachment;", response["Content-Disposition"])
 
     def test_management_tables_do_not_show_export_controls(self):
         ServiceRequest.objects.create(
@@ -1127,6 +1370,8 @@ class FMISRequirementTests(TestCase):
         )
         self.assertFalse(notification.is_read)
         self.assertIn(self.admin.display_name, notification.message)
+        self.assertNotIn("record was updated", notification.message.casefold())
+        self.assertNotIn("/farmers/", notification.message)
         self.assertNotIn("before", notification.message.casefold())
         self.assertNotIn("after", notification.message.casefold())
         self.assertNotIn("reason", notification.message.casefold())
@@ -1157,6 +1402,25 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(settings_page, "Email Notifications")
         self.assertNotContains(settings_page, "Weekly Summary")
         self.assertContains(settings_page, "In-App Notifications")
+
+    def test_security_notifications_use_plain_language(self):
+        from apps.activity_logs.services import record_event
+        from apps.notifications.models import Notification
+
+        record_event(
+            actor=self.staff,
+            title="Access denied",
+            module="Security",
+            description="Technical security detail",
+            path="/dashboard/admin/",
+            status="Warning",
+            target_label="/dashboard/admin/",
+        )
+        notification = Notification.objects.filter(recipient=self.admin).latest("created_at")
+        self.assertEqual(notification.title, "Restricted page blocked")
+        self.assertIn("not available for their account", notification.message)
+        self.assertIn("No changes were made", notification.message)
+        self.assertNotIn("/dashboard/admin/", notification.message)
 
     def test_activity_failure_does_not_replace_successful_response(self):
         request = RequestFactory().post("/farmers/new/")
@@ -1211,7 +1475,8 @@ class FMISRequirementTests(TestCase):
 
         settings_page = self.client.get(reverse("settings_page:home"))
         self.assertContains(settings_page, "System (Recommended)")
-        self.assertContains(settings_page, "follows your computer's light or dark appearance")
+        self.assertNotContains(settings_page, "follows your computer's light or dark appearance")
+        self.assertNotContains(settings_page, "Primary Color")
         self.assertNotContains(settings_page, "Profile &amp; Account")
         self.assertContains(settings_page, "Profile Details")
 
@@ -1269,7 +1534,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Backup &amp; Recovery")
         self.assertContains(response, "Back Up Now")
-        self.assertContains(response, "Setup is incomplete")
+        self.assertContains(response, "Setup still needs:")
         self.assertNotContains(response, "JSON")
         self.assertNotContains(response, "downloaded to your device")
 

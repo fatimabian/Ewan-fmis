@@ -423,18 +423,24 @@ button,.btn,a{
 }
 @media(max-width:430px){
     .report-filter-row{
-        grid-template-columns:1fr!important
+        grid-template-columns:96px minmax(0,1fr)!important;
+        min-height:40px!important
     }
     .report-filter-row>label{
-        min-height:32px;
-        padding:7px 10px!important;
-        border-left:3px solid var(--fmis-accent);
-        border-radius:6px 6px 0 0!important
+        min-height:40px;
+        padding:6px 8px!important;
+        border:1px solid var(--fmis-accent)!important;
+        border-right:0!important;
+        border-radius:6px 0 0 6px!important;
+        font-size:9px!important
     }
     .report-filter-row select,.report-filter-row .selected-report{
+        min-height:40px!important;
+        padding:6px 8px!important;
         border:1px solid #d6e2db!important;
-        border-top:0!important;
-        border-radius:0 0 6px 6px!important
+        border-left:0!important;
+        border-radius:0 6px 6px 0!important;
+        font-size:12px!important
     }
     .report-metric small{
         font-size:8px!important
@@ -447,6 +453,55 @@ button,.btn,a{
     }
     .staff-bar-column small{
         font-size:9px!important
+    }
+}
+
+/* Compact management filters on phones without shrinking the data table. */
+@media(max-width:700px){
+    :is(.farmer-toolbar,.parcel-toolbar,.crop-toolbar,.request-toolbar,.intervention-toolbar,.activity-filters){
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:8px!important;
+        margin:8px 0 14px!important
+    }
+    :is(.farmer-toolbar,.parcel-toolbar,.crop-toolbar,.request-toolbar,.intervention-toolbar) label:first-child,
+    .activity-filters>input:first-child{
+        grid-column:1/-1
+    }
+    :is(.farmer-toolbar,.parcel-toolbar,.crop-toolbar,.request-toolbar,.intervention-toolbar) label{
+        gap:4px!important;
+        min-width:0;
+        font-size:11px!important
+    }
+    :is(.farmer-toolbar,.parcel-toolbar,.crop-toolbar,.request-toolbar,.intervention-toolbar,.activity-filters) :is(input,select){
+        width:100%!important;
+        min-width:0!important;
+        height:40px!important;
+        min-height:40px!important;
+        padding:0 9px!important;
+        border-radius:7px!important;
+        font-size:12px!important;
+        text-overflow:ellipsis
+    }
+    :is(.farmer-toolbar,.crop-toolbar,.request-toolbar,.intervention-toolbar)>a{
+        grid-column:1/-1;
+        width:100%!important;
+        height:40px!important;
+        min-height:40px!important;
+        padding:0 12px!important;
+        font-size:12px!important
+    }
+    .parcel-toolbar-actions{
+        grid-column:1/-1!important;
+        display:grid!important;
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:8px!important
+    }
+    .parcel-toolbar-actions .btn{
+        width:100%!important;
+        height:40px!important;
+        min-height:40px!important;
+        padding:0 8px!important;
+        font-size:12px!important
     }
 }
 body[data-theme="dark"] .app-shell main{

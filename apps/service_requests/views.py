@@ -12,6 +12,7 @@ from apps.common.permissions import StaffRequiredMixin
 from apps.activity_logs.services import record_request_event
 from apps.common.record_history import service_request_rows
 from apps.service_catalog.models import ServiceCatalog
+from apps.interventions.services import ensure_completed_request_intervention
 from .forms import ServiceRequestForm
 from .models import ServiceRequest, ServiceRequestHistory
 
@@ -101,6 +102,11 @@ class ServiceRequestListView(
             queryset = queryset.filter(service_id=int(request_type))
         if status:
             queryset = queryset.filter(status=status)
+        else:
+            # Completed requests become linked intervention records. Keep them
+            # available through the explicit Completed filter without mixing
+            # them into the active operational queue.
+            queryset = queryset.exclude(status="COMPLETED")
         if priority:
             queryset = queryset.filter(priority=priority)
         if requested_date:
@@ -138,7 +144,20 @@ class ServiceRequestCreateView(
                     }
                 ],
             )
-        messages.success(self.request, f"{self.object.request_id} was created and added to the history log.")
+            intervention = None
+            created_intervention = False
+            if self.object.status == "COMPLETED":
+                intervention, created_intervention = ensure_completed_request_intervention(
+                    self.object,
+                    self.request.user,
+                )
+        if created_intervention:
+            messages.success(
+                self.request,
+                f"{self.object.request_id} was completed and moved to Interventions as {intervention.reference_id}.",
+            )
+        else:
+            messages.success(self.request, f"{self.object.request_id} was created and added to the history log.")
         record_request_event(
             self.request,
             title="Service Request Created",
@@ -204,7 +223,20 @@ class ServiceRequestUpdateView(
                 to_status=self.object.status,
                 changes=_request_changes(before, self.object, changed_fields),
             )
-        messages.success(self.request, f"{self.object.request_id} was updated and the change was recorded.")
+            intervention = None
+            created_intervention = False
+            if self.object.status == "COMPLETED":
+                intervention, created_intervention = ensure_completed_request_intervention(
+                    self.object,
+                    self.request.user,
+                )
+        if created_intervention:
+            messages.success(
+                self.request,
+                f"{self.object.request_id} was completed and moved to Interventions as {intervention.reference_id}.",
+            )
+        else:
+            messages.success(self.request, f"{self.object.request_id} was updated and the change was recorded.")
         record_request_event(
             self.request,
             title="Service Request Updated",

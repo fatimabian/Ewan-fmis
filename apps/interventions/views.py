@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
@@ -57,6 +57,8 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
     form_class = InterventionForm
     template_name = "interventions/form.html"
 
+    success_url = reverse_lazy("interventions:list")
+
     def get_initial(self):
         initial = super().get_initial()
         request_id = self.request.GET.get("service_request", "").strip()
@@ -72,9 +74,6 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
                     }
                 )
         return initial
-
-    def get_success_url(self):
-        return reverse("interventions:detail", args=[self.object.pk])
 
     def form_valid(self, form):
         form.instance.recorded_by = self.request.user
@@ -114,8 +113,7 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
     form_class = InterventionForm
     template_name = "interventions/form.html"
 
-    def get_success_url(self):
-        return reverse("interventions:detail", args=[self.object.pk])
+    success_url = reverse_lazy("interventions:list")
 
     def form_valid(self, form):
         form.instance.recorded_by = self.request.user

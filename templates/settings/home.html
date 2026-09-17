@@ -47,9 +47,12 @@
   }
   .settings-grid-reference{
       display:grid;
-      grid-template-columns:.85fr 1.15fr;
+      grid-template-columns:1fr;
       gap:16px;
       margin-top:10px
+  }
+  .settings-grid-reference>div{
+      display:contents
   }
   .system-settings-grid{
       grid-template-columns:minmax(0,760px);
@@ -58,9 +61,9 @@
   .settings-card{
       background:#fff;
       border:1px solid #e3ebef;
-      border-radius:13px;
-      padding:18px;
-      box-shadow:0 3px 12px #263c5009;
+      border-radius:0!important;
+      padding:0 28px 18px;
+      box-shadow:none;
       margin-bottom:16px
   }
   .settings-card h3{
@@ -87,13 +90,17 @@
   .settings-form-fields{
       display:grid;
       grid-template-columns:repeat(2,1fr);
-      gap:13px
+      gap:0 30px
   }
   .settings-form-fields label,.system-form label{
       display:grid;
       gap:7px;
       font-size:12px;
       font-weight:700
+  }
+  .settings-form-fields label{
+      padding:14px 2px;
+      border-bottom:1px solid #e4e9f0
   }
   .settings-card input,.settings-card select{
       width:100%;
@@ -102,15 +109,30 @@
       padding:10px;
       font:inherit
   }
+  .settings-form-fields input{
+      min-height:0;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      padding:2px 0;
+      box-shadow:none
+  }
+  .settings-form-fields input:focus{
+      outline:2px solid color-mix(in srgb,var(--fmis-accent) 35%,transparent);
+      outline-offset:4px
+  }
   .theme-options{
       display:flex
   }
   .theme-choice{
       flex:1;
       border:1px solid #dce4e9;
-      padding:10px;
+      padding:12px 72px 12px 16px;
       text-align:center;
-      cursor:pointer
+      cursor:pointer;
+      position:relative;
+      font-weight:600;
+      transition:border-color .18s ease,box-shadow .18s ease,background .18s ease,color .18s ease
   }
   .theme-choice:first-child{
       border-radius:8px 0 0 8px
@@ -123,24 +145,30 @@
   }
   .theme-choice:has(input:checked){
       background:#e6f8ef;
-      color:#006d45;
-      border-color:#00764b
+      color:#245f48;
+      border:2px solid #2f7d5c;
+      box-shadow:0 0 0 3px #2f7d5c24;
+      font-weight:800;
+      padding-top:11px;
+      padding-bottom:11px
   }
-  .color-options{
-      display:flex;
-      gap:12px;
-      margin-top:10px
+  .theme-choice:after{
+      content:'Active';
+      position:absolute;
+      top:50%;
+      right:12px;
+      transform:translateY(-50%);
+      padding:3px 7px;
+      border-radius:90px;
+      background:#2f7d5c;
+      color:#fff;
+      font-size:10px;
+      font-weight:800;
+      line-height:1;
+      opacity:0
   }
-  .color-choice{
-      width:28px;
-      height:28px;
-      border-radius:50%;
-      cursor:pointer;
-      border:3px solid #fff;
-      outline:1px solid #d5e1dc
-  }
-  .color-choice input{
-      display:none
+  .theme-choice:has(input:checked):after{
+      opacity:1
   }
   .toggle-list{
       display:grid;
@@ -324,20 +352,35 @@
       display:flex;
       align-items:center;
       gap:9px;
-      margin:-18px -18px 18px!important;
-      padding:13px 16px;
+      margin:0 -28px 2px!important;
+      padding:15px 28px;
       background:#e8f7ee;
       color:#0b6640;
       border-bottom:1px solid #cfe9d9
   }
   .settings-card h3 i{
-      width:28px;
-      height:28px;
+      width:34px;
+      height:34px;
       display:grid;
       place-items:center;
       border-radius:8px;
       background:#fff;
       color:#0b7c49
+  }
+  .settings-card>p,
+  .settings-card>.profile-summary,
+  .settings-card>.theme-options,
+  .settings-card>.toggle-list,
+  .settings-card>.backup-status-grid,
+  .settings-card>.backup-configuration-note,
+  .settings-card>.btn{
+      margin-top:16px
+  }
+  body[data-theme="dark"] .settings-form-fields label{
+      border-color:#405168
+  }
+  body[data-theme="dark"] .settings-form-fields input{
+      background:transparent!important
   }
   </style>
   <div class="content settings-page{% if not request.user.is_admin %} staff-profile-only{% endif %}">
@@ -400,7 +443,7 @@
                 </i> Security &amp; Accounts
               </h3>
               <p class="text-muted">Protect your account with a strong, unique password and secure first-time email activation.</p>
-              <a class="btn btn-outline-success" href="#" data-password-modal>Change Password</a>
+              <button class="btn btn-outline-success" type="button" data-password-modal>Change Password</button>
             </article>
           </div>
           <div>
@@ -427,40 +470,7 @@
                        value="dark"
                        {% if form.theme.value == 'dark' %}checked{% endif %}>☾ Dark</label>
               </div>
-              <p class="small text-muted mt-2">System follows your computer's light or dark appearance automatically.</p>
-              <p class="small text-muted mt-3">Primary Color</p>
-              <div class="color-options">
-                <label class="color-choice" style="background:#008552">
-                  <input type="radio"
-                         name="primary_color"
-                         value="#008552"
-                         {% if form.primary_color.value == '#008552' %}checked{% endif %}>
-                </label>
-                <label class="color-choice" style="background:#1976d2">
-                  <input type="radio"
-                         name="primary_color"
-                         value="#1976d2"
-                         {% if form.primary_color.value == '#1976d2' %}checked{% endif %}>
-                </label>
-                <label class="color-choice" style="background:#7348c7">
-                  <input type="radio"
-                         name="primary_color"
-                         value="#7348c7"
-                         {% if form.primary_color.value == '#7348c7' %}checked{% endif %}>
-                </label>
-                <label class="color-choice" style="background:#f58b18">
-                  <input type="radio"
-                         name="primary_color"
-                         value="#f58b18"
-                         {% if form.primary_color.value == '#f58b18' %}checked{% endif %}>
-                </label>
-                <label class="color-choice" style="background:#e8445a">
-                  <input type="radio"
-                         name="primary_color"
-                         value="#e8445a"
-                         {% if form.primary_color.value == '#e8445a' %}checked{% endif %}>
-                </label>
-              </div>
+              <input type="hidden" name="primary_color" value="#2f7d5c">
             </article>
             <article class="settings-card">
               <h3>
@@ -513,7 +523,7 @@
                   </div>
                   <div>
                     <small>Next automatic backup</small>
-                    <strong>{% if backup_scheduler_configured and form.automated_backups.value %}Daily at 2:00 AM{% else %}Scheduler setup required{% endif %}</strong>
+                    <strong>{% if not form.automated_backups.value %}Automatic backup is turned off{% elif backup_scheduler_configured %}Daily at 2:00 AM{% else %}Scheduler setup required{% endif %}</strong>
                   </div>
                   <div>
                     <small>Verified copies</small>
@@ -530,7 +540,7 @@
                     {% if backup_encryption_configured and backup_offsite_configured and backup_scheduler_configured %}
                       Encryption, secure off-site storage, and automatic scheduling are configured.
                     {% else %}
-                      Setup is incomplete. An authorized technical administrator must configure the encryption key, private off-site storage, and server scheduler.
+                      Setup still needs:{% if not backup_encryption_configured %} a protected encryption key{% endif %}{% if not backup_offsite_configured %}{% if not backup_encryption_configured %},{% endif %} private off-site storage{% endif %}{% if not backup_scheduler_configured %}{% if not backup_encryption_configured or not backup_offsite_configured %},{% endif %} the daily backup scheduler{% endif %}.
                     {% endif %}
                   </span>
                 </div>
@@ -566,7 +576,6 @@
               panes.forEach(pane => pane.classList.toggle('active', pane.id === id))
           }
           tabs.forEach(button => button.addEventListener('click', () => openTab(button.dataset.tab)));
-          document.querySelectorAll('input[name="primary_color"]').forEach(input => input.addEventListener('change', () => document.documentElement.style.setProperty('--user-accent', input.value)));
           const errorPane = panes.find(pane => pane.querySelector('.errorlist,.is-invalid'));
           if (errorPane) openTab(errorPane.id)
       })();

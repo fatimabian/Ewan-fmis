@@ -130,12 +130,13 @@
     <section class="panel table-panel account-table-panel">
         <div class="accounts-table-header">
           <h3>All Accounts</h3>
-          <a class="btn btn-success new-account-button" href="{% url 'accounts:create' %}">
+          <a class="btn btn-success btn-add-outline new-account-button" href="{% url 'accounts:create' %}">
             <i class="bi bi-plus-lg"></i>
             New Account
           </a>
         </div>
-        <table class="account-table">
+        <div class="universal-table-wrap">
+        <table class="account-table universal-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -196,6 +197,7 @@
             {% endfor %}
           </tbody>
         </table>
+        </div>
     </section>
   </div>
 {% endblock %}

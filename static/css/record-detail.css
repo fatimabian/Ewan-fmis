@@ -54,7 +54,8 @@
     object-fit:cover
 }
 .record-hero-copy{
-    min-width:0
+    min-width:0;
+    flex:1
 }
 .record-hero-copy small,.record-hero-copy h2,.record-hero-copy p{
     display:block;
@@ -463,6 +464,29 @@ body[data-theme="dark"] .field-security-banner small{
 .record-single-section>.related-list{
     margin:0
 }
+.record-hero-status{
+    margin-left:auto;
+    flex:0 0 auto
+}
+.record-section-toolbar{
+    display:flex;
+    justify-content:flex-end;
+    padding:14px 0 10px
+}
+.record-data-single{
+    grid-template-columns:1fr
+}
+.record-data .record-data-wide{
+    grid-column:1/-1
+}
+.record-data dd a{
+    color:var(--fmis-accent);
+    font-weight:800;
+    text-decoration:none
+}
+.record-data dd a:hover{
+    text-decoration:underline
+}
 body[data-theme="dark"] .record-single-card,
 body[data-theme="dark"] .record-single-card .record-single-hero,
 body[data-theme="dark"] .record-single-section+ .record-single-section{
@@ -491,6 +515,12 @@ body[data-theme="dark"] .record-single-section>h3{
     .record-single-section>h3{
         margin:0 -16px 2px;
         padding:13px 16px
+    }
+    .record-hero-status{
+        margin-left:0
+    }
+    .record-section-toolbar .btn{
+        width:100%
     }
 }
 @media(max-width:650px){
@@ -562,35 +592,6 @@ body[data-theme="dark"] .record-single-section>h3{
         print-color-adjust:exact
     }
 }
-@media(max-width:600px){
-    .farmer-table,.parcel-table,.crop-table{
-        min-width:0!important;
-        table-layout:fixed
-    }
-    .farmer-table th,.farmer-table td,.parcel-table th,.parcel-table td,.crop-table th,.crop-table td{
-        padding:10px 7px!important;
-        font-size:11px!important;
-        white-space:normal!important;
-        overflow-wrap:anywhere
-    }
-    .farmer-table :is(th,td):nth-child(3),.farmer-table :is(th,td):nth-child(5),.farmer-table :is(th,td):nth-child(6){
-        display:none
-    }
-    .parcel-table :is(th,td):nth-child(3),.parcel-table :is(th,td):nth-child(4),.parcel-table :is(th,td):nth-child(5),.parcel-table :is(th,td):nth-child(6){
-        display:none
-    }
-    .crop-table :is(th,td):nth-child(2),.crop-table :is(th,td):nth-child(4),.crop-table :is(th,td):nth-child(5),.crop-table :is(th,td):nth-child(7){
-        display:none
-    }
-    .parcel-table .parcel-status,.crop-table .crop-status{
-        padding:4px 7px!important;
-        font-size:9px!important
-    }
-    .record-cell-link{
-        font-size:11px
-    }
-}
-
 .history-page-card{
     padding:0 28px 28px
 }
@@ -609,6 +610,12 @@ body[data-theme="dark"] .record-single-section>h3{
 }
 .history-page .empty-state i{
     font-size:28px
+}
+.record-detail-nav .btn-success,
+.record-detail-nav .btn-success:visited,
+.history-page .record-detail-nav .btn-success,
+.history-page .record-detail-nav .btn-success i{
+    color:#fff!important
 }
 @media(max-width:600px){
     .history-page-card{padding:0 16px 18px}

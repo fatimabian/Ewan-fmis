@@ -7,9 +7,10 @@
       <a href="{% url 'farmers:list' %}"><i class="bi bi-arrow-left"></i> Back to Farmers</a>
       <div class="record-detail-actions">
         <a class="btn btn-outline-success" href="{% url 'farmers:qr_print' object.pk %}"><i class="bi bi-qr-code"></i> Print QR</a>
+        <a class="btn btn-outline-success" href="{% url 'farmers:rsbsa_export' object.pk %}"><i class="bi bi-file-earmark-pdf"></i> Print RSBSA</a>
         <a class="btn btn-outline-success" href="{% url 'farmers:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
         {% if object.is_active %}
-          <a class="btn btn-success" href="{% url 'farmers:edit' object.pk %}"><i class="bi bi-person-vcard"></i> Update Slip A</a>
+          <a class="btn btn-outline-success" href="{% url 'farmers:edit' object.pk %}"><i class="bi bi-person-vcard"></i> Update Slip A</a>
         {% endif %}
       </div>
     </div>

@@ -13,19 +13,19 @@
     <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/fmis.css' %}">
-    <link rel="stylesheet" href="{% static 'css/fmis-polish.css' %}">
-    <link rel="stylesheet" href="{% static 'css/tables.css' %}">
-    <link rel="stylesheet" href="{% static 'css/agriculture-theme.css' %}">
+    <link rel="stylesheet" href="{% static 'css/fmis-polish.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'css/tables.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'css/agriculture-theme.css' %}?v=2">
     <link rel="stylesheet" href="{% static 'css/typography.css' %}">
-    <link rel="stylesheet" href="{% static 'css/record-detail.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'css/record-detail.css' %}?v=7">
     <link rel="stylesheet" href="{% static 'css/admin-mobile.css' %}">
     <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
-    <link rel="stylesheet" href="{% static 'css/system-responsive.css' %}">
+    <link rel="stylesheet" href="{% static 'css/system-responsive.css' %}?v=2">
     <link rel="stylesheet" href="{% static 'css/human-ui.css' %}?v=5">
     {% block extra_css %}{% endblock %}
     <style>
     :root{
-        --fmis-accent:{{ user_preference.primary_color|default:'#16a34a' }};
+        --fmis-accent:#2f7d5c;
         --fmis-accent-text:#fff;
         --green:var(--fmis-accent)
     }
@@ -47,9 +47,56 @@
         border-color:var(--fmis-accent)!important;
         color:var(--fmis-accent-text)!important
     }
-    .sidebar nav a:hover,.sidebar nav a.active{
-        background:var(--fmis-accent)!important;
-        color:var(--fmis-accent-text)!important
+    .btn-add-outline,
+    .btn-add-outline:hover,
+    .btn-add-outline:focus{
+        border:1px solid var(--fmis-accent)!important;
+        background:transparent!important;
+        background-image:none!important;
+        color:var(--fmis-accent)!important;
+        box-shadow:none!important
+    }
+    .btn-add-outline i{
+        color:inherit!important
+    }
+    body[data-theme="dark"] .btn-add-outline,
+    body[data-theme="dark"] .btn-add-outline:hover,
+    body[data-theme="dark"] .btn-add-outline:focus{
+        border-color:#78d3a0!important;
+        color:#78d3a0!important
+    }
+    body .sidebar nav a:hover{
+        background:rgba(47,125,92,.14)!important;
+        color:#fff!important
+    }
+    body .sidebar nav a.active{
+        border:1px solid #55b889!important;
+        background-color:transparent!important;
+        background-image:none!important;
+        color:#78d3a0!important;
+        box-shadow:none!important;
+        transform:none!important
+    }
+    body .sidebar nav a.active .bi{
+        color:#78d3a0!important
+    }
+    .header-profile .profile-circle{
+        border:2px solid var(--fmis-accent)!important;
+        background:transparent!important;
+        color:var(--fmis-accent)!important;
+        box-shadow:none!important
+    }
+    body[data-theme="dark"] .header-profile .profile-circle{
+        border-color:#78d3a0!important;
+        color:#78d3a0!important
+    }
+    .notification-preview-list button.is-unread,
+    .notification-list-item.is-unread>button{
+        box-shadow:none!important
+    }
+    .notification-preview-list button,
+    .notification-list-item>button{
+        border-radius:90px!important
     }
     .panel-link,.service-action:hover{
         color:var(--fmis-accent)!important
@@ -173,7 +220,7 @@
         }
     }
     </style>
-    <link rel="stylesheet" href="{% static 'css/dark-mode.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'css/dark-mode.css' %}?v=6">
     <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=1">
   </head>
   <body class="{% if request.user.is_admin %}role-admin{% else %}role-staff{% endif %}"
@@ -343,7 +390,8 @@
             <a class="header-profile"
                href="{% url 'settings_page:home' %}"
                title="Open account settings">
-              <span class="profile-circle">{{ request.user.display_name|slice:':1'|upper }}</span>
+              <span class="profile-circle"
+                    style="background:none!important;border:2px solid var(--fmis-accent)!important;color:var(--fmis-accent)!important;box-shadow:none!important">{{ request.user.display_name|slice:':1'|upper }}</span>
               <span class="profile-copy">
                 <strong>{{ request.user.display_name }}</strong>
                 <small>
@@ -406,9 +454,9 @@
         <p>Please wait. Do not close or refresh this page.</p>
       </section>
     </div>
-    <script src="{% static 'js/fmis.js' %}?v=2"></script>
-    <script src="{% static 'js/password-toggle.js' %}"></script>
-    <script src="{% static 'js/form-validation.js' %}"></script>
+    <script defer src="{% static 'js/fmis.js' %}?v=3"></script>
+    <script defer src="{% static 'js/password-toggle.js' %}"></script>
+    <script defer src="{% static 'js/form-validation.js' %}?v=2"></script>
     {% block extra_js %}{% endblock %}
   </body>
 </html>
