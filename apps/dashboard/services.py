@@ -14,6 +14,7 @@ from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 from apps.service_requests.models import ServiceRequest
 from apps.settings_page.models import BackupRun
+from decimal import Decimal
 
 
 def _day_boundary(value):
@@ -340,7 +341,10 @@ def staff_dashboard_metrics():
         "in_progress": request_summary["in_progress"],
         "completed": request_summary["completed"],
     }
-    total_area = sum((row["area"] or 0 for row in recommendation_rows), 0)
+    total_area = sum(
+    (Decimal(str(row["area"] or 0)) for row in recommendation_rows),
+    Decimal("0")
+)
     total_crops = sum(int(row["records"] or 0) for row in recommendation_rows)
     total_farmers = rosario_farmers.count()
     return {
