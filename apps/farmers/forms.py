@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from django import forms
@@ -22,6 +23,75 @@ from apps.farm_parcels.models import FarmParcel
 
 from .models import Farmer, FarmerDocument, FarmerUpdateHistory
 
+
+LETTERS_ONLY_PATTERN = re.compile(r"^[^\W\d_]+(?:[ .,'’\-]+[^\W\d_]+)*\.?$", re.UNICODE)
+SAFE_MIXED_PATTERN = re.compile(r"^[\w .,:#&'’/()\-]+$", re.UNICODE)
+HTML_LETTERS_PATTERN = r"[A-Za-zÑñÁÉÍÓÚÜáéíóúü .,'’\-]+"
+HTML_MIXED_PATTERN = r"[A-Za-z0-9ÑñÁÉÍÓÚÜáéíóúü .,:#&'’_/()\-]+"
+
+
+def configure_registration_inputs(form, *, letters=(), digits=(), mixed=()):
+    """Describe allowed input to browsers while server validation remains authoritative."""
+
+    for name in letters:
+        field = form.fields.get(name)
+        if not field or isinstance(field.widget, forms.HiddenInput):
+            continue
+        field.widget.attrs.update(
+            {
+                "data-input-kind": "letters",
+                "pattern": HTML_LETTERS_PATTERN,
+                "title": "Use letters only. Spaces, apostrophes, periods, commas, and hyphens are allowed.",
+            }
+        )
+    for name in digits:
+        field = form.fields.get(name)
+        if not field or isinstance(field.widget, forms.HiddenInput):
+            continue
+        field.widget.attrs.update(
+            {
+                "data-input-kind": "digits",
+                "inputmode": "numeric",
+                "pattern": r"[0-9]+",
+                "title": "Use numbers only.",
+            }
+        )
+    for name in mixed:
+        field = form.fields.get(name)
+        if not field or isinstance(field.widget, forms.HiddenInput):
+            continue
+        field.widget.attrs.update(
+            {
+                "data-input-kind": "safe-mixed",
+                "pattern": HTML_MIXED_PATTERN,
+                "title": "Use only letters, numbers, spaces, and ordinary punctuation.",
+            }
+        )
+
+
+def validate_registration_inputs(form, cleaned, *, letters=(), digits=(), mixed=()):
+    """Reject invalid characters even when browser-side checks are bypassed."""
+
+    for name in letters:
+        value = cleaned.get(name)
+        if value and not LETTERS_ONLY_PATTERN.fullmatch(value):
+            form.add_error(
+                name,
+                "Use letters only. Spaces, apostrophes, periods, commas, and hyphens are allowed.",
+            )
+    for name in digits:
+        value = cleaned.get(name)
+        if value and not value.isdecimal():
+            form.add_error(name, "Use numbers only. Letters and symbols are not allowed.")
+    for name in mixed:
+        value = cleaned.get(name)
+        if value and not SAFE_MIXED_PATTERN.fullmatch(value):
+            form.add_error(
+                name,
+                "Use only letters, numbers, spaces, and ordinary punctuation.",
+            )
+    return cleaned
+
 ACTIVITY_CHOICES = [
     ("FARMER_CROPS", "Farmer - Crops"),
     ("FARMER_LIVESTOCK", "Farmer - Livestock"),
@@ -41,6 +111,64 @@ ACTIVITY_CHOICES = [
     ("YOUTH_PROGRAM", "Agri-Youth - Agriculture Activity / Program"),
 ]
 
+VALID_ID_CHOICES = [
+    ("", "Select an accepted proof of identity"),
+    ("Birth Certificate", "Birth Certificate"),
+    ("National ID", "PhilID / National ID / ePhilID"),
+    ("Passport", "Passport"),
+    ("Driver's License", "Driver's License"),
+    ("e-Card / UMID", "e-Card / UMID"),
+    ("SSS ID", "SSS ID"),
+    ("PRC ID", "PRC ID"),
+    ("IBP ID", "IBP ID"),
+    ("NBI Clearance", "NBI Clearance"),
+    ("Voter's ID", "Voter's ID"),
+    ("TIN ID", "TIN ID"),
+    ("Pag-IBIG ID", "Pag-IBIG ID"),
+    ("Senior Citizen ID", "Senior Citizen ID"),
+    ("PWD ID", "PWD ID"),
+    ("Solo Parent ID", "Solo Parent ID"),
+    ("4Ps ID", "4Ps ID"),
+    ("Postal ID", "Postal ID"),
+    ("PhilHealth ID", "PhilHealth ID"),
+    ("City / Municipal / Barangay ID", "City / Municipal / Barangay ID"),
+    ("Employee / School ID", "Employee / School ID"),
+]
+
+VALID_ID_RULES = {
+    "National ID": (r"\d{16}", "Enter the 16-digit PhilSys Card Number (PCN)."),
+    "Passport": (r"[A-Z]{1,2}\d{7}", "Use 1 or 2 letters followed by 7 numbers."),
+    "Driver's License": (
+        r"[A-Z]\d{2}-?\d{2}-?\d{6}",
+        "Use the Philippine driver's license format, for example N01-12-123456.",
+    ),
+    "e-Card / UMID": (r"\d{12}", "Enter the 12-digit CRN shown on the card."),
+    "SSS ID": (r"\d{10}", "Enter the 10-digit SSS number."),
+    "PRC ID": (r"\d{7}", "Enter the 7-digit PRC license number."),
+    "IBP ID": (r"\d{4,8}", "Enter the 4 to 8-digit IBP roll number."),
+    "TIN ID": (r"\d{12}", "Enter the 12-digit TIN, including the branch code."),
+    "Pag-IBIG ID": (r"\d{12}", "Enter the 12-digit Pag-IBIG MID number."),
+    "4Ps ID": (r"\d{12}", "Enter the 12-digit 4Ps household ID number."),
+    "PhilHealth ID": (r"\d{12}", "Enter the 12-digit PhilHealth identification number."),
+}
+
+GENERIC_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .#()/\-]{2,39}$")
+MONTH_CHOICES = (
+    ("", "Select month"),
+    ("January", "January"),
+    ("February", "February"),
+    ("March", "March"),
+    ("April", "April"),
+    ("May", "May"),
+    ("June", "June"),
+    ("July", "July"),
+    ("August", "August"),
+    ("September", "September"),
+    ("October", "October"),
+    ("November", "November"),
+    ("December", "December"),
+)
+
 
 class StyledFormMixin(InlineValidationMixin):
     def apply_styles(self):
@@ -53,12 +181,29 @@ class StyledFormMixin(InlineValidationMixin):
 
 
 class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
+    LETTER_FIELDS = (
+        "last_name",
+        "first_name",
+        "middle_name",
+        "extension_name",
+        "place_of_birth",
+        "mother_maiden_name",
+        "spouse_name",
+        "religion",
+        "indigenous_group",
+    )
+    DIGIT_FIELDS = ("philsys_pcn", "philsys_trn")
+    MIXED_FIELDS = (
+        "house_lot_purok",
+        "street_sitio",
+        "highest_education",
+        "fca_membership",
+    )
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
-    activities = forms.ChoiceField(
-        choices=(("", "Select farmer type or primary activity"),) + tuple(ACTIVITY_CHOICES),
-        widget=forms.Select,
+    valid_id_type = forms.ChoiceField(
+        choices=VALID_ID_CHOICES,
         required=True,
-        label="Farmer type / primary agricultural activity",
+        label="Valid ID type",
     )
     consent_given = forms.BooleanField(
         required=True,
@@ -100,7 +245,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "fca_membership",
             "photo",
             "livelihood",
-            "activities",
             "consent_given",
         ]
         widgets = {
@@ -167,34 +311,67 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             self.fields["spouse_name"].required = civil_status == "MARRIED"
             self.fields["spouse_name"].widget.attrs["data-required-for-married"] = "true"
         self.apply_styles()
+        configure_registration_inputs(
+            self,
+            letters=self.LETTER_FIELDS,
+            digits=self.DIGIT_FIELDS,
+            mixed=self.MIXED_FIELDS,
+        )
+        if "phone_number" in self.fields:
+            self.fields["phone_number"].widget.attrs["data-input-kind"] = "digits"
         if "phone_number" in self.fields and not (self.instance and self.instance.pk):
             self.initial.setdefault("phone_number", "09")
-        if (
-            "activities" in self.fields
-            and self.instance
-            and self.instance.pk
-            and self.instance.activities
-        ):
-            self.initial["activities"] = self.instance.activities.split(",")[0]
+        self.fields["valid_id_type"].widget.attrs["data-valid-id-type"] = "true"
+        self.fields["valid_id_number"].widget.attrs.update(
+            {
+                "data-valid-id-number": "true",
+                "autocomplete": "off",
+                "placeholder": "Choose an ID type first",
+                "aria-describedby": "valid-id-format-help",
+            }
+        )
+        self.fields["valid_id_number"].help_text = (
+            "The accepted format will appear after an ID type is selected."
+        )
 
     def clean_phone_number(self):
-        value = self.cleaned_data.get("phone_number", "")
-        digits = "".join(ch for ch in value if ch.isdigit())
-        if not digits:
-            return digits
-        if len(digits) != 11 or not digits.startswith("09"):
+        value = (self.cleaned_data.get("phone_number") or "").strip()
+        if not value:
+            return value
+        if not re.fullmatch(r"09\d{9}", value):
             raise ValidationError(
-                "Enter a valid PH mobile number: 11 digits, starting with 09 (e.g. 09171234567)."
+                "Use numbers only and enter 11 digits starting with 09 (for example, 09171234567)."
             )
-        return digits
-
-    def clean_activities(self):
-        return self.cleaned_data["activities"]
+        return value
 
     def clean(self):
         cleaned = super().clean()
+        validate_registration_inputs(
+            self,
+            cleaned,
+            letters=self.LETTER_FIELDS,
+            digits=self.DIGIT_FIELDS,
+            mixed=self.MIXED_FIELDS,
+        )
         valid_id_type = cleaned.get("valid_id_type")
-        valid_id_number = cleaned.get("valid_id_number")
+        valid_id_number = (cleaned.get("valid_id_number") or "").strip().upper()
+        cleaned["valid_id_number"] = valid_id_number
+        original_id_type = self.initial.get("valid_id_type", "")
+        original_id_number = str(self.initial.get("valid_id_number", "") or "").strip().upper()
+        id_was_changed = (
+            not self.instance.pk
+            or valid_id_type != original_id_type
+            or valid_id_number != original_id_number
+        )
+        if valid_id_type and valid_id_number and id_was_changed:
+            rule = VALID_ID_RULES.get(valid_id_type)
+            if rule and not re.fullmatch(rule[0], valid_id_number):
+                self.add_error("valid_id_number", rule[1])
+            elif not rule and not GENERIC_ID_PATTERN.fullmatch(valid_id_number):
+                self.add_error(
+                    "valid_id_number",
+                    "Enter 3 to 40 letters and numbers exactly as shown on the ID. Spaces, hyphens, slashes, periods, parentheses, and # are allowed.",
+                )
         if valid_id_type and valid_id_number:
             duplicate = Farmer.objects.filter(
                 valid_id_type__iexact=valid_id_type,
@@ -223,6 +400,10 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
 
 
 class FarmerProfileUpdateForm(FarmerRegistrationForm):
+    LETTER_FIELDS = FarmerRegistrationForm.LETTER_FIELDS + ("agriculturist_name",)
+    MIXED_FIELDS = FarmerRegistrationForm.MIXED_FIELDS + (
+        "transaction_code",
+    )
     activities = None
     consent_given = forms.BooleanField(required=False, widget=forms.HiddenInput)
     transaction_code = forms.CharField(
@@ -269,7 +450,60 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+
+class FarmerRegistrationStatusForm(StyledFormMixin, forms.ModelForm):
+    """Office-controlled RSBSA processing; this is not a registrant Slip A request."""
+
+    class Meta:
+        model = Farmer
+        fields = ["registration_status", "rsbsa_number"]
+        labels = {
+            "registration_status": "Registration status",
+            "rsbsa_number": "Official RSBSA ID / Reference Code",
+        }
+        help_texts = {
+            "registration_status": (
+                "Use Skipped when requirements need correction. Select Completed after the "
+                "office accepts the registration."
+            ),
+            "rsbsa_number": "Required only when the registration status is Completed.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["rsbsa_number"].required = False
+        self.fields["rsbsa_number"].widget.attrs.update(
+            {
+                "autocomplete": "off",
+                "placeholder": "Available when status is Completed",
+                "data-rsbsa-id": "true",
+            }
+        )
+        self.fields["registration_status"].widget.attrs["data-registration-status"] = "true"
+        if self.instance and self.instance.pk and self.instance.registration_status == "COMPLETED":
+            self.fields["registration_status"].choices = [("COMPLETED", "Completed")]
         self.apply_styles()
+
+    def clean_rsbsa_number(self):
+        value = (self.cleaned_data.get("rsbsa_number") or "").strip()
+        return value or None
+
+    def clean(self):
+        cleaned = super().clean()
+        status = cleaned.get("registration_status")
+        rsbsa_number = cleaned.get("rsbsa_number")
+        if status == "COMPLETED" and not rsbsa_number:
+            self.add_error(
+                "rsbsa_number",
+                "Enter the official RSBSA ID before marking this registration as Completed.",
+            )
+        elif status and status != "COMPLETED" and rsbsa_number:
+            self.add_error(
+                "rsbsa_number",
+                "The official RSBSA ID can only be entered for a Completed registration.",
+            )
+        return cleaned
 
 
 class FarmerSlipBLivelihoodForm(StyledFormMixin, forms.ModelForm):
@@ -318,18 +552,33 @@ class FarmerSlipBLivelihoodForm(StyledFormMixin, forms.ModelForm):
 
 
 class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
+    LETTER_FIELDS = ("land_owner_name",)
+    MIXED_FIELDS = (
+        "ownership_document_other",
+        "land_owner_rsbsa_number",
+        "georef_id",
+    )
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
-    is_rsbsa_recorded = RequiredYesNoField(label="Already recorded in RSBSA?")
     is_active = RequiredYesNoField(label="Currently cultivated / active?")
-    farm_type = forms.ChoiceField(
-        choices=FarmParcel.FARM_TYPE_CHOICES,
+    farm_type = forms.CharField(
+        max_length=180,
         required=True,
         label="Farm type",
+        widget=forms.TextInput(
+            attrs={"placeholder": "Enter farm type or brief office remarks"}
+        ),
+    )
+    land_owner_registered_rsbsa = forms.TypedChoiceField(
+        choices=(("", "Unknown"), ("True", "Yes"), ("False", "No")),
+        coerce=lambda value: {"True": True, "False": False}.get(value),
+        empty_value=None,
+        required=False,
+        label="Land owner is registered in RSBSA",
     )
 
     class Meta:
         model = FarmParcel
-        exclude = ["farmer", "created_at"]
+        exclude = ["farmer", "created_at", "parcel_name", "remarks", "is_rsbsa_recorded"]
         labels = {
             "is_rsbsa_recorded": "Already recorded in RSBSA",
             "within_ancestral_domain": "Within ancestral domain",
@@ -355,17 +604,50 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
             self.initial[name] = fixed_value
             self.fields[name].disabled = True
         self.fields["gpx_status"].required = False
+        for name in ("land_owner_name", "land_owner_registered_rsbsa", "land_owner_rsbsa_number"):
+            self.fields[name].widget.attrs["data-owner-detail"] = "true"
+        self.fields["ownership_type"].widget.attrs["data-ownership-type"] = "true"
         self.apply_styles()
+        configure_registration_inputs(
+            self,
+            letters=self.LETTER_FIELDS,
+            mixed=self.MIXED_FIELDS,
+        )
 
     def clean(self):
         cleaned = super().clean()
+        validate_registration_inputs(
+            self,
+            cleaned,
+            letters=self.LETTER_FIELDS,
+            mixed=self.MIXED_FIELDS,
+        )
         for name in ("barangay", "area_hectares", "ownership_type", "land_type", "farm_type"):
             if not cleaned.get(name):
                 self.add_error(name, "Complete this field for the farm parcel.")
+        ownership_type = cleaned.get("ownership_type")
+        owner_details_apply = ownership_type in {"TENANT", "LEASED", "OTHER"}
+        if not owner_details_apply:
+            cleaned["land_owner_name"] = ""
+            cleaned["land_owner_registered_rsbsa"] = None
+            cleaned["land_owner_rsbsa_number"] = ""
+        else:
+            if not cleaned.get("land_owner_name"):
+                self.add_error("land_owner_name", "Enter the land owner's name.")
+            if cleaned.get("land_owner_registered_rsbsa") is True and not cleaned.get(
+                "land_owner_rsbsa_number"
+            ):
+                self.add_error(
+                    "land_owner_rsbsa_number",
+                    "Enter the land owner's RSBSA number when Yes is selected.",
+                )
+            if cleaned.get("land_owner_registered_rsbsa") is not True:
+                cleaned["land_owner_rsbsa_number"] = ""
         return cleaned
 
 
 class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
+    MIXED_FIELDS = ("other_crop_name",)
     parcel_number = forms.IntegerField(
         min_value=1,
         required=False,
@@ -383,10 +665,27 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
     )
     is_organic = RequiredYesNoField(label="Organic production?")
     is_intercrop = RequiredYesNoField(label="Intercropping commodity?")
+    cropping_start_month = forms.ChoiceField(
+        choices=MONTH_CHOICES,
+        required=False,
+        label="Cropping schedule start",
+    )
+    cropping_end_month = forms.ChoiceField(
+        choices=MONTH_CHOICES,
+        required=False,
+        label="Cropping schedule end",
+    )
 
     class Meta:
         model = CropRecord
-        exclude = ["parcel", "is_active", "archived_at", "archived_by"]
+        exclude = [
+            "parcel",
+            "cropping_schedule",
+            "harvest_date",
+            "is_active",
+            "archived_at",
+            "archived_by",
+        ]
         labels = {
             "crop_type": "Crop / Commodity",
             "number_of_heads": "Number of heads / trees (if applicable)",
@@ -395,39 +694,75 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
         widgets = {
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "planting_date": forms.DateInput(attrs={"type": "date"}),
-            "harvest_date": forms.DateInput(attrs={"type": "date"}),
             "image": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         add_other_crop_field(self)
+        schedule = self.initial.get("cropping_schedule") or getattr(
+            self.instance, "cropping_schedule", ""
+        )
+        if schedule and " - " in schedule:
+            start_month, end_month = schedule.split(" - ", 1)
+            self.initial.setdefault("cropping_start_month", start_month)
+            self.initial.setdefault("cropping_end_month", end_month)
         self.order_fields(
-            ["parcel_number", "crop_type", "other_crop_name"]
+            [
+                "parcel_number",
+                "crop_type",
+                "other_crop_name",
+                "cropping_start_month",
+                "cropping_end_month",
+            ]
             + [
                 name
                 for name in self.fields
-                if name not in {"parcel_number", "crop_type", "other_crop_name"}
+                if name
+                not in {
+                    "parcel_number",
+                    "crop_type",
+                    "other_crop_name",
+                    "cropping_start_month",
+                    "cropping_end_month",
+                }
             ]
         )
-        for name in ("parcel_number", "crop_type", "area_hectares"):
+        for name in (
+            "parcel_number",
+            "crop_type",
+            "area_hectares",
+            "cropping_start_month",
+            "cropping_end_month",
+        ):
             self.fields[name].required = False
             self.fields[name].widget.attrs["data-step-required"] = "true"
         self.apply_styles()
+        configure_registration_inputs(self, mixed=self.MIXED_FIELDS)
 
     def clean(self):
         cleaned = super().clean()
+        validate_registration_inputs(self, cleaned, mixed=self.MIXED_FIELDS)
         resolve_other_crop(self, cleaned)
-        for name in ("parcel_number", "crop_type", "area_hectares"):
+        for name in (
+            "parcel_number",
+            "crop_type",
+            "area_hectares",
+            "cropping_start_month",
+            "cropping_end_month",
+        ):
             if not cleaned.get(name):
                 self.add_error(name, "Complete this field for the crop or commodity.")
-        start, end = cleaned.get("planting_date"), cleaned.get("harvest_date")
-        if start and end and end < start:
-            self.add_error("harvest_date", "Harvest date cannot be earlier than the planting date.")
+        start_month = cleaned.get("cropping_start_month")
+        end_month = cleaned.get("cropping_end_month")
+        cleaned["cropping_schedule"] = (
+            f"{start_month} - {end_month}" if start_month and end_month else ""
+        )
         return cleaned
 
 
 class DocumentRegistrationForm(StyledFormMixin, forms.Form):
+    MIXED_FIELDS = ("description",)
     document_type = forms.ChoiceField(choices=FarmerDocument.DOCUMENT_TYPE_CHOICES)
     description = forms.CharField(max_length=180, required=False)
     file = forms.FileField(help_text="JPG, PNG, or PDF; maximum 5 MB")
@@ -435,7 +770,13 @@ class DocumentRegistrationForm(StyledFormMixin, forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.apply_styles()
+        configure_registration_inputs(self, mixed=self.MIXED_FIELDS)
         self.fields["file"].widget.attrs["accept"] = ".jpg,.jpeg,.png,.pdf"
+        self.fields["description"].widget.attrs["placeholder"] = "Briefly describe the document"
+
+    def clean(self):
+        cleaned = super().clean()
+        return validate_registration_inputs(self, cleaned, mixed=self.MIXED_FIELDS)
 
     def clean_file(self):
         upload = self.cleaned_data["file"]

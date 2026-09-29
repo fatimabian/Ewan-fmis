@@ -3,69 +3,56 @@
   Farmer Registration
 {% endblock %}
 {% block page_subtitle %}
-  Farmer record created and ready for field use
+  Farmer record saved and ready for processing
 {% endblock %}
 {% block content %}
   <div class="content registration-page">
-    <section class="panel registration-shell">
-      <ol class="registration-stepper complete-stepper">
-        <li class="done">
-          <span>
-            <i class="bi bi-check-lg">
-            </i>
+    <section class="panel registration-shell registration-confirmation-shell">
+      <div class="registration-confirmation">
+        <header class="registration-confirmation-heading">
+          <span class="registration-confirmation-icon" aria-hidden="true">
+            <i class="bi bi-check-lg"></i>
           </span>
-          <small>Farmer Profile</small>
-        </li>
-        <li class="done">
-          <span>
-            <i class="bi bi-check-lg">
-            </i>
-          </span>
-          <small>Farm Parcels</small>
-        </li>
-        <li class="done">
-          <span>
-            <i class="bi bi-check-lg">
-            </i>
-          </span>
-          <small>Crops &amp; Livelihood</small>
-        </li>
-        <li class="done">
-          <span>
-            <i class="bi bi-check-lg">
-            </i>
-          </span>
-          <small>Documents</small>
-        </li>
-        <li class="done">
-          <span>
-            <i class="bi bi-check-lg">
-            </i>
-          </span>
-          <small>Review &amp; Confirm</small>
-        </li>
-        <li class="active">
-          <span>6</span>
-          <small>Complete</small>
-        </li>
-      </ol>
-      <div class="registration-success">
-        <div class="success-icon">
-          <i class="bi bi-check-lg">
-          </i>
+          <div>
+            <small>Farmer record saved</small>
+            <h2>
+              {% if farmer.registration_status == 'COMPLETED' %}Registration completed{% else %}Registration encoded{% endif %}
+            </h2>
+            <p>
+              <strong>{{ farmer.full_name }}</strong> is now in the farmer records.
+              {% if farmer.registration_status != 'COMPLETED' %}
+                The application can be reviewed before assigning the official RSBSA ID.
+              {% endif %}
+            </p>
+          </div>
+        </header>
+
+        <div class="registration-confirmation-summary">
+          <article>
+            <span class="confirmation-summary-icon"><i class="bi bi-person-vcard"></i></span>
+            <div><small>Official RSBSA ID / Reference Code</small><strong>{{ farmer.rsbsa_number|default:'Not assigned' }}</strong></div>
+          </article>
+          <article>
+            <span class="confirmation-summary-icon"><i class="bi bi-calendar-check"></i></span>
+            <div><small>Date registered</small><strong>{{ farmer.submitted_at|date:"F j, Y" }}</strong><span>{{ farmer.submitted_at|date:"g:i A" }}</span></div>
+          </article>
+          <article>
+            <span class="confirmation-summary-icon"><i class="bi bi-list-check"></i></span>
+            <div><small>Processing status</small><strong class="confirmation-status status-{{ farmer.registration_status|lower }}">{{ farmer.get_registration_status_display }}</strong></div>
+          </article>
         </div>
-        <h2>Registration Complete</h2>
-        <p>
-          <strong>{{ farmer.full_name }}</strong> is now an active farmer record in FMIS.
-        </p>
-        <div class="reference-card">
-          <small>Farmer ID</small>
-          <strong>{{ farmer.record_id }}</strong>
-          <small>Date Registered</small>
-          <b>{{ farmer.submitted_at|date:"F j, Y, g:i A" }}</b>
-          <span class="status active">Active Record</span>
-        </div>
-        {% if qr_data_uri %}
+
+        {% if farmer.registration_status != 'COMPLETED' %}
+          <aside class="registration-next-step">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <div>
+              <strong>Next step</strong>
+              <p>Review the application, then use <b>Update Registration Status</b> to change its status or add the official RSBSA ID.</p>
+            </div>
+          </aside>
+        {% endif %}
+
+        {% if farmer.registration_status == 'COMPLETED' and qr_data_uri %}
           <div class="completion-qr">
             <img src="{{ qr_data_uri }}" alt="Secure QR for {{ farmer.full_name }}">
             <span>
@@ -74,16 +61,22 @@
             </span>
           </div>
         {% endif %}
-        <div class="success-actions">
-          <a class="btn btn-outline-success" href="{% url 'farmers:qr_print' farmer.pk %}">
-            <i class="bi bi-qr-code">
-            </i> Print Farmer QR</a>
-            <a class="btn btn-outline-secondary" href="{% url 'farmers:list' %}">View Farmers</a>
-            <a class="btn btn-success" href="{% url 'farmers:create' %}">
-              <i class="bi bi-plus-lg">
-              </i> Register Another Farmer</a>
-            </div>
-          </div>
-        </section>
+        <div class="registration-confirmation-actions">
+          <a class="btn btn-outline-success" href="{% url 'farmers:registration_status' farmer.pk %}">
+            <i class="bi bi-list-check"></i> Update Registration Status
+          </a>
+          {% if farmer.registration_status == 'COMPLETED' %}
+            <a class="btn btn-outline-success" href="{% url 'farmers:qr_print' farmer.pk %}">
+              <i class="bi bi-qr-code"></i> Print Farmer QR</a>
+          {% endif %}
+          <a class="btn btn-outline-secondary" href="{% url 'farmers:detail' farmer.pk %}">
+            <i class="bi bi-person-lines-fill"></i> View Farmer Record
+          </a>
+          <a class="btn btn-outline-secondary" href="{% url 'farmers:create' %}">
+            <i class="bi bi-plus-lg"></i> Register Another Farmer
+          </a>
+        </div>
       </div>
+    </section>
+  </div>
 {% endblock %}

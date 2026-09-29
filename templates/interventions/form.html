@@ -43,7 +43,7 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
         <div class="intervention-field full"><label>{{ form.remarks.label }}</label>{{ form.remarks }}<span class="intervention-errors">{{ form.remarks.errors }}</span></div>
       </div>
       <div class="intervention-form-actions">
-        <a class="btn btn-outline-secondary" href="{% if object %}{% url 'interventions:detail' object.pk %}{% else %}{% url 'interventions:list' %}{% endif %}">Cancel</a>
+        <a class="btn btn-outline-secondary btn-cancel" href="{% if object %}{% url 'interventions:detail' object.pk %}{% else %}{% url 'interventions:list' %}{% endif %}">Cancel</a>
         <button class="btn btn-success" type="submit">{% if object %}Save Changes{% else %}Save Intervention{% endif %}</button>
       </div>
     </form>

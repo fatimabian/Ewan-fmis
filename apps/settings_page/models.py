@@ -11,6 +11,7 @@ class UserPreference(models.Model):
     primary_color = models.CharField(max_length=7, default="#008552")
     in_app_notifications = models.BooleanField(default=True)
     linked_email = models.EmailField(blank=True)
+    profile_photo = models.ImageField(upload_to="account_profiles/", blank=True)
 
     def __str__(self):
         return f"Preferences for {self.user}"

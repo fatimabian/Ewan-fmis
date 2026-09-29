@@ -242,17 +242,12 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
 
             view = CropListView()
             view.request = request
-            today = date.today()
             rows = [
                 [
                     crop.parcel.farmer.record_id,
                     crop.parcel.farmer.list_name,
                     crop.crop_type,
                     crop.planting_date or "Not set",
-                    crop.harvest_date or "Not set",
-                    "Harvested"
-                    if crop.harvest_date and crop.harvest_date <= today
-                    else "Growing",
                 ]
                 for crop in view.get_queryset()
             ]
@@ -260,7 +255,7 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                 "search": request.GET.get("q", ""),
                 "commodity": request.GET.get("crop_type", ""),
                 "year": request.GET.get("year", ""),
-                "crop_status": request.GET.get("status", "").title(),
+                "record_view": request.GET.get("status", "").title() or "Current",
             }
             return (
                 "Crop Management List",
@@ -269,8 +264,6 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     "Farmer Name",
                     "Crop / Commodity",
                     "Planting Date",
-                    "Harvest Date",
-                    "Status",
                 ],
                 rows,
                 filters,

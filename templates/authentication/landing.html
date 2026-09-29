@@ -19,7 +19,7 @@
       rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/typography.css' %}">
     <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=8">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=7">
   </head>
   <body>
     <div class="landing-progress" id="landingProgress" aria-hidden="true"></div>
@@ -131,7 +131,7 @@
               <div class="landing-signin-options">
                 <label class="landing-remember">
                   {{ form.remember_me }}
-                  <span>Keep me signed in for 7 days</span>
+                  <span>Keep me signed in</span>
                 </label>
                 <a href="{% url 'authentication:password_reset' %}">Forgot Password?</a>
               </div>
@@ -263,6 +263,25 @@
         </div>
       </section>
 
+      <section class="landing-assurance" aria-label="System scope" data-reveal>
+        <div>
+          <i class="bi bi-pin-map-fill"></i>
+          <span><strong>Rosario-only</strong><small>Municipal records and map limits</small></span>
+        </div>
+        <div>
+          <i class="bi bi-person-vcard-fill"></i>
+          <span><strong>RSBSA-aligned</strong><small>Registration and updating workflows</small></span>
+        </div>
+        <div>
+          <i class="bi bi-clock-history"></i>
+          <span><strong>Traceable changes</strong><small>Previous values and responsible staff</small></span>
+        </div>
+        <div>
+          <i class="bi bi-shield-check"></i>
+          <span><strong>Role-protected</strong><small>Controlled administrator and staff access</small></span>
+        </div>
+      </section>
+
       <section class="capability-section" id="capabilities">
         <div class="section-heading centered" data-reveal>
           <div>
@@ -331,25 +350,6 @@
               Reports use maintained Rosario records and can be downloaded for office use.
             </div>
           </article>
-        </div>
-      </section>
-
-      <section class="landing-assurance" aria-label="System scope" data-reveal>
-        <div>
-          <i class="bi bi-pin-map-fill"></i>
-          <span><strong>Rosario-only</strong><small>Municipal records and map limits</small></span>
-        </div>
-        <div>
-          <i class="bi bi-person-vcard-fill"></i>
-          <span><strong>RSBSA-aligned</strong><small>Registration and updating workflows</small></span>
-        </div>
-        <div>
-          <i class="bi bi-clock-history"></i>
-          <span><strong>Traceable changes</strong><small>Previous values and responsible staff</small></span>
-        </div>
-        <div>
-          <i class="bi bi-shield-check"></i>
-          <span><strong>Role-protected</strong><small>Controlled administrator and staff access</small></span>
         </div>
       </section>
 

@@ -45,6 +45,121 @@ html body :is(
     border-radius:var(--fmis-radius-round)!important
 }
 
+/* Buttons use color as an outline only; solid fills made labels hard to read. */
+html body :is(
+    button,
+    .btn,
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    .catalog-add,
+    .panel-link,
+    .logout
+):not(#fmis-shape-specificity){
+    --fmis-button-outline:#168052;
+    border:1px solid var(--fmis-button-outline)!important;
+    background:transparent!important;
+    background-image:none!important;
+    color:#111!important;
+    box-shadow:0 3px 9px rgba(20,36,54,.14),0 1px 2px rgba(20,36,54,.1)!important;
+    transition:box-shadow .18s ease,transform .18s ease,border-color .18s ease!important
+}
+
+html body :is(
+    .btn-outline-secondary,
+    .btn-danger,
+    .btn-outline-danger,
+    .logout,
+    [data-action="delete"]
+):not(#fmis-shape-specificity){
+    --fmis-button-outline:#c62828
+}
+
+html body :is(
+    .btn-warning,
+    .btn-outline-warning
+):not(#fmis-shape-specificity){
+    --fmis-button-outline:#a86500
+}
+
+html body :is(
+    .btn-info,
+    .btn-outline-info
+):not(#fmis-shape-specificity){
+    --fmis-button-outline:#1769aa
+}
+
+html body :is(
+    button,
+    .btn,
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    .catalog-add,
+    .panel-link,
+    .logout
+):not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border-color:var(--fmis-button-outline)!important;
+    background:transparent!important;
+    background-image:none!important;
+    color:#111!important;
+    box-shadow:0 5px 14px rgba(20,36,54,.18),0 0 0 2px color-mix(in srgb,var(--fmis-button-outline) 18%,transparent)!important;
+    transform:translateY(-1px)
+}
+
+html body[data-theme="dark"] :is(
+    button,
+    .btn,
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    .catalog-add,
+    .panel-link,
+    .logout
+):not(#fmis-shape-specificity){
+    color:#f8fafc!important;
+    box-shadow:0 4px 12px rgba(0,0,0,.32),0 1px 2px rgba(0,0,0,.28)!important
+}
+
+html body[data-theme="dark"] :is(
+    button,
+    .btn,
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    .catalog-add,
+    .panel-link,
+    .logout
+):not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    box-shadow:0 6px 16px rgba(0,0,0,.4),0 0 0 2px color-mix(in srgb,var(--fmis-button-outline) 30%,transparent)!important
+}
+
+html body :is(
+    button,
+    .btn,
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"]
+):not(#fmis-shape-specificity):disabled,
+html body :is(.btn,.disabled):not(#fmis-shape-specificity)[aria-disabled="true"]{
+    opacity:.55!important;
+    cursor:not-allowed!important;
+    box-shadow:none!important;
+    transform:none!important
+}
+
+@media (prefers-reduced-motion:reduce){
+    html body :is(button,.btn,[role="button"],input[type="button"],input[type="submit"],input[type="reset"]):not(#fmis-shape-specificity){
+        transition:none!important;
+        transform:none!important
+    }
+}
+
 /* Compact labels, identities, and icon holders remain circles or capsules. */
 html body :is(
     .badge,
@@ -74,4 +189,185 @@ html body .farmer-pin i:not(#fmis-shape-specificity){
 /* Preserve the native distinction between a square checkbox and round radio. */
 html body input[type="checkbox"]:not(#fmis-shape-specificity){
     border-radius:var(--fmis-radius-square)!important
+}
+
+/* Status and priority labels use color on the outline, never as a fill. */
+html body .app-shell :is(
+    .badge,
+    .priority-badge,
+    .request-priority,
+    .request-status,
+    .intervention-status,
+    .farmer-status,
+    .confirmation-status,
+    .parcel-status,
+    .crop-status,
+    .activity-status,
+    .status-badge
+):not(#fmis-shape-specificity){
+    --fmis-badge-outline:#2f7d5c;
+    border:1px solid var(--fmis-badge-outline)!important;
+    background:transparent!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    color:#111!important;
+    box-shadow:none!important
+}
+
+html body .app-shell :is(
+    .priority-badge.low,
+    .request-status.pending,
+    .request-status.completed,
+    .intervention-status.active,
+    .farmer-status.active,
+    .farmer-status.status-completed,
+    .confirmation-status.status-completed,
+    .parcel-status:not(.inactive)
+):not(#fmis-shape-specificity){
+    --fmis-badge-outline:#238553
+}
+
+html body .app-shell :is(
+    .priority-badge.medium,
+    .request-priority.priority-medium,
+    .farmer-status.status-submitted,
+    .confirmation-status.status-submitted
+):not(#fmis-shape-specificity){
+    --fmis-badge-outline:#b57600
+}
+
+html body .app-shell :is(
+    .priority-badge.high,
+    .request-priority.priority-high,
+    .request-status.cancelled,
+    .farmer-status.status-skipped,
+    .confirmation-status.status-skipped,
+    .parcel-status.inactive
+):not(#fmis-shape-specificity){
+    --fmis-badge-outline:#d32626
+}
+
+html body .app-shell :is(
+    .request-status.in_progress,
+    .farmer-status.status-encoded,
+    .confirmation-status.status-encoded
+):not(#fmis-shape-specificity){
+    --fmis-badge-outline:#1765d8
+}
+
+html body .app-shell :is(
+    .intervention-status.archived,
+    .farmer-status.archived,
+    .crop-status.archived
+):not(#fmis-shape-specificity){
+    --fmis-badge-outline:#667085
+}
+
+html body .app-shell .status-badge:not(#fmis-shape-specificity){
+    border-color:var(--badge-outline,var(--fmis-badge-outline))!important
+}
+
+html body[data-theme="dark"] .app-shell :is(
+    .badge,
+    .priority-badge,
+    .request-priority,
+    .request-status,
+    .intervention-status,
+    .farmer-status,
+    .confirmation-status,
+    .parcel-status,
+    .crop-status,
+    .activity-status,
+    .status-badge
+):not(#fmis-shape-specificity){
+    background:transparent!important;
+    color:#f8fafc!important
+}
+
+/* Table actions are icon controls, not full-sized pill buttons. */
+html body .app-shell table :is(
+    .account-row-actions,
+    .request-actions,
+    .intervention-actions,
+    .parcel-actions,
+    .crop-actions,
+    .farmer-actions,
+    .row-actions,
+    .table-actions
+) :is(a,button):not(#fmis-shape-specificity),
+html body .app-shell table button[title]:not(#fmis-shape-specificity){
+    width:auto!important;
+    min-width:0!important;
+    height:auto!important;
+    min-height:0!important;
+    padding:3px!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    transform:none!important
+}
+
+html body .app-shell table :is(
+    .account-row-actions,
+    .request-actions,
+    .intervention-actions,
+    .parcel-actions,
+    .crop-actions,
+    .farmer-actions,
+    .row-actions,
+    .table-actions
+) :is(a,button):not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active),
+html body .app-shell table button[title]:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    transform:none!important
+}
+
+/* Calendar days stay as plain numbers instead of inheriting button capsules. */
+html body .fmis-date-picker .fmis-date-day:not(#fmis-shape-specificity),
+html body .fmis-date-picker .fmis-date-day:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    color:inherit!important;
+    transform:none!important
+}
+
+html body .fmis-date-picker .fmis-date-day:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,.is-selected){
+    color:var(--fmis-accent,#2f7d5c)!important
+}
+
+/* Every visible Cancel action shares the same destructive-outline treatment. */
+html body .btn-cancel:not(#fmis-shape-specificity),
+html body .btn-cancel:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    --fmis-button-outline:#c62828!important;
+    border:1px solid #c62828!important;
+    background:transparent!important;
+    background-image:none!important;
+    color:#111!important
+}
+
+html body[data-theme="dark"] .btn-cancel:not(#fmis-shape-specificity),
+html body[data-theme="dark"] .btn-cancel:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border-color:#ef6b73!important;
+    color:#f8fafc!important
+}
+
+/* Logout sits on the dark sidebar, so its destructive outline needs white content. */
+html body .app-shell .sidebar .logout:not(#fmis-shape-specificity),
+html body .app-shell .sidebar .logout:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    --fmis-button-outline:#e5535d!important;
+    border:1px solid #e5535d!important;
+    background:transparent!important;
+    background-image:none!important;
+    color:#fff!important
+}
+
+html body .app-shell .sidebar .logout:not(#fmis-shape-specificity) :is(i,span){
+    color:#fff!important
 }

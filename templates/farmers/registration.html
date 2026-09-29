@@ -11,7 +11,11 @@
       <div class="registration-note">
         <i class="bi bi-shield-check">
         </i>
-        <span>This workflow follows the RSBSA Enrollment Form 01-2024. Fields marked <b>*</b> are required.</span>
+        <span>
+          This workflow follows the RSBSA Enrollment Form 01-2024. Fields marked <b>*</b> are required.
+          The new record will be saved as <strong>Encoded</strong> without an RSBSA ID; staff can assign
+          the official ID later from Update Slip A after marking the registration Completed.
+        </span>
       </div>
       <ol class="registration-stepper" aria-label="Registration progress">
         <li class="active" data-step-link="1">
@@ -115,7 +119,7 @@
             </div>
           </div>
           <div class="step-actions">
-            <a class="btn btn-outline-secondary" href="{% url 'farmers:list' %}">Cancel</a>
+            <a class="btn btn-outline-secondary btn-cancel" href="{% url 'farmers:list' %}">Cancel</a>
             <button type="button" class="btn btn-success next-step">
               Next <i class="bi bi-arrow-right">
               </i>
@@ -174,11 +178,8 @@
           </div>
           <div class="form-section">
             <h3>Primary livelihood</h3>
-            <div class="registration-grid two">
+            <div class="registration-grid one">
               {% include "farmers/registration_field.html" with field=profile_form.livelihood %}
-              <div class="registration-field checkbox-options">
-                <label>{{ profile_form.activities.label }} *</label>{{ profile_form.activities }}{{ profile_form.activities.errors }}
-              </div>
             </div>
           </div>
           {{ crop_formset.management_form }}
@@ -332,12 +333,6 @@
                       return false
                   }
               }
-              if (current === 3 && !document.querySelector('select[name="activities"]')?.value) {
-                  const first = document.querySelector('select[name="activities"]');
-                  first?.setCustomValidity('Select the farmer type or primary activity.');
-                  showStepError(step, first, 'Select the farmer type or primary activity before continuing.');
-                  return false
-              }
               if (current === 4) {
                   const validId = [...document.querySelectorAll('#documents-rows select[name$="-document_type"]')].some(select => !select.closest('.deleted') && select.value === 'VALID_ID');
                   if (!validId) {
@@ -375,12 +370,12 @@
               const row = container.lastElementChild;
               updateRemoveButtons(prefix);
               if (prefix === 'parcels' || prefix === 'crops') syncParcelChoices();
+              if (prefix === 'parcels') updateOwnershipFields(row);
               row.querySelector('input:not([type=hidden]):not([type=checkbox]),select,textarea')?.focus()
           }
           document.querySelectorAll('.add-form-row').forEach(btn => btn.addEventListener('click', () => addRow(btn.dataset.prefix)));
           ['parcels', 'crops', 'documents'].forEach(updateRemoveButtons);
           document.addEventListener('change', event => {
-              if (event.target.name === 'activities') event.target.setCustomValidity('');
               if (event.target.matches('#documents-rows select[name$="-document_type"]')) document.querySelectorAll('#documents-rows select[name$="-document_type"]').forEach(select => select.setCustomValidity(''))
           });
           document.addEventListener('click', event => {
@@ -402,9 +397,8 @@
 
           function syncParcelChoices() {
               const parcels = activeRows('parcels').map((row, index) => {
-                  const name = row.querySelector('[name$="-parcel_name"]')?.value.trim();
                   const barangay = row.querySelector('[name$="-barangay"]')?.selectedOptions?.[0]?.text;
-                  const detail = name || (barangay && barangay !== 'Select barangay' ? barangay : 'Address not entered yet');
+                  const detail = barangay && barangay !== 'Select barangay' ? barangay : 'Address not entered yet';
                   return {value: String(index + 1), label: `Farm Parcel ${index + 1} — ${detail}`}
               });
               document.querySelectorAll('#crops-rows select[name$="-parcel_number"]').forEach(select => {
@@ -414,11 +408,81 @@
               })
           }
 
-          document.addEventListener('input', event => {
-              if (event.target.matches('#parcels-rows [name$="-parcel_name"]')) syncParcelChoices()
-          });
           document.addEventListener('change', event => {
               if (event.target.matches('#parcels-rows [name$="-barangay"]')) syncParcelChoices()
+          });
+
+          const idRules = {
+              'National ID': {pattern: '\\d{16}', placeholder: '16-digit PhilSys PCN', help: 'Enter the 16-digit PhilSys Card Number (PCN).', inputMode: 'numeric'},
+              'Passport': {pattern: '[A-Za-z]{1,2}\\d{7}', placeholder: 'P1234567', help: 'Use 1 or 2 letters followed by 7 numbers.'},
+              "Driver's License": {pattern: '[A-Za-z]\\d{2}-?\\d{2}-?\\d{6}', placeholder: 'N01-12-123456', help: "Use the Philippine driver's license format, for example N01-12-123456."},
+              'e-Card / UMID': {pattern: '\\d{12}', placeholder: '12-digit CRN', help: 'Enter the 12-digit CRN shown on the card.', inputMode: 'numeric'},
+              'SSS ID': {pattern: '\\d{10}', placeholder: '10-digit SSS number', help: 'Enter the 10-digit SSS number.', inputMode: 'numeric'},
+              'PRC ID': {pattern: '\\d{7}', placeholder: '7-digit PRC number', help: 'Enter the 7-digit PRC license number.', inputMode: 'numeric'},
+              'IBP ID': {pattern: '\\d{4,8}', placeholder: 'IBP roll number', help: 'Enter the 4 to 8-digit IBP roll number.', inputMode: 'numeric'},
+              'TIN ID': {pattern: '\\d{12}', placeholder: '12-digit TIN', help: 'Enter the 12-digit TIN, including the branch code.', inputMode: 'numeric'},
+              'Pag-IBIG ID': {pattern: '\\d{12}', placeholder: '12-digit Pag-IBIG MID', help: 'Enter the 12-digit Pag-IBIG MID number.', inputMode: 'numeric'},
+              '4Ps ID': {pattern: '\\d{12}', placeholder: '12-digit household ID', help: 'Enter the 12-digit 4Ps household ID number.', inputMode: 'numeric'},
+              'PhilHealth ID': {pattern: '\\d{12}', placeholder: '12-digit PhilHealth number', help: 'Enter the 12-digit PhilHealth identification number.', inputMode: 'numeric'}
+          };
+          const genericIdRule = {
+              pattern: '[A-Za-z0-9][A-Za-z0-9 .#()/\\-]{2,39}',
+              placeholder: 'Enter the number shown on the ID',
+              help: 'Enter 3 to 40 letters and numbers exactly as shown on the ID.'
+          };
+
+          function updateIdNumberRule() {
+              const type = form.querySelector('[data-valid-id-type]');
+              const number = form.querySelector('[data-valid-id-number]');
+              if (!type || !number) return;
+              const rule = type.value ? (idRules[type.value] || genericIdRule) : null;
+              const help = number.closest('.registration-field')?.querySelector('small');
+              number.setCustomValidity('');
+              if (!rule) {
+                  number.removeAttribute('pattern');
+                  number.inputMode = 'text';
+                  number.placeholder = 'Choose an ID type first';
+                  if (help) help.textContent = 'The accepted format will appear after an ID type is selected.';
+                  return
+              }
+              number.pattern = rule.pattern;
+              number.inputMode = rule.inputMode || 'text';
+              number.placeholder = rule.placeholder;
+              number.title = rule.help;
+              if (help) help.textContent = rule.help
+          }
+
+          function updateOwnershipFields(row) {
+              const ownership = row?.querySelector('[data-ownership-type]');
+              if (!ownership) return;
+              const showOwner = ['TENANT', 'LEASED', 'OTHER'].includes(ownership.value);
+              const ownerNameWrap = row.querySelector('[data-field-name="land_owner_name"]');
+              const registeredWrap = row.querySelector('[data-field-name="land_owner_registered_rsbsa"]');
+              const numberWrap = row.querySelector('[data-field-name="land_owner_rsbsa_number"]');
+              const ownerName = ownerNameWrap?.querySelector('input');
+              const registered = registeredWrap?.querySelector('select');
+              const ownerNumber = numberWrap?.querySelector('input');
+              [ownerNameWrap, registeredWrap].forEach(wrapper => {
+                  if (wrapper) wrapper.hidden = !showOwner
+              });
+              if (ownerName) {
+                  ownerName.disabled = !showOwner;
+                  ownerName.required = showOwner
+              }
+              if (registered) registered.disabled = !showOwner;
+              const showNumber = showOwner && registered?.value === 'True';
+              if (numberWrap) numberWrap.hidden = !showNumber;
+              if (ownerNumber) {
+                  ownerNumber.disabled = !showNumber;
+                  ownerNumber.required = showNumber
+              }
+          }
+
+          document.addEventListener('change', event => {
+              if (event.target.matches('[data-valid-id-type]')) updateIdNumberRule();
+              if (event.target.matches('[data-ownership-type], [name$="-land_owner_registered_rsbsa"]')) {
+                  updateOwnershipFields(event.target.closest('.formset-row'))
+              }
           });
 
           function valueOf(name) {
@@ -445,7 +509,7 @@
               const review = document.getElementById('registrationReview');
               const name = [valueOf('first_name'), valueOf('middle_name'), valueOf('last_name'), valueOf('extension_name')].filter(x => x !== 'Not provided').join(' ');
               const address = [valueOf('house_lot_purok'), valueOf('street_sitio'), valueOf('barangay'), valueOf('city_municipality'), valueOf('province')].filter(x => x !== 'Not provided').join(', ');
-              review.innerHTML = `<article><h3><i class="bi bi-person"></i> Farmer Profile</h3><dl><dt>Name</dt><dd>${esc(name)}</dd><dt>Address</dt><dd>${esc(address)}</dd><dt>Contact</dt><dd>${esc(valueOf('phone_number'))}</dd><dt>Livelihood</dt><dd>${esc(valueOf('livelihood'))}</dd></dl><button type="button" data-edit-step="1">Edit profile</button></article><article><h3><i class="bi bi-map"></i> Farm Parcels</h3><p><strong>${activeRows('parcels').length}</strong> parcel(s) declared</p><button type="button" data-edit-step="2">Edit parcels</button></article><article><h3><i class="bi bi-flower1"></i> Crops &amp; Livelihood</h3><p><strong>${activeRows('crops').length}</strong> crop or commodity record(s)</p><button type="button" data-edit-step="3">Edit crops</button></article><article><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><p><strong>${activeRows('documents').length}</strong> supporting document(s)</p><button type="button" data-edit-step="4">Edit documents</button></article>`;
+              review.innerHTML = `<article><div><h3><i class="bi bi-person"></i> Farmer Profile</h3><dl><dt>Name</dt><dd>${esc(name)}</dd><dt>Address</dt><dd>${esc(address)}</dd><dt>Contact</dt><dd>${esc(valueOf('phone_number'))}</dd><dt>Livelihood</dt><dd>${esc(valueOf('livelihood'))}</dd></dl></div><button type="button" data-edit-step="1">Edit profile</button></article><article><div><h3><i class="bi bi-map"></i> Farm Parcels</h3><p><strong>${activeRows('parcels').length}</strong> parcel(s) declared</p></div><button type="button" data-edit-step="2">Edit parcels</button></article><article><div><h3><i class="bi bi-flower1"></i> Crops &amp; Livelihood</h3><p><strong>${activeRows('crops').length}</strong> crop or commodity record(s)</p></div><button type="button" data-edit-step="3">Edit crops</button></article><article><div><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><p><strong>${activeRows('documents').length}</strong> supporting document(s)</p></div><button type="button" data-edit-step="4">Edit documents</button></article>`;
               review.querySelectorAll('[data-edit-step]').forEach(btn => btn.addEventListener('click', () => showStep(Number(btn.dataset.editStep))))
           }
           form.addEventListener('submit', event => {
@@ -466,6 +530,8 @@
               submit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving…';
               loading.hidden = false
           });
+          updateIdNumberRule();
+          activeRows('parcels').forEach(updateOwnershipFields);
           syncParcelChoices();
           const serverError = document.querySelector('.registration-step .errorlist');
           if (serverError) {

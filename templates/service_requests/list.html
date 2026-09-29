@@ -55,36 +55,30 @@
       table-layout:fixed!important
   }
   .request-table :is(th,td):nth-child(1){
-      width:6%!important
+      width:8%!important
   }
   .request-table :is(th,td):nth-child(2){
-      width:11%!important
+      width:18%!important
   }
   .request-table :is(th,td):nth-child(3){
-      width:7%!important
+      width:10%!important
   }
   .request-table :is(th,td):nth-child(4){
-      width:12%!important
+      width:22%!important
   }
   .request-table :is(th,td):nth-child(5){
-      width:9%!important
+      width:10%!important;
+      text-align:center!important
   }
   .request-table :is(th,td):nth-child(6){
-      width:16%!important
+      width:11%!important;
+      text-align:center!important
   }
   .request-table :is(th,td):nth-child(7){
-      width:8%!important;
-      text-align:center!important
+      width:13%!important
   }
   .request-table :is(th,td):nth-child(8){
       width:8%!important;
-      text-align:center!important
-  }
-  .request-table :is(th,td):nth-child(9){
-      width:11%!important
-  }
-  .request-table :is(th,td):nth-child(10){
-      width:12%!important;
       text-align:center!important
   }
   .request-table th{
@@ -101,11 +95,6 @@
       padding:15px 14px;
       border-bottom:1px solid var(--border);
       vertical-align:middle
-  }
-  .request-table td.subject-cell{
-      white-space:normal;
-      overflow-wrap:break-word;
-      line-height:1.35
   }
   .priority-badge,.request-status{
       display:inline-block;
@@ -199,7 +188,7 @@
           overflow-x:auto
       }
       .request-table{
-          min-width:1180px
+          min-width:980px
       }
   }
   @media(max-width:700px){
@@ -276,8 +265,6 @@
               <th>Request Type</th>
               <th>Farmer ID</th>
               <th>Farmer Name</th>
-              <th>Barangay</th>
-              <th>Subject</th>
               <th>Priority</th>
               <th>Status</th>
               <th>Date Requested</th>
@@ -295,8 +282,6 @@
                 <td>{{ item.service.name }}</td>
                 <td>{{ item.farmer.record_id }}</td>
                 <td>{{ item.farmer.list_name }}</td>
-                <td>{{ item.farmer.barangay }}</td>
-                <td class="subject-cell">{{ item.subject }}</td>
                 <td>
                   <span class="priority-badge {{ item.priority|lower }}">{{ item.get_priority_display }}</span>
                 </td>
@@ -329,7 +314,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="10" class="text-center py-5">No service requests matched your filters.</td>
+                <td colspan="8" class="text-center py-5">No service requests matched your filters.</td>
               </tr>
             {% endfor %}
           </tbody>

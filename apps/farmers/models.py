@@ -24,9 +24,10 @@ class Farmer(models.Model):
         ("AGRI_YOUTH", "Agri-Youth"),
     ]
     REGISTRATION_STATUS_CHOICES = [
-        ("PENDING", "Pending Review"),
-        ("APPROVED", "Approved"),
-        ("REJECTED", "Needs Correction"),
+        ("ENCODED", "Encoded"),
+        ("SUBMITTED", "Submitted"),
+        ("SKIPPED", "Skipped"),
+        ("COMPLETED", "Completed"),
     ]
 
     first_name = models.CharField(max_length=100)
@@ -68,7 +69,7 @@ class Farmer(models.Model):
     registration_status = models.CharField(
         max_length=12,
         choices=REGISTRATION_STATUS_CHOICES,
-        default="APPROVED",
+        default="ENCODED",
     )
     consent_given = models.BooleanField(default=False)
     submitted_at = models.DateTimeField(null=True, blank=True)
@@ -95,6 +96,20 @@ class Farmer(models.Model):
 
     class Meta:
         ordering = ["last_name", "first_name"]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(registration_status="COMPLETED")
+                    & models.Q(rsbsa_number__isnull=False)
+                    & ~models.Q(rsbsa_number="")
+                )
+                | (
+                    ~models.Q(registration_status="COMPLETED")
+                    & (models.Q(rsbsa_number__isnull=True) | models.Q(rsbsa_number=""))
+                ),
+                name="farmer_rsbsa_id_matches_completed_status",
+            )
+        ]
 
     @property
     def full_name(self):
@@ -198,6 +213,7 @@ class FarmerUpdateHistory(models.Model):
     UPDATE_TYPE_CHOICES = [
         ("SLIP_A", "Slip A - Personal Information"),
         ("SLIP_B", "Slip B - Farm Parcel Information"),
+        ("STATUS", "Office Registration Status"),
     ]
     CHANGE_REASON_CHOICES = [
         ("CORRECTION", "A - Correction"),

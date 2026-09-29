@@ -16,6 +16,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const index = value.search(/\p{L}/u);
     return index < 0 ? value : value.slice(0, index) + value[index].toUpperCase() + value.slice(index + 1);
   };
+  const sanitizeConstrainedInput = (field) => {
+    const kind = field.dataset.inputKind;
+    if (!kind || typeof field.value !== "string") return;
+    const original = field.value;
+    if (kind === "digits") {
+      field.value = original.replace(/\D/g, "");
+    } else if (kind === "letters") {
+      field.value = original.replace(/[^\p{L}\s.,'’\-]/gu, "");
+    } else if (kind === "safe-mixed") {
+      field.value = original.replace(/[^\p{L}\p{N}\s.,:#&'’_\/()\-]/gu, "");
+    }
+  };
+
+  document.addEventListener("input", (event) => {
+    const field = event.target.closest?.("[data-input-kind]");
+    if (field) sanitizeConstrainedInput(field);
+  });
 
   document.querySelectorAll("form").forEach((form) => {
     form.addEventListener("submit", (event) => {

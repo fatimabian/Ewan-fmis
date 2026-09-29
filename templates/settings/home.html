@@ -47,12 +47,15 @@
   }
   .settings-grid-reference{
       display:grid;
-      grid-template-columns:1fr;
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:16px;
       margin-top:10px
   }
   .settings-grid-reference>div{
-      display:contents
+      display:grid;
+      align-content:start;
+      gap:16px;
+      min-width:0
   }
   .system-settings-grid{
       grid-template-columns:minmax(0,760px);
@@ -62,30 +65,93 @@
       background:#fff;
       border:1px solid #e3ebef;
       border-radius:0!important;
-      padding:0 28px 18px;
+      padding:0 20px 14px;
       box-shadow:none;
-      margin-bottom:16px
+      margin-bottom:0
   }
   .settings-card h3{
+      color:#101820;
       font-size:16px;
       margin:0 0 17px
   }
   .profile-summary{
-      display:grid;
-      grid-template-columns:95px 1fr;
-      gap:16px;
-      align-items:center
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:10px;
+      text-align:center
   }
   .profile-avatar{
-      width:78px;
-      height:78px;
+      width:96px;
+      height:96px;
       border-radius:50%;
       display:grid;
       place-items:center;
+      overflow:hidden;
       background:#ddf5e9;
       color:#157951;
-      font-size:25px;
+      font-size:30px;
       font-weight:800
+  }
+  .profile-avatar img{
+      width:100%;
+      height:100%;
+      object-fit:cover
+  }
+  .profile-details-card{
+      width:100%;
+      padding-bottom:14px
+  }
+  .profile-details-card .profile-summary{
+      margin-top:12px!important
+  }
+  .profile-details-card hr{
+      margin:12px 0 4px
+  }
+  .profile-photo-controls{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      align-items:center;
+      gap:8px;
+      margin-top:10px
+  }
+  .profile-photo-controls .btn{
+      margin:0;
+      padding:6px 12px;
+      font-size:12px
+  }
+  .profile-photo-controls input[type=file],
+  .profile-photo-controls input[type=checkbox]{
+      position:absolute;
+      width:1px;
+      height:1px;
+      overflow:hidden;
+      clip:rect(0 0 0 0);
+      clip-path:inset(50%);
+      white-space:nowrap
+  }
+  .profile-photo-help{
+      display:block;
+      margin-top:5px;
+      color:#94a3b8;
+      font-size:10px
+  }
+  .profile-photo-stage{
+      display:grid;
+      justify-items:center
+  }
+  .profile-summary-copy{
+      display:grid;
+      justify-items:center;
+      gap:2px
+  }
+  .profile-summary-copy strong{
+      font-size:16px
+  }
+  .profile-summary-copy p,
+  .profile-summary-copy small{
+      margin:0!important
   }
   .settings-form-fields{
       display:grid;
@@ -114,6 +180,7 @@
       border:0;
       border-radius:0;
       background:transparent;
+      color:#64748b;
       padding:2px 0;
       box-shadow:none
   }
@@ -127,7 +194,8 @@
   .theme-choice{
       flex:1;
       border:1px solid #dce4e9;
-      padding:12px 72px 12px 16px;
+      min-height:44px;
+      padding:9px 54px 9px 12px;
       text-align:center;
       cursor:pointer;
       position:relative;
@@ -149,8 +217,8 @@
       border:2px solid #2f7d5c;
       box-shadow:0 0 0 3px #2f7d5c24;
       font-weight:800;
-      padding-top:11px;
-      padding-bottom:11px
+      padding-top:8px;
+      padding-bottom:8px
   }
   .theme-choice:after{
       content:'Active';
@@ -352,15 +420,15 @@
       display:flex;
       align-items:center;
       gap:9px;
-      margin:0 -28px 2px!important;
-      padding:15px 28px;
+      margin:0 -20px 2px!important;
+      padding:11px 20px;
       background:#e8f7ee;
       color:#0b6640;
       border-bottom:1px solid #cfe9d9
   }
   .settings-card h3 i{
-      width:34px;
-      height:34px;
+      width:28px;
+      height:28px;
       display:grid;
       place-items:center;
       border-radius:8px;
@@ -374,17 +442,32 @@
   .settings-card>.backup-status-grid,
   .settings-card>.backup-configuration-note,
   .settings-card>.btn{
-      margin-top:16px
+      margin-top:12px
+  }
+  .settings-card>p{
+      margin-bottom:0;
+      line-height:1.45
+  }
+  .settings-card>.theme-options,
+  .settings-card>.toggle-list{
+      margin-top:10px
+  }
+  .notification-options label{
+      gap:16px
   }
   body[data-theme="dark"] .settings-form-fields label{
       border-color:#405168
   }
   body[data-theme="dark"] .settings-form-fields input{
-      background:transparent!important
+      background:transparent!important;
+      color:#b8c2cc!important
+  }
+  body[data-theme="dark"] .settings-card h3{
+      color:#f1f5f2
   }
   </style>
   <div class="content settings-page{% if not request.user.is_admin %} staff-profile-only{% endif %}">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
       {% csrf_token %}
       {% if form.non_field_errors %}
         <div class="form-validation-alert" data-inline-validation>{{ form.non_field_errors }}</div>
@@ -416,14 +499,31 @@
       <section id="profile" class="settings-pane active">
         <div class="settings-grid-reference">
           <div>
-            <article class="settings-card">
+            <article class="settings-card profile-details-card">
               <h3>
                 <i class="bi bi-person">
                 </i> Profile Details
               </h3>
               <div class="profile-summary">
-                <div class="profile-avatar">{{ request.user.display_name|slice:':1' }}</div>
-                <div>
+                <div class="profile-photo-stage">
+                  <div class="profile-avatar" data-profile-photo-preview>
+                    {% if user_preference.profile_photo %}
+                      <img src="{{ user_preference.profile_photo.url }}" alt="{{ request.user.display_name }} profile photo">
+                    {% else %}
+                      <span>{{ request.user.display_name|slice:':1' }}</span>
+                    {% endif %}
+                  </div>
+                  <div class="profile-photo-controls">
+                    <label class="btn btn-outline-success" for="{{ form.profile_photo.id_for_label }}">Change photo</label>
+                    {{ form.profile_photo }}
+                    {% if user_preference.profile_photo %}
+                      <label class="btn btn-outline-secondary" for="{{ form.remove_profile_photo.id_for_label }}">Remove photo</label>
+                      {{ form.remove_profile_photo }}
+                    {% endif %}
+                  </div>
+                  {{ form.profile_photo.errors }}
+                </div>
+                <div class="profile-summary-copy">
                   <strong>{{ request.user.display_name }}</strong>
                   <p class="mb-1 text-muted">{{ request.user.get_role_display }}</p>
                   <small>{{ request.user.email|default:'No email address added' }}</small>
@@ -436,14 +536,6 @@
                 <label>Email Address{{ form.email }}{{ form.email.errors }}</label>
                 <label>Phone Number{{ form.phone_number }}{{ form.phone_number.errors }}</label>
               </div>
-            </article>
-            <article class="settings-card">
-              <h3>
-                <i class="bi bi-shield-lock">
-                </i> Security &amp; Accounts
-              </h3>
-              <p class="text-muted">Protect your account with a strong, unique password and secure first-time email activation.</p>
-              <button class="btn btn-outline-success" type="button" data-password-modal>Change Password</button>
             </article>
           </div>
           <div>
@@ -485,7 +577,14 @@
                   </span>{{ form.in_app_notifications }}
                 </label>
               </div>
-              <p class="small text-muted mt-3">Account activation codes and password-reset messages are security emails and remain independent of this setting.</p>
+            </article>
+            <article class="settings-card">
+              <h3>
+                <i class="bi bi-shield-lock">
+                </i> Security &amp; Accounts
+              </h3>
+              <p class="text-muted">Protect your account with a strong, unique password and secure first-time email activation.</p>
+              <button class="btn btn-outline-success" type="button" data-password-modal>Change Password</button>
             </article>
           </div>
         </div>
@@ -561,7 +660,7 @@
         </section>
       {% endif %}
       <div class="settings-save">
-        <a class="btn btn-outline-secondary" href="{% url 'dashboard:home' %}">Cancel</a>
+        <a class="btn btn-outline-secondary btn-cancel" href="{% url 'dashboard:home' %}">Cancel</a>
         <button class="btn btn-success" type="submit">Save Changes</button>
       </div>
     </form>
@@ -578,6 +677,22 @@
           tabs.forEach(button => button.addEventListener('click', () => openTab(button.dataset.tab)));
           const errorPane = panes.find(pane => pane.querySelector('.errorlist,.is-invalid'));
           if (errorPane) openTab(errorPane.id)
+      })();
+      (() => {
+          const input = document.getElementById('{{ form.profile_photo.id_for_label }}');
+          const preview = document.querySelector('[data-profile-photo-preview]');
+          const removeInput = document.getElementById('{{ form.remove_profile_photo.id_for_label }}');
+          if (!input || !preview) return;
+          input.addEventListener('change', () => {
+              const file = input.files && input.files[0];
+              if (!file) return;
+              if (removeInput) removeInput.checked = false;
+              const image = document.createElement('img');
+              image.src = URL.createObjectURL(file);
+              image.alt = 'Selected profile photo';
+              image.addEventListener('load', () => URL.revokeObjectURL(image.src), {once:true});
+              preview.replaceChildren(image);
+          });
       })();
   </script>
 {% endblock %}

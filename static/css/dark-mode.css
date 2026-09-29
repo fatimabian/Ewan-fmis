@@ -615,6 +615,31 @@ html body[data-theme="dark"] .app-shell :is(
     color:inherit!important
 }
 
+/* Farmer registration workflow badges remain outline-only in dark mode. */
+html body[data-theme="dark"] .app-shell :is(.farmer-status,.confirmation-status)[class*="status-"]{
+    background:transparent!important;
+}
+
+html body[data-theme="dark"] .app-shell :is(.farmer-status,.confirmation-status).status-encoded{
+    border-color:#86a6cf!important;
+    color:#b8d2f2!important;
+}
+
+html body[data-theme="dark"] .app-shell :is(.farmer-status,.confirmation-status).status-submitted{
+    border-color:#d7ad52!important;
+    color:#f0cf83!important;
+}
+
+html body[data-theme="dark"] .app-shell :is(.farmer-status,.confirmation-status).status-skipped{
+    border-color:#df875d!important;
+    color:#ffb18d!important;
+}
+
+html body[data-theme="dark"] .app-shell :is(.farmer-status,.confirmation-status).status-completed{
+    border-color:#64ba91!important;
+    color:#91dbb7!important;
+}
+
 /* Keep the selected appearance mode unmistakable in dark mode. */
 html body[data-theme="dark"] .app-shell .theme-choice:has(input:checked){
     background:#18362a!important;

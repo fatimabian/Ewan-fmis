@@ -62,25 +62,6 @@
       padding:15px 16px;
       border-bottom:1px solid var(--border)
   }
-  .crop-status{
-      display:inline-block;
-      border-radius:20px;
-      padding:5px 14px;
-      font-size:13px;
-      font-weight:700;
-      background:#fff1cf;
-      color:#a76800
-  }
-  .crop-status.harvested{
-      background:#d9f7e5;
-      color:#087f49
-  }
-  .crop-name-cell{
-      display:flex;
-      align-items:center;
-      gap:9px;
-      font-weight:700
-  }
   .crop-actions{
       display:flex;
       gap:12px;
@@ -165,10 +146,8 @@
         </select>
       </label>
       <label>
-        Status<select name="status" onchange="this.form.submit()">
+        Record View<select name="status" onchange="this.form.submit()">
         <option value="">Current records</option>
-        <option value="growing" {% if request.GET.status == 'growing' %}selected{% endif %}>Growing</option>
-        <option value="harvested" {% if request.GET.status == 'harvested' %}selected{% endif %}>Harvested</option>
         <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option>
         </select>
       </label>
@@ -184,8 +163,6 @@
               <th>Farmer Name</th>
               <th>Crop</th>
               <th>Planting Date</th>
-              <th>Harvest Date</th>
-              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -198,23 +175,8 @@
                   <a class="record-cell-link" href="{% url 'crops:detail' crop.pk %}">{{ crop.parcel.farmer.record_id }}</a>
                 </td>
                 <td>{{ crop.parcel.farmer.list_name }}</td>
-                <td>
-                  <span class="crop-name-cell">
-                    <span class="crop-symbol" aria-hidden="true">{{ crop.symbol }}</span>
-                    {{ crop.crop_type }}
-                  </span>
-                </td>
+                <td>{{ crop.crop_type }}</td>
                 <td>{{ crop.planting_date|date:"M d, Y"|default:"Not set" }}</td>
-                <td>{{ crop.harvest_date|date:"M d, Y"|default:"Not set" }}</td>
-                <td>
-                  {% if not crop.is_active %}
-                    <span class="crop-status harvested archived">Archived</span>
-                  {% elif crop.harvest_date and crop.harvest_date <= today %}
-                    <span class="crop-status harvested">Harvested</span>
-                  {% else %}
-                    <span class="crop-status">Growing</span>
-                  {% endif %}
-                </td>
                 <td>
                   <div class="crop-actions">
                     {% if crop.is_active %}
@@ -238,7 +200,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="7" class="text-center py-5">No crop planting records matched your filters.</td>
+                <td colspan="5" class="text-center py-5">No crop planting records matched your filters.</td>
               </tr>
             {% endfor %}
           </tbody>

@@ -317,7 +317,6 @@ def build_report(report_type, date_range, filters=None):
                 crop.crop_type,
                 crop.area_hectares,
                 crop.planting_date or "-",
-                crop.harvest_date or "-",
             ]
             for crop in queryset.order_by(
                 "parcel__barangay", "parcel__farmer__last_name", "parcel_id", "crop_type"
@@ -333,7 +332,6 @@ def build_report(report_type, date_range, filters=None):
                 "Commodity",
                 "Area (ha)",
                 "Planting Date",
-                "Harvest Date",
             ],
             rows,
         )

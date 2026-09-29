@@ -5,7 +5,7 @@ from io import BytesIO
 from django.contrib import messages
 from django.core import signing
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -24,9 +24,10 @@ from .forms import (
     DocumentRegistrationFormSet,
     FarmerProfileUpdateForm,
     FarmerRegistrationForm,
+    FarmerRegistrationStatusForm,
     ParcelRegistrationFormSet,
 )
-from .models import Farmer, FarmerDocument, FarmerUpdateHistory
+from .models import Farmer, FarmerDocument
 from .history import farmer_snapshot, record_farmer_update
 from .rsbsa_pdf import rsbsa_pdf_response
 from apps.activity_logs.services import record_request_event
@@ -89,17 +90,7 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
     paginate_by = 10
 
     def get_queryset(self):
-        latest_update = FarmerUpdateHistory.objects.select_related("actor").order_by(
-            "-created_at", "-pk"
-        )[:1]
-        queryset = Farmer.objects.select_related("last_updated_by").prefetch_related(
-            "parcels__crops",
-            Prefetch(
-                "update_history",
-                queryset=latest_update,
-                to_attr="latest_update_for_list",
-            ),
-        )
+        queryset = Farmer.objects.prefetch_related("parcels__crops")
         query = self.request.GET.get("q", "").strip()
         barangay = self.request.GET.get("barangay", "").strip()
         sex = self.request.GET.get("sex", "").strip()
@@ -152,7 +143,10 @@ class FarmerHistoryView(
         context = super().get_context_data(**kwargs)
         context.update({
             "history_title": "Farmer Information Update History",
-            "record_label": f"{self.object.record_id} · {self.object.full_name}",
+            "record_label": (
+                f"{self.object.rsbsa_number or 'RSBSA ID not assigned'} · "
+                f"{self.object.full_name}"
+            ),
             "back_url": reverse("farmers:detail", args=[self.object.pk]),
             "edit_url": reverse("farmers:edit", args=[self.object.pk]) if self.object.is_active else "",
             "edit_label": "Update Slip A",
@@ -175,7 +169,7 @@ class FarmerRSBSAExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             title="RSBSA Form Exported",
             module="Reports",
             description=f"{request.user.display_name} exported one farmer's official RSBSA form.",
-            target_label=farmer.record_id,
+            target_label=farmer.rsbsa_number or farmer.full_name,
             details=[{"field": "Farmer", "after": farmer.full_name}],
         )
         return response
@@ -280,9 +274,10 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
 
         with transaction.atomic():
             farmer = profile_form.save(commit=False)
-            # FMIS is the office's farmer information database. A completed
-            # registration is available immediately; it is not an approval queue.
-            farmer.registration_status = "APPROVED"
+            # Encoding creates the operational record, but the official RSBSA ID
+            # is assigned manually only after the office completes its workflow.
+            farmer.registration_status = "ENCODED"
+            farmer.rsbsa_number = None
             farmer.submitted_at = timezone.now()
             farmer.save()
 
@@ -303,7 +298,13 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     continue
                 crop = CropRecord(parcel=saved_parcels[crop_form.cleaned_data["parcel_number"]])
                 for field_name, value in crop_form.cleaned_data.items():
-                    if field_name not in {"parcel_number", "other_crop_name", "DELETE"}:
+                    if field_name not in {
+                        "parcel_number",
+                        "other_crop_name",
+                        "cropping_start_month",
+                        "cropping_end_month",
+                        "DELETE",
+                    }:
                         setattr(crop, field_name, value)
                 crop.save()
 
@@ -336,7 +337,13 @@ class FarmerQRPrintView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
     """Show the printable QR card to authenticated operational staff only."""
 
     def get(self, request, pk):
-        farmer = get_object_or_404(Farmer, pk=pk, is_active=True)
+        farmer = get_object_or_404(
+            Farmer,
+            pk=pk,
+            is_active=True,
+            registration_status="COMPLETED",
+            rsbsa_number__isnull=False,
+        )
         context = {
             "base_template": "base/staff_base.html",
             **farmer_qr_context(request, farmer),
@@ -362,6 +369,8 @@ class FarmerSecureQRDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View)
             Farmer.objects.prefetch_related("parcels__crops"),
             pk=payload.get("farmer_id"),
             is_active=True,
+            registration_status="COMPLETED",
+            rsbsa_number__isnull=False,
         )
         return render(
             request,
@@ -404,6 +413,44 @@ class FarmerUpdateView(
                 agriculturist_name=form.cleaned_data.get("agriculturist_name", ""),
             )
         messages.success(self.request, "The farmer's RSBSA profile information was updated.")
+        return response
+
+
+class FarmerRegistrationStatusUpdateView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTemplateMixin, UpdateView
+):
+    model = Farmer
+    form_class = FarmerRegistrationStatusForm
+    template_name = "farmers/registration_status_form.html"
+
+    def get_queryset(self):
+        return Farmer.objects.filter(is_active=True)
+
+    def get_success_url(self):
+        return reverse("farmers:detail", args=[self.object.pk])
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.snapshot_before_update = farmer_snapshot(self.object)
+        return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        if not form.has_changed():
+            messages.info(self.request, "No registration status changes were made.")
+            return redirect(self.get_success_url())
+
+        before = self.snapshot_before_update
+        with transaction.atomic():
+            response = super().form_valid(form)
+            record_farmer_update(
+                farmer=self.object,
+                actor=self.request.user,
+                update_type="STATUS",
+                before=before,
+                change_reason="OTHER",
+                remarks="Office-controlled registration processing update.",
+            )
+        messages.success(self.request, "The registration status was updated.")
         return response
 
 

@@ -71,6 +71,14 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
             setattr(self.request.user, field, form.cleaned_data[field])
         self.request.user.save()
         preference, _ = UserPreference.objects.get_or_create(user=self.request.user)
+        uploaded_photo = form.cleaned_data.get("profile_photo")
+        remove_photo = form.cleaned_data.get("remove_profile_photo")
+        old_photo_name = preference.profile_photo.name
+        photo_storage = preference.profile_photo.storage
+        if remove_photo:
+            preference.profile_photo = ""
+        elif uploaded_photo:
+            preference.profile_photo = uploaded_photo
         for field in [
             "theme",
             "primary_color",
@@ -78,6 +86,8 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
         ]:
             setattr(preference, field, form.cleaned_data[field])
         preference.save()
+        if old_photo_name and old_photo_name != preference.profile_photo.name:
+            photo_storage.delete(old_photo_name)
         if self.request.user.is_admin:
             system_setting = SystemSetting.load()
             system_setting.automated_backups = form.cleaned_data["automated_backups"]

@@ -6,10 +6,13 @@
     <div class="record-detail-nav">
       <a href="{% url 'farmers:list' %}"><i class="bi bi-arrow-left"></i> Back to Farmers</a>
       <div class="record-detail-actions">
-        <a class="btn btn-outline-success" href="{% url 'farmers:qr_print' object.pk %}"><i class="bi bi-qr-code"></i> Print QR</a>
+        {% if object.registration_status == 'COMPLETED' %}
+          <a class="btn btn-outline-success" href="{% url 'farmers:qr_print' object.pk %}"><i class="bi bi-qr-code"></i> Print QR</a>
+        {% endif %}
         <a class="btn btn-outline-success" href="{% url 'farmers:rsbsa_export' object.pk %}"><i class="bi bi-file-earmark-pdf"></i> Print RSBSA</a>
         <a class="btn btn-outline-success" href="{% url 'farmers:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
         {% if object.is_active %}
+          <a class="btn btn-outline-success" href="{% url 'farmers:registration_status' object.pk %}"><i class="bi bi-list-check"></i> Update Status</a>
           <a class="btn btn-outline-success" href="{% url 'farmers:edit' object.pk %}"><i class="bi bi-person-vcard"></i> Update Slip A</a>
         {% endif %}
       </div>
@@ -21,7 +24,11 @@
           {% if object.photo_available %}<img src="{{ object.photo.url }}" alt="{{ object.full_name }}">{% else %}{{ object.first_name|slice:':1' }}{{ object.last_name|slice:':1' }}{% endif %}
         </div>
         <div class="record-hero-copy">
-          <small>{{ object.record_id }} · Farmer profile</small>
+          <small>
+            {{ object.rsbsa_number|default:'RSBSA ID not assigned' }}
+            <span aria-hidden="true">·</span>
+            <span class="farmer-status status-{{ object.registration_status|lower }}">{{ object.get_registration_status_display }}</span>
+          </small>
           <h2>{{ object.full_name }}</h2>
           <p>{{ object.barangay }}, {{ object.city_municipality }}, {{ object.province }} · {% if object.is_active %}Active record{% else %}Archived record{% endif %}</p>
         </div>
@@ -57,8 +64,8 @@
       <section class="record-single-section">
         <h3><i class="bi bi-clipboard2-check"></i> Registration &amp; Livelihood</h3>
         <dl class="record-data">
-          <div><dt>RSBSA Number</dt><dd>{{ object.rsbsa_number|default:'Not assigned' }}</dd></div>
-          <div><dt>Registration Reference</dt><dd>{{ object.registration_reference }}</dd></div>
+          <div><dt>Official RSBSA ID / Reference Code</dt><dd>{{ object.rsbsa_number|default:'Not assigned' }}</dd></div>
+          <div><dt>Registration Status</dt><dd><span class="farmer-status status-{{ object.registration_status|lower }}">{{ object.get_registration_status_display }}</span></dd></div>
           <div><dt>Livelihood</dt><dd>{{ object.get_livelihood_display }}</dd></div>
           <div><dt>Primary Activity</dt><dd>{{ object.activities_display|default:'Not recorded' }}</dd></div>
           <div><dt>Valid ID</dt><dd>{{ object.valid_id_type|default:'Not recorded' }}{% if object.valid_id_number %} · ending in {{ object.valid_id_number|slice:"-4:" }}{% endif %}</dd></div>

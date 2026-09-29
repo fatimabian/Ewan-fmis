@@ -1,5 +1,3 @@
-from datetime import date
-
 from django.contrib import messages
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
@@ -63,12 +61,6 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
             queryset = queryset.filter(is_active=False)
         else:
             queryset = queryset.filter(is_active=True)
-        if status == "growing":
-            queryset = queryset.filter(
-                Q(harvest_date__isnull=True) | Q(harvest_date__gt=date.today())
-            )
-        elif status == "harvested":
-            queryset = queryset.filter(harvest_date__lte=date.today())
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -77,7 +69,6 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
             CropRecord.objects.values_list("crop_type", flat=True).distinct().order_by("crop_type")
         )
         context["years"] = CropRecord.objects.dates("planting_date", "year", order="DESC")
-        context["today"] = date.today()
         return context
 
 
@@ -90,7 +81,6 @@ class CropDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMi
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["today"] = date.today()
         return context
 
 

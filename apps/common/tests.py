@@ -31,9 +31,11 @@ from apps.crops.models import CropRecord
 from apps.dashboard.services import _crop_recommendation
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.forms import (
+    CropRegistrationForm,
     CropRegistrationFormSet,
     DocumentRegistrationFormSet,
     FarmerRegistrationForm,
+    ParcelRegistrationForm,
     ParcelRegistrationFormSet,
 )
 from apps.farmers.models import Farmer, FarmerDocument, FarmerUpdateHistory
@@ -66,10 +68,11 @@ class FMISRequirementTests(TestCase):
             phone_number="09171234567",
             civil_status="SINGLE",
             valid_id_type="National ID",
-            valid_id_number="ID-001",
+            valid_id_number="1234567890123456",
             livelihood="FARMER",
             activities="FARMER_CROPS",
             rsbsa_number="RSBSA-001",
+            registration_status="COMPLETED",
             consent_given=True,
             remarks="Follow up before seed distribution.",
         )
@@ -343,6 +346,7 @@ class FMISRequirementTests(TestCase):
             reverse("farmers:history", args=[self.farmer.pk]),
             reverse("farmers:registration_complete", args=[self.farmer.pk]),
             reverse("farmers:edit", args=[self.farmer.pk]),
+            reverse("farmers:registration_status", args=[self.farmer.pk]),
             reverse("farmers:slip_b", args=[self.farmer.pk]),
             reverse("farmers:qr_print", args=[self.farmer.pk]),
             reverse("farm_parcels:list"),
@@ -403,7 +407,7 @@ class FMISRequirementTests(TestCase):
                 "phone_number": "09170000000",
                 "civil_status": "SINGLE",
                 "valid_id_type": "National ID",
-                "valid_id_number": "ID-001",
+                "valid_id_number": "1234567890123456",
                 "livelihood": "FARMER",
                 "activities": "FARMER_CROPS",
                 "consent_given": "on",
@@ -449,11 +453,168 @@ class FMISRequirementTests(TestCase):
 
     def test_farmer_type_is_a_single_dropdown(self):
         form = FarmerRegistrationForm()
-        self.assertIsInstance(form.fields["activities"].widget, django_forms.Select)
-        self.assertNotIsInstance(
-            form.fields["activities"].widget, django_forms.CheckboxSelectMultiple
+        self.assertIsInstance(form.fields["livelihood"].widget, django_forms.Select)
+        self.assertNotIn("activities", form.fields)
+        self.assertEqual(
+            [value for value, _label in form.fields["livelihood"].choices if value],
+            [value for value, _label in Farmer.LIVELIHOOD_CHOICES],
         )
-        self.assertEqual(form.fields["activities"].label, "Farmer type / primary agricultural activity")
+
+    def test_valid_id_format_depends_on_selected_id_type(self):
+        base_data = {
+            "last_name": "Ramirez",
+            "first_name": "Fatima",
+            "sex": "FEMALE",
+            "birth_date": "1990-01-02",
+            "place_of_birth": "Rosario",
+            "mother_maiden_name": "Perea",
+            "barangay": "Bagong Pook",
+            "phone_number": "09953092018",
+            "civil_status": "SINGLE",
+            "livelihood": "FARMER",
+            "consent_given": "on",
+        }
+        short_national_id = FarmerRegistrationForm(
+            data={**base_data, "valid_id_type": "National ID", "valid_id_number": "1234"}
+        )
+        self.assertFalse(short_national_id.is_valid())
+        self.assertIn("16-digit", short_national_id.errors["valid_id_number"][0])
+
+        driver_id = FarmerRegistrationForm(
+            data={
+                **base_data,
+                "valid_id_type": "Driver's License",
+                "valid_id_number": "N01-12-123456",
+            }
+        )
+        driver_id.is_valid()
+        self.assertNotIn("valid_id_number", driver_id.errors)
+
+    def test_land_owner_fields_are_conditional_on_ownership(self):
+        base_data = {
+            "barangay": "Alupay",
+            "area_hectares": "1.50",
+            "land_type": "UPLAND",
+            "farm_type": "Mixed vegetables near the creek",
+            "is_active": "True",
+        }
+        owned = ParcelRegistrationForm(data={**base_data, "ownership_type": "OWNED"})
+        self.assertTrue(owned.is_valid(), owned.errors)
+
+        tenant_without_owner = ParcelRegistrationForm(
+            data={**base_data, "ownership_type": "TENANT"}
+        )
+        self.assertFalse(tenant_without_owner.is_valid())
+        self.assertIn("land_owner_name", tenant_without_owner.errors)
+
+        tenant_with_registered_owner = ParcelRegistrationForm(
+            data={
+                **base_data,
+                "ownership_type": "TENANT",
+                "land_owner_name": "Juan Dela Cruz",
+                "land_owner_registered_rsbsa": "True",
+                "land_owner_rsbsa_number": "RSBSA-OWNER-001",
+            }
+        )
+        self.assertTrue(tenant_with_registered_owner.is_valid(), tenant_with_registered_owner.errors)
+
+    def test_cropping_month_dropdowns_build_the_saved_schedule(self):
+        crop_form = CropRegistrationForm(
+            data={
+                "parcel_number": "1",
+                "crop_type": "Rice",
+                "cropping_start_month": "January",
+                "cropping_end_month": "March",
+                "area_hectares": "0.75",
+                "is_organic": "False",
+                "is_intercrop": "False",
+            }
+        )
+        self.assertTrue(crop_form.is_valid(), crop_form.errors)
+        self.assertEqual(crop_form.cleaned_data["cropping_schedule"], "January - March")
+
+    def test_farmer_registration_rejects_wrong_character_types(self):
+        form = FarmerRegistrationForm(
+            data={
+                "last_name": "Sant0s",
+                "first_name": "An4",
+                "sex": "FEMALE",
+                "birth_date": "1980-01-02",
+                "place_of_birth": "Rosario",
+                "mother_maiden_name": "Reyes",
+                "house_lot_purok": "Purok 2",
+                "barangay": "Bulihan",
+                "city_municipality": "Rosario",
+                "province": "Batangas",
+                "region": "CALABARZON Region IV-A",
+                "phone_number": "0917ABC4567",
+                "civil_status": "SINGLE",
+                "valid_id_type": "National ID",
+                "valid_id_number": "<script>",
+                "livelihood": "FARMER",
+                "activities": "FARMER_CROPS",
+                "consent_given": "on",
+            }
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("letters only", form.errors["last_name"][0].lower())
+        self.assertIn("letters only", form.errors["first_name"][0].lower())
+        self.assertIn("numbers only", form.errors["phone_number"][0].lower())
+        self.assertIn("16-digit", form.errors["valid_id_number"][0].lower())
+
+        blank_form = FarmerRegistrationForm()
+        self.assertEqual(blank_form.fields["first_name"].widget.attrs["data-input-kind"], "letters")
+        self.assertEqual(blank_form.fields["phone_number"].widget.attrs["data-input-kind"], "digits")
+        self.assertIsInstance(blank_form.fields["valid_id_type"].widget, django_forms.Select)
+        self.assertEqual(blank_form.fields["valid_id_number"].widget.attrs["data-valid-id-number"], "true")
+
+    def test_farmer_registration_workflow_is_managed_separately_from_slip_a(self):
+        self.client.force_login(self.staff)
+
+        masterlist = self.client.get(reverse("farmers:list"))
+        self.assertEqual(masterlist.status_code, 200)
+        self.assertContains(masterlist, "Farmer ID")
+        self.assertContains(masterlist, "RSBSA ID / Reference Code")
+        self.assertContains(masterlist, "Registration Status")
+        self.assertNotContains(masterlist, 'name="registration_status"')
+        self.assertNotContains(masterlist, "farmer-workflow-input")
+
+        create_page = self.client.get(reverse("farmers:create"))
+        self.assertContains(create_page, "<strong>Encoded</strong>", html=True)
+
+        edit_page = self.client.get(reverse("farmers:edit", args=[self.farmer.pk]))
+        self.assertEqual(edit_page.status_code, 200)
+        self.assertNotContains(edit_page, 'name="registration_status"')
+        self.assertNotContains(edit_page, 'name="rsbsa_number"')
+
+        status_page = self.client.get(
+            reverse("farmers:registration_status", args=[self.farmer.pk])
+        )
+        self.assertEqual(status_page.status_code, 200)
+        self.assertContains(status_page, 'name="registration_status"')
+        self.assertContains(status_page, 'name="rsbsa_number"')
+        self.assertNotContains(status_page, 'name="transaction_code"')
+        self.assertNotContains(status_page, 'name="registrant_declaration"')
+
+    def test_office_status_update_needs_no_slip_a_transaction(self):
+        self.client.force_login(self.staff)
+        self.farmer.registration_status = "ENCODED"
+        self.farmer.rsbsa_number = None
+        self.farmer.save(update_fields=["registration_status", "rsbsa_number"])
+
+        response = self.client.post(
+            reverse("farmers:registration_status", args=[self.farmer.pk]),
+            {"registration_status": "SUBMITTED", "rsbsa_number": ""},
+        )
+        self.assertRedirects(response, reverse("farmers:detail", args=[self.farmer.pk]))
+        self.farmer.refresh_from_db()
+        self.assertEqual(self.farmer.registration_status, "SUBMITTED")
+        history = FarmerUpdateHistory.objects.get(farmer=self.farmer, update_type="STATUS")
+        self.assertEqual(history.actor, self.staff)
+        self.assertEqual(history.transaction_code, "")
+        self.assertTrue(
+            any(change["field"] == "Personal / Registration Status" for change in history.changes)
+        )
 
     def test_staff_can_create_and_view_service_request(self):
         self.client.force_login(self.staff)
@@ -516,12 +677,14 @@ class FMISRequirementTests(TestCase):
                 "spouse_name": "",
                 "highest_education": "",
                 "valid_id_type": "National ID",
-                "valid_id_number": "ID-001",
+                "valid_id_number": "1234567890123456",
                 "religion": "",
                 "indigenous_group": "",
                 "fca_membership": "",
                 "remarks": "Follow up before seed distribution.",
                 "location_coordinates": "",
+                "registration_status": "COMPLETED",
+                "rsbsa_number": "RSBSA-001",
                 "transaction_code": "SLIP-A-001",
                 "change_reason": "CORRECTION",
                 "update_remarks": "Corrected contact number",
@@ -551,13 +714,17 @@ class FMISRequirementTests(TestCase):
         self.assertContains(history_page, "Farmer Information Update History")
         self.assertContains(history_page, "SLIP-A-001")
         self.assertContains(history_page, self.staff.display_name)
+        self.assertContains(history_page, "Edited by")
+        self.assertContains(history_page, "Account")
+        self.assertContains(history_page, f"@{self.staff.username}")
+        self.assertContains(history_page, "Date")
+        self.assertContains(history_page, "Time")
         farmer_list = self.client.get(reverse("farmers:list"))
-        self.assertContains(farmer_list, "Last Updated By")
+        self.assertNotContains(farmer_list, "Last Updated By")
+        self.assertNotContains(farmer_list, "<th>Status</th>")
         self.assertNotContains(farmer_list, "Latest Change")
         self.assertNotContains(farmer_list, "farmer-update-details")
-        self.assertContains(farmer_list, reverse("farmers:history", args=[self.farmer.pk]))
-        self.assertContains(farmer_list, "View update details")
-        self.assertContains(farmer_list, self.staff.display_name)
+        self.assertNotContains(farmer_list, "View update details")
         self.assertNotContains(farmer_list, "Personal / Phone Number")
 
     def test_management_records_use_dedicated_history_pages(self):
@@ -598,6 +765,17 @@ class FMISRequirementTests(TestCase):
                 history_page = self.client.get(history_url)
                 self.assertEqual(history_page.status_code, 200)
                 self.assertContains(history_page, title)
+
+        service_history_page = self.client.get(
+            reverse("service_requests:history", args=[request_record.pk])
+        )
+        self.assertContains(service_history_page, "Edited by")
+        self.assertContains(service_history_page, self.staff.display_name)
+        self.assertContains(service_history_page, f"@{self.staff.username}")
+        self.assertContains(service_history_page, "Staff")
+        self.assertContains(service_history_page, "Date")
+        self.assertContains(service_history_page, "Time")
+        self.assertContains(service_history_page, "SRH-")
 
         service_detail = self.client.get(
             reverse("service_requests:detail", args=[request_record.pk])
@@ -680,13 +858,13 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(intervention.description, request_item.subject)
 
         default_list = self.client.get(reverse("service_requests:list"))
-        self.assertNotContains(default_list, request_item.subject)
+        self.assertNotContains(default_list, request_item.request_id)
         self.assertNotContains(default_list, "Record intervention for")
         completed_list = self.client.get(
             reverse("service_requests:list"),
             {"status": "COMPLETED"},
         )
-        self.assertContains(completed_list, request_item.subject)
+        self.assertContains(completed_list, request_item.request_id)
 
         self.client.post(update_url, payload)
         self.assertEqual(
@@ -852,17 +1030,22 @@ class FMISRequirementTests(TestCase):
             "Barangay",
             "Contact Number",
             "Livelihood",
-            "Status",
+            "RSBSA ID / Reference Code",
+            "Registration Status",
             "Actions",
         ):
             self.assertContains(response, f"<th>{heading}</th>", html=True)
+        self.assertNotContains(response, "<th>Status</th>", html=True)
+        self.assertNotContains(response, "<th>Last Updated By</th>", html=True)
         self.assertNotContains(response, "<th>Age</th>", html=True)
         self.assertNotContains(response, "<th>Sex</th>", html=True)
         self.assertContains(response, self.farmer.record_id)
         self.assertContains(response, self.farmer.list_name)
         self.assertContains(response, self.farmer.phone_number)
         self.assertContains(response, self.farmer.get_livelihood_display())
-        self.assertContains(response, '<span class="farmer-status active">Active</span>', html=True)
+        self.assertContains(response, self.farmer.rsbsa_number)
+        self.assertContains(response, self.farmer.get_registration_status_display())
+        self.assertContains(response, 'class="farmer-status status-completed"')
 
     def test_spouse_is_required_only_for_married_registrants(self):
         blank_form = FarmerRegistrationForm()
@@ -886,10 +1069,11 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["parcel_formset"].total_form_count(), 1)
         self.assertEqual(response.context["crop_formset"].total_form_count(), 1)
         self.assertEqual(response.context["document_formset"].total_form_count(), 1)
-        self.assertIsInstance(
-            response.context["parcel_formset"].empty_form.fields["farm_type"].widget,
-            django_forms.Select,
-        )
+        parcel_fields = response.context["parcel_formset"].empty_form.fields
+        self.assertIsInstance(parcel_fields["farm_type"].widget, django_forms.TextInput)
+        self.assertNotIn("parcel_name", parcel_fields)
+        self.assertNotIn("remarks", parcel_fields)
+        self.assertNotIn("is_rsbsa_recorded", parcel_fields)
         crop_fields = response.context["crop_formset"].empty_form.fields
         self.assertNotIn("is_active", crop_fields)
         self.assertNotIn("archived_at", crop_fields)
@@ -925,6 +1109,8 @@ class FMISRequirementTests(TestCase):
                 "crops-MAX_NUM_FORMS": "1000",
                 "crops-0-parcel_number": "1",
                 "crops-0-crop_type": "Corn",
+                "crops-0-cropping_start_month": "January",
+                "crops-0-cropping_end_month": "March",
                 "crops-0-area_hectares": "1.00",
                 "crops-0-is_organic": "False",
                 "crops-0-is_intercrop": "False",
@@ -1464,6 +1650,57 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(settings_page, "Session Policy")
         self.assertNotContains(settings_page, "Idle Session Timeout")
         self.assertContains(settings_page, "Backup &amp; Recovery")
+
+    def test_staff_can_upload_and_remove_a_profile_photo(self):
+        from apps.settings_page.models import UserPreference
+
+        image_bytes = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+        )
+        self.client.force_login(self.staff)
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                reverse("settings_page:home"),
+                {
+                    "first_name": self.staff.first_name,
+                    "last_name": self.staff.last_name,
+                    "email": self.staff.email,
+                    "phone_number": self.staff.phone_number,
+                    "theme": "system",
+                    "primary_color": "#008552",
+                    "in_app_notifications": "on",
+                    "profile_photo": SimpleUploadedFile(
+                        "profile.png", image_bytes, content_type="image/png"
+                    ),
+                },
+            )
+            self.assertRedirects(response, reverse("settings_page:home"))
+            preference = UserPreference.objects.get(user=self.staff)
+            self.assertTrue(preference.profile_photo.name.startswith("account_profiles/"))
+            stored_name = preference.profile_photo.name
+            self.assertTrue(preference.profile_photo.storage.exists(stored_name))
+
+            settings_page = self.client.get(reverse("settings_page:home"))
+            self.assertContains(settings_page, preference.profile_photo.url)
+            self.assertContains(settings_page, "Remove photo")
+
+            response = self.client.post(
+                reverse("settings_page:home"),
+                {
+                    "first_name": self.staff.first_name,
+                    "last_name": self.staff.last_name,
+                    "email": self.staff.email,
+                    "phone_number": self.staff.phone_number,
+                    "theme": "system",
+                    "primary_color": "#008552",
+                    "in_app_notifications": "on",
+                    "remove_profile_photo": "on",
+                },
+            )
+            self.assertRedirects(response, reverse("settings_page:home"))
+            preference.refresh_from_db()
+            self.assertFalse(preference.profile_photo)
+            self.assertFalse(preference.profile_photo.storage.exists(stored_name))
 
     def test_system_theme_is_default_and_resolves_before_page_content(self):
         self.client.force_login(self.staff)

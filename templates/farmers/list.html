@@ -197,7 +197,7 @@
           overflow-x:auto
       }
       .farmer-table{
-          min-width:1120px
+          min-width:1280px
       }
   }
   @media(max-width:600px){
@@ -253,8 +253,8 @@
               <th>Barangay</th>
               <th>Contact Number</th>
               <th>Livelihood</th>
-              <th>Status</th>
-              <th>Last Updated By</th>
+              <th>RSBSA ID / Reference Code</th>
+              <th>Registration Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -271,30 +271,14 @@
                 <td>{{ farmer.phone_number|default:'-' }}</td>
                 <td>{{ farmer.get_livelihood_display }}</td>
                 <td>
-                  {% if not farmer.is_active %}
-                    <span class="farmer-status archived">Archived</span>
-                  {% else %}
-                    <span class="farmer-status active">Active</span>
-                  {% endif %}
+                  {{ farmer.rsbsa_number|default:'Not assigned' }}
                 </td>
                 <td>
-                  <div class="farmer-update-person">
-                    {% with latest=farmer.latest_update_for_list.0 %}
-                    {% if latest %}
-                      <a class="farmer-update-link" href="{% url 'farmers:history' farmer.pk %}">
-                        <strong>{{ latest.actor.display_name|default:'Former staff account' }}</strong>
-                        <small>{{ latest.created_at|date:'M d, Y · g:i A' }}</small>
-                        <span>View update details</span>
-                      </a>
-                    {% else %}
-                      <small>No recorded update</small>
-                    {% endif %}
-                    {% endwith %}
-                  </div>
+                  <span class="farmer-status status-{{ farmer.registration_status|lower }}">{{ farmer.get_registration_status_display }}</span>
                 </td>
                 <td>
                   <div class="farmer-actions">
-                    {% if farmer.is_active %}<a href="{% url 'farmers:qr_print' farmer.pk %}"
+                    {% if farmer.is_active and farmer.registration_status == 'COMPLETED' and farmer.rsbsa_number %}<a href="{% url 'farmers:qr_print' farmer.pk %}"
                        title="Print secure QR for {{ farmer.full_name }}">
                       <i class="bi bi-qr-code">
                       </i>

@@ -172,7 +172,6 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
             "is_organic",
             "is_intercrop",
             "planting_date",
-            "harvest_date",
             "image",
         ]
         labels = {
@@ -182,7 +181,6 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
             "is_intercrop": "Intercropping commodity",
-            "harvest_date": "Expected or actual harvest date",
             "image": "Crop photo (optional)",
         }
         widgets = {
@@ -190,7 +188,6 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "number_of_heads": forms.NumberInput(attrs={"min": "0"}),
             "planting_date": forms.DateInput(attrs={"type": "date"}),
-            "harvest_date": forms.DateInput(attrs={"type": "date"}),
             "image": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
@@ -215,10 +212,6 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         resolve_other_crop(self, cleaned)
-        planting_date = cleaned.get("planting_date")
-        harvest_date = cleaned.get("harvest_date")
-        if planting_date and harvest_date and harvest_date < planting_date:
-            self.add_error("harvest_date", "Harvest date cannot be earlier than planting date.")
         return cleaned
 
 

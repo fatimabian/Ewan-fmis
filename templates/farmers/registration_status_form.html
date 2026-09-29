@@ -1,0 +1,83 @@
+{% extends base_template %}
+{% block page_title %}Update Registration Status{% endblock %}
+{% block page_subtitle %}Office processing for {{ object.full_name }}{% endblock %}
+{% block content %}
+  <style>
+    html body #registration-status-panel,
+    html body #registration-status-panel::before,
+    html body #registration-status-panel::after,
+    html body #registration-status-panel form,
+    html body #registration-status-panel .form-section,
+    html body #registration-status-panel .registration-note,
+    html body #registration-status-panel input,
+    html body #registration-status-panel select,
+    html body #registration-status-panel textarea,
+    html body #registration-status-panel .btn,
+    html body #registration-status-panel button{
+      border-radius:0!important;
+    }
+    html body #registration-status-panel .status-cancel{
+      border-color:#c62828!important;
+      background:transparent!important;
+      color:#111!important;
+      box-shadow:none!important;
+    }
+    html body #registration-status-panel .status-save{
+      border-color:#178452!important;
+      background:transparent!important;
+      color:#111!important;
+      box-shadow:none!important;
+    }
+    html body #registration-status-panel :is(.status-cancel,.status-save):hover,
+    html body #registration-status-panel :is(.status-cancel,.status-save):focus-visible{
+      background:transparent!important;
+      color:#111!important;
+    }
+  </style>
+  <div class="content">
+    <section id="registration-status-panel" class="panel form-panel rsbsa-update-form status-update-form" style="border-radius:0!important">
+      <form method="post">
+        {% csrf_token %}
+        <section class="form-section registration-workflow-section">
+          <h3><i class="bi bi-list-check"></i> Office Registration Status</h3>
+          <div class="registration-note">
+            <i class="bi bi-info-circle"></i>
+            <span>
+              This status is managed by the office. It is not a farmer-requested Slip A transaction,
+              so no transaction code, reason, signature, or registrant consent is required.
+            </span>
+          </div>
+          <div class="registration-grid two">
+            {% include "farmers/registration_field.html" with field=form.registration_status %}
+            {% include "farmers/registration_field.html" with field=form.rsbsa_number %}
+          </div>
+        </section>
+        <div class="step-actions">
+          <a class="btn btn-outline-secondary btn-cancel status-cancel" href="{% url 'farmers:detail' object.pk %}">Cancel</a>
+          <button class="btn btn-success status-save" type="submit">Save Registration Status</button>
+        </div>
+      </form>
+    </section>
+  </div>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    (() => {
+      const statusField = document.querySelector('[data-registration-status]');
+      const rsbsaField = document.querySelector('[data-rsbsa-id]');
+      if (!statusField || !rsbsaField) return;
+
+      const syncRsbsaField = () => {
+        const completed = statusField.value === 'COMPLETED';
+        rsbsaField.disabled = !completed;
+        rsbsaField.required = completed;
+        rsbsaField.placeholder = completed
+          ? 'Enter the official RSBSA ID'
+          : 'Available when status is Completed';
+      };
+
+      statusField.addEventListener('change', syncRsbsaField);
+      syncRsbsaField();
+    })();
+  </script>
+{% endblock %}

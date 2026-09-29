@@ -14,10 +14,17 @@
       {% for entry in history_entries %}
         <details class="history-entry" {% if forloop.first %}open{% endif %}>
           <summary>
-            <span><strong>{{ entry.title }}</strong><small>{{ entry.date|date:'M d, Y · g:i A' }} · {{ entry.actor }}</small></span>
+            <span><strong>{{ entry.title }}</strong><small>Audit entry {{ entry.audit_id }}</small></span>
             {% if entry.status %}<span class="history-code">{{ entry.status }}</span>{% endif %}
           </summary>
-          {% if entry.reason %}<div class="history-meta"><span>{{ entry.reason }}</span></div>{% endif %}
+          <div class="history-audit-grid" aria-label="Edit audit information">
+            <div class="history-audit-item"><small>Edited by</small><strong>{{ entry.actor }}</strong></div>
+            <div class="history-audit-item"><small>Account</small><strong>{% if entry.actor_username %}@{{ entry.actor_username }}{% else %}Not available{% endif %}</strong></div>
+            <div class="history-audit-item"><small>Role</small><strong>{{ entry.actor_role }}</strong></div>
+            <div class="history-audit-item"><small>Date</small><strong>{{ entry.date|date:'M d, Y' }}</strong></div>
+            <div class="history-audit-item"><small>Time</small><strong>{{ entry.date|date:'g:i:s A' }}</strong></div>
+          </div>
+          {% if entry.reason %}<div class="history-meta"><strong>Reason / remarks</strong><span>{{ entry.reason }}</span></div>{% endif %}
           <div class="history-change-table-wrap">
             <table class="history-change-table">
               <thead><tr><th>Information</th><th>Before</th><th>After</th></tr></thead>

@@ -12,7 +12,21 @@
   <div class="registration-grid three">
     {% for field in form %}
       {% if field.name != "DELETE" %}
-        {% include "farmers/registration_field.html" with field=field %}
+        {% if field.name == "cropping_start_month" %}
+          <div class="registration-field crop-schedule-field" data-field-name="cropping_schedule">
+            <label>Cropping schedule <b>*</b></label>
+            <div class="crop-schedule-range">
+              <span>{{ form.cropping_start_month }}</span>
+              <strong aria-hidden="true">–</strong>
+              <span>{{ form.cropping_end_month }}</span>
+            </div>
+            {{ form.cropping_start_month.errors }}
+            {{ form.cropping_end_month.errors }}
+            <small>Select the first and last month of the usual cropping period.</small>
+          </div>
+        {% elif field.name != "cropping_end_month" %}
+          {% include "farmers/registration_field.html" with field=field %}
+        {% endif %}
       {% endif %}
     {% endfor %}
   </div>

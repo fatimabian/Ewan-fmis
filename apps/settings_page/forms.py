@@ -13,6 +13,11 @@ class ProfileForm(InlineValidationMixin, forms.Form):
     last_name = forms.CharField(max_length=150, required=False)
     email = forms.EmailField(required=False)
     phone_number = forms.CharField(max_length=20, required=False)
+    profile_photo = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={"accept": "image/png,image/jpeg,image/webp"}),
+    )
+    remove_profile_photo = forms.BooleanField(required=False)
     theme = forms.ChoiceField(
         choices=[("system", "System (Recommended)"), ("light", "Light"), ("dark", "Dark")]
     )

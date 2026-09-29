@@ -37,7 +37,7 @@
         </section>
 
         <div class="step-actions">
-          <a class="btn btn-outline-secondary" href="{% if object %}{% url 'farm_parcels:detail' object.pk %}{% else %}{% url 'farm_parcels:list' %}{% endif %}">Cancel</a>
+          <a class="btn btn-outline-secondary btn-cancel" href="{% if object %}{% url 'farm_parcels:detail' object.pk %}{% else %}{% url 'farm_parcels:list' %}{% endif %}">Cancel</a>
           <button class="btn btn-success">{% if object %}Save Slip B Update{% else %}Save Farm Parcel{% endif %}</button>
         </div>
       </form>

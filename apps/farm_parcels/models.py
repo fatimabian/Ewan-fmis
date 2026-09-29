@@ -54,8 +54,7 @@ class FarmParcel(models.Model):
     ownership_type = models.CharField(max_length=30, choices=OWNERSHIP_CHOICES)
     land_type = models.CharField(max_length=30, choices=LAND_TYPE_CHOICES, default="")
     farm_type = models.CharField(
-        max_length=30,
-        choices=FARM_TYPE_CHOICES,
+        max_length=180,
         blank=True,
         default="",
     )
@@ -89,3 +88,7 @@ class FarmParcel(models.Model):
 
     def __str__(self):
         return f"{self.display_name} - {self.farmer}"
+
+    def get_farm_type_display(self):
+        """Keep existing reports/templates compatible now that farm type is staff-entered."""
+        return self.farm_type

@@ -21,7 +21,8 @@
     <link rel="stylesheet" href="{% static 'css/admin-mobile.css' %}">
     <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
     <link rel="stylesheet" href="{% static 'css/system-responsive.css' %}?v=2">
-    <link rel="stylesheet" href="{% static 'css/human-ui.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'css/human-ui.css' %}?v=7">
+    <link rel="stylesheet" href="{% static 'css/date-picker.css' %}?v=2">
     {% block extra_css %}{% endblock %}
     <style>
     :root{
@@ -84,7 +85,8 @@
         border:2px solid var(--fmis-accent)!important;
         background:transparent!important;
         color:var(--fmis-accent)!important;
-        box-shadow:none!important
+        box-shadow:none!important;
+        overflow:hidden
     }
     body[data-theme="dark"] .header-profile .profile-circle{
         border-color:#78d3a0!important;
@@ -220,8 +222,8 @@
         }
     }
     </style>
-    <link rel="stylesheet" href="{% static 'css/dark-mode.css' %}?v=6">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'css/dark-mode.css' %}?v=7">
+    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=7">
   </head>
   <body class="{% if request.user.is_admin %}role-admin{% else %}role-staff{% endif %}"
         data-theme="{{ user_preference.theme|default:'system' }}"
@@ -391,7 +393,13 @@
                href="{% url 'settings_page:home' %}"
                title="Open account settings">
               <span class="profile-circle"
-                    style="background:none!important;border:2px solid var(--fmis-accent)!important;color:var(--fmis-accent)!important;box-shadow:none!important">{{ request.user.display_name|slice:':1'|upper }}</span>
+                    style="background:none!important;border:2px solid var(--fmis-accent)!important;color:var(--fmis-accent)!important;box-shadow:none!important">
+                {% if user_preference.profile_photo %}
+                  <img src="{{ user_preference.profile_photo.url }}" alt="" style="width:100%;height:100%;object-fit:cover">
+                {% else %}
+                  {{ request.user.display_name|slice:':1'|upper }}
+                {% endif %}
+              </span>
               <span class="profile-copy">
                 <strong>{{ request.user.display_name }}</strong>
                 <small>
@@ -435,7 +443,7 @@
         <p id="fmisModalMessage"></p>
         <div class="fmis-feedback-actions">
           <button type="button"
-                  class="btn btn-outline-secondary"
+                  class="btn btn-outline-secondary btn-cancel"
                   id="fmisModalCancel"
                   data-modal-close>Cancel</button>
           <button type="button" class="btn btn-success" id="fmisModalConfirm">OK</button>
@@ -456,7 +464,8 @@
     </div>
     <script defer src="{% static 'js/fmis.js' %}?v=3"></script>
     <script defer src="{% static 'js/password-toggle.js' %}"></script>
-    <script defer src="{% static 'js/form-validation.js' %}?v=2"></script>
+    <script defer src="{% static 'js/form-validation.js' %}?v=3"></script>
+    <script defer src="{% static 'js/date-picker.js' %}?v=1"></script>
     {% block extra_js %}{% endblock %}
   </body>
 </html>
