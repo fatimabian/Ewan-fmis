@@ -223,7 +223,7 @@
     }
     </style>
     <link rel="stylesheet" href="{% static 'css/dark-mode.css' %}?v=7">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=7">
+    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=9">
   </head>
   <body class="{% if request.user.is_admin %}role-admin{% else %}role-staff{% endif %}"
         data-theme="{{ user_preference.theme|default:'system' }}"

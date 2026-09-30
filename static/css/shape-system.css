@@ -371,3 +371,30 @@ html body .app-shell .sidebar .logout:not(#fmis-shape-specificity):is(:hover,:fo
 html body .app-shell .sidebar .logout:not(#fmis-shape-specificity) :is(i,span){
     color:#fff!important
 }
+
+html body[data-theme="dark"] .fmis-date-trigger:not(#fmis-shape-specificity){
+    border-color:#46554c!important;
+    background:#202723!important;
+}
+
+html body .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity),
+html body .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border:1px solid #cbd8d0!important;
+    border-radius:0!important;
+    background:#fff!important;
+    color:#17233a!important;
+    box-shadow:none!important;
+    transform:none!important;
+}
+
+html body .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity):is(:hover,:focus-visible){
+    border-color:var(--fmis-accent,#2f7d5c)!important;
+    box-shadow:0 0 0 3px color-mix(in srgb,var(--fmis-accent,#2f7d5c) 16%,transparent)!important;
+}
+
+html body[data-theme="dark"] .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity),
+html body[data-theme="dark"] .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border-color:#46554c!important;
+    background:#202723!important;
+    color:#f1f5f2!important;
+}
