@@ -52,6 +52,7 @@ MIDDLEWARE = [
     "apps.common.middleware.SessionTimeoutMiddleware",
     "apps.common.middleware.PrivateUserPageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.common.middleware.SecurityHeadersMiddleware",
     "apps.activity_logs.middleware.ActivityLogMiddleware",
 ]
 ROOT_URLCONF = "config.urls"
@@ -131,6 +132,9 @@ FMIS_BACKUP_SCHEDULER_CONFIGURED = os.getenv(
     "FMIS_BACKUP_SCHEDULER_CONFIGURED", "False"
 ).lower() == "true"
 FMIS_RELEASE_VERSION = os.getenv("FMIS_RELEASE_VERSION", "Unreleased build")
+FMIS_FIELD_BASE_URL = os.getenv("FMIS_FIELD_BASE_URL", "").strip().rstrip("/")
+if not DEBUG and FMIS_FIELD_BASE_URL and not FMIS_FIELD_BASE_URL.startswith("https://"):
+    raise ImproperlyConfigured("FMIS_FIELD_BASE_URL must use HTTPS in production.")
 SESSION_COOKIE_NAME = "fmis_sessionid"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"

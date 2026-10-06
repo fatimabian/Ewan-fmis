@@ -17,9 +17,9 @@
     <link
       href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}"
       rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/typography.css' %}">
-    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=8">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=7">
+    <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=13">
+    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=13">
   </head>
   <body>
     <div class="landing-progress" id="landingProgress" aria-hidden="true"></div>
@@ -86,9 +86,24 @@
             aria-labelledby="landingSignInTitle"
             data-reveal>
             <div class="landing-signin-heading">
+              <span class="landing-signin-brand">
+                {% include "shared/brand_logo.html" with logo_class="landing-signin-logo" logo_width="30" logo_height="30" %}
+                Authorized FMIS access
+              </span>
               <h2 id="landingSignInTitle">Welcome Back!</h2>
               <p>Please sign in to your account</p>
             </div>
+
+            {% if messages and not activation_mode %}
+              <div class="landing-signin-messages" role="status" aria-live="polite">
+                {% for message in messages %}
+                  <div class="landing-signin-message{% if message.tags %} {{ message.tags }}{% endif %}">
+                    <i class="bi bi-info-circle" aria-hidden="true"></i>
+                    <span>{{ message }}</span>
+                  </div>
+                {% endfor %}
+              </div>
+            {% endif %}
 
             <form
               method="post"
@@ -100,40 +115,40 @@
                 <input type="hidden" name="next" value="{{ next }}">
               {% endif %}
 
-              <label{% if form.username.errors or form.non_field_errors %} class="has-error"{% endif %}>
+              <label{% if login_form.username.errors or login_form.non_field_errors %} class="has-error"{% endif %}>
                 <span class="signin-field-label">Username</span>
                 <span class="landing-input-wrap">
-                  {{ form.username }}
+                  {{ login_form.username }}
                 </span>
-                {{ form.username.errors }}
+                {{ login_form.username.errors }}
               </label>
 
-              <label{% if form.password.errors or form.non_field_errors %} class="has-error"{% endif %}>
+              <label{% if login_form.password.errors or login_form.non_field_errors %} class="has-error"{% endif %}>
                 <span class="signin-field-label">Password</span>
                 <span class="landing-input-wrap">
-                  {{ form.password }}
+                  {{ login_form.password }}
                   <button class="password-visibility"
                           type="button"
                           data-password-toggle
-                          aria-controls="{{ form.password.id_for_label }}"
+                          aria-controls="{{ login_form.password.id_for_label }}"
                           aria-label="Show password"
                           aria-pressed="false"
                           title="Show password">
                     <i class="bi bi-eye" aria-hidden="true"></i>
                   </button>
                 </span>
-                {{ form.password.errors }}
-                {% if form.non_field_errors %}
+                {{ login_form.password.errors }}
+                {% if login_form.non_field_errors %}
                   <small class="landing-field-error">The username or password is incorrect.</small>
                 {% endif %}
               </label>
 
               <div class="landing-signin-options">
                 <label class="landing-remember">
-                  {{ form.remember_me }}
+                  {{ login_form.remember_me }}
                   <span>Keep me signed in</span>
                 </label>
-                <a href="{% url 'authentication:password_reset' %}">Forgot Password?</a>
+                <button id="landingForgotPassword" class="landing-forgot" type="button" data-password-recovery-open>Forgot Password?</button>
               </div>
 
               <button class="landing-signin-submit" type="submit">
@@ -401,6 +416,88 @@
 
     </main>
 
+    <dialog class="landing-auth-dialog" id="passwordRecoveryDialog" aria-labelledby="passwordRecoveryTitle">
+      <form method="post" action="{% url 'authentication:password_reset' %}" class="landing-recovery-form landing-password-otp-form">
+        {% csrf_token %}
+        <button class="landing-dialog-close" type="submit" name="recovery_action" value="cancel" aria-label="Close password recovery"><i class="bi bi-x-lg"></i></button>
+        <span class="landing-dialog-icon"><i class="bi bi-shield-lock"></i></span>
+        {% if recovery_error %}<div class="landing-dialog-message error">{{ recovery_error }}</div>{% endif %}
+        {% if recovery_step == 'verify' %}
+          <span class="landing-dialog-kicker">EMAIL VERIFICATION</span>
+          <h2 id="passwordRecoveryTitle">Enter your email OTP</h2>
+          <p>If the account exists, a six-digit code was sent to {{ recovery_destination }}. It expires after 10 minutes.</p>
+          <label for="{{ recovery_otp_form.code.id_for_label }}">Verification code</label>
+          <div class="landing-activation-code">
+            {{ recovery_otp_form.code }}
+            {{ recovery_otp_form.code.errors }}
+          </div>
+          <small class="landing-activation-attempts">{{ recovery_attempts }} verification attempt{{ recovery_attempts|pluralize }} remaining</small>
+          <div class="landing-dialog-actions">
+            <button class="btn-cancel" type="submit" name="recovery_action" value="cancel" formnovalidate>Cancel</button>
+            <button type="submit" name="recovery_action" value="verify">Verify OTP</button>
+          </div>
+        {% elif recovery_step == 'reset' %}
+          <span class="landing-dialog-kicker">OTP VERIFIED</span>
+          <h2 id="passwordRecoveryTitle">Create a new password</h2>
+          <p>Use a strong password that you have not used for this FMIS account before.</p>
+          <label for="{{ recovery_password_form.new_password1.id_for_label }}">New password</label>
+          {{ recovery_password_form.new_password1 }}
+          {{ recovery_password_form.new_password1.errors }}
+          <label for="{{ recovery_password_form.new_password2.id_for_label }}">Confirm new password</label>
+          {{ recovery_password_form.new_password2 }}
+          {{ recovery_password_form.new_password2.errors }}
+          {% if recovery_password_form.non_field_errors %}{{ recovery_password_form.non_field_errors }}{% endif %}
+          <div class="landing-dialog-actions">
+            <button class="btn-cancel" type="submit" name="recovery_action" value="cancel" formnovalidate>Cancel</button>
+            <button type="submit" name="recovery_action" value="reset">Change Password</button>
+          </div>
+        {% else %}
+          <span class="landing-dialog-kicker">PASSWORD RECOVERY</span>
+          <h2 id="passwordRecoveryTitle">Reset your password</h2>
+          <p>Enter the email address or phone number saved in your FMIS account. The verification code will be sent to its registered email.</p>
+          <label for="{{ recovery_identifier_form.identifier.id_for_label|default:'landingRecoveryIdentifier' }}">Email address or phone number</label>
+          {% if recovery_identifier_form %}
+            {{ recovery_identifier_form.identifier }}
+            {{ recovery_identifier_form.identifier.errors }}
+          {% else %}
+            <input id="landingRecoveryIdentifier" name="identifier" type="text" autocomplete="username" placeholder="name@example.com or 09XXXXXXXXX" required>
+          {% endif %}
+          <div class="landing-dialog-actions">
+            <button class="btn-cancel" type="submit" name="recovery_action" value="cancel" formnovalidate>Cancel</button>
+            <button type="submit" name="recovery_action" value="request">Send Email OTP</button>
+          </div>
+        {% endif %}
+      </form>
+    </dialog>
+
+    {% if activation_mode %}
+      <dialog class="landing-auth-dialog landing-activation-dialog" id="accountActivationDialog" aria-labelledby="accountActivationTitle">
+        <form method="post" action="{% url 'authentication:activate_account' %}" class="landing-recovery-form landing-activation-form">
+          {% csrf_token %}
+          <a class="landing-dialog-close" href="{% url 'authentication:landing' %}#landingSignIn" aria-label="Back to sign in"><i class="bi bi-x-lg"></i></a>
+          <span class="landing-dialog-icon"><i class="bi bi-envelope-check"></i></span>
+          <span class="landing-dialog-kicker">FIRST-TIME ACCOUNT ACTIVATION</span>
+          <p class="landing-activation-context">Confirm your staff account.</p>
+          <h2 id="accountActivationTitle">Check your email</h2>
+          <p>Enter the six-digit code sent to <strong>{{ masked_email }}</strong>. The code expires after 10 minutes.</p>
+          {% if messages %}
+            {% for message in messages %}<div class="landing-dialog-message">{{ message }}</div>{% endfor %}
+          {% endif %}
+          <label for="{{ activation_form.code.id_for_label }}">Verification code</label>
+          <div class="landing-activation-code">
+            {{ activation_form.code }}
+            {{ activation_form.code.errors }}
+          </div>
+          <small class="landing-activation-attempts">{{ attempts_remaining }} verification attempt{{ attempts_remaining|pluralize }} remaining</small>
+          <small class="landing-activation-rule">Five verification attempts are allowed.</small>
+          <div class="landing-activation-actions">
+            <button type="submit">Verify and Activate</button>
+            <button class="activation-resend" type="submit" name="action" value="resend" formnovalidate>Send a new code</button>
+          </div>
+        </form>
+      </dialog>
+    {% endif %}
+
     <footer class="showcase-footer">
       <div>
         <a class="showcase-brand" href="#home">
@@ -571,6 +668,28 @@
                   button.querySelector("i").className = isOpen ? "bi bi-plus" : "bi bi-dash";
               });
           });
+
+          const recoveryDialog = document.getElementById('passwordRecoveryDialog');
+          document.querySelector('[data-password-recovery-open]')?.addEventListener('click', () => {
+              recoveryDialog.showModal();
+              recoveryDialog.querySelector('input')?.focus();
+          });
+          document.querySelectorAll('[data-password-recovery-close]').forEach(button => {
+              button.addEventListener('click', () => recoveryDialog.close());
+          });
+          recoveryDialog?.addEventListener('click', event => {
+              if (event.target === recoveryDialog) recoveryDialog.close();
+          });
+          {% if recovery_mode %}
+          recoveryDialog?.showModal();
+          recoveryDialog?.querySelector('input')?.focus();
+          {% endif %}
+
+          const activationDialog = document.getElementById('accountActivationDialog');
+          if (activationDialog) {
+              activationDialog.showModal();
+              activationDialog.querySelector('input')?.focus();
+          }
 
       })();
     </script>

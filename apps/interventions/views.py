@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
@@ -10,6 +11,7 @@ from apps.activity_logs.models import ActivityLog
 from apps.common.record_history import activity_rows
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
+from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
 
 from .forms import InterventionForm
 from .models import Intervention
@@ -44,7 +46,7 @@ class InterventionListView(InterventionAccessMixin, ListView):
             queryset = queryset.filter(intervention_type=kind)
         if status != "all":
             queryset = queryset.filter(is_active=status != "archived")
-        return queryset
+        return queryset.order_by("pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -59,13 +61,25 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
 
     success_url = reverse_lazy("interventions:list")
 
+    def dispatch(self, request, *args, **kwargs):
+        request_id = request.GET.get("service_request", "").strip()
+        if request_id.isdigit():
+            service_request = get_object_or_404(ServiceRequest, pk=int(request_id))
+            if service_request.status != "IN_PROGRESS":
+                messages.error(
+                    request,
+                    "Only an In Progress service request can proceed to an intervention.",
+                )
+                return redirect("service_requests:detail", pk=service_request.pk)
+        return super().dispatch(request, *args, **kwargs)
+
     def get_initial(self):
         initial = super().get_initial()
         request_id = self.request.GET.get("service_request", "").strip()
         if request_id.isdigit():
-            from apps.service_requests.models import ServiceRequest
-
-            service_request = ServiceRequest.objects.filter(pk=int(request_id)).first()
+            service_request = ServiceRequest.objects.filter(
+                pk=int(request_id), status="IN_PROGRESS"
+            ).first()
             if service_request:
                 initial.update(
                     {
@@ -77,8 +91,28 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.recorded_by = self.request.user
-        response = super().form_valid(form)
-        record_request_event(self.request, title="Intervention Recorded", module="Interventions", description=f"{self.request.user.display_name} recorded assistance delivered to a farmer.", target_label=self.object.reference_id)
+        linked_request = form.cleaned_data.get("service_request")
+        with transaction.atomic():
+            response = super().form_valid(form)
+            if linked_request:
+                previous_status = linked_request.status
+                linked_request.status = "COMPLETED"
+                linked_request.save(update_fields=["status", "updated_at"])
+                ServiceRequestHistory.objects.create(
+                    service_request=linked_request,
+                    actor=self.request.user,
+                    action="UPDATED",
+                    from_status=previous_status,
+                    to_status="COMPLETED",
+                    changes=[
+                        {
+                            "field": "Status",
+                            "before": "In Progress",
+                            "after": "Completed after intervention was recorded",
+                        }
+                    ],
+                )
+            record_request_event(self.request, title="Intervention Recorded", module="Interventions", description=f"{self.request.user.display_name} recorded assistance delivered to a farmer.", target_label=self.object.reference_id)
         if self.object.service_request:
             messages.success(
                 self.request,

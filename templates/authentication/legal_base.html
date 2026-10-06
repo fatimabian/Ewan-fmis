@@ -162,8 +162,8 @@
         }
     }
     </style>
-    <link rel="stylesheet" href="{% static 'css/typography.css' %}">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=7">
+    <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=8">
   </head>
   <body>
     <nav class="legal-nav" aria-label="Legal page navigation">
@@ -177,8 +177,8 @@
       <a class="legal-back" href="{% url 'authentication:landing' %}">
         <span class="legal-back-arrow" aria-hidden="true">←</span> HOME</a>
     </nav>
-    <main class="legal-page">
-      {% block legal_content %}{% endblock %}
+    <main class="legal-public-main">
+      {% block content %}{% endblock %}
     </main>
     <footer class="legal-footer">
       <a href="{% url 'authentication:privacy' %}">Privacy Notice</a> · <a href="{% url 'authentication:terms' %}">Terms of Use</a>

@@ -52,10 +52,10 @@ class Farmer(models.Model):
     valid_id_type = models.CharField(max_length=100, blank=True)
     valid_id_number = models.CharField(max_length=100, blank=True)
     religion = models.CharField(max_length=100, blank=True)
-    is_indigenous = models.BooleanField(default=False)
+    is_indigenous = models.BooleanField(null=True, blank=True, default=None)
     indigenous_group = models.CharField(max_length=120, blank=True)
-    is_pwd = models.BooleanField(default=False)
-    is_four_ps = models.BooleanField(default=False)
+    is_pwd = models.BooleanField(null=True, blank=True, default=None)
+    is_four_ps = models.BooleanField(null=True, blank=True, default=None)
     livelihood = models.CharField(max_length=20, choices=LIVELIHOOD_CHOICES, default="FARMER")
     activities = models.TextField(
         blank=True, help_text="Comma-separated RSBSA livelihood activities"

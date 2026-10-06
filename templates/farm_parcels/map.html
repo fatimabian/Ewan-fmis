@@ -29,6 +29,34 @@
   .map-toolbar select{
       height:46px
   }
+  .map-layer-switcher{
+      grid-column:2/-1;
+      display:flex;
+      justify-content:flex-end;
+      gap:16px;
+      margin:0;
+      padding:2px 0 0;
+      border:0
+  }
+  .map-layer-switcher legend{
+      position:absolute;
+      width:1px;
+      height:1px;
+      overflow:hidden;
+      clip:rect(0 0 0 0)
+  }
+  .map-layer-switcher label{
+      display:flex;
+      grid-column:auto;
+      align-items:center;
+      gap:6px;
+      font-size:12px;
+      font-weight:600;
+      cursor:pointer
+  }
+  .map-layer-switcher input{
+      margin:0
+  }
   .map-counts{
       display:flex;
       gap:8px;
@@ -85,6 +113,13 @@
       box-shadow:var(--ag-shadow);
       z-index:1
   }
+  #farmerMap .leaflet-control-zoom a,
+  #farmerMap .leaflet-control-zoom a:is(:hover,:focus,:active){
+      border-color:rgba(255,255,255,.32)!important;
+      background:#176b3d!important;
+      color:#fff!important;
+      box-shadow:none!important
+  }
   .map-empty{
       display:none;
       min-height:280px;
@@ -128,11 +163,47 @@
       color:#657287
   }
   .farmer-popup-address{
-      margin:8px 0 13px;
+      margin:0;
       color:#4a596b;
       font-size:13px;
       line-height:1.45
   }
+  .parcel-popup-photo{
+      width:100%;
+      height:190px;
+      margin:10px 0 12px;
+      object-fit:cover;
+      border:1px solid #dfe7e2;
+      background:#eef4ef
+  }
+  .parcel-popup-photo-empty{
+      display:grid;
+      place-items:center;
+      width:100%;
+      height:105px;
+      margin:10px 0 12px;
+      border:1px dashed #bdcdc3;
+      background:#f4f8f5;
+      color:#66766c;
+      font-size:12px
+  }
+  .parcel-popup-facts{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:7px;
+      margin:0 0 12px
+  }
+  .parcel-popup-fact{
+      padding:8px 10px;
+      background:#f4f8f5;
+      color:#34483b;
+      font-size:12px
+  }
+  .parcel-popup-fact strong{display:block;margin-bottom:2px;color:#183426;font-size:11px}
+  .parcel-popup-crops{margin:0 0 5px;color:#263d30;font-size:12px}
+  .parcel-popup-crops strong{display:block;margin-bottom:6px}
+  .parcel-popup-crop-list{display:flex;flex-wrap:wrap;gap:6px}
+  .parcel-popup-crop-list span{padding:5px 8px;background:#e8f6ed;color:#116f3a;font-weight:700}
   .crop-gallery{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -276,6 +347,10 @@
       .map-toolbar label{
           grid-column:1/-1
       }
+      .map-layer-switcher{
+          grid-column:1/-1;
+          justify-content:flex-start
+      }
       .unmapped-list{
           grid-template-columns:1fr 1fr
       }
@@ -289,6 +364,10 @@
       }
       .map-toolbar .btn{
           width:100%
+      }
+      .map-layer-switcher{
+          flex-direction:column;
+          gap:8px
       }
       .unmapped-list{
           grid-template-columns:1fr
@@ -349,6 +428,12 @@
       <a class="btn btn-outline-success" href="{% url 'farm_parcels:list' %}">
         <i class="bi bi-table">
         </i> Parcel Table</a>
+      <fieldset class="map-layer-switcher" aria-label="Map type">
+        <legend>Map type</legend>
+        <label><input type="radio" name="map_layer" value="satellite" checked> Satellite</label>
+        <label><input type="radio" name="map_layer" value="terrain"> Terrain with place names</label>
+        <label><input type="radio" name="map_layer" value="streets"> Street map with place names</label>
+      </fieldset>
       </form>
       <div class="map-counts">
         <span class="map-count">
@@ -356,10 +441,6 @@
         <span class="map-count">
           <strong>{{ unmapped_count }}</strong> parcels need a pin</span>
       </div>
-      <p class="map-scope-note">
-        <i class="bi bi-bounding-box-circles"></i>
-        Map movement and saved pins are limited to Rosario, Batangas. Satellite view is selected by default for accurate placement.
-      </p>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
         Map labels identify roads and places. Right-click a green parcel pin to move it.
@@ -456,18 +537,16 @@
                 attribution: 'Street map &copy; Esri and data providers'
             });
             satellite.addTo(map);
-            L.control.layers(
-                {
-                    'Satellite': satellite,
-                    'Terrain with place names': terrain,
-                    'Street map with place names': streets
-                },
-                {},
-                {
-                    collapsed: false,
-                    position: 'topright'
-                }
-            ).addTo(map);
+            const baseLayers = { satellite, terrain, streets };
+            let activeBaseLayer = satellite;
+            document.querySelectorAll('input[name="map_layer"]').forEach((control) => {
+                control.addEventListener('change', () => {
+                    if (!control.checked || !baseLayers[control.value]) return;
+                    map.removeLayer(activeBaseLayer);
+                    activeBaseLayer = baseLayers[control.value];
+                    activeBaseLayer.addTo(map)
+                })
+            });
             map.fitBounds(rosarioBounds, {
                 padding: [18, 18]
             });
@@ -508,28 +587,39 @@
                 identity.appendChild(make('small', '', `${item.farmer_id} · ${item.parcel}`));
                 head.appendChild(identity);
                 popup.appendChild(head);
-                popup.appendChild(make('p', 'farmer-popup-address', item.address || 'Address not completed'));
-                const gallery = make('div', 'crop-gallery');
+                if (item.field_image_url) {
+                    const photo = make('img', 'parcel-popup-photo');
+                    photo.src = item.field_image_url;
+                    photo.alt = `Field view of ${item.parcel}`;
+                    photo.loading = 'lazy';
+                    popup.appendChild(photo)
+                } else {
+                    const noPhoto = make('div', 'parcel-popup-photo-empty');
+                    noPhoto.innerHTML = '<span><i class="bi bi-image"></i> No field photo recorded</span>';
+                    popup.appendChild(noPhoto)
+                }
+                const facts = make('div', 'parcel-popup-facts');
+                const area = make('div', 'parcel-popup-fact');
+                area.appendChild(make('strong', '', 'Area'));
+                area.appendChild(make('span', '', item.area || 'Not recorded'));
+                facts.appendChild(area);
+                const location = make('div', 'parcel-popup-fact');
+                location.appendChild(make('strong', '', 'Location'));
+                location.appendChild(make('p', 'farmer-popup-address', item.address || 'Not recorded'));
+                facts.appendChild(location);
+                popup.appendChild(facts);
+                const crops = make('div', 'parcel-popup-crops');
+                crops.appendChild(make('strong', '', 'Crops / Commodities'));
+                const gallery = make('div', 'parcel-popup-crop-list');
                 if (item.crops.length) {
                     item.crops.slice(0, 6).forEach(crop => {
-                        const card = make('div', 'crop-card');
-                        if (crop.image) {
-                            const image = make('img');
-                            image.src = crop.image;
-                            image.alt = crop.name;
-                            card.appendChild(image)
-                        } else {
-                            const blank = make('div', 'crop-placeholder');
-                            blank.textContent = crop.symbol || '🌱';
-                            card.appendChild(blank)
-                        }
-                        card.appendChild(make('span', '', crop.name));
-                        gallery.appendChild(card)
+                        gallery.appendChild(make('span', '', `${crop.symbol || '🌱'} ${crop.name}`))
                     })
                 } else {
                     gallery.appendChild(make('span', '', 'No crops recorded'))
                 }
-                popup.appendChild(gallery);
+                crops.appendChild(gallery);
+                popup.appendChild(crops);
                 const edit = make('a', '', 'Open farm parcel');
                 edit.href = item.edit_url;
                 popup.appendChild(edit);

@@ -9,18 +9,55 @@
     <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/auth.css' %}">
     <link rel="stylesheet" href="{% static 'css/auth-enhancements.css' %}">
-    <link rel="stylesheet" href="{% static 'css/typography.css' %}">
+    <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=2">
     <link rel="stylesheet" href="{% static 'css/form-validation.css' %}">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=7">
+    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=8">
     <style>
     .activation-shell{
-        min-height:560px
+        width:min(720px,94vw);
+        min-height:auto;
+        grid-template-columns:1fr;
+        border:1px solid #cbd8d0;
+        border-radius:0;
+        box-shadow:0 18px 45px rgba(15,38,29,.16)
     }
     .activation-brand-panel{
-        background:linear-gradient(145deg,#111c2b,#183d2d)
+        min-height:auto;
+        display:grid;
+        grid-template-columns:auto 1fr;
+        align-items:center;
+        gap:24px;
+        padding:24px 32px;
+        border-bottom:3px solid #18845a;
+        background:#132333;
+        overflow:visible
+    }
+    .activation-brand-panel:before{
+        display:none
+    }
+    .activation-brand-copy{
+        display:grid;
+        grid-template-columns:1fr auto;
+        align-items:center;
+        gap:16px
+    }
+    .activation-brand-copy h1{
+        margin:0;
+        font-size:23px
+    }
+    .activation-brand-copy>p,
+    .activation-points{
+        display:none
+    }
+    .activation-brand-panel .auth-eyebrow{
+        justify-self:end;
+        margin:0;
+        border:1px solid #4db88d;
+        color:#fff
     }
     .activation-form-panel{
-        background:linear-gradient(180deg,#fff,#f6fbf7)
+        padding:36px 44px 40px;
+        background:#fff
     }
     .activation-icon{
         width:58px;
@@ -76,12 +113,27 @@
         display:grid;
         gap:10px
     }
+    .activation-actions button{
+        border-width:1.5px;
+        box-shadow:0 6px 14px rgba(17,55,38,.14);
+        transition:transform .16s ease,box-shadow .16s ease
+    }
+    .activation-actions button:hover{
+        transform:translateY(-1px);
+        box-shadow:0 9px 18px rgba(17,55,38,.18)
+    }
+    .activation-actions button:active{
+        transform:translateY(1px);
+        box-shadow:0 2px 6px rgba(17,55,38,.12)
+    }
     .activation-resend{
-        border:0;
-        background:transparent;
-        color:#087443;
+        min-height:44px;
+        border:1px solid #18845a;
+        background:#fff;
+        color:#111827;
         font-weight:700;
-        cursor:pointer
+        cursor:pointer;
+        box-shadow:0 5px 12px rgba(22,83,57,.10)
     }
     .activation-resend:hover,
     .activation-resend:focus-visible{
@@ -92,10 +144,20 @@
         .activation-shell{
             min-height:auto
         }
+        .activation-brand-panel{
+            grid-template-columns:1fr;
+            padding:20px
+        }
+        .activation-brand-copy{
+            display:none
+        }
+        .activation-form-panel{
+            padding:28px 22px 32px
+        }
     }
     </style>
   </head>
-  <body class="auth-page">
+  <body class="auth-page universal-auth-page">
     <a class="auth-back" href="{% url 'authentication:landing' %}#landingSignIn">
       <i class="bi bi-arrow-left"></i> Back to Sign In
     </a>

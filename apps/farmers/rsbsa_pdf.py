@@ -1,10 +1,26 @@
 from io import BytesIO
+from html import escape
 from pathlib import Path
+from datetime import date, datetime
 
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils import timezone
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    KeepTogether,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 
 TEMPLATE_PATH = (
@@ -66,6 +82,22 @@ def _check(pdf, x, y, checked, size=8.5):
     if checked:
         pdf.setFont("Helvetica-Bold", size)
         pdf.drawCentredString(x, y - (size * 0.32), "X")
+
+
+def _display(value):
+    if value is True:
+        return "Yes"
+    if value is False:
+        return "No"
+    if value in (None, ""):
+        return "N/A"
+    if isinstance(value, datetime):
+        if timezone.is_aware(value):
+            value = timezone.localtime(value)
+        return value.strftime("%B %d, %Y, %I:%M %p")
+    if isinstance(value, date):
+        return value.strftime("%B %d, %Y")
+    return str(value)
 
 
 def _write_boxed_characters(pdf, value, centers, y, size=7):
@@ -225,13 +257,13 @@ def _page_one(pdf, farmer):
     _check(pdf, 144.7, 228.5, "ISLAM" in religion)
     _check(pdf, 200.3, 228.6, bool(religion) and "CHRIST" not in religion and "ISLAM" not in religion and "NONE" not in religion)
     _check(pdf, 264.3, 228.4, religion == "NONE")
-    _check(pdf, 72.6, 201.9, farmer.is_indigenous)
-    _check(pdf, 108.7, 201.8, not farmer.is_indigenous)
+    _check(pdf, 72.6, 201.9, farmer.is_indigenous is True)
+    _check(pdf, 108.7, 201.8, farmer.is_indigenous is False)
     _write(pdf, farmer.indigenous_group, 200, 198, 125, 6)
-    _check(pdf, 341.8, 202.5, farmer.is_pwd)
-    _check(pdf, 379.8, 202.5, not farmer.is_pwd)
-    _check(pdf, 454.6, 199.1, farmer.is_four_ps, 6.5)
-    _check(pdf, 483.7, 199.1, not farmer.is_four_ps, 6.5)
+    _check(pdf, 341.8, 202.5, farmer.is_pwd is True)
+    _check(pdf, 379.8, 202.5, farmer.is_pwd is False)
+    _check(pdf, 454.6, 199.1, farmer.is_four_ps is True, 6.5)
+    _check(pdf, 483.7, 199.1, farmer.is_four_ps is False, 6.5)
     membership_boxes = ((66, 157), (226, 157), (386, 174))
     for membership, (x, width) in zip(_membership_names(farmer.fca_membership), membership_boxes):
         _write(pdf, membership, x, 165, width, 6, "center")
@@ -356,6 +388,255 @@ def _page_two(pdf, farmer, parcels):
     _write(pdf, _farmer_print_name(farmer), 123, 157, 235, 7, "center")
 
 
+def _summary_pdf(farmer, parcels):
+    """Build a readable FMIS supplement containing the farmer's complete current record."""
+    output = BytesIO()
+    styles = getSampleStyleSheet()
+    title = ParagraphStyle(
+        "FMISTitle",
+        parent=styles["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=17,
+        leading=20,
+        textColor=colors.HexColor("#123226"),
+        alignment=TA_CENTER,
+        spaceAfter=6,
+    )
+    section = ParagraphStyle(
+        "FMISSection",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        leading=14,
+        textColor=colors.white,
+        backColor=colors.HexColor("#16724A"),
+        borderPadding=(5, 7, 5, 7),
+        spaceBefore=10,
+        spaceAfter=6,
+    )
+    body = ParagraphStyle(
+        "FMISBody",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=7.5,
+        leading=10,
+        textColor=colors.HexColor("#172033"),
+    )
+    small = ParagraphStyle("FMISSmall", parent=body, fontSize=6.5, leading=8)
+
+    def p(value, style=body):
+        return Paragraph(escape(_display(value)), style)
+
+    def info_table(rows, widths=(1.55 * inch, 2.1 * inch, 1.55 * inch, 2.1 * inch)):
+        data = []
+        for row in rows:
+            data.append([p(row[0], small), p(row[1]), p(row[2], small), p(row[3])])
+        table = Table(data, colWidths=list(widths), repeatRows=0)
+        table.setStyle(
+            TableStyle(
+                [
+                    ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#B8C9C0")),
+                    ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#EAF5EF")),
+                    ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#EAF5EF")),
+                    ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 5),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
+        return table
+
+    def footer(pdf, document):
+        pdf.saveState()
+        pdf.setStrokeColor(colors.HexColor("#B8C9C0"))
+        pdf.line(36, 28, 576, 28)
+        pdf.setFillColor(colors.HexColor("#52645B"))
+        pdf.setFont("Helvetica", 7)
+        pdf.drawString(36, 17, f"FMIS current farmer record - {farmer.record_id}")
+        pdf.drawRightString(576, 17, f"Supplement page {document.page}")
+        pdf.restoreState()
+
+    document = SimpleDocTemplate(
+        output,
+        pagesize=letter,
+        leftMargin=0.5 * inch,
+        rightMargin=0.5 * inch,
+        topMargin=0.42 * inch,
+        bottomMargin=0.48 * inch,
+        title=f"FMIS Current Farmer Record - {farmer.full_name}",
+        author="Office for Agricultural Services - Rosario, Batangas",
+    )
+    story = [
+        Paragraph("FMIS CURRENT FARMER RECORD", title),
+        Paragraph(
+            "Complete current information attached to the official RSBSA Enrollment Form. "
+            f"Generated {timezone.localtime().strftime('%B %d, %Y at %I:%M %p')}.",
+            ParagraphStyle("subtitle", parent=body, alignment=TA_CENTER, spaceAfter=8),
+        ),
+        Paragraph("Personal and Registration Information", section),
+    ]
+    address = ", ".join(
+        value
+        for value in (
+            farmer.house_lot_purok,
+            farmer.street_sitio,
+            farmer.barangay,
+            farmer.city_municipality,
+            farmer.province,
+            farmer.region,
+        )
+        if value
+    )
+    story.append(
+        info_table(
+            [
+                ("Farmer ID", farmer.record_id, "Official RSBSA ID", farmer.rsbsa_number),
+                ("Registration status", farmer.get_registration_status_display(), "Date registered", farmer.submitted_at or farmer.created_at),
+                ("Full name", farmer.full_name, "Sex", farmer.get_sex_display() if farmer.sex else "N/A"),
+                ("Birth date", farmer.birth_date, "Place of birth", farmer.place_of_birth),
+                ("Mother's maiden name", farmer.mother_maiden_name, "Civil status", farmer.get_civil_status_display() if farmer.civil_status else "N/A"),
+                ("Spouse", farmer.spouse_name, "Education", farmer.highest_education),
+                ("Address", address, "Phone", farmer.phone_number),
+                ("Email", farmer.email, "Valid ID", f"{_display(farmer.valid_id_type)} - {_display(farmer.valid_id_number)}"),
+                ("PhilSys registered", farmer.philsys_registered, "PCN / TRN", farmer.philsys_pcn or farmer.philsys_trn),
+                ("Religion", farmer.religion, "Livelihood", farmer.get_livelihood_display()),
+                ("Indigenous / ICC", farmer.is_indigenous, "ICC / IP group", farmer.indigenous_group),
+                ("PWD", farmer.is_pwd, "4Ps beneficiary", farmer.is_four_ps),
+                ("FCA / organization", farmer.fca_membership, "Remarks", farmer.remarks),
+            ]
+        )
+    )
+
+    story.append(Paragraph(f"Farm Parcels ({len(parcels)})", section))
+    if not parcels:
+        story.append(p("No active farm parcels recorded."))
+    for index, parcel in enumerate(parcels, start=1):
+        story.append(Paragraph(f"Parcel {index}: {escape(parcel.display_name)}", styles["Heading3"]))
+        story.append(
+            info_table(
+                [
+                    ("Location", f"{parcel.barangay}, {parcel.municipality}, {parcel.province}", "Area", f"{parcel.area_hectares} ha"),
+                    ("Ownership", parcel.get_ownership_type_display(), "Land type", parcel.get_land_type_display()),
+                    ("Farm type / office remarks", parcel.farm_type, "Ownership proof", parcel.get_ownership_document_display() if parcel.ownership_document else "N/A"),
+                    ("Land owner", parcel.land_owner_name, "Owner RSBSA", parcel.land_owner_rsbsa_number),
+                    ("Ancestral domain", parcel.within_ancestral_domain, "ARB", parcel.agrarian_reform_beneficiary),
+                    ("Coordinates", parcel.coordinates, "GPX / georef ID", parcel.georef_id),
+                    ("Georef status", parcel.get_gpx_status_display(), "Rotational tiller", parcel.rotational_tiller),
+                    ("Parcel remarks", parcel.remarks, "Field photos", parcel.photos.filter(is_active=True).count()),
+                ]
+            )
+        )
+        crops = list(parcel.crops.filter(is_active=True).order_by("crop_type", "pk"))
+        crop_data = [[p("Crop", small), p("Schedule", small), p("Area (ha)", small), p("Heads / trees", small), p("Organic", small), p("Intercrop", small), p("Planting date", small)]]
+        for crop in crops:
+            crop_data.append(
+                [p(crop.crop_type), p(crop.cropping_schedule), p(crop.area_hectares), p(crop.number_of_heads), p(crop.is_organic), p(crop.is_intercrop), p(crop.planting_date)]
+            )
+        if crops:
+            crop_table = Table(crop_data, colWidths=[1.35 * inch, 1.15 * inch, 0.7 * inch, 0.75 * inch, 0.65 * inch, 0.7 * inch, 1.1 * inch], repeatRows=1)
+            crop_table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#B8C9C0")), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF5EF")), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+            story.extend([Spacer(1, 5), crop_table])
+        else:
+            story.append(p("No current crop or commodity records."))
+
+    documents = list(farmer.documents.order_by("document_type", "pk"))
+    story.append(Paragraph(f"Supporting Documents ({len(documents)})", section))
+    doc_data = [[p("Document type", small), p("Description", small), p("Stored file", small)]]
+    for item in documents:
+        doc_data.append([p(item.get_document_type_display()), p(item.description), p(Path(item.file.name).name if item.file else "N/A")])
+    if documents:
+        doc_table = Table(doc_data, colWidths=[2 * inch, 2.7 * inch, 2.6 * inch], repeatRows=1)
+        doc_table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#B8C9C0")), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF5EF")), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 4), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+        story.append(doc_table)
+    else:
+        story.append(p("No supporting documents recorded."))
+
+    service_requests = list(
+        farmer.service_requests.select_related("service", "assigned_to").order_by("-created_at", "-pk")
+    )
+    service_heading = Paragraph(f"Service Requests ({len(service_requests)})", section)
+    service_data = [[
+        p("Reference", small),
+        p("Requested", small),
+        p("Service", small),
+        p("Subject / notes", small),
+        p("Priority", small),
+        p("Status", small),
+        p("Assigned to", small),
+    ]]
+    for request_item in service_requests:
+        subject_notes = request_item.subject
+        if request_item.notes:
+            subject_notes = f"{subject_notes} - {request_item.notes}"
+        service_data.append(
+            [
+                p(request_item.request_id),
+                p(request_item.created_at),
+                p(request_item.service.name),
+                p(subject_notes),
+                p(request_item.get_priority_display()),
+                p(request_item.get_status_display()),
+                p(request_item.assigned_to.display_name if request_item.assigned_to else "N/A"),
+            ]
+        )
+    if service_requests:
+        service_table = Table(
+            service_data,
+            colWidths=[0.62 * inch, 0.88 * inch, 1.05 * inch, 2.05 * inch, 0.62 * inch, 0.72 * inch, 1.36 * inch],
+            repeatRows=1,
+        )
+        service_table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#B8C9C0")), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF5EF")), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+        story.append(KeepTogether([service_heading, service_table]))
+    else:
+        story.append(KeepTogether([service_heading, p("No service requests recorded.")]))
+
+    interventions = list(
+        farmer.interventions.filter(is_active=True)
+        .select_related("service_request", "recorded_by")
+        .order_by("-intervention_date", "-pk")
+    )
+    intervention_heading = Paragraph(f"Interventions Given ({len(interventions)})", section)
+    intervention_data = [[
+        p("Reference", small),
+        p("Date", small),
+        p("Type", small),
+        p("Description / remarks", small),
+        p("Quantity", small),
+        p("Provider", small),
+    ]]
+    for item in interventions:
+        description = item.description
+        if item.remarks:
+            description = f"{description} - {item.remarks}"
+        quantity = f"{item.quantity} {item.unit}".strip() if item.quantity is not None else "N/A"
+        intervention_data.append(
+            [
+                p(item.reference_id),
+                p(item.intervention_date),
+                p(item.get_intervention_type_display()),
+                p(description),
+                p(quantity),
+                p(item.provider or "N/A"),
+            ]
+        )
+    if interventions:
+        intervention_table = Table(
+            intervention_data,
+            colWidths=[0.68 * inch, 0.78 * inch, 1.1 * inch, 2.35 * inch, 0.85 * inch, 1.54 * inch],
+            repeatRows=1,
+        )
+        intervention_table.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#B8C9C0")), ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EAF5EF")), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3), ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]))
+        story.append(KeepTogether([intervention_heading, intervention_table]))
+    else:
+        story.append(KeepTogether([intervention_heading, p("No active interventions recorded.")]))
+
+    document.build(story, onFirstPage=footer, onLaterPages=footer)
+    return output.getvalue()
+
+
 def build_rsbsa_pdf(farmer):
     try:
         from pypdf import PdfReader, PdfWriter
@@ -371,10 +652,10 @@ def build_rsbsa_pdf(farmer):
     pdf.showPage()
     parcels = list(
         farmer.parcels.filter(is_active=True)
-        .prefetch_related("crops")
-        .order_by("pk")[:3]
+        .prefetch_related("crops", "photos")
+        .order_by("pk")
     )
-    _page_two(pdf, farmer, parcels)
+    _page_two(pdf, farmer, parcels[:3])
     pdf.showPage()
     pdf.save()
     overlay.seek(0)
@@ -385,6 +666,9 @@ def build_rsbsa_pdf(farmer):
     for index, template_page in enumerate(template_reader.pages):
         template_page.merge_page(overlay_reader.pages[index])
         writer.add_page(template_page)
+    summary_reader = PdfReader(BytesIO(_summary_pdf(farmer, parcels)))
+    for summary_page in summary_reader.pages:
+        writer.add_page(summary_page)
     writer.add_metadata(
         {
             "/Title": f"RSBSA Enrollment Form - {farmer.full_name}",

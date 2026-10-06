@@ -45,6 +45,12 @@
       </ol>
       <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
         {% csrf_token %}
+        {% if registration_has_errors %}
+          <div class="form-validation-alert registration-error-summary" role="alert" tabindex="-1">
+            <strong>Registration was not saved.</strong>
+            <span>Review the highlighted field in the step shown below, correct it, then submit again. No partial farmer record was created.</span>
+          </div>
+        {% endif %}
         {% if profile_form.non_field_errors %}
           <div class="form-validation-alert" data-inline-validation>{{ profile_form.non_field_errors }}</div>
         {% endif %}
@@ -109,13 +115,10 @@
               {% include "farmers/registration_field.html" with field=profile_form.email %}
               {% include "farmers/registration_field.html" with field=profile_form.valid_id_type %}
               {% include "farmers/registration_field.html" with field=profile_form.valid_id_number %}
+              {% include "farmers/registration_field.html" with field=profile_form.is_indigenous %}
               {% include "farmers/registration_field.html" with field=profile_form.indigenous_group %}
-              <fieldset class="checkbox-stack">
-                <legend>Special classifications</legend>
-                <label>{{ profile_form.is_indigenous }} <span>{{ profile_form.is_indigenous.label }}</span></label>
-                <label>{{ profile_form.is_pwd }} <span>{{ profile_form.is_pwd.label }}</span></label>
-                <label>{{ profile_form.is_four_ps }} <span>{{ profile_form.is_four_ps.label }}</span></label>
-              </fieldset>
+              {% include "farmers/registration_field.html" with field=profile_form.is_pwd %}
+              {% include "farmers/registration_field.html" with field=profile_form.is_four_ps %}
             </div>
           </div>
           <div class="step-actions">
@@ -478,8 +481,21 @@
               }
           }
 
+          function updateIndigenousGroup() {
+              const choice = form.querySelector('[data-indigenous-choice]');
+              const group = form.querySelector('[data-indigenous-group]');
+              const wrapper = group?.closest('[data-field-name="indigenous_group"]');
+              if (!choice || !group || !wrapper) return;
+              const applies = choice.value === 'True';
+              wrapper.hidden = !applies;
+              group.disabled = !applies;
+              group.required = applies;
+              if (!applies) group.value = ''
+          }
+
           document.addEventListener('change', event => {
               if (event.target.matches('[data-valid-id-type]')) updateIdNumberRule();
+              if (event.target.matches('[data-indigenous-choice]')) updateIndigenousGroup();
               if (event.target.matches('[data-ownership-type], [name$="-land_owner_registered_rsbsa"]')) {
                   updateOwnershipFields(event.target.closest('.formset-row'))
               }
@@ -531,6 +547,7 @@
               loading.hidden = false
           });
           updateIdNumberRule();
+          updateIndigenousGroup();
           activeRows('parcels').forEach(updateOwnershipFields);
           syncParcelChoices();
           const serverError = document.querySelector('.registration-step .errorlist');

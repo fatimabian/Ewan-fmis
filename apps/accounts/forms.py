@@ -89,7 +89,9 @@ class AccountUpdateForm(AccountValidationMixin, InlineValidationMixin, forms.Mod
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for name in ("first_name", "last_name", "email", "phone_number", "role"):
+        self.fields["first_name"].required = False
+        self.fields["last_name"].required = False
+        for name in ("email", "phone_number", "role"):
             self.fields[name].required = True
         current_role = getattr(self.instance, "role", None)
         if current_role and current_role not in dict(ASSIGNABLE_ROLE_CHOICES):

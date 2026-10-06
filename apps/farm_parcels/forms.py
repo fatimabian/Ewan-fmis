@@ -10,7 +10,10 @@ from apps.common.constants import (
 )
 from apps.common.forms import (
     InlineValidationMixin,
+    MultipleFileInput,
+    MultipleImageField,
     RequiredYesNoField,
+    YesNoNAField,
     add_other_crop_field,
     resolve_other_crop,
 )
@@ -19,6 +22,19 @@ from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
 from apps.farmers.models import FarmerUpdateHistory
 
 from .models import FarmParcel
+
+
+class FarmParcelPhotoUploadForm(InlineValidationMixin, forms.Form):
+    """Office-only field evidence uploaded outside the Slip B workflow."""
+
+    field_photos = MultipleImageField(
+        required=True,
+        label="Upload field photos",
+        help_text="Select one or more current photos of the field.",
+        widget=MultipleFileInput(
+            attrs={"accept": "image/png,image/jpeg,image/webp", "multiple": True}
+        ),
+    )
 
 
 class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
@@ -32,6 +48,21 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     )
     is_rsbsa_recorded = RequiredYesNoField(label="Already recorded in RSBSA?")
     is_active = RequiredYesNoField(label="Currently cultivated / active?")
+    within_ancestral_domain = YesNoNAField(
+        required=False,
+        label="Within ancestral domain",
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
+    )
+    agrarian_reform_beneficiary = YesNoNAField(
+        required=False,
+        label="Agrarian Reform Beneficiary (ARB)",
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
+    )
+    rotational_tiller = YesNoNAField(
+        required=False,
+        label="Uses a rotational tiller",
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
+    )
     transaction_code = forms.CharField(
         max_length=80,
         required=False,
@@ -172,7 +203,6 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
             "is_organic",
             "is_intercrop",
             "planting_date",
-            "image",
         ]
         labels = {
             "crop_type": "Crop / Commodity",
@@ -181,14 +211,12 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
             "is_intercrop": "Intercropping commodity",
-            "image": "Crop photo (optional)",
         }
         widgets = {
             "crop_type": forms.TextInput(attrs={"placeholder": "e.g., Rice, Corn, Banana"}),
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "number_of_heads": forms.NumberInput(attrs={"min": "0"}),
             "planting_date": forms.DateInput(attrs={"type": "date"}),
-            "image": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
     def __init__(self, *args, **kwargs):

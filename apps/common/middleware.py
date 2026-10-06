@@ -95,3 +95,33 @@ class PrivateUserPageMiddleware:
             patch_cache_control(response, private=True, no_store=True)
             patch_vary_headers(response, ("Cookie",))
         return response
+
+
+class SecurityHeadersMiddleware:
+    """Apply a conservative browser security policy to every FMIS response."""
+
+    CONTENT_SECURITY_POLICY = (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'none'; "
+        "form-action 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "font-src 'self' data:; "
+        "img-src 'self' data: blob: https://server.arcgisonline.com; "
+        "connect-src 'self' https://api.open-meteo.com"
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response.setdefault("Content-Security-Policy", self.CONTENT_SECURITY_POLICY)
+        response.setdefault(
+            "Permissions-Policy",
+            "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+        )
+        response.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        return response

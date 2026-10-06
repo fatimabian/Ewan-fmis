@@ -1,9 +1,11 @@
 import re
+from datetime import date
 from pathlib import Path
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import BaseFormSet, formset_factory
+from django.utils import timezone
 
 from apps.crops.models import CropRecord
 from apps.common.constants import (
@@ -15,7 +17,10 @@ from apps.common.constants import (
 )
 from apps.common.forms import (
     InlineValidationMixin,
+    MultipleFileInput,
+    MultipleImageField,
     RequiredYesNoField,
+    YesNoNAField,
     add_other_crop_field,
     resolve_other_crop,
 )
@@ -153,6 +158,7 @@ VALID_ID_RULES = {
 }
 
 GENERIC_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .#()/\-]{2,39}$")
+RSBSA_NUMBER_PATTERN = re.compile(r"^\d{2}-\d{2}-\d{2}-\d{3}-\d{6}$")
 MONTH_CHOICES = (
     ("", "Select month"),
     ("January", "January"),
@@ -204,6 +210,14 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         choices=VALID_ID_CHOICES,
         required=True,
         label="Valid ID type",
+    )
+    is_indigenous = YesNoNAField(label="Member of an Indigenous People / ICC")
+    is_pwd = YesNoNAField(label="Person with Disability (PWD)")
+    is_four_ps = YesNoNAField(label="4Ps beneficiary")
+    philsys_registered = YesNoNAField(
+        required=False,
+        label="Registered in PhilSys / National ID",
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
     )
     consent_given = forms.BooleanField(
         required=True,
@@ -321,6 +335,8 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             self.fields["phone_number"].widget.attrs["data-input-kind"] = "digits"
         if "phone_number" in self.fields and not (self.instance and self.instance.pk):
             self.initial.setdefault("phone_number", "09")
+        self.fields["is_indigenous"].widget.attrs["data-indigenous-choice"] = "true"
+        self.fields["indigenous_group"].widget.attrs["data-indigenous-group"] = "true"
         self.fields["valid_id_type"].widget.attrs["data-valid-id-type"] = "true"
         self.fields["valid_id_number"].widget.attrs.update(
             {
@@ -333,6 +349,33 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         self.fields["valid_id_number"].help_text = (
             "The accepted format will appear after an ID type is selected."
         )
+        today = timezone.localdate()
+        try:
+            oldest_allowed_child = today.replace(year=today.year - 11)
+        except ValueError:
+            oldest_allowed_child = date(today.year - 11, 2, 28)
+        self.fields["birth_date"].widget.attrs.update(
+            {
+                "max": oldest_allowed_child.isoformat(),
+                "title": "The farmer must be at least 11 years old.",
+            }
+        )
+
+    def clean_birth_date(self):
+        birth_date = self.cleaned_data.get("birth_date")
+        if not birth_date:
+            return birth_date
+
+        today = timezone.localdate()
+        if birth_date > today:
+            raise ValidationError("Birth date cannot be today, tomorrow, or any future date.")
+
+        age = today.year - birth_date.year - (
+            (today.month, today.day) < (birth_date.month, birth_date.day)
+        )
+        if age <= 10:
+            raise ValidationError("The farmer must be at least 11 years old.")
+        return birth_date
 
     def clean_phone_number(self):
         value = (self.cleaned_data.get("phone_number") or "").strip()
@@ -450,6 +493,18 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Older clients and saved drafts may omit the new tri-state fields.
+        # Preserve the stored value on updates instead of silently replacing it.
+        for name in ("is_indigenous", "is_pwd", "is_four_ps"):
+            self.fields[name].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        if self.is_bound and self.instance and self.instance.pk:
+            for name in ("is_indigenous", "is_pwd", "is_four_ps"):
+                if self.add_prefix(name) not in self.data:
+                    cleaned[name] = getattr(self.instance, name)
+        return cleaned
 
 
 class FarmerRegistrationStatusForm(StyledFormMixin, forms.ModelForm):
@@ -467,7 +522,10 @@ class FarmerRegistrationStatusForm(StyledFormMixin, forms.ModelForm):
                 "Use Skipped when requirements need correction. Select Completed after the "
                 "office accepts the registration."
             ),
-            "rsbsa_number": "Required only when the registration status is Completed.",
+            "rsbsa_number": (
+                "Required only when Completed. Use the official 15-digit DA/FFRS number: "
+                "00-00-00-000-000000. Letters are not allowed."
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -476,8 +534,12 @@ class FarmerRegistrationStatusForm(StyledFormMixin, forms.ModelForm):
         self.fields["rsbsa_number"].widget.attrs.update(
             {
                 "autocomplete": "off",
-                "placeholder": "Available when status is Completed",
+                "placeholder": "00-00-00-000-000000",
                 "data-rsbsa-id": "true",
+                "inputmode": "numeric",
+                "maxlength": "19",
+                "pattern": r"(?:[0-9]{15}|[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{3}-[0-9]{6})",
+                "title": "Enter 15 digits in the format 00-00-00-000-000000.",
             }
         )
         self.fields["registration_status"].widget.attrs["data-registration-status"] = "true"
@@ -487,7 +549,22 @@ class FarmerRegistrationStatusForm(StyledFormMixin, forms.ModelForm):
 
     def clean_rsbsa_number(self):
         value = (self.cleaned_data.get("rsbsa_number") or "").strip()
-        return value or None
+        if not value:
+            return None
+        if re.search(r"[^0-9\s-]", value):
+            raise ValidationError("Use numbers only. Letters and other symbols are not allowed.")
+        digits = re.sub(r"[\s-]", "", value)
+        if len(digits) != 15:
+            raise ValidationError(
+                "Enter the complete 15-digit official RSBSA number."
+            )
+        normalized = (
+            f"{digits[0:2]}-{digits[2:4]}-{digits[4:6]}-"
+            f"{digits[6:9]}-{digits[9:15]}"
+        )
+        if not RSBSA_NUMBER_PATTERN.fullmatch(normalized):
+            raise ValidationError("Use the official format 00-00-00-000-000000.")
+        return normalized
 
     def clean(self):
         cleaned = super().clean()
@@ -568,8 +645,31 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
             attrs={"placeholder": "Enter farm type or brief office remarks"}
         ),
     )
+    field_photos = MultipleImageField(
+        required=False,
+        label="Field photos",
+        help_text="Select one or more current photos of this farm parcel.",
+        widget=MultipleFileInput(
+            attrs={"accept": "image/png,image/jpeg,image/webp", "multiple": True}
+        ),
+    )
+    within_ancestral_domain = YesNoNAField(
+        required=False,
+        label="Within ancestral domain",
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
+    )
+    agrarian_reform_beneficiary = YesNoNAField(
+        required=False,
+        label="Agrarian Reform Beneficiary (ARB)",
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
+    )
+    rotational_tiller = YesNoNAField(
+        required=False,
+        label="Uses a rotational tiller",
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
+    )
     land_owner_registered_rsbsa = forms.TypedChoiceField(
-        choices=(("", "Unknown"), ("True", "Yes"), ("False", "No")),
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
         coerce=lambda value: {"True": True, "False": False}.get(value),
         empty_value=None,
         required=False,
@@ -685,6 +785,7 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
             "is_active",
             "archived_at",
             "archived_by",
+            "image",
         ]
         labels = {
             "crop_type": "Crop / Commodity",
@@ -694,7 +795,6 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
         widgets = {
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "planting_date": forms.DateInput(attrs={"type": "date"}),
-            "image": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
     def __init__(self, *args, **kwargs):

@@ -195,6 +195,31 @@ body[data-theme="dark"] .table-export-popover select{
     }
 }
 
+/* Desktop: fit the full table into the workspace. Tablets and phones retain
+ * the readable horizontal-scroll behavior defined above. */
+@media(min-width:1181px){
+    .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.intervention-table-wrap,.report-table-wrap,.history-change-table-wrap,.audit-change-table-wrap,.recent-requests-table-wrap){
+        overflow-x:hidden!important
+    }
+    .app-shell :is(.table-panel,.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.activity-table,.intervention-table-wrap,.report-table-wrap,.history-change-table-wrap,.audit-change-table-wrap,.recent-requests-table-wrap)>table,
+    .app-shell :is(.farmer-table,.parcel-table,.crop-table,.request-table,.intervention-table,.account-table,.report-preview-table,.recent-requests-table,.history-change-table,.audit-change-table){
+        width:100%!important;
+        min-width:0!important;
+        table-layout:fixed!important
+    }
+    .app-shell .universal-table :is(th,td),
+    .app-shell :is(.farmer-table,.parcel-table,.crop-table,.request-table,.intervention-table,.account-table,.report-preview-table) :is(th,td){
+        min-width:0!important;
+        padding-left:11px!important;
+        padding-right:11px!important;
+        overflow-wrap:anywhere;
+        white-space:normal!important
+    }
+    .app-shell table :is(.farmer-actions,.request-actions,.table-actions){
+        flex-wrap:wrap
+    }
+}
+
 /* Keep data columns readable at every viewport width. The wrapper, rather
  * than the table, owns horizontal scrolling so columns never get crushed. */
 .app-shell :is(.universal-table-wrap,.farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,.intervention-table-wrap,.report-table-wrap,.history-change-table-wrap,.audit-change-table-wrap,.recent-requests-table-wrap){

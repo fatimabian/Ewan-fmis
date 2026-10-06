@@ -1,10 +1,12 @@
 import base64
+import logging
 import mimetypes
 from io import BytesIO
 
 from django.contrib import messages
+from django.conf import settings
 from django.core import signing
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models import Q
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,7 +19,7 @@ from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
 from apps.common.record_history import farmer_update_rows
 from apps.crops.models import CropRecord
-from apps.farm_parcels.models import FarmParcel
+from apps.farm_parcels.models import FarmParcel, FarmParcelPhoto
 
 from .forms import (
     CropRegistrationFormSet,
@@ -33,6 +35,7 @@ from .rsbsa_pdf import rsbsa_pdf_response
 from apps.activity_logs.services import record_request_event
 
 FARMER_QR_SALT = "fmis.farmers.field-record.v1"
+logger = logging.getLogger(__name__)
 
 
 def build_farmer_qr_token(farmer_id):
@@ -67,7 +70,12 @@ def build_qr_data_uri(value):
 
 def farmer_qr_context(request, farmer):
     token = build_farmer_qr_token(farmer.pk)
-    secure_url = request.build_absolute_uri(reverse("farmers:qr_access", args=[token]))
+    qr_path = reverse("farmers:qr_access", args=[token])
+    secure_url = (
+        f"{settings.FMIS_FIELD_BASE_URL}{qr_path}"
+        if settings.FMIS_FIELD_BASE_URL
+        else request.build_absolute_uri(qr_path)
+    )
     return {
         "farmer": farmer,
         "secure_url": secure_url,
@@ -110,7 +118,7 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
         if sex in {"MALE", "FEMALE"}:
             queryset = queryset.filter(sex=sex)
         queryset = queryset.filter(is_active=status == "active")
-        return queryset
+        return queryset.order_by("pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -179,6 +187,15 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
     template_name = "farmers/registration.html"
 
     def build_context(self, profile_form, parcel_formset, crop_formset, document_formset):
+        registration_has_errors = bool(
+            profile_form.errors
+            or parcel_formset.non_form_errors()
+            or any(form.errors for form in parcel_formset.forms)
+            or crop_formset.non_form_errors()
+            or any(form.errors for form in crop_formset.forms)
+            or document_formset.non_form_errors()
+            or any(form.errors for form in document_formset.forms)
+        )
         return {
             "base_template": (
                 "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
@@ -187,6 +204,7 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             "parcel_formset": parcel_formset,
             "crop_formset": crop_formset,
             "document_formset": document_formset,
+            "registration_has_errors": registration_has_errors,
         }
 
     def get(self, request):
@@ -203,7 +221,9 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
 
     def post(self, request):
         profile_form = FarmerRegistrationForm(request.POST, request.FILES)
-        parcel_formset = ParcelRegistrationFormSet(request.POST, prefix="parcels")
+        parcel_formset = ParcelRegistrationFormSet(
+            request.POST, request.FILES, prefix="parcels"
+        )
         crop_formset = CropRegistrationFormSet(request.POST, request.FILES, prefix="crops")
         document_formset = DocumentRegistrationFormSet(
             request.POST, request.FILES, prefix="documents"
@@ -272,51 +292,79 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 self.build_context(profile_form, parcel_formset, crop_formset, document_formset),
             )
 
-        with transaction.atomic():
-            farmer = profile_form.save(commit=False)
-            # Encoding creates the operational record, but the official RSBSA ID
-            # is assigned manually only after the office completes its workflow.
-            farmer.registration_status = "ENCODED"
-            farmer.rsbsa_number = None
-            farmer.submitted_at = timezone.now()
-            farmer.save()
+        try:
+            with transaction.atomic():
+                farmer = profile_form.save(commit=False)
+                # Encoding creates the operational record, but the official RSBSA ID
+                # is assigned manually only after the office completes its workflow.
+                farmer.registration_status = "ENCODED"
+                farmer.rsbsa_number = None
+                farmer.submitted_at = timezone.now()
+                farmer.save()
 
-            saved_parcels = {}
-            for row_number, parcel_form in parcel_rows.items():
-                parcel = FarmParcel(farmer=farmer)
-                for field_name, value in parcel_form.cleaned_data.items():
-                    if field_name != "DELETE":
-                        setattr(parcel, field_name, value)
-                parcel.save()
-                saved_parcels[row_number] = parcel
+                saved_parcels = {}
+                for row_number, parcel_form in parcel_rows.items():
+                    parcel = FarmParcel(farmer=farmer)
+                    for field_name, value in parcel_form.cleaned_data.items():
+                        if field_name not in {"DELETE", "field_photos"}:
+                            setattr(parcel, field_name, value)
+                    parcel.save()
+                    for upload in parcel_form.cleaned_data.get("field_photos", []):
+                        FarmParcelPhoto.objects.create(
+                            parcel=parcel,
+                            image=upload,
+                            uploaded_by=request.user,
+                        )
+                    saved_parcels[row_number] = parcel
 
-            for crop_form in crop_formset.forms:
-                if (
-                    not crop_form.cleaned_data
-                    or crop_form.cleaned_data.get("DELETE")
-                ):
-                    continue
-                crop = CropRecord(parcel=saved_parcels[crop_form.cleaned_data["parcel_number"]])
-                for field_name, value in crop_form.cleaned_data.items():
-                    if field_name not in {
-                        "parcel_number",
-                        "other_crop_name",
-                        "cropping_start_month",
-                        "cropping_end_month",
-                        "DELETE",
-                    }:
-                        setattr(crop, field_name, value)
-                crop.save()
+                for crop_form in crop_formset.forms:
+                    if (
+                        not crop_form.cleaned_data
+                        or crop_form.cleaned_data.get("DELETE")
+                    ):
+                        continue
+                    crop = CropRecord(
+                        parcel=saved_parcels[crop_form.cleaned_data["parcel_number"]]
+                    )
+                    for field_name, value in crop_form.cleaned_data.items():
+                        if field_name not in {
+                            "parcel_number",
+                            "other_crop_name",
+                            "cropping_start_month",
+                            "cropping_end_month",
+                            "DELETE",
+                        }:
+                            setattr(crop, field_name, value)
+                    crop.save()
 
-            for document_form in document_formset.forms:
-                if not document_form.cleaned_data or document_form.cleaned_data.get("DELETE"):
-                    continue
-                FarmerDocument.objects.create(
-                    farmer=farmer,
-                    document_type=document_form.cleaned_data["document_type"],
-                    description=document_form.cleaned_data.get("description", ""),
-                    file=document_form.cleaned_data["file"],
-                )
+                for document_form in document_formset.forms:
+                    if not document_form.cleaned_data or document_form.cleaned_data.get("DELETE"):
+                        continue
+                    FarmerDocument.objects.create(
+                        farmer=farmer,
+                        document_type=document_form.cleaned_data["document_type"],
+                        description=document_form.cleaned_data.get("description", ""),
+                        file=document_form.cleaned_data["file"],
+                    )
+        except (DatabaseError, OSError):
+            logger.exception(
+                "Farmer registration save failed for user_id=%s",
+                request.user.pk,
+            )
+            profile_form.add_error(
+                None,
+                (
+                    "The registration could not be saved because the database or file storage "
+                    "was temporarily unavailable. No partial record was created. Please try again; "
+                    "if it repeats, contact the system administrator."
+                ),
+            )
+            return render(
+                request,
+                self.template_name,
+                self.build_context(profile_form, parcel_formset, crop_formset, document_formset),
+                status=503,
+            )
 
         return redirect("farmers:registration_complete", pk=farmer.pk)
 
@@ -543,3 +591,23 @@ class FarmerDocumentDownloadView(FMISLoginRequiredMixin, StaffRequiredMixin, Vie
             target_label=document.farmer.full_name,
         )
         return response
+
+
+class FarmerPhotoView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Serve a farmer photo only to authorized users, with a safe fallback for missing files."""
+
+    def get(self, request, pk):
+        farmer = get_object_or_404(Farmer, pk=pk, is_active=True)
+        if farmer.photo_available:
+            try:
+                file_handle = farmer.photo.open("rb")
+                content_type = mimetypes.guess_type(farmer.photo.name)[0] or "image/jpeg"
+                response = FileResponse(file_handle, content_type=content_type)
+                response["Content-Disposition"] = f'inline; filename="farmer-photo-{farmer.pk}"'
+                response["X-Content-Type-Options"] = "nosniff"
+                return response
+            except (FileNotFoundError, OSError, ValueError):
+                pass
+
+        fallback = settings.BASE_DIR / "static" / "images" / "brand" / "fmis-logo.png"
+        return FileResponse(fallback.open("rb"), content_type="image/png")

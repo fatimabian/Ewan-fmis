@@ -1,0 +1,144 @@
+/*
+ * Final responsive table layout policy.
+ * Desktop/laptop screens fit tables inside the workspace. Tablets and phones
+ * preserve readable column widths and scroll horizontally inside the table.
+ */
+@media (min-width:1101px){
+    .app-shell :is(
+        .table-panel,
+        .universal-table-wrap,
+        .farmer-table-wrap,
+        .parcel-table-wrap,
+        .crop-table-wrap,
+        .request-table-wrap,
+        .intervention-table-wrap,
+        .report-table-wrap,
+        .history-change-table-wrap,
+        .audit-change-table-wrap,
+        .recent-requests-table-wrap,
+        .parcel-crop-table-wrap
+    ){
+        max-width:100%!important;
+        overflow-x:hidden!important
+    }
+    .app-shell :is(
+        .table-panel,
+        .universal-table-wrap,
+        .farmer-table-wrap,
+        .parcel-table-wrap,
+        .crop-table-wrap,
+        .request-table-wrap,
+        .intervention-table-wrap,
+        .report-table-wrap,
+        .history-change-table-wrap,
+        .audit-change-table-wrap,
+        .recent-requests-table-wrap,
+        .parcel-crop-table-wrap
+    )>table,
+    .app-shell table.universal-table{
+        width:100%!important;
+        min-width:0!important;
+        max-width:100%!important;
+        table-layout:fixed!important
+    }
+    .app-shell table :is(th,td){
+        min-width:0!important;
+        white-space:normal!important;
+        overflow-wrap:anywhere!important;
+        word-break:break-word!important;
+        overflow:hidden!important;
+        vertical-align:middle
+    }
+    .app-shell table th{
+        line-height:1.25
+    }
+    .app-shell table td{
+        line-height:1.4
+    }
+    .app-shell table td :is(small,.cell-description){
+        min-width:0!important;
+        max-width:100%!important;
+        white-space:normal!important
+    }
+    .app-shell table :is(.farmer-actions,.parcel-actions,.crop-actions,.request-actions,.table-actions){
+        flex-wrap:wrap
+    }
+    .app-shell .farmer-table th:nth-child(1),
+    .app-shell .farmer-table td:nth-child(1){width:9%}
+    .app-shell .farmer-table th:nth-child(2),
+    .app-shell .farmer-table td:nth-child(2){width:22%}
+    .app-shell .farmer-table th:nth-child(3),
+    .app-shell .farmer-table td:nth-child(3){width:11%}
+    .app-shell .farmer-table th:nth-child(5),
+    .app-shell .farmer-table td:nth-child(5){width:15%}
+    .app-shell .farmer-table th:nth-child(6),
+    .app-shell .farmer-table td:nth-child(6){width:20%}
+    .app-shell .farmer-table th:nth-child(7),
+    .app-shell .farmer-table td:nth-child(7){width:13%}
+    .app-shell .farmer-table th:nth-child(8),
+    .app-shell .farmer-table td:nth-child(8){width:10%}
+    .app-shell .parcel-table th:nth-child(1),
+    .app-shell .parcel-table td:nth-child(1){width:8%;padding-right:8px!important}
+    .app-shell .parcel-table th:nth-child(2),
+    .app-shell .parcel-table td:nth-child(2){width:26%;padding-left:8px!important}
+    .app-shell .parcel-table th:nth-child(3),
+    .app-shell .parcel-table td:nth-child(3){width:9%}
+    .app-shell .parcel-table th:nth-child(4),
+    .app-shell .parcel-table td:nth-child(4){width:20%}
+    .app-shell .parcel-table th:nth-child(5),
+    .app-shell .parcel-table td:nth-child(5){width:12%}
+    .app-shell .parcel-table th:nth-child(6),
+    .app-shell .parcel-table td:nth-child(6){width:15%}
+    .app-shell .parcel-table th:nth-child(7),
+    .app-shell .parcel-table td:nth-child(7){width:10%}
+    .app-shell .parcel-table td:nth-child(2),
+    .app-shell .parcel-table td:nth-child(4){
+        height:auto!important;
+        white-space:normal!important;
+        overflow-wrap:anywhere!important
+    }
+}
+
+@media (max-width:1100px){
+    .app-shell :is(
+        .table-panel,
+        .universal-table-wrap,
+        .farmer-table-wrap,
+        .parcel-table-wrap,
+        .crop-table-wrap,
+        .request-table-wrap,
+        .intervention-table-wrap,
+        .report-table-wrap,
+        .history-change-table-wrap,
+        .audit-change-table-wrap,
+        .recent-requests-table-wrap,
+        .parcel-crop-table-wrap
+    ){
+        max-width:100%!important;
+        overflow-x:auto!important;
+        overflow-y:hidden!important;
+        -webkit-overflow-scrolling:touch
+    }
+    .app-shell :is(
+        .table-panel,
+        .universal-table-wrap,
+        .farmer-table-wrap,
+        .parcel-table-wrap,
+        .crop-table-wrap,
+        .request-table-wrap,
+        .intervention-table-wrap,
+        .report-table-wrap,
+        .history-change-table-wrap,
+        .audit-change-table-wrap,
+        .recent-requests-table-wrap,
+        .parcel-crop-table-wrap
+    )>table,
+    .app-shell table.universal-table{
+        width:max-content!important;
+        min-width:900px!important;
+        table-layout:auto!important
+    }
+    .app-shell table :is(th,td){
+        white-space:nowrap!important
+    }
+}

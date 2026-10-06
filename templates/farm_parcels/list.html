@@ -13,7 +13,7 @@
   }
   .parcel-toolbar{
       display:grid;
-      grid-template-columns:1.15fr .85fr .85fr .75fr .75fr auto;
+      grid-template-columns:1.15fr .85fr .85fr .75fr auto;
       gap:14px;
       align-items:end;
       margin:10px 0 24px
@@ -66,19 +66,6 @@
       padding:15px 16px;
       border-bottom:1px solid var(--border);
       color:var(--text-secondary,#35445c)
-  }
-  .parcel-status{
-      display:inline-block;
-      border-radius:20px;
-      padding:5px 14px;
-      font-size:13px;
-      font-weight:700;
-      background:#d9f7e5;
-      color:#087f49
-  }
-  .parcel-status.inactive{
-      background:#ffe1e1;
-      color:#d32626
   }
   .parcel-actions{
       display:flex;
@@ -172,13 +159,6 @@
         </select>
       </label>
       <label>
-        Status<select name="status" onchange="this.form.submit()">
-        <option value="">All</option>
-        <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
-        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
-        </select>
-      </label>
-      <label>
         Area (ha)<select name="area" onchange="this.form.submit()">
         <option value="">All</option>
         <option value="under1" {% if request.GET.area == 'under1' %}selected{% endif %}>Below 1 ha</option>
@@ -205,7 +185,6 @@
                 <th>Ownership</th>
                 <th>Land Type</th>
                 <th>Farm Type</th>
-                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -222,15 +201,6 @@
                   <td>{{ parcel.get_ownership_type_display }}</td>
                   <td>{{ parcel.get_land_type_display }}</td>
                   <td>{{ parcel.get_farm_type_display }}</td>
-                  <td>
-                    <span class="parcel-status {% if not parcel.is_active %}inactive{% endif %}">
-                      {% if parcel.is_active %}
-                        Active
-                      {% else %}
-                        Inactive
-                      {% endif %}
-                    </span>
-                  </td>
                   <td>
                     <div class="parcel-actions">
                       {% if parcel.is_active %}
@@ -254,7 +224,7 @@
                 </tr>
               {% empty %}
                 <tr>
-                  <td colspan="8" class="text-center py-5">No farm parcels matched your filters.</td>
+                  <td colspan="7" class="text-center py-5">No farm parcels matched your filters.</td>
                 </tr>
               {% endfor %}
             </tbody>

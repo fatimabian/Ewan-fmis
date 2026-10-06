@@ -2,6 +2,59 @@
 {% block page_title %}Farm Parcel Record{% endblock %}
 {% block page_subtitle %}Land, tenure, and georeference information{% endblock %}
 {% block content %}
+  <style>
+  .parcel-photo-gallery{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+      gap:14px
+  }
+  .parcel-photo-upload{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:18px;
+      padding:14px;
+      border:1px solid var(--border);
+      background:var(--surface)
+  }
+  .parcel-photo-upload-field{flex:1}
+  .parcel-photo-upload label{display:block;font-weight:700;margin-bottom:6px}
+  .parcel-photo-upload input[type="file"]{width:100%}
+  .parcel-photo-upload small{display:block;color:#64748b;margin-top:5px}
+  @media(max-width:640px){.parcel-photo-upload{align-items:stretch;flex-direction:column}}
+  .parcel-photo-card{
+      overflow:hidden;
+      border:1px solid var(--border);
+      background:var(--surface)
+  }
+  .parcel-photo-card>a{
+      display:block;
+      aspect-ratio:4/3;
+      background:#eef3ef
+  }
+  .parcel-photo-card img{
+      width:100%;
+      height:100%;
+      object-fit:cover
+  }
+  .parcel-photo-meta{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:10px 12px
+  }
+  .parcel-photo-meta small{
+      color:#64748b
+  }
+  .parcel-photo-remove{
+      border:0;
+      background:transparent;
+      color:#c62828;
+      padding:4px
+  }
+  </style>
   <div class="content record-detail">
     <div class="record-detail-nav">
       <a href="{% url 'farm_parcels:list' %}"><i class="bi bi-arrow-left"></i> Back to Farm Parcels</a>
@@ -54,6 +107,48 @@
           <div><dt>Ancestral Domain</dt><dd>{{ object.within_ancestral_domain|yesno:'Yes,No,Not recorded' }}</dd></div>
           <div><dt>Agrarian Reform Beneficiary</dt><dd>{{ object.agrarian_reform_beneficiary|yesno:'Yes,No,Not recorded' }}</dd></div>
         </dl>
+      </section>
+
+      <section class="record-single-section">
+        <h3><i class="bi bi-images"></i> Field Photo Gallery</h3>
+        {% if object.is_active %}
+          <form class="parcel-photo-upload" method="post" enctype="multipart/form-data"
+                action="{% url 'farm_parcels:photo_upload' object.pk %}">
+            {% csrf_token %}
+            <div class="parcel-photo-upload-field">
+              <label for="{{ photo_upload_form.field_photos.id_for_label }}">Office field documentation</label>
+              {{ photo_upload_form.field_photos }}
+              <small>Upload current field photos used by the office for parcel review and decisions.</small>
+            </div>
+            <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> Upload Photos</button>
+          </form>
+        {% endif %}
+        {% if parcel_photos %}
+          <div class="parcel-photo-gallery">
+            {% for photo in parcel_photos %}
+              <article class="parcel-photo-card">
+                <a href="{% url 'farm_parcels:photo_view' object.pk photo.pk %}" target="_blank" rel="noopener">
+                  <img src="{% url 'farm_parcels:photo_view' object.pk photo.pk %}" alt="Field view of {{ object.display_name }}" loading="lazy">
+                </a>
+                <div class="parcel-photo-meta">
+                  <small>{{ photo.created_at|date:'M d, Y' }}</small>
+                  {% if object.is_active %}
+                    <form method="post"
+                          action="{% url 'farm_parcels:photo_remove' object.pk photo.pk %}"
+                          data-confirm="Remove this photo from the visible parcel gallery? The audit record will be retained.">
+                      {% csrf_token %}
+                      <button class="parcel-photo-remove" type="submit" title="Remove field photo" aria-label="Remove field photo">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">No field photos have been uploaded for this parcel.</p>
+        {% endif %}
       </section>
     </div>
   </div>

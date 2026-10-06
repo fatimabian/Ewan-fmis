@@ -119,6 +119,21 @@
     font-size:14px;
     overflow-wrap:anywhere
 }
+.record-registration-status{
+    font-weight:800
+}
+.record-registration-status.status-text-encoded{
+    color:#1765d8
+}
+.record-registration-status.status-text-submitted{
+    color:#9a6500
+}
+.record-registration-status.status-text-skipped{
+    color:#c2410c
+}
+.record-registration-status.status-text-completed{
+    color:#238553
+}
 .related-list{
     display:grid;
     gap:8px
@@ -269,17 +284,21 @@ body[data-theme="dark"] .record-row:hover td{
 .farmer-qr-card>header{
     display:flex;
     align-items:center;
+    justify-content:flex-start!important;
     gap:12px;
     padding:20px 24px;
     background:#102a1f!important;
     color:#fff!important
 }
 .farmer-qr-card>header>span:last-child{
-    display:grid
+    display:grid;
+    margin:0!important;
+    text-align:left
 }
 .farmer-qr-card>header strong{
     font-family:"Trebuchet MS",Arial,sans-serif;
-    font-size:23px
+    font-size:23px;
+    color:#fff!important
 }
 .farmer-qr-card>header small{
     color:#d8eee3!important
@@ -467,6 +486,13 @@ body[data-theme="dark"] .field-security-banner small{
 .record-hero-status{
     margin-left:auto;
     flex:0 0 auto
+}
+html body .app-shell .record-hero-status:not(#fmis-shape-specificity){
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important
 }
 .record-section-toolbar{
     display:flex;

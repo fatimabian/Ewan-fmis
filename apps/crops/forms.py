@@ -49,7 +49,6 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
             "is_organic",
             "is_intercrop",
             "planting_date",
-            "image",
         ]
         labels = {
             "parcel": "Existing Farmer ID and Farm Parcel",
@@ -59,14 +58,12 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
             "is_intercrop": "Intercropping commodity",
-            "image": "Crop photo (optional)",
         }
         widgets = {
             "crop_type": forms.TextInput(attrs={"placeholder": "e.g., Rice, Corn, Banana"}),
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "number_of_heads": forms.NumberInput(attrs={"min": "0"}),
             "planting_date": forms.DateInput(attrs={"type": "date"}),
-            "image": forms.ClearableFileInput(attrs={"accept": "image/*"}),
         }
 
     def __init__(self, *args, **kwargs):

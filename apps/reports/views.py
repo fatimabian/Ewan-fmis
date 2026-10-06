@@ -12,6 +12,7 @@ from apps.crops.models import CropRecord
 from apps.activity_logs.models import ActivityLog
 from apps.activity_logs.services import record_request_event
 from apps.farmers.models import Farmer
+from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
 from .analytics import report_metrics, report_preview
 from .export import (
@@ -37,6 +38,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             "barangay": source.get("barangay", ""),
             "commodity": source.get("commodity", ""),
             "status": source.get("status", ""),
+            "intervention_type": source.get("intervention_type", ""),
             "role": source.get("role", ""),
             "account_status": source.get("account_status", ""),
             "module": source.get("module", ""),
@@ -68,7 +70,13 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
                     build_report("farmer_master", date_range, filters)
         except ValueError as error:
             report_error = str(error)
-            filters = {"year": "", "barangay": "", "commodity": "", "status": ""}
+            filters = {
+                "year": "",
+                "barangay": "",
+                "commodity": "",
+                "status": "",
+                "intervention_type": "",
+            }
             date_range = "all"
         context = {
             **super().get_context_data(**kwargs),
@@ -87,6 +95,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             .distinct()
             .order_by("crop_type"),
             "status_choices": ServiceRequest.STATUS_CHOICES,
+            "intervention_type_choices": Intervention.TYPE_CHOICES,
             "role_choices": (("ADMIN", "Administrator"), ("STAFF", "Staff")),
             "account_status_choices": (
                 ("ACTIVE", "Active"),
@@ -117,6 +126,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
                     "barangay": request.POST.get("barangay", ""),
                     "commodity": request.POST.get("commodity", ""),
                     "status": request.POST.get("status", ""),
+                    "intervention_type": request.POST.get("intervention_type", ""),
                     "role": request.POST.get("role", ""),
                     "account_status": request.POST.get("account_status", ""),
                     "module": request.POST.get("module", ""),
@@ -205,7 +215,6 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     parcel.get_ownership_type_display(),
                     parcel.get_land_type_display(),
                     parcel.get_farm_type_display(),
-                    "Active" if parcel.is_active else "Inactive",
                 ]
                 for parcel in view.get_queryset()
             ]
@@ -215,7 +224,6 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                 "ownership": dict(FarmParcel.OWNERSHIP_CHOICES).get(
                     request.GET.get("ownership", ""), request.GET.get("ownership", "")
                 ),
-                "record_status": request.GET.get("status", "").title(),
                 "area": {
                     "under1": "Below 1 ha",
                     "1to2": "1-2 ha",
@@ -231,7 +239,6 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     "Ownership",
                     "Land Type",
                     "Farm Type",
-                    "Status",
                 ],
                 rows,
                 filters,
@@ -242,15 +249,26 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
 
             view = CropListView()
             view.request = request
-            rows = [
-                [
-                    crop.parcel.farmer.record_id,
-                    crop.parcel.farmer.list_name,
-                    crop.crop_type,
-                    crop.planting_date or "Not set",
+            farmers = list(view.get_queryset())
+            rows = []
+            for farmer in farmers:
+                crops = [
+                    crop
+                    for parcel in farmer.listed_parcels
+                    for crop in parcel.listed_crops
                 ]
-                for crop in view.get_queryset()
-            ]
+                rows.append([
+                    farmer.record_id,
+                    farmer.list_name,
+                    ", ".join(dict.fromkeys(crop.crop_type for crop in crops)),
+                    ", ".join(
+                        dict.fromkeys(
+                            str(crop.planting_date)
+                            for crop in crops
+                            if crop.planting_date
+                        )
+                    ) or "Not set",
+                ])
             filters = {
                 "search": request.GET.get("q", ""),
                 "commodity": request.GET.get("crop_type", ""),

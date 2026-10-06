@@ -12,6 +12,7 @@ from apps.activity_logs.models import ActivityLog
 from apps.authentication.models import CustomUser
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
+from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
 from apps.settings_page.models import BackupRun
 from decimal import Decimal
@@ -311,19 +312,53 @@ def staff_dashboard_metrics():
         )
         .order_by("-farmers", "-area", "crop_type")
     )
-    crop_rows = recommendation_rows[:5]
-    farmer_peak = max((int(row["farmers"] or 0) for row in crop_rows), default=0)
-    farmer_chart_max, farmer_chart_ticks = _farmer_chart_scale(farmer_peak)
-    for index, row in enumerate(crop_rows):
-        row["area"] = float(row["area"] or 0)
-        row["farmers"] = int(row["farmers"] or 0)
-        row["symbol"] = crop_symbol(row["crop_type"])
-        row["height"] = (
-            max(8, round((row["farmers"] / farmer_chart_max) * 100))
-            if farmer_chart_max
-            else 8
+    attention_chart = [
+        {
+            "key": "registration",
+            "label": "Registrations to complete",
+            "help": "Active farmer records not yet marked completed",
+            "count": rosario_farmers.exclude(registration_status="COMPLETED").count(),
+        },
+        {
+            "key": "parcel",
+            "label": "Farmers without parcels",
+            "help": "Active farmers with no active farm parcel",
+            "count": rosario_farmers.annotate(
+                active_parcels=Count(
+                    "parcels", filter=Q(parcels__is_active=True)
+                )
+            ).filter(active_parcels=0).count(),
+        },
+        {
+            "key": "mapping",
+            "label": "Parcels without map pins",
+            "help": "Active parcels without saved coordinates",
+            "count": rosario_parcels.filter(
+                Q(coordinates="") | Q(coordinates__isnull=True)
+            ).count(),
+        },
+        {
+            "key": "crop",
+            "label": "Parcels without current crops",
+            "help": "Active parcels with no active crop record",
+            "count": rosario_parcels.annotate(
+                active_crops=Count("crops", filter=Q(crops__is_active=True))
+            ).filter(active_crops=0).count(),
+        },
+        {
+            "key": "planting_date",
+            "label": "Crops missing planting dates",
+            "help": "Active crop records without a planting date",
+            "count": rosario_crops.filter(planting_date__isnull=True).count(),
+        },
+    ]
+    attention_peak = max((item["count"] for item in attention_chart), default=0)
+    for item in attention_chart:
+        item["width"] = (
+            max(3, round((item["count"] / attention_peak) * 100))
+            if item["count"] and attention_peak
+            else 0
         )
-        row["is_largest"] = index == 0
 
     request_summary = requests.aggregate(
         pending=Count("pk", filter=Q(status="PENDING")),
@@ -335,6 +370,13 @@ def staff_dashboard_metrics():
             "pk",
             filter=Q(status="COMPLETED", updated_at__gte=_day_boundary(current_month)),
         ),
+    )
+    intervention_summary = Intervention.objects.filter(
+        is_active=True,
+        farmer__in=rosario_farmers,
+    ).aggregate(
+        total=Count("pk"),
+        farmers=Count("farmer", distinct=True),
     )
     status_counts = {
         "pending": request_summary["pending"],
@@ -355,11 +397,11 @@ def staff_dashboard_metrics():
         "open_requests": request_summary["open_requests"],
         "urgent_requests": request_summary["urgent_requests"],
         "completed_this_month": request_summary["completed_this_month"],
+        "intervention_total": intervention_summary["total"] or 0,
+        "intervention_farmers": intervention_summary["farmers"] or 0,
         "request_status": status_counts,
-        "crop_chart": crop_rows,
-        "crop_chart_ticks": farmer_chart_ticks,
-        "crop_chart_divisions": max(len(farmer_chart_ticks) - 1, 1),
-        "crop_chart_total": sum(row["records"] for row in crop_rows),
+        "attention_chart": attention_chart,
+        "attention_total": sum(item["count"] for item in attention_chart),
         "crop_recommendation": _crop_recommendation(today, recommendation_rows),
         "recent_requests": requests.filter(open_filter)[:5],
         "dashboard_date": today,

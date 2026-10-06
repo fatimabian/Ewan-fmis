@@ -116,6 +116,52 @@
     background:#eee8ff;
     color:#6849b8
 }
+.metric-interventions .metric-icon{
+    background:#eee8ff;
+    color:#6849b8
+}
+.commodity-horizontal-chart{
+    display:grid;
+    gap:11px;
+    margin-top:18px;
+    padding:8px 0 5px
+}
+.commodity-horizontal-row{
+    display:grid;
+    grid-template-columns:minmax(70px,120px) minmax(0,1fr) 34px;
+    align-items:center;
+    gap:10px;
+    outline:0
+}
+.commodity-horizontal-label{
+    overflow:hidden;
+    color:#4b5563;
+    font-size:10px;
+    font-weight:700;
+    text-overflow:ellipsis;
+    white-space:nowrap
+}
+.commodity-horizontal-track{
+    height:13px;
+    overflow:hidden;
+    background:#e7eee9
+}
+.commodity-horizontal-track i{
+    display:block;
+    min-width:4px;
+    height:100%;
+    background:linear-gradient(90deg,#2f7d5c,#4c9a74);
+    transition:filter .15s ease,transform .15s ease;
+    transform-origin:left center
+}
+.commodity-horizontal-row strong{color:#172033;font-size:10px}
+.commodity-horizontal-row:is(:hover,:focus) .commodity-horizontal-track i{
+    filter:saturate(1.15) brightness(1.04);
+    transform:scaleY(1.12)
+}
+body[data-theme="dark"] .commodity-horizontal-label,
+body[data-theme="dark"] .commodity-horizontal-row strong{color:#e2e8f0}
+body[data-theme="dark"] .commodity-horizontal-track{background:#2b3948}
 .dashboard-card{
     min-width:0;
     border:1px solid var(--dash-line);
@@ -1089,7 +1135,7 @@ body[data-theme="dark"] .crop-chart{
     gap:12px
 }
 .dashboard-simplified .dashboard-metrics{
-    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-columns:repeat(auto-fit,minmax(185px,1fr));
     gap:9px
 }
 .dashboard-simplified .dashboard-metric{
@@ -1827,7 +1873,7 @@ body[data-theme="dark"] .planning-footer small{
 /* Compact operational row: weather, season, crop and tasks stay side by side on desktop. */
 .dashboard-utility-row{
     display:grid!important;
-    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr) minmax(320px,1.35fr)!important;
     gap:12px;
     align-items:stretch;
     margin-top:14px
@@ -1899,4 +1945,203 @@ body[data-theme="dark"] .planning-footer small{
 @media(max-width:700px){
     .dashboard-utility-row{grid-template-columns:1fr!important}
     .compact-actions-card .quick-actions{grid-template-columns:1fr 1fr}
+}
+
+/* Dashboard information hierarchy: overview, KPIs, analysis, then supporting tools. */
+.rosario-dashboard.dashboard-simplified{
+    --hierarchy-green:#087443;
+    --hierarchy-green-dark:#0f5132;
+    --hierarchy-mint:#eaf7ef;
+    --hierarchy-line:#cfe3d6;
+    display:grid;
+    gap:16px
+}
+.dashboard-overview-heading{
+    position:relative;
+    overflow:hidden;
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:24px;
+    padding:22px 24px;
+    border:1px solid var(--hierarchy-line);
+    border-left:5px solid var(--hierarchy-green);
+    background:linear-gradient(110deg,#f7fcf9 0%,#eaf7ef 62%,#f7fbf8 100%);
+    box-shadow:0 8px 24px rgba(27,92,58,.08)
+}
+.dashboard-overview-heading:after{
+    content:"";
+    position:absolute;
+    right:-35px;
+    top:-70px;
+    width:210px;
+    height:210px;
+    border:38px solid rgba(40,154,89,.07);
+    border-radius:50%
+}
+.dashboard-eyebrow{
+    display:block;
+    margin-bottom:5px;
+    color:var(--hierarchy-green);
+    font-size:10px;
+    font-weight:900;
+    letter-spacing:.12em
+}
+.dashboard-overview-heading h1{
+    margin:0;
+    color:#10261b;
+    font-size:clamp(22px,2.2vw,30px);
+    line-height:1.1
+}
+.dashboard-overview-heading p{
+    max-width:720px;
+    margin:7px 0 0;
+    color:#53665b;
+    font-size:13px
+}
+.dashboard-overview-badge{
+    position:relative;
+    z-index:1;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    flex:0 0 auto;
+    padding:8px 11px;
+    border:1px solid #b9dbc6;
+    background:rgba(255,255,255,.75);
+    color:#17643d;
+    font-size:10px;
+    font-weight:800
+}
+.rosario-dashboard.dashboard-simplified .dashboard-metrics{
+    display:grid;
+    grid-template-columns:1.14fr repeat(3,minmax(0,1fr));
+    gap:12px;
+    margin:0
+}
+.rosario-dashboard.dashboard-simplified .dashboard-metric{
+    position:relative;
+    overflow:hidden;
+    min-height:92px;
+    padding:18px;
+    border:1px solid #d6e2da;
+    border-top-color:#d6e2da;
+    background:#fff;
+    box-shadow:0 5px 15px rgba(24,56,39,.06);
+    transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease
+}
+.rosario-dashboard.dashboard-simplified .dashboard-metric:hover{
+    transform:translateY(-2px);
+    border-color:var(--metric-accent,#087443);
+    box-shadow:0 10px 24px rgba(24,56,39,.11)
+}
+.rosario-dashboard.dashboard-simplified .metric-farmers{
+    --metric-accent:#29944f;
+    background:linear-gradient(135deg,#f7fcf8,#eaf8ee)
+}
+.rosario-dashboard.dashboard-simplified .metric-crops{--metric-accent:#4c86d8}
+.rosario-dashboard.dashboard-simplified .metric-area{--metric-accent:#e78343}
+.rosario-dashboard.dashboard-simplified .metric-interventions{--metric-accent:#7655c4}
+body:not([data-theme="dark"]) .rosario-dashboard .metric-interventions .metric-icon{
+    background:#eee9ff!important;
+    color:#6b4cbd!important
+}
+.rosario-dashboard.dashboard-simplified .dashboard-insights{
+    display:grid;
+    grid-template-columns:minmax(0,2.15fr) minmax(300px,.9fr);
+    gap:14px;
+    margin:0
+}
+.rosario-dashboard.dashboard-simplified .dashboard-card{
+    position:relative;
+    overflow:hidden;
+    border:1px solid #d6e2da;
+    box-shadow:0 5px 18px rgba(24,56,39,.055)
+}
+.rosario-dashboard.dashboard-simplified :is(.dashboard-metric,.dashboard-card)::before{
+    content:"";
+    position:absolute;
+    z-index:2;
+    top:0;
+    right:0;
+    left:0;
+    height:4px;
+    background:#1d7d55;
+    pointer-events:none
+}
+.rosario-dashboard.dashboard-simplified .crop-chart-card{
+    min-height:265px;
+    padding:20px 22px;
+    border-top-color:#d6e2da
+}
+.rosario-dashboard.dashboard-simplified .request-overview-card{
+    padding:20px;
+    border-top-color:#d6e2da;
+    background:linear-gradient(180deg,#fff,#fffdf7)
+}
+.rosario-dashboard .commodity-horizontal-chart{
+    display:grid;
+    gap:10px;
+    margin-top:22px
+}
+.rosario-dashboard .commodity-horizontal-row{
+    display:grid;
+    grid-template-columns:minmax(90px,150px) minmax(120px,1fr) 36px;
+    align-items:center;
+    gap:12px
+}
+.rosario-dashboard .commodity-horizontal-label{
+    overflow:hidden;
+    color:#23362c;
+    font-size:12px;
+    font-weight:750;
+    text-overflow:ellipsis;
+    white-space:nowrap
+}
+.rosario-dashboard .commodity-horizontal-track{
+    display:block;
+    height:15px;
+    overflow:hidden;
+    background:#e6eee9;
+    border-radius:3px
+}
+.rosario-dashboard .commodity-horizontal-track i{
+    display:block;
+    min-width:4px;
+    height:100%;
+    background:linear-gradient(90deg,#2c7f4d,#51a66e);
+    border-radius:3px
+}
+.rosario-dashboard .commodity-horizontal-row strong{
+    color:#173326;
+    font-size:12px;
+    text-align:right
+}
+.rosario-dashboard.dashboard-simplified .dashboard-utility-row{
+    margin:0!important;
+    padding-top:2px
+}
+.rosario-dashboard.dashboard-simplified .dashboard-utility-row>.dashboard-card{
+    border-top-color:#d6e2da;
+    background:linear-gradient(180deg,#fff,#fbfdfb)
+}
+body[data-theme="dark"] .dashboard-overview-heading{
+    border-color:#365846;
+    background:linear-gradient(110deg,#17271f,#1d3829)
+}
+body[data-theme="dark"] .dashboard-overview-heading h1{color:#f1f7f3}
+body[data-theme="dark"] .dashboard-overview-heading p{color:#b7c8bd}
+body[data-theme="dark"] .dashboard-overview-badge{border-color:#456b56;background:#20372a;color:#a9dfbc}
+body[data-theme="dark"] .rosario-dashboard.dashboard-simplified .metric-farmers{background:linear-gradient(135deg,#1b2a22,#20392a)}
+body[data-theme="dark"] .rosario-dashboard .commodity-horizontal-track{background:#2b3b32}
+body[data-theme="dark"] .rosario-dashboard .commodity-horizontal-label,
+body[data-theme="dark"] .rosario-dashboard .commodity-horizontal-row strong{color:#e7f0ea}
+@media(max-width:1050px){
+    .rosario-dashboard.dashboard-simplified .dashboard-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .rosario-dashboard.dashboard-simplified .dashboard-insights{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+    .dashboard-overview-heading{align-items:flex-start;flex-direction:column;padding:18px}
+    .rosario-dashboard.dashboard-simplified .dashboard-metrics{grid-template-columns:1fr}
+    .rosario-dashboard .commodity-horizontal-row{grid-template-columns:82px minmax(80px,1fr) 28px}
 }

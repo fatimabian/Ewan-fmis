@@ -167,32 +167,32 @@
             </tr>
           </thead>
           <tbody>
-            {% for crop in object_list %}
+            {% for farmer in object_list %}
               <tr class="record-row"
                   tabindex="0"
-                  data-record-url="{% url 'crops:detail' crop.pk %}">
+                  data-record-url="{% url 'crops:farmer_detail' farmer.pk %}">
                 <td>
-                  <a class="record-cell-link" href="{% url 'crops:detail' crop.pk %}">{{ crop.parcel.farmer.record_id }}</a>
+                  <a class="record-cell-link" href="{% url 'crops:farmer_detail' farmer.pk %}">{{ farmer.record_id }}</a>
                 </td>
-                <td>{{ crop.parcel.farmer.list_name }}</td>
-                <td>{{ crop.crop_type }}</td>
-                <td>{{ crop.planting_date|date:"M d, Y"|default:"Not set" }}</td>
+                <td>{{ farmer.list_name }}</td>
+                <td>{{ farmer.listed_crop_names }}</td>
+                <td>{{ farmer.listed_planting_dates }}</td>
                 <td>
                   <div class="crop-actions">
-                    {% if crop.is_active %}
-                      <a href="{% url 'crops:edit' crop.pk %}" title="Edit {{ crop.crop_type }}">
-                        <i class="bi bi-pencil-square">
-                        </i>
-                      </a>
-                    {% endif %}
+                    <a href="{% url 'crops:farmer_detail' farmer.pk %}" title="Open all crop records for {{ farmer.list_name }}" aria-label="Open all crop records for {{ farmer.list_name }}">
+                      <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                    </a>
                     <form method="post"
-                          action="{% url 'crops:delete' crop.pk %}"
-                          data-confirm="{% if crop.is_active %}Archive this {{ crop.crop_type|escape }} crop record? No data will be deleted.{% else %}Restore this {{ crop.crop_type|escape }} crop record?{% endif %}">
+                          action="{% url 'crops:farmer_archive' farmer.pk %}"
+                          data-confirm="{% if request.GET.status == 'archived' %}Restore the displayed archived crop records for {{ farmer.list_name|escape }}?{% else %}Archive the displayed crop records for {{ farmer.list_name|escape }}? No data will be permanently deleted.{% endif %}">
                       {% csrf_token %}
-                      {% if not crop.is_active %}<input type="hidden" name="action" value="restore">{% endif %}
-                      <button title="{% if crop.is_active %}Archive{% else %}Restore{% endif %} {{ crop.crop_type }}">
-                        <i class="bi {% if crop.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}">
-                        </i>
+                      {% if request.GET.status == 'archived' %}<input type="hidden" name="action" value="restore">{% endif %}
+                      {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}">{% endif %}
+                      {% if request.GET.crop_type %}<input type="hidden" name="crop_type" value="{{ request.GET.crop_type }}">{% endif %}
+                      {% if request.GET.year %}<input type="hidden" name="year" value="{{ request.GET.year }}">{% endif %}
+                      {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
+                      <button type="submit" title="{% if request.GET.status == 'archived' %}Restore{% else %}Archive{% endif %} displayed crop records" aria-label="{% if request.GET.status == 'archived' %}Restore{% else %}Archive{% endif %} displayed crop records for {{ farmer.list_name }}">
+                        <i class="bi {% if request.GET.status == 'archived' %}bi-arrow-counterclockwise{% else %}bi-archive{% endif %}" aria-hidden="true"></i>
                       </button>
                     </form>
                   </div>
@@ -211,7 +211,7 @@
           {% if page_obj.paginator.count %}
             Showing <strong>{{ page_start_display }}</strong>
             to <strong>{{ page_end_display }}</strong>
-            of <strong class="table-count-total">{{ page_total_display }}</strong> crop records
+              of <strong class="table-count-total">{{ page_total_display }}</strong> farmers
           {% else %}
             No entries
           {% endif %}

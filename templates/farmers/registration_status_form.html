@@ -72,11 +72,20 @@
         rsbsaField.disabled = !completed;
         rsbsaField.required = completed;
         rsbsaField.placeholder = completed
-          ? 'Enter the official RSBSA ID'
+          ? '00-00-00-000-000000'
           : 'Available when status is Completed';
       };
 
       statusField.addEventListener('change', syncRsbsaField);
+      rsbsaField.addEventListener('input', () => {
+        rsbsaField.value = rsbsaField.value.replace(/[^0-9\s-]/g, '').slice(0, 19);
+      });
+      rsbsaField.addEventListener('blur', () => {
+        const digits = rsbsaField.value.replace(/[^0-9]/g, '');
+        if (digits.length === 15) {
+          rsbsaField.value = `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 9)}-${digits.slice(9)}`;
+        }
+      });
       syncRsbsaField();
     })();
   </script>

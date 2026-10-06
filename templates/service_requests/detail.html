@@ -7,7 +7,9 @@
       <a href="{% url 'service_requests:list' %}"><i class="bi bi-arrow-left"></i> Back to Service Requests</a>
       <div class="record-detail-actions">
         <a class="btn btn-outline-success" href="{% url 'service_requests:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
-        <a class="btn btn-outline-success" href="{% url 'service_requests:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Edit Request</a>
+        {% if object.status != 'CANCELLED' %}
+          <a class="btn btn-outline-success" href="{% url 'service_requests:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Update Service Request</a>
+        {% endif %}
       </div>
     </div>
     <div class="record-single-card">
@@ -36,22 +38,6 @@
         <dl class="record-data record-data-single">
           <div><dt>Details</dt><dd>{{ object.notes|default:"No additional details provided."|linebreaksbr }}</dd></div>
         </dl>
-      </section>
-      <section class="record-single-section">
-        <h3><i class="bi bi-box2-heart"></i> Delivered Interventions</h3>
-        <div class="record-section-toolbar">
-          <a class="btn btn-sm btn-outline-success" href="{% url 'interventions:create' %}?service_request={{ object.pk }}"><i class="bi bi-plus-lg"></i> Record Intervention</a>
-        </div>
-        <div class="related-list">
-          {% for intervention in object.interventions.all %}
-            <a href="{% url 'interventions:detail' intervention.pk %}">
-              <span><strong>{{ intervention.reference_id }} · {{ intervention.get_intervention_type_display }}</strong><small>{{ intervention.intervention_date|date:"M d, Y" }} · {{ intervention.description }}</small></span>
-              <i class="bi bi-chevron-right"></i>
-            </a>
-          {% empty %}
-            <div class="text-muted">No delivered intervention has been linked to this request yet.</div>
-          {% endfor %}
-        </div>
       </section>
     </div>
   </div>

@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import ListView
 
@@ -28,7 +29,14 @@ class NotificationOpenView(FMISLoginRequiredMixin, View):
             notification.is_read = True
             notification.read_at = timezone.now()
             notification.save(update_fields=("is_read", "read_at"))
-        return redirect(notification.url or reverse("notifications:list"))
+        target = notification.url or reverse("notifications:list")
+        if not url_has_allowed_host_and_scheme(
+            target,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            target = reverse("notifications:list")
+        return redirect(target)
 
 
 class NotificationMarkAllView(FMISLoginRequiredMixin, View):

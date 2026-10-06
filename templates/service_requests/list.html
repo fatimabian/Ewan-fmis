@@ -293,18 +293,18 @@
                 </td>
                 <td>
                   <div class="request-actions">
-                    <a href="{% url 'service_requests:edit' item.pk %}"
-                       title="Edit {{ item.request_id }}">
-                      <i class="bi bi-pencil-square">
-                      </i>
-                    </a>
                     {% if item.status != 'CANCELLED' %}
+                      <a href="{% url 'service_requests:edit' item.pk %}"
+                         title="Edit {{ item.request_id }}">
+                        <i class="bi bi-pencil-square">
+                        </i>
+                      </a>
                       <form method="post"
                             action="{% url 'service_requests:delete' item.pk %}"
                             data-confirm="Cancel service request {{ item.request_id }}? The record and its history will be preserved.">
                         {% csrf_token %}
-                        <button title="Cancel {{ item.request_id }}">
-                          <i class="bi bi-x-circle">
+                        <button title="Cancel and archive {{ item.request_id }}">
+                          <i class="bi bi-archive">
                           </i>
                         </button>
                       </form>

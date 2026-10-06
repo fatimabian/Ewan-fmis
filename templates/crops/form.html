@@ -2,6 +2,8 @@
 {% block page_title %}
   {% if object %}
     Update Crop Record
+  {% elif source_parcel %}
+    Add Crop to {{ source_parcel.display_name }}
   {% else %}
     Add Crop Update
   {% endif %}
@@ -15,7 +17,13 @@
       <div class="registration-note">
         <i class="bi bi-info-circle">
         </i>
-        <span>This page updates crops for an existing farmer parcel. Initial crops for new registrants belong in Add Farmer.</span>
+        <span>
+          {% if source_parcel %}
+            This RSBSA Slip B crop record will be assigned to {{ source_parcel.farmer.record_id }} · {{ source_parcel.display_name }}.
+          {% else %}
+            This page updates crops for an existing farmer parcel. Initial crops for new registrants belong in Add Farmer.
+          {% endif %}
+        </span>
       </div>
       <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
@@ -25,7 +33,7 @@
           {% endfor %}
         </div>
         <div class="step-actions">
-          <a class="btn btn-outline-secondary btn-cancel" href="{% url 'crops:list' %}">Cancel</a>
+          <a class="btn btn-outline-secondary btn-cancel" href="{% if source_parcel %}{% url 'farm_parcels:detail' source_parcel.pk %}{% else %}{% url 'crops:list' %}{% endif %}">Cancel</a>
           <button class="btn btn-success">Save Crop Update</button>
         </div>
       </form>

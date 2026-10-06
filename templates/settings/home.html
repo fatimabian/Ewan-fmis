@@ -177,12 +177,11 @@
   }
   .settings-form-fields input{
       min-height:0;
-      border:0;
-      border-radius:0;
-      background:transparent;
-      color:#64748b;
-      padding:2px 0;
-      box-shadow:none
+      border:1px solid #edf1f4;
+      background:#f8fafc;
+      color:#94a3b8;
+      padding:9px 10px;
+      box-shadow:inset 0 1px 2px rgba(15,23,42,.035)
   }
   .settings-form-fields input:focus{
       outline:2px solid color-mix(in srgb,var(--fmis-accent) 35%,transparent);
@@ -313,6 +312,7 @@
       gap:12px;
       margin:8px 0 25px
   }
+  .settings-save[hidden]{display:none!important}
   .settings-save .btn{
       padding:10px 22px;
       font-weight:700
@@ -573,7 +573,7 @@
                 <label>
                   <span>
                     <strong>In-App Notifications</strong>
-                    <small>Show privacy-safe account, record, catalog, assignment, and system notices inside FMIS.</small>
+                    <small>Show alerts in the bell menu when another staff member creates or updates farmer, parcel, crop, or service-request records. Administrators also receive account and blocked-access alerts.</small>
                   </span>{{ form.in_app_notifications }}
                 </label>
               </div>
@@ -659,7 +659,7 @@
           </div>
         </section>
       {% endif %}
-      <div class="settings-save">
+      <div class="settings-save" data-profile-actions>
         <a class="btn btn-outline-secondary btn-cancel" href="{% url 'dashboard:home' %}">Cancel</a>
         <button class="btn btn-success" type="submit">Save Changes</button>
       </div>
@@ -672,7 +672,9 @@
 
           function openTab(id) {
               tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === id));
-              panes.forEach(pane => pane.classList.toggle('active', pane.id === id))
+              panes.forEach(pane => pane.classList.toggle('active', pane.id === id));
+              const actions = document.querySelector('[data-profile-actions]');
+              if (actions) actions.hidden = id !== 'profile'
           }
           tabs.forEach(button => button.addEventListener('click', () => openTab(button.dataset.tab)));
           const errorPane = panes.find(pane => pane.querySelector('.errorlist,.is-invalid'));

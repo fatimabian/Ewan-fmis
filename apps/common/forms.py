@@ -10,6 +10,33 @@ from django.core.files.uploadedfile import UploadedFile
 OTHER_CROP_VALUE = "Other Crop / Commodity"
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleImageField(forms.ImageField):
+    """Validate several parcel photos submitted through one file input."""
+
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else [data]
+        files = [upload for upload in files if upload]
+        if not files:
+            if self.required:
+                raise forms.ValidationError(self.error_messages["required"], code="required")
+            return []
+        if len(files) > 12:
+            raise forms.ValidationError("Upload no more than 12 field photos at one time.")
+        cleaned = [super(MultipleImageField, self).clean(upload, initial) for upload in files]
+        for upload in cleaned:
+            if upload.size > 8 * 1024 * 1024:
+                raise forms.ValidationError("Each field photo must be 8 MB or smaller.")
+            if getattr(upload.image, "format", "").upper() not in {"PNG", "JPEG", "WEBP"}:
+                raise forms.ValidationError("Upload PNG, JPG, or WEBP field photos only.")
+        return cleaned
+
+
 class RequiredYesNoField(forms.TypedChoiceField):
     """Required, readable Yes/No selection for official binary questions."""
 
@@ -27,6 +54,37 @@ class RequiredYesNoField(forms.TypedChoiceField):
         # Continue accepting the value submitted by the former checkbox UI.
         if value == "on":
             value = "True"
+        return super().clean(value)
+
+
+class YesNoNAField(forms.TypedChoiceField):
+    """Legacy field name retained while presenting an unambiguous Yes/No choice."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault(
+            "choices",
+            (
+                ("", "Select Yes or No"),
+                ("True", "Yes"),
+                ("False", "No"),
+            ),
+        )
+        kwargs.setdefault(
+            "coerce",
+            lambda value: {"True": True, "False": False}.get(value),
+        )
+        kwargs.setdefault("empty_value", None)
+        kwargs.setdefault("required", True)
+        super().__init__(*args, **kwargs)
+
+    def clean(self, value):
+        # Continue accepting values submitted by the former checkbox UI.
+        if value == "on":
+            value = "True"
+        elif value == "NA":
+            # Backward-compatible handling for older saved drafts and clients;
+            # the visible control now offers only Yes or No.
+            value = "False"
         return super().clean(value)
 
 
@@ -204,28 +262,30 @@ class InlineValidationMixin:
         for name, field in self.fields.items():
             if not isinstance(field, forms.FileField):
                 continue
-            upload = cleaned.get(name)
-            if not upload:
+            field_upload = cleaned.get(name)
+            if not field_upload:
                 continue
-            # Existing form values are stored file references, not new uploads.
-            # They may point to a legacy file that is no longer on disk.
-            if not isinstance(upload, UploadedFile):
-                continue
-            if getattr(upload, "size", 0) > 8 * 1024 * 1024:
-                self.add_error(name, "Upload a file that is 8 MB or smaller.")
-            extension = Path(getattr(upload, "name", "")).suffix.lower()
-            allowed = (
-                allowed_image_extensions
-                if isinstance(field, forms.ImageField)
-                else allowed_document_extensions
-            )
-            if extension not in allowed:
-                self.add_error(
-                    name,
-                    (
-                        "Upload a PDF, PNG, or JPG file."
-                        if not isinstance(field, forms.ImageField)
-                        else "Upload a PNG, JPG, or WEBP image."
-                    ),
+            uploads = field_upload if isinstance(field_upload, (list, tuple)) else [field_upload]
+            for upload in uploads:
+                # Existing form values are stored file references, not new uploads.
+                # They may point to a legacy file that is no longer on disk.
+                if not isinstance(upload, UploadedFile):
+                    continue
+                if getattr(upload, "size", 0) > 8 * 1024 * 1024:
+                    self.add_error(name, "Upload a file that is 8 MB or smaller.")
+                extension = Path(getattr(upload, "name", "")).suffix.lower()
+                allowed = (
+                    allowed_image_extensions
+                    if isinstance(field, forms.ImageField)
+                    else allowed_document_extensions
                 )
+                if extension not in allowed:
+                    self.add_error(
+                        name,
+                        (
+                            "Upload a PDF, PNG, or JPG file."
+                            if not isinstance(field, forms.ImageField)
+                            else "Upload a PNG, JPG, or WEBP image."
+                        ),
+                    )
         return cleaned

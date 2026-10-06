@@ -1,6 +1,15 @@
+from pathlib import Path
+from uuid import uuid4
+
+from django.conf import settings
 from django.db import models
 
 from apps.farmers.models import Farmer
+
+
+def parcel_photo_upload_path(instance, filename):
+    extension = Path(filename).suffix.lower()
+    return f"parcel_photos/parcel_{instance.parcel_id}/{uuid4().hex}{extension}"
 
 
 class FarmParcel(models.Model):
@@ -92,3 +101,32 @@ class FarmParcel(models.Model):
     def get_farm_type_display(self):
         """Keep existing reports/templates compatible now that farm type is staff-entered."""
         return self.farm_type
+
+
+class FarmParcelPhoto(models.Model):
+    parcel = models.ForeignKey(FarmParcel, on_delete=models.CASCADE, related_name="photos")
+    image = models.ImageField(upload_to=parcel_photo_upload_path)
+    caption = models.CharField(max_length=180, blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_parcel_photos",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="archived_parcel_photos",
+    )
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.parcel.display_name} field photo"

@@ -62,3 +62,14 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         if len(subject) < 5:
             raise forms.ValidationError("Describe the request in at least 5 characters.")
         return subject
+
+    def clean_status(self):
+        status = self.cleaned_data.get("status")
+        if status == "COMPLETED" and not (
+            self.instance.pk and self.instance.interventions.filter(is_active=True).exists()
+        ):
+            raise forms.ValidationError(
+                "Record the delivered intervention while this request is In Progress; "
+                "the request will then be completed automatically."
+            )
+        return status

@@ -543,12 +543,35 @@ body[data-theme="dark"] .farmer-picker-option:hover,body[data-theme="dark"] .far
     width:100%!important;
     height:46px!important;
     margin:0!important;
-    padding:0 12px!important;
+    padding:0 42px 0 12px!important;
     border:1px solid #d6e2db!important;
     border-radius:9px!important;
     background:#fff!important;
     color:#233047!important;
     box-shadow:none!important
+}
+.farmer-picker::after{
+    content:"\25BE";
+    position:absolute;
+    top:13px;
+    right:14px;
+    z-index:2;
+    color:#536277;
+    pointer-events:none
+}
+.farmer-picker-list{
+    padding:0!important;
+    border-radius:0!important
+}
+.farmer-picker-option,
+.farmer-picker-option:last-child{
+    border:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+    outline:0!important
+}
+.farmer-picker-option+.farmer-picker-option{
+    border-top:1px solid #edf1ee!important
 }
 .farmer-picker-control input:focus{
     border-color:var(--fmis-accent)!important;

@@ -1731,6 +1731,7 @@ body:not([data-theme="dark"]) :is(
 
 body:not([data-theme="dark"]) :is(
     .metric-requests .metric-icon,
+    .metric-interventions .metric-icon,
     .staff-metric-card:nth-child(4n)>i,
     .metric-grid article:nth-child(4n) i,
     .report-metric:nth-child(4n) i

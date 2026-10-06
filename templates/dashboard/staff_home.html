@@ -6,13 +6,13 @@
 {% endblock %}
 
 {% block extra_css %}
-  <link rel="stylesheet" href="{% static 'css/staff-dashboard.css' %}?v=9">
+  <link rel="stylesheet" href="{% static 'css/staff-dashboard.css' %}?v=12">
   <style>
     /* Critical layout kept with the template so a stale stylesheet cannot stack these desktop cards. */
     @media (min-width:901px){
       .rosario-dashboard .dashboard-utility-row{
         display:grid!important;
-        grid-template-columns:repeat(4,minmax(0,1fr))!important;
+        grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr) minmax(320px,1.35fr)!important;
         align-items:stretch!important;
         gap:12px!important
       }
@@ -52,70 +52,49 @@
         </span>
       </a>
 
-      <a class="dashboard-metric metric-requests" href="{% url 'service_requests:list' %}">
-        <span class="metric-icon"><i class="bi bi-chat-square-text-fill"></i></span>
+      <a class="dashboard-metric metric-interventions" href="{% url 'reports:home' %}?report_type=intervention_registry">
+        <span class="metric-icon"><i class="bi bi-gift-fill"></i></span>
         <span>
-          <b>{{ open_requests }}</b>
-          <small>Open Service Requests</small>
+          <b>{{ intervention_total }}</b>
+          <small>Interventions Given · {{ intervention_farmers }} farmers</small>
         </span>
       </a>
     </section>
 
-    <section class="dashboard-insights" aria-label="Crop records and seasonal planning">
-      <article class="dashboard-card crop-chart-card dashboard-click-card"
-               data-card-url="{% url 'crops:list' %}"
-               role="link"
-               tabindex="0">
+    <section class="dashboard-insights" aria-label="Record quality and service workload">
+      <article class="dashboard-card crop-chart-card">
         <div class="card-heading">
           <div>
-            <span class="card-kicker">ROSARIO CROP PROFILE</span>
-            <h2>Farmers per Commodity</h2>
-            <p>Distinct registered farmers in Rosario · top five commodities</p>
+            <span class="card-kicker">DATA QUALITY PRIORITIES</span>
+            <h2>Records Needing Attention</h2>
+            <p>Incomplete records that reduce planning and field-service reliability</p>
           </div>
         </div>
 
-        {% if crop_chart %}
-          <div class="crop-chart-layout">
-            <div class="crop-chart-axis" aria-hidden="true">
-              {% for tick in crop_chart_ticks %}<span>{{ tick }}</span>{% endfor %}
-            </div>
-            <div class="crop-chart"
-                 style="--chart-divisions:{{ crop_chart_divisions }}"
-                 role="img"
-                 aria-label="Bar chart of distinct registered Rosario farmers for the five most recorded commodities">
-              {% for item in crop_chart %}
-                <div class="crop-bar-item{% if item.is_largest %} crop-leader{% endif %}"
-                     tabindex="0"
-                     aria-label="{{ item.crop_type }}: {{ item.farmers }} farmer{{ item.farmers|pluralize }}, {{ item.area|floatformat:2 }} recorded hectares">
-                  <span class="crop-value">{{ item.farmers }}</span>
-                  <span class="crop-bar-track">
-                    <i style="height:{{ item.height }}%"></i>
-                  </span>
-                  <span class="crop-label">
-                    <span aria-hidden="true">{{ item.symbol }}</span>
-                    {{ item.crop_type }}
-                  </span>
-                  <span class="crop-tooltip" role="tooltip">
-                    <b>{{ item.crop_type }}</b>
-                    <small>{{ item.farmers }} distinct farmer{{ item.farmers|pluralize }}</small>
-                    <small>{{ item.area|floatformat:2 }} recorded hectares</small>
-                    {% if item.is_largest %}
-                      <em>Most farmers</em>
-                    {% endif %}
-                  </span>
-                </div>
-              {% endfor %}
-            </div>
+        {% if attention_total %}
+          <div class="commodity-horizontal-chart"
+               role="img"
+               aria-label="Counts of FMIS records requiring completion or verification">
+            {% for item in attention_chart %}
+              <div class="commodity-horizontal-row"
+                   tabindex="0"
+                   title="{{ item.help }}"
+                   aria-label="{{ item.label }}: {{ item.count }}">
+                <span class="commodity-horizontal-label">{{ item.label }}</span>
+                <span class="commodity-horizontal-track"><i style="width:{{ item.width }}%"></i></span>
+                <strong>{{ item.count }}</strong>
+              </div>
+            {% endfor %}
           </div>
           <p class="chart-help">
             <i class="bi bi-info-circle"></i>
-            Values above the bars are distinct farmer counts; one farmer is counted once per commodity.
+            Lower counts are better. Complete or verify these records to improve reports, maps, and service decisions.
           </p>
         {% else %}
           <div class="dashboard-empty">
-            <i class="bi bi-bar-chart"></i>
-            <b>No Rosario crop records yet</b>
-            <span>Add crop records to generate the planted-area chart.</span>
+            <i class="bi bi-check-circle"></i>
+            <b>All tracked records are complete</b>
+            <span>No current data-quality gaps were found.</span>
           </div>
         {% endif %}
       </article>
@@ -210,11 +189,6 @@
         </p>
         <span class="mini-card-label">SEASON</span>
         <strong class="mini-card-value">{{ crop_recommendation.season }}</strong>
-      </aside>
-      <aside class="dashboard-card planning-mini-card crop-card">
-        <p class="technology-label"><i class="bi bi-flower1"></i> Data reference</p>
-        <span class="mini-card-label">SUGGESTED CROP</span>
-        <strong class="mini-card-value"><i aria-hidden="true">{{ crop_recommendation.symbol }}</i> {{ crop_recommendation.crop }}</strong>
       </aside>
       <article class="dashboard-card quick-actions-card compact-actions-card">
         <div class="card-heading">

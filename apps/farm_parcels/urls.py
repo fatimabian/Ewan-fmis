@@ -7,6 +7,9 @@ from .views import (
     FarmParcelHistoryView,
     FarmParcelListView,
     FarmParcelMapView,
+    FarmParcelPhotoArchiveView,
+    FarmParcelPhotoView,
+    FarmParcelPhotoUploadView,
     FarmParcelUpdateView,
 )
 
@@ -20,4 +23,19 @@ urlpatterns = [
     path("<int:pk>/history/", FarmParcelHistoryView.as_view(), name="history"),
     path("<int:pk>/edit/", FarmParcelUpdateView.as_view(), name="edit"),
     path("<int:pk>/delete/", FarmParcelDeleteView.as_view(), name="delete"),
+    path(
+        "<int:pk>/photos/upload/",
+        FarmParcelPhotoUploadView.as_view(),
+        name="photo_upload",
+    ),
+    path(
+        "<int:pk>/photos/<int:photo_pk>/view/",
+        FarmParcelPhotoView.as_view(),
+        name="photo_view",
+    ),
+    path(
+        "<int:pk>/photos/<int:photo_pk>/remove/",
+        FarmParcelPhotoArchiveView.as_view(),
+        name="photo_remove",
+    ),
 ]

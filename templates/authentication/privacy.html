@@ -1,8 +1,24 @@
-{% extends "authentication/legal_base.html" %}
+{% extends base_template %}
+{% block page_title %}Privacy Notice{% endblock %}
+{% block page_subtitle %}How FMIS protects and uses agricultural records{% endblock %}
 {% block legal_title %}
   Privacy Notice | FMIS
 {% endblock %}
-{% block legal_content %}
+{% block content %}
+  <style>
+  .legal-page{position:relative;overflow:hidden;width:min(920px,100%);margin:0 auto;padding:clamp(24px,4vw,48px);border:1px solid #cfe5d7;background:linear-gradient(145deg,#fff 0%,#fff 72%,#f1faf4 100%);box-shadow:0 14px 34px rgba(27,92,58,.09);line-height:1.65}
+  .legal-page:before{content:"";position:absolute;inset:0 0 auto;height:7px;background:linear-gradient(90deg,#087443,#62bd83,#ccebd6)}
+  .legal-page h1{color:#173226}
+  .legal-page h1{margin:0 0 4px;font-size:clamp(28px,4vw,42px)}
+  .legal-page h2{margin:30px -14px 12px;padding:10px 14px;border-left:4px solid #29965b;background:linear-gradient(90deg,#e8f7ed 0%,rgba(232,247,237,0) 78%);color:var(--fmis-accent,#087443);font-size:19px}
+  .legal-page li{margin:7px 0}.legal-updated{color:#64748b;font-size:13px}.legal-contact{padding:18px;border-left:4px solid var(--fmis-accent,#087443);background:#f0f8f3}
+  .legal-page li::marker{color:#29965b}.legal-page p,.legal-page li{color:#263c31}
+  body[data-theme="dark"] .legal-page{border-color:#365b49;background:linear-gradient(145deg,#18251f 0%,#18251f 72%,#1d3428 100%)}
+  body[data-theme="dark"] .legal-page h1,body[data-theme="dark"] .legal-page p,body[data-theme="dark"] .legal-page li{color:#e8f2ec}
+  body[data-theme="dark"] .legal-page h2{background:linear-gradient(90deg,#214532 0%,rgba(33,69,50,0) 78%)}
+  body[data-theme="dark"] .legal-contact{background:#172d26}
+  </style>
+  <div class="content"><article class="legal-page">
   <h1>Privacy Notice</h1>
   <p class="legal-updated">Farmer Management Information System · Effective July 20, 2026</p>
   <p>The Office for Agricultural Services of Rosario, Batangas uses FMIS to maintain farmer registration, agricultural production, farm-parcel, supporting-document, and service-request records needed to deliver municipal agricultural services.</p>
@@ -23,4 +39,5 @@
   <p>A data subject may request access to or correction of information, raise a privacy concern, or ask about the basis and retention of processing. Some official records may need to be retained where required by law or government service duties.</p>
   <h2>Contact</h2>
   <div class="legal-contact">For privacy questions or record-correction requests, contact the Office for Agricultural Services, Municipality of Rosario, Batangas through its official municipal contact channel.</div>
+  </article></div>
 {% endblock %}

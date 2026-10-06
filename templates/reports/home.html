@@ -488,6 +488,17 @@
       box-shadow:0 0 0 3px color-mix(in srgb,var(--fmis-accent) 15%,transparent)!important;
       outline:0
   }
+  .report-filter-help{
+      grid-column:1/-1;
+      display:block;
+      padding:7px 10px 2px;
+      color:#5f6f66;
+      font-size:10px;
+      line-height:1.45
+  }
+  .report-filter-row[hidden]{
+      display:none!important
+  }
   .report-filter-row .selected-report{
       display:flex;
       align-items:center;
@@ -848,7 +859,7 @@
         </p>
         <form class="generate-form" id="reportGenerator" method="post">
           {% csrf_token %}
-          <div class="report-filter-row">
+          <div class="report-filter-row" data-filter-row="category">
             <label>{% if request.user.is_admin %}System Report{% else %}Category{% endif %}</label>
             <select name="report_type" id="reportType" required>
               <option value="">{% if request.user.is_admin %}Choose a system report{% else %}Choose a report{% endif %}</option>
@@ -859,7 +870,7 @@
             </select>
           </div>
           {% if not request.user.is_admin %}
-          <div class="report-filter-row">
+          <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
             <label>Year</label>
             <select name="year">
               <option value="">All years</option>
@@ -869,7 +880,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="report-filter-row">
+          <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
             <label>Barangay</label>
             <select name="barangay">
               <option value="">All Rosario barangays</option>
@@ -879,7 +890,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="report-filter-row">
+          <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
             <label>Commodity</label>
             <select name="commodity">
               <option value="">All commodities</option>
@@ -893,7 +904,7 @@
           {% if report_error %}
             <span class="inline-form-error">{{ report_error }}</span>
           {% endif %}
-          <div class="report-filter-row">
+          <div class="report-filter-row"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
             <label>Period</label>
             <select name="date_range" required>
               {% for value,label in date_ranges.items %}
@@ -930,7 +941,7 @@
               </select>
             </div>
           {% else %}
-            <div class="report-filter-row">
+            <div class="report-filter-row" data-filter-row="status"{% if selected_report_type != 'service_status' %} hidden{% endif %}>
               <label>Status</label>
               <select name="status">
                 <option value="">All request statuses</option>
@@ -940,15 +951,25 @@
                 {% endfor %}
               </select>
             </div>
+            <div class="report-filter-row" data-filter-row="intervention"{% if selected_report_type != 'intervention_summary' and selected_report_type != 'intervention_registry' %} hidden{% endif %}>
+              <label>Intervention Type</label>
+              <select name="intervention_type">
+                <option value="">All intervention types</option>
+                {% for value,label in intervention_type_choices %}
+                  <option value="{{ value }}"
+                          {% if selected_filters.intervention_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
           {% endif %}
-          <div class="report-filter-row">
+          <div class="report-filter-row"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
             <label>Format</label>
             <select name="format" required>
               <option value="pdf">PDF Document</option>
               <option value="csv">CSV Spreadsheet</option>
             </select>
           </div>
-          <div class="report-actions">
+          <div class="report-actions"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
             <button class="btn btn-success report-generate">
               <i class="bi bi-download">
               </i> Download Report
@@ -965,7 +986,7 @@
                 {% if request.user.is_admin %}
                   The graph and table use the selected system report, period, role, account status, and module filters.
                 {% else %}
-                  The graph and table use the selected year, barangay, commodity, period, and status filters.
+                  The graph and table use the selected year, barangay, commodity, period, and any category-specific filter shown above.
                 {% endif %}
               </p>
             </div>
@@ -1056,7 +1077,7 @@
               <small>Inactive</small>
             </div>
           </div>
-          <a class="panel-link d-block mt-3" href="{% url 'accounts:list' %}">Manage user access →</a>
+          <a class="panel-link report-text-link mt-3" href="{% url 'accounts:list' %}">Manage user access <span aria-hidden="true">→</span></a>
         </article>
         <article class="report-card" style="grid-column:span 2">
           <h3>SECURITY &amp; AUDIT READINESS</h3>
@@ -1075,7 +1096,7 @@
               <small>Audit Records</small>
             </div>
           </div>
-          <a class="panel-link d-block mt-3" href="{% url 'activity_logs:list' %}">Review audit activity →</a>
+          <a class="panel-link report-text-link mt-3" href="{% url 'activity_logs:list' %}">Review audit activity <span aria-hidden="true">→</span></a>
         </article>
       {% else %}
         <article class="report-card" style="grid-column:1/-1">
@@ -1146,6 +1167,44 @@
             </div>
           </div>
         </article>
+        <article class="report-card" style="grid-column:1/-1">
+          <h3>INTERVENTION DISTRIBUTION SUMMARY</h3>
+          <p>Active assistance records matching the selected period, barangay, commodity, and intervention type.</p>
+          <div class="summary-grid">
+            <div>
+              <b>{{ intervention_total }}</b>
+              <small>Interventions Given</small>
+            </div>
+            <div>
+              <b>{{ intervention_farmers }}</b>
+              <small>Farmers Served</small>
+            </div>
+          </div>
+          <div class="universal-table-wrap recent-requests-table-wrap mt-3">
+            <table class="recent-requests-table universal-table">
+              <thead>
+                <tr>
+                  <th>Intervention Type</th>
+                  <th>Given</th>
+                  <th>Farmers</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in intervention_summary %}
+                  <tr>
+                    <td>{{ item.label }}</td>
+                    <td>{{ item.total }}</td>
+                    <td>{{ item.farmers }}</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="3">No interventions match the selected filters.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </article>
       {% endif %}
       {% if request.user.is_admin %}
         <article class="report-card" style="grid-column:1/-1">
@@ -1164,7 +1223,7 @@
               </div>
             {% endfor %}
           </div>
-          <a class="panel-link d-block mt-3" href="{% url 'activity_logs:list' %}">View full activity log →</a>
+          <a class="panel-link report-text-link mt-3" href="{% url 'activity_logs:list' %}">View full activity log <span aria-hidden="true">→</span></a>
         </article>
       {% endif %}
     </section>
@@ -1173,6 +1232,20 @@
       (() => {
           const form = document.getElementById('reportGenerator'),
               type = document.getElementById('reportType');
+
+          function updateRelevantFilters() {
+              const selected = type.value;
+              const hasSelection = Boolean(selected);
+              const isService = selected === 'service_status';
+              const isIntervention = ['intervention_summary', 'intervention_registry'].includes(selected);
+              const rules = {common: hasSelection, status: isService, intervention: isIntervention};
+              Object.entries(rules).forEach(([name, visible]) => {
+                  form.querySelectorAll(`[data-filter-row="${name}"]`).forEach(row => {
+                      row.hidden = !visible;
+                      row.querySelectorAll('select,input,button').forEach(field => field.disabled = !visible)
+                  })
+              });
+          }
 
           function requireReport() {
               if (type.value) return true;
@@ -1227,6 +1300,7 @@
           form.addEventListener('change', event => {
               const el = event.target;
               if (el.tagName !== 'SELECT' || el.name === 'format') return;
+              if (el === type) updateRelevantFilters();
               type.classList.remove('is-invalid');
               form.querySelector('.inline-form-error')?.remove();
               refreshPreview();
@@ -1235,6 +1309,7 @@
           form.addEventListener('submit', event => {
               if (!requireReport()) event.preventDefault()
           });
+          updateRelevantFilters();
       })();
   </script>
 {% endblock %}

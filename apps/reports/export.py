@@ -12,13 +12,14 @@ from apps.authentication.models import CustomUser
 from apps.common.constants import ROSARIO_BARANGAYS
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
+from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
 
 REPORT_TEMPLATES = [
     {
         "key": "farmer_master",
         "title": "Farmer Master List",
-        "description": "Active farmer IDs, contact details, barangay, and RSBSA numbers",
+        "description": "Complete farmer profile, registration, parcel, crop, and supporting-record information",
         "icon": "bi-people",
     },
     {
@@ -57,6 +58,18 @@ REPORT_TEMPLATES = [
         "description": "Farmer service requests grouped by current status",
         "icon": "bi-clipboard-check",
     },
+    {
+        "key": "intervention_summary",
+        "title": "Intervention Distribution Summary",
+        "description": "Interventions provided and farmers served by type",
+        "icon": "bi-box-seam",
+    },
+    {
+        "key": "intervention_registry",
+        "title": "Complete Intervention Register",
+        "description": "Every delivered intervention with farmer, quantity, provider, request, and recorder",
+        "icon": "bi-table",
+    },
 ]
 REPORT_KEYS = {item["key"] for item in REPORT_TEMPLATES}
 SYSTEM_REPORT_TEMPLATES = [
@@ -93,6 +106,7 @@ FILTER_LABELS = {
     "barangay": "Barangay",
     "commodity": "Commodity",
     "status": "Request Status",
+    "intervention_type": "Intervention Type",
     "sex": "Sex",
     "ownership": "Ownership",
     "record_status": "Record Status",
@@ -125,7 +139,19 @@ def _filter_period(queryset, field_name, months, date_only=False):
     return queryset.filter(**{f"{field_name}__gte": value})
 
 
-def build_report(report_type, date_range, filters=None):
+def _yes_no(value):
+    if value is True:
+        return "Yes"
+    if value is False:
+        return "No"
+    return "Not recorded"
+
+
+def _local_datetime(value):
+    return timezone.localtime(value).strftime("%b %d, %Y %I:%M %p") if value else "-"
+
+
+def build_report(report_type, date_range, filters=None, compact=False):
     if report_type not in REPORT_KEYS or date_range not in DATE_RANGES:
         raise ValueError("Choose a valid report template and date range.")
     filters = filters or {}
@@ -133,16 +159,156 @@ def build_report(report_type, date_range, filters=None):
     barangay = str(filters.get("barangay", "")).strip()
     commodity = str(filters.get("commodity", "")).strip()
     status = str(filters.get("status", "")).strip()
+    intervention_type = str(filters.get("intervention_type", "")).strip()
     if year and (not year.isdigit() or len(year) != 4):
         raise ValueError("Choose a valid report year.")
     if barangay and barangay not in ROSARIO_BARANGAYS:
         raise ValueError("Choose a valid Rosario barangay.")
     if commodity and len(commodity) > 100:
         raise ValueError("Choose a valid commodity.")
-    if status and status not in dict(ServiceRequest.STATUS_CHOICES):
+    if report_type == "service_status" and status and status not in dict(ServiceRequest.STATUS_CHOICES):
         raise ValueError("Choose a valid request status.")
+    if (
+        report_type in {"intervention_summary", "intervention_registry"}
+        and intervention_type
+        and intervention_type not in dict(Intervention.TYPE_CHOICES)
+    ):
+        raise ValueError("Choose a valid intervention type.")
 
     if report_type == "farmer_master":
+        queryset = _filter_period(
+            Farmer.objects.filter(is_active=True)
+            .select_related("last_updated_by")
+            .prefetch_related("documents", "parcels__crops", "parcels__photos"),
+            "created_at",
+            date_range,
+        )
+        if year:
+            queryset = queryset.filter(created_at__year=int(year))
+        if barangay:
+            queryset = queryset.filter(barangay=barangay)
+        if commodity:
+            queryset = queryset.filter(
+                parcels__crops__crop_type=commodity,
+                parcels__crops__is_active=True,
+            ).distinct()
+        rows = []
+        for farmer in queryset.order_by("pk"):
+            parcels = [parcel for parcel in farmer.parcels.all() if parcel.is_active]
+            crops = [crop for parcel in parcels for crop in parcel.crops.all() if crop.is_active]
+            documents = list(farmer.documents.all())
+            parcel_details = []
+            for parcel in parcels:
+                parcel_details.append(
+                    f"{parcel.display_name}: {parcel.area_hectares} ha; {parcel.barangay}, "
+                    f"{parcel.municipality}, {parcel.province}; tenure={parcel.get_ownership_type_display()}; "
+                    f"land={parcel.get_land_type_display()}; farm={parcel.get_farm_type_display() or 'Not recorded'}; "
+                    f"ancestral domain={_yes_no(parcel.within_ancestral_domain)}; ARB={_yes_no(parcel.agrarian_reform_beneficiary)}; "
+                    f"ownership document={parcel.get_ownership_document_display() or parcel.ownership_document_other or 'Not recorded'}; "
+                    f"land owner={parcel.land_owner_name or 'Not recorded'}; owner in RSBSA={_yes_no(parcel.land_owner_registered_rsbsa)}; "
+                    f"owner RSBSA={parcel.land_owner_rsbsa_number or 'Not recorded'}; georeference={parcel.georef_id or 'Not recorded'}; "
+                    f"GPX status={parcel.get_gpx_status_display()}; coordinates={parcel.coordinates or 'Not recorded'}; "
+                    f"rotational tiller={_yes_no(parcel.rotational_tiller)}; remarks={parcel.remarks or 'None'}"
+                )
+            crop_details = [
+                f"{crop.crop_type} ({crop.parcel.display_name}): {crop.area_hectares} ha; "
+                f"schedule={crop.cropping_schedule or 'Not recorded'}; heads={crop.number_of_heads or 'Not recorded'}; "
+                f"organic={_yes_no(crop.is_organic)}; intercrop={_yes_no(crop.is_intercrop)}; "
+                f"planted={crop.planting_date or 'Not recorded'}; harvest={crop.harvest_date or 'Not recorded'}"
+                for crop in crops
+            ]
+            if compact:
+                parcel_summary = [
+                    f"{parcel.display_name}: {parcel.area_hectares} ha, {parcel.barangay}; "
+                    f"{parcel.get_ownership_type_display()}; "
+                    f"{parcel.get_land_type_display()}; "
+                    f"{parcel.get_farm_type_display() or 'Farm type not recorded'}"
+                    for parcel in parcels
+                ]
+                crop_summary = [
+                    f"{crop.crop_type} ({crop.parcel.display_name}): {crop.area_hectares} ha; "
+                    f"schedule {crop.cropping_schedule or 'not recorded'}; "
+                    f"planted {crop.planting_date or 'not recorded'}"
+                    for crop in crops
+                ]
+                rows.append([
+                    farmer.record_id,
+                    farmer.rsbsa_number or "-",
+                    farmer.full_name,
+                    farmer.get_sex_display() or "-",
+                    farmer.birth_date or "-",
+                    farmer.barangay,
+                    farmer.city_municipality,
+                    farmer.phone_number or "-",
+                    farmer.email or "-",
+                    farmer.get_livelihood_display(),
+                    len(parcels),
+                    sum((parcel.area_hectares for parcel in parcels), 0),
+                    " | ".join(parcel_summary) or "No active parcel",
+                    len(crops),
+                    " | ".join(crop_summary) or "No active crop",
+                ])
+                continue
+            document_details = [
+                f"{document.get_document_type_display()}"
+                + (f" - {document.description}" if document.description else "")
+                for document in documents
+            ]
+            rows.append([
+                farmer.record_id, farmer.registration_reference, farmer.rsbsa_number or "-",
+                farmer.get_registration_status_display(), farmer.last_name, farmer.first_name,
+                farmer.middle_name or "-", farmer.extension_name or "-", farmer.full_name,
+                farmer.get_sex_display() or "-", farmer.birth_date or "-",
+                farmer.age if farmer.age is not None else "-", farmer.place_of_birth or "-",
+                farmer.house_lot_purok or "-", farmer.street_sitio or "-", farmer.barangay,
+                farmer.city_municipality, farmer.province, farmer.region,
+                farmer.mother_maiden_name or "-", farmer.phone_number or "-", farmer.email or "-",
+                farmer.get_civil_status_display() or "-", farmer.spouse_name or "-",
+                farmer.highest_education or "-", farmer.valid_id_type or "-", farmer.valid_id_number or "-",
+                farmer.religion or "-", _yes_no(farmer.is_indigenous), farmer.indigenous_group or "-",
+                _yes_no(farmer.is_pwd), _yes_no(farmer.is_four_ps), farmer.get_livelihood_display(),
+                farmer.activities_display or "-", _yes_no(farmer.philsys_registered), farmer.philsys_pcn or "-",
+                farmer.philsys_trn or "-", farmer.fca_membership or "-", farmer.location_coordinates or "-",
+                _yes_no(farmer.consent_given), farmer.remarks or "-", _local_datetime(farmer.submitted_at),
+                _local_datetime(farmer.created_at), _local_datetime(farmer.last_updated_at),
+                farmer.last_updated_by.display_name if farmer.last_updated_by else "-",
+                len(documents), "; ".join(document_details) or "None",
+                len(parcels), sum((parcel.area_hectares for parcel in parcels), 0),
+                " | ".join(parcel_details) or "No active parcel",
+                len(crops), " | ".join(crop_details) or "No active crop",
+                sum(1 for parcel in parcels for photo in parcel.photos.all() if photo.is_active),
+            ])
+        if compact:
+            return (
+                "Farmer Master List",
+                [
+                    "Farmer ID", "RSBSA Number", "Full Name", "Sex", "Birth Date",
+                    "Barangay", "Municipality", "Phone", "Email", "Livelihood",
+                    "Parcel Count", "Total Parcel Area (ha)", "Farm Parcel Summary",
+                    "Crop Record Count", "Crop Summary",
+                ],
+                rows,
+            )
+        return (
+            "Farmer Master List",
+            [
+                "Farmer ID", "Registration Reference", "RSBSA Number", "Registration Status",
+                "Last Name", "First Name", "Middle Name", "Extension", "Full Name", "Sex",
+                "Birth Date", "Age", "Place of Birth", "House / Lot / Purok", "Street / Sitio",
+                "Barangay", "Municipality", "Province", "Region", "Mother's Maiden Name",
+                "Phone", "Email", "Civil Status", "Spouse", "Highest Education", "Valid ID Type",
+                "Valid ID Number", "Religion", "Indigenous Person", "Indigenous Group", "PWD",
+                "4Ps Member", "Livelihood", "Livelihood Activities", "PhilSys Registered",
+                "PhilSys PCN", "PhilSys TRN", "FCA Membership", "Home Coordinates", "Consent Given",
+                "Farmer Remarks", "Submitted At", "Date Registered", "Last Updated", "Last Updated By",
+                "Document Count", "Supporting Documents", "Parcel Count", "Total Parcel Area (ha)",
+                "Complete Farm Parcel Details", "Crop Record Count", "Complete Crop Details",
+                "Field Photo Count",
+            ],
+            rows,
+        )
+
+    if report_type == "farmers_by_barangay":
         queryset = _filter_period(
             Farmer.objects.filter(is_active=True).prefetch_related("parcels__crops"),
             "created_at",
@@ -157,53 +323,25 @@ def build_report(report_type, date_range, filters=None):
                 parcels__crops__crop_type=commodity,
                 parcels__crops__is_active=True,
             ).distinct()
-        rows = [
-            [
-                farmer.record_id,
-                farmer.full_name,
-                farmer.barangay,
-                farmer.primary_commodity,
-                farmer.phone_number or "-",
-                farmer.rsbsa_number or "-",
-                farmer.remarks or "-",
-            ]
-            for farmer in queryset.order_by("last_name", "first_name")
-        ]
-        return (
-            "Farmer Master List",
-            [
-                "Farmer ID",
-                "Farmer Name",
-                "Barangay",
-                "Primary Commodity",
-                "Phone",
-                "RSBSA Number",
-                "Remarks",
-            ],
-            rows,
-        )
-
-    if report_type == "farmers_by_barangay":
-        queryset = _filter_period(Farmer.objects.filter(is_active=True), "created_at", date_range)
-        if year:
-            queryset = queryset.filter(created_at__year=int(year))
-        if barangay:
-            queryset = queryset.filter(barangay=barangay)
-        if commodity:
-            queryset = queryset.filter(
-                parcels__crops__crop_type=commodity,
-                parcels__crops__is_active=True,
-            ).distinct()
-        data = queryset.values("barangay").annotate(total=Count("id")).order_by("barangay")
         return (
             "Total Farmers per Barangay",
-            ["Barangay", "Registered Farmers"],
-            [[item["barangay"], item["total"]] for item in data],
+            ["Barangay", "Farmer ID", "Farmer", "Primary Commodity", "Phone", "Date Registered"],
+            [
+                [
+                    farmer.barangay,
+                    farmer.record_id,
+                    farmer.full_name,
+                    farmer.primary_commodity,
+                    farmer.phone_number or "-",
+                    timezone.localtime(farmer.created_at).date(),
+                ]
+                for farmer in queryset.order_by("barangay", "last_name", "first_name")
+            ],
         )
 
     if report_type == "farm_area_by_barangay":
         queryset = _filter_period(
-            FarmParcel.objects.filter(is_active=True, farmer__is_active=True),
+            FarmParcel.objects.filter(is_active=True, farmer__is_active=True).select_related("farmer"),
             "created_at",
             date_range,
         )
@@ -213,20 +351,26 @@ def build_report(report_type, date_range, filters=None):
             queryset = queryset.filter(barangay=barangay)
         if commodity:
             queryset = queryset.filter(crops__crop_type=commodity, crops__is_active=True).distinct()
-        data = (
-            queryset.values("barangay")
-            .annotate(parcels=Count("id"), area=Sum("area_hectares"))
-            .order_by("barangay")
-        )
         return (
             "Total Farm Area per Barangay",
-            ["Barangay", "Farm Parcels", "Total Area (ha)"],
-            [[item["barangay"], item["parcels"], item["area"] or 0] for item in data],
+            ["Barangay", "Farmer ID", "Farmer", "Parcel", "Area (ha)", "Ownership", "Date Added"],
+            [
+                [
+                    parcel.barangay,
+                    parcel.farmer.record_id,
+                    parcel.farmer.full_name,
+                    parcel.display_name,
+                    parcel.area_hectares,
+                    parcel.get_ownership_type_display(),
+                    timezone.localtime(parcel.created_at).date(),
+                ]
+                for parcel in queryset.order_by("barangay", "farmer__last_name", "pk")
+            ],
         )
 
     if report_type == "farmers_by_ownership":
         queryset = _filter_period(
-            FarmParcel.objects.filter(is_active=True, farmer__is_active=True),
+            FarmParcel.objects.filter(is_active=True, farmer__is_active=True).select_related("farmer"),
             "created_at",
             date_range,
         )
@@ -236,27 +380,20 @@ def build_report(report_type, date_range, filters=None):
             queryset = queryset.filter(barangay=barangay)
         if commodity:
             queryset = queryset.filter(crops__crop_type=commodity, crops__is_active=True).distinct()
-        data = (
-            queryset.values("ownership_type")
-            .annotate(
-                farmers=Count("farmer", distinct=True),
-                parcels=Count("id"),
-                area=Sum("area_hectares"),
-            )
-            .order_by("ownership_type")
-        )
-        labels = dict(FarmParcel.OWNERSHIP_CHOICES)
         return (
             "Farmers by Land Ownership",
-            ["Ownership / Tenure", "Farmers", "Parcels", "Area (ha)"],
+            ["Ownership / Tenure", "Farmer ID", "Farmer", "Barangay", "Parcel", "Area (ha)", "Land Owner"],
             [
                 [
-                    labels.get(item["ownership_type"], item["ownership_type"]),
-                    item["farmers"],
-                    item["parcels"],
-                    item["area"] or 0,
+                    parcel.get_ownership_type_display(),
+                    parcel.farmer.record_id,
+                    parcel.farmer.full_name,
+                    parcel.barangay,
+                    parcel.display_name,
+                    parcel.area_hectares,
+                    parcel.land_owner_name or "-",
                 ]
-                for item in data
+                for parcel in queryset.order_by("ownership_type", "farmer__last_name", "pk")
             ],
         )
 
@@ -275,21 +412,22 @@ def build_report(report_type, date_range, filters=None):
             queryset = queryset.filter(parcel__barangay=barangay)
         if commodity:
             queryset = queryset.filter(crop_type=commodity)
-        data = (
-            queryset.values("crop_type")
-            .annotate(
-                farmers=Count("parcel__farmer", distinct=True),
-                records=Count("id"),
-                area=Sum("area_hectares"),
-            )
-            .order_by("crop_type")
-        )
         return (
             "Crop Production Summary",
-            ["Crop / Commodity", "Farmers", "Crop Records", "Planted Area (ha)"],
+            ["Crop / Commodity", "Farmer ID", "Farmer", "Barangay", "Parcel", "Area (ha)", "Planting Date"],
             [
-                [item["crop_type"], item["farmers"], item["records"], item["area"] or 0]
-                for item in data
+                [
+                    crop.crop_type,
+                    crop.parcel.farmer.record_id,
+                    crop.parcel.farmer.full_name,
+                    crop.parcel.barangay,
+                    crop.parcel.display_name,
+                    crop.area_hectares,
+                    crop.planting_date or "-",
+                ]
+                for crop in queryset.select_related("parcel__farmer").order_by(
+                    "crop_type", "parcel__farmer__last_name", "pk"
+                )
             ],
         )
 
@@ -336,8 +474,96 @@ def build_report(report_type, date_range, filters=None):
             rows,
         )
 
+    if report_type == "intervention_summary":
+        queryset = _filter_period(
+            Intervention.objects.filter(is_active=True, farmer__is_active=True),
+            "intervention_date",
+            date_range,
+            date_only=True,
+        )
+        if year:
+            queryset = queryset.filter(intervention_date__year=int(year))
+        if barangay:
+            queryset = queryset.filter(farmer__barangay=barangay)
+        if commodity:
+            queryset = queryset.filter(
+                farmer__parcels__crops__crop_type=commodity,
+                farmer__parcels__crops__is_active=True,
+            ).distinct()
+        if intervention_type:
+            queryset = queryset.filter(intervention_type=intervention_type)
+        data = (
+            queryset.values("intervention_type")
+            .annotate(
+                interventions=Count("id"),
+                farmers=Count("farmer", distinct=True),
+            )
+            .order_by("intervention_type")
+        )
+        labels = dict(Intervention.TYPE_CHOICES)
+        return (
+            "Intervention Distribution Summary",
+            ["Intervention Type", "Interventions Given", "Farmers Served"],
+            [
+                [
+                    labels.get(item["intervention_type"], item["intervention_type"]),
+                    item["interventions"],
+                    item["farmers"],
+                ]
+                for item in data
+            ],
+        )
+
+    if report_type == "intervention_registry":
+        queryset = _filter_period(
+            Intervention.objects.filter(is_active=True, farmer__is_active=True)
+            .select_related("farmer", "service_request", "recorded_by"),
+            "intervention_date",
+            date_range,
+            date_only=True,
+        )
+        if year:
+            queryset = queryset.filter(intervention_date__year=int(year))
+        if barangay:
+            queryset = queryset.filter(farmer__barangay=barangay)
+        if commodity:
+            queryset = queryset.filter(
+                farmer__parcels__crops__crop_type=commodity,
+                farmer__parcels__crops__is_active=True,
+            ).distinct()
+        if intervention_type:
+            queryset = queryset.filter(intervention_type=intervention_type)
+        rows = [
+            [
+                item.reference_id,
+                item.intervention_date,
+                item.farmer.record_id,
+                item.farmer.full_name,
+                item.farmer.barangay,
+                item.get_intervention_type_display(),
+                item.description,
+                f"{item.quantity} {item.unit}".strip() if item.quantity is not None else "-",
+                item.provider or "-",
+                item.service_request.request_id if item.service_request else "-",
+                item.recorded_by.display_name if item.recorded_by else "-",
+            ]
+            for item in queryset.order_by("pk")
+        ]
+        return (
+            "Complete Intervention Register",
+            [
+                "Reference", "Date", "Farmer ID", "Farmer", "Barangay", "Intervention Type",
+                "Description", "Quantity", "Provider", "Service Request", "Recorded By",
+            ],
+            rows,
+        )
+
     queryset = _filter_period(
-        ServiceRequest.objects.filter(farmer__is_active=True), "created_at", date_range
+        ServiceRequest.objects.filter(farmer__is_active=True).select_related(
+            "farmer", "service", "assigned_to"
+        ),
+        "created_at",
+        date_range,
     )
     if year:
         queryset = queryset.filter(created_at__year=int(year))
@@ -350,12 +576,27 @@ def build_report(report_type, date_range, filters=None):
         ).distinct()
     if status:
         queryset = queryset.filter(status=status)
-    data = queryset.values("status").annotate(total=Count("id")).order_by("status")
-    labels = dict(ServiceRequest.STATUS_CHOICES)
     return (
         "Service Request Status",
-        ["Status", "Requests"],
-        [[labels.get(item["status"], item["status"]), item["total"]] for item in data],
+        [
+            "Request ID", "Farmer ID", "Farmer", "Barangay", "Request Type",
+            "Request", "Status", "Priority", "Date Requested", "Assigned Staff",
+        ],
+        [
+            [
+                item.request_id,
+                item.farmer.record_id,
+                item.farmer.full_name,
+                item.farmer.barangay,
+                item.service.name,
+                item.subject,
+                item.get_status_display(),
+                item.get_priority_display(),
+                timezone.localtime(item.created_at).date(),
+                item.assigned_to.display_name if item.assigned_to else "Unassigned",
+            ]
+            for item in queryset.order_by("pk")
+        ],
     )
 
 
@@ -473,6 +714,15 @@ def _active_filter_rows(filters):
 
 
 def _csv_response(title, headers, rows, date_range, filters=None):
+    def safe_cell(value):
+        """Prevent spreadsheet software from executing exported user text as a formula."""
+        if value is None:
+            return ""
+        text = str(value)
+        if text.lstrip().startswith(("=", "+", "-", "@", "\t", "\r", "\n")):
+            return "'" + text
+        return value
+
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="{_filename(title, "csv")}"'
     response.write("\ufeff")
@@ -483,8 +733,8 @@ def _csv_response(title, headers, rows, date_range, filters=None):
         writer.writerow([label, value])
     writer.writerow(["Generated", timezone.localtime().strftime("%B %d, %Y %I:%M %p")])
     writer.writerow([])
-    writer.writerow(headers)
-    writer.writerows(rows)
+    writer.writerow([safe_cell(value) for value in headers])
+    writer.writerows([[safe_cell(value) for value in row] for row in rows])
     return response
 
 
@@ -689,11 +939,170 @@ def _pdf_response(title, headers, rows, date_range, filters=None):
     return response
 
 
+def _farmer_master_pdf_response(title, headers, rows, date_range, filters=None):
+    """Render a concise printable master list; CSV retains the complete dataset."""
+    from pathlib import Path
+    from xml.sax.saxutils import escape
+
+    from django.conf import settings
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{_filename(title, "pdf")}"'
+    document = SimpleDocTemplate(
+        response,
+        pagesize=landscape(A4),
+        rightMargin=14 * mm,
+        leftMargin=14 * mm,
+        topMargin=31 * mm,
+        bottomMargin=16 * mm,
+        title=title,
+        author="Office for Agricultural Services - Rosario, Batangas",
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "MasterTitle", parent=styles["Title"], fontName="Helvetica-Bold",
+        fontSize=18, leading=22, textColor=colors.HexColor("#153c2a"), alignment=TA_LEFT,
+    )
+    farmer_style = ParagraphStyle(
+        "FarmerTitle", parent=styles["Heading2"], fontName="Helvetica-Bold",
+        fontSize=13, leading=16, textColor=colors.HexColor("#153c2a"), spaceAfter=7,
+    )
+    section_style = ParagraphStyle(
+        "Section", parent=styles["Heading3"], fontName="Helvetica-Bold",
+        fontSize=8, leading=10, textColor=colors.white, spaceBefore=7, spaceAfter=0,
+    )
+    label_style = ParagraphStyle(
+        "Label", parent=styles["Normal"], fontName="Helvetica-Bold",
+        fontSize=6.8, leading=8.4, textColor=colors.HexColor("#50665a"),
+    )
+    value_style = ParagraphStyle(
+        "Value", parent=styles["Normal"], fontName="Helvetica",
+        fontSize=7.2, leading=9.2, textColor=colors.HexColor("#17231d"),
+    )
+    subtitle_style = ParagraphStyle(
+        "Subtitle", parent=styles["Normal"], fontSize=8, leading=11,
+        textColor=colors.HexColor("#5f6f66"),
+    )
+    header_lookup = {header: index for index, header in enumerate(headers)}
+
+    def value(row, header):
+        item = row[header_lookup[header]] if header in header_lookup else "-"
+        return str(item if item not in (None, "") else "-")
+
+    def section(title_text, fields, row):
+        heading = Table([[Paragraph(escape(title_text.upper()), section_style)]], colWidths=[document.width])
+        heading.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#26734b")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        pairs = []
+        for index in range(0, len(fields), 2):
+            first = fields[index]
+            second = fields[index + 1] if index + 1 < len(fields) else None
+            cells = [Paragraph(escape(first), label_style), Paragraph(escape(value(row, first)), value_style)]
+            if second:
+                cells += [Paragraph(escape(second), label_style), Paragraph(escape(value(row, second)), value_style)]
+            else:
+                cells += [Paragraph("", label_style), Paragraph("", value_style)]
+            pairs.append(cells)
+        table = Table(
+            pairs,
+            colWidths=[document.width * .16, document.width * .34, document.width * .16, document.width * .34],
+            hAlign="LEFT",
+        )
+        table.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), .35, colors.HexColor("#d8e5dc")),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f5f9f6")]),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        return [heading, table]
+
+    story = [
+        Paragraph(escape(title), title_style),
+        Paragraph(
+            f"Complete active farmer records · {len(rows):,} farmer(s) · "
+            f"Date range: {escape(DATE_RANGES[date_range])}",
+            subtitle_style,
+        ),
+        Spacer(1, 10),
+    ]
+    farmer_fields = [
+        "RSBSA Number", "Sex", "Birth Date", "Livelihood", "Barangay", "Municipality",
+        "Phone", "Email",
+    ]
+    farm_fields = [
+        "Parcel Count", "Total Parcel Area (ha)", "Farm Parcel Summary", "Crop Record Count",
+        "Crop Summary",
+    ]
+    for index, row in enumerate(rows):
+        if index:
+            story.append(Spacer(1, 12))
+        story.append(
+            Paragraph(
+                f"{escape(value(row, 'Farmer ID'))} · {escape(value(row, 'Full Name'))}",
+                farmer_style,
+            )
+        )
+        story.extend(section("Farmer information", farmer_fields, row))
+        story.extend(section("Farm parcels and crops", farm_fields, row))
+
+    if not rows:
+        story.append(Paragraph("No farmers matched the selected report criteria.", value_style))
+
+    logo_path = Path(settings.BASE_DIR) / "static" / "images" / "brand" / "fmis-logo.png"
+
+    def decorate_page(canvas, doc):
+        page_width, page_height = landscape(A4)
+        canvas.saveState()
+        canvas.setFillColor(colors.HexColor("#112f23"))
+        canvas.rect(0, page_height - 24 * mm, page_width, 24 * mm, fill=1, stroke=0)
+        if logo_path.exists():
+            canvas.drawImage(str(logo_path), 14 * mm, page_height - 20.5 * mm, 15 * mm, 15 * mm,
+                             preserveAspectRatio=True, anchor="c", mask="auto")
+        canvas.setFillColor(colors.white)
+        canvas.setFont("Helvetica-Bold", 12)
+        canvas.drawString(33 * mm, page_height - 10.5 * mm, "OFFICE FOR AGRICULTURAL SERVICES")
+        canvas.setFont("Helvetica", 8)
+        canvas.setFillColor(colors.HexColor("#d6e8dc"))
+        canvas.drawString(33 * mm, page_height - 15 * mm, "Municipality of Rosario, Batangas")
+        canvas.drawString(33 * mm, page_height - 19 * mm, "Complete Farmer Master List")
+        canvas.setStrokeColor(colors.HexColor("#c8d8cd"))
+        canvas.line(14 * mm, 12 * mm, page_width - 14 * mm, 12 * mm)
+        canvas.setFillColor(colors.HexColor("#607067"))
+        canvas.setFont("Helvetica", 7)
+        canvas.drawString(14 * mm, 8 * mm, "Confidential FMIS report - Authorized municipal use only")
+        canvas.drawRightString(page_width - 14 * mm, 8 * mm, f"Page {doc.page}")
+        canvas.restoreState()
+
+    document.build(story, onFirstPage=decorate_page, onLaterPages=decorate_page)
+    return response
+
+
 def generate_report(report_type, output_format, date_range, filters=None):
     if output_format not in FORMATS:
         raise ValueError("Choose CSV or PDF format.")
-    title, headers, rows = build_report(report_type, date_range, filters)
+    title, headers, rows = build_report(
+        report_type,
+        date_range,
+        filters,
+        compact=output_format == "pdf" and report_type == "farmer_master",
+    )
     if output_format == "pdf":
+        if report_type == "farmer_master":
+            return _farmer_master_pdf_response(title, headers, rows, date_range, filters)
         return _pdf_response(title, headers, rows, date_range, filters)
     return _csv_response(title, headers, rows, date_range, filters)
 

@@ -16,7 +16,7 @@
     <div class="record-single-card">
       <header class="record-hero record-single-hero">
         <div class="record-avatar square">
-          {% if object.image %}<img src="{{ object.image.url }}" alt="{{ object.crop_type }}">{% else %}<span class="crop-symbol crop-symbol-large" aria-hidden="true">{{ object.symbol }}</span>{% endif %}
+          <span class="crop-symbol crop-symbol-large" aria-hidden="true">{{ object.symbol }}</span>
         </div>
         <div class="record-hero-copy">
           <small>{{ object.parcel.farmer.record_id }}</small>
@@ -34,11 +34,6 @@
           <div><dt>Planting Date</dt><dd>{{ object.planting_date|date:'F d, Y'|default:'Not recorded' }}</dd></div>
           <div><dt>Organic Production</dt><dd>{{ object.is_organic|yesno:'Yes,No' }}</dd></div>
         </dl>
-      </section>
-
-      <section class="record-single-section">
-        <h3><i class="bi bi-image"></i> Crop Image</h3>
-        {% if object.image %}<img class="record-image" src="{{ object.image.url }}" alt="{{ object.crop_type }} crop">{% else %}<p class="text-muted mb-0">No crop image uploaded yet.</p>{% endif %}
       </section>
     </div>
   </div>

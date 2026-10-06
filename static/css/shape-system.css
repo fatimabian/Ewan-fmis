@@ -109,6 +109,49 @@ html body :is(
     transform:translateY(-1px)
 }
 
+/* The password-recovery trigger is a quiet text link, not an outlined button. */
+html body #landingForgotPassword:not(#fmis-shape-specificity),
+html body #landingForgotPassword:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    outline:0!important;
+    background:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    color:#111!important;
+    transform:none!important
+}
+
+/* Landing capability toggles are quiet text controls, not pill buttons. */
+html body .feature-toggle:not(#fmis-shape-specificity),
+html body .feature-toggle:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    width:max-content!important;
+    margin-left:auto!important;
+    padding:8px 0!important;
+    border:0!important;
+    border-radius:0!important;
+    outline:0!important;
+    background:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    color:var(--landing-green,#176b3d)!important;
+    transform:none!important
+}
+
+/* Notification rows use clean rectangular edges without button chrome. */
+html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity),
+html body .app-shell .notification-list-item>button:not(#fmis-shape-specificity),
+html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active),
+html body .app-shell .notification-list-item>button:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border:0!important;
+    border-radius:0!important;
+    outline:0!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    transform:none!important
+}
+
 html body[data-theme="dark"] :is(
     button,
     .btn,
@@ -158,6 +201,92 @@ html body :is(.btn,.disabled):not(#fmis-shape-specificity)[aria-disabled="true"]
         transition:none!important;
         transform:none!important
     }
+}
+
+/* Native selects clearly read as expandable controls throughout FMIS. */
+html body select:not([multiple]):not(#fmis-shape-specificity){
+    appearance:none;
+    -webkit-appearance:none;
+    padding-right:38px!important;
+    border:0!important;
+    border-radius:0!important;
+    background-color:var(--surface,#fff)!important;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23334155' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m4 6 4 4 4-4'/%3E%3C/svg%3E")!important;
+    background-repeat:no-repeat!important;
+    background-position:right 12px center!important;
+    box-shadow:none!important
+}
+
+html body select:not([multiple]):not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border:0!important;
+    outline:0!important;
+    box-shadow:none!important
+}
+
+html body[data-theme="dark"] select:not([multiple]):not(#fmis-shape-specificity){
+    background-color:#1c2735!important;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23e2e8f0' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m4 6 4 4 4-4'/%3E%3C/svg%3E")!important
+}
+
+/* Searchable record selectors follow the same borderless dropdown language. */
+html body .farmer-picker-control:not(#fmis-shape-specificity),
+html body .farmer-picker:focus-within .farmer-picker-control:not(#fmis-shape-specificity){
+    grid-template-columns:minmax(0,1fr) 24px!important;
+    border:0!important;
+    border-radius:0!important;
+    outline:0!important;
+    box-shadow:none!important
+}
+
+html body .farmer-picker-control:not(#fmis-shape-specificity)::after{
+    content:"\2304";
+    display:grid;
+    place-items:center;
+    color:#334155;
+    font-size:18px;
+    line-height:1;
+    pointer-events:none
+}
+
+html body .farmer-picker-list:not(#fmis-shape-specificity){
+    border:0!important;
+    border-radius:0!important
+}
+
+html body .farmer-picker-option:not(#fmis-shape-specificity),
+html body .farmer-picker-option:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    border:0!important;
+    border-bottom:1px solid #edf1ee!important;
+    border-radius:0!important;
+    outline:0!important;
+    box-shadow:none!important;
+    transform:none!important
+}
+
+html body .farmer-picker-option:last-child:not(#fmis-shape-specificity){
+    border-bottom:0!important
+}
+
+html body[data-theme="dark"] .farmer-picker-control:not(#fmis-shape-specificity)::after{
+    color:#e2e8f0
+}
+
+/* Report navigation is a quiet text link, not a pill-shaped button. */
+html body .report-text-link:not(#fmis-shape-specificity),
+html body .report-text-link:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    display:flex!important;
+    align-items:center;
+    justify-content:flex-end;
+    gap:8px;
+    width:100%;
+    padding:7px 2px!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    color:var(--fmis-accent,#2f7d5c)!important;
+    box-shadow:none!important;
+    transform:none!important;
+    text-align:right
 }
 
 /* Compact labels, identities, and icon holders remain circles or capsules. */
@@ -284,6 +413,15 @@ html body[data-theme="dark"] .app-shell :is(
     color:#f8fafc!important
 }
 
+/* Delivered/archived intervention labels are plain text, not pills. */
+html body .app-shell .intervention-status:not(#fmis-shape-specificity){
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important
+}
+
 /* Table actions are icon controls, not full-sized pill buttons. */
 html body .app-shell table :is(
     .account-row-actions,
@@ -291,6 +429,7 @@ html body .app-shell table :is(
     .intervention-actions,
     .parcel-actions,
     .crop-actions,
+    .farmer-crop-actions,
     .farmer-actions,
     .row-actions,
     .table-actions
@@ -315,6 +454,7 @@ html body .app-shell table :is(
     .intervention-actions,
     .parcel-actions,
     .crop-actions,
+    .farmer-crop-actions,
     .farmer-actions,
     .row-actions,
     .table-actions
@@ -357,6 +497,12 @@ html body[data-theme="dark"] .btn-cancel:not(#fmis-shape-specificity):is(:hover,
     border-color:#ef6b73!important;
     color:#f8fafc!important
 }
+
+/* Registration-status actions carry the same outline color as the status. */
+html body .status-action-completed:not(#fmis-shape-specificity){--fmis-button-outline:#238553!important;border-color:#238553!important}
+html body .status-action-encoded:not(#fmis-shape-specificity){--fmis-button-outline:#1765d8!important;border-color:#1765d8!important}
+html body .status-action-submitted:not(#fmis-shape-specificity){--fmis-button-outline:#b57600!important;border-color:#b57600!important}
+html body .status-action-skipped:not(#fmis-shape-specificity){--fmis-button-outline:#d32626!important;border-color:#d32626!important}
 
 /* Logout sits on the dark sidebar, so its destructive outline needs white content. */
 html body .app-shell .sidebar .logout:not(#fmis-shape-specificity),

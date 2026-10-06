@@ -18,7 +18,7 @@
     <section class="record-hero">
       <div class="record-avatar">
         {% if farmer.photo_available %}
-          <img src="{{ farmer.photo.url }}" alt="{{ farmer.full_name }}">
+          <img src="{% url 'farmers:photo' farmer.pk %}" alt="{{ farmer.full_name }}">
         {% else %}
           {{ farmer.first_name|slice:':1' }}{{ farmer.last_name|slice:':1' }}
         {% endif %}

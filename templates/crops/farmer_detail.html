@@ -1,0 +1,89 @@
+{% extends base_template %}
+{% block page_title %}Farmer Crop Records{% endblock %}
+{% block page_subtitle %}Review all crop and production-cycle information for one farmer{% endblock %}
+{% block content %}
+<style>
+.farmer-crops-page{max-width:1450px;margin:auto}
+.farmer-crops-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}
+.farmer-crops-heading h3{margin:0}
+.farmer-crops-table{width:100%;border-collapse:collapse}
+.farmer-crops-table th,.farmer-crops-table td{padding:12px;text-align:left;border-bottom:1px solid var(--border);vertical-align:middle}
+.farmer-crops-table th{background:var(--surface-muted);font-size:12px}
+.farmer-crops-table a{font-weight:700;color:var(--fmis-accent)}
+.farmer-crop-actions{display:flex;align-items:center;gap:10px}
+.farmer-crop-actions :is(a,button){padding:3px;border:0;background:transparent;color:#086cff;font-size:18px}
+.farmer-crop-actions button{color:#e22323}
+.farmer-crops-empty{margin:0;color:#64748b}
+@media(max-width:700px){.farmer-crops-heading{align-items:flex-start;flex-direction:column}.farmer-crops-table{min-width:900px}}
+</style>
+<div class="content record-detail farmer-crops-page">
+  <div class="record-detail-nav">
+    <a href="{% url 'crops:list' %}"><i class="bi bi-arrow-left"></i> Back to Crops</a>
+    <div class="record-detail-actions">
+      <a class="btn btn-success" href="{% url 'crops:create' %}?farmer={{ object.pk }}"><i class="bi bi-plus-lg"></i> Add Crop Record</a>
+    </div>
+  </div>
+
+  <div class="record-single-card">
+    <header class="record-hero record-single-hero">
+      <div class="record-avatar square"><i class="bi bi-flower1"></i></div>
+      <div class="record-hero-copy">
+        <small>{{ object.record_id }} · {{ object.barangay }}</small>
+        <h2>{{ object.full_name }}</h2>
+        <p>{{ current_crop_records|length }} current crop record{{ current_crop_records|length|pluralize }} across {{ object.crop_record_parcels|length }} parcel{{ object.crop_record_parcels|length|pluralize }}</p>
+      </div>
+    </header>
+
+    <section class="record-single-section">
+      <div class="farmer-crops-heading">
+        <h3><i class="bi bi-flower1"></i> Current Crop Records</h3>
+      </div>
+      {% if current_crop_records %}
+        <div class="parcel-crop-table-wrap universal-table-wrap">
+          <table class="farmer-crops-table universal-table">
+            <thead><tr><th>Crop / Commodity</th><th>Farm Parcel</th><th>Schedule</th><th>Area</th><th>Planting Date</th><th>Slip B Details</th><th>Actions</th></tr></thead>
+            <tbody>
+              {% for crop in current_crop_records %}
+                <tr class="record-row" tabindex="0" data-record-url="{% url 'crops:detail' crop.pk %}">
+                  <td><a class="record-cell-link" href="{% url 'crops:detail' crop.pk %}">{{ crop.crop_type }}</a></td>
+                  <td>{{ crop.parcel.display_name }} · {{ crop.parcel.barangay }}</td>
+                  <td>{{ crop.cropping_schedule|default:'Not recorded' }}</td>
+                  <td>{{ crop.area_hectares }} ha</td>
+                  <td>{{ crop.planting_date|date:'M d, Y'|default:'Not recorded' }}</td>
+                  <td>{{ crop.is_organic|yesno:'Organic,Not organic' }} · {{ crop.is_intercrop|yesno:'Intercrop,Not intercrop' }}</td>
+                  <td><div class="farmer-crop-actions"><a href="{% url 'crops:edit' crop.pk %}" title="Edit {{ crop.crop_type }}"><i class="bi bi-pencil-square"></i></a><form method="post" action="{% url 'crops:delete' crop.pk %}" data-confirm="Archive this crop record?">{% csrf_token %}<button type="submit" title="Archive {{ crop.crop_type }}"><i class="bi bi-archive"></i></button></form></div></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="farmer-crops-empty">No current crop or commodity has been recorded for this farmer.</p>
+      {% endif %}
+    </section>
+
+    {% if archived_crop_records %}
+      <section class="record-single-section">
+        <h3><i class="bi bi-clock-history"></i> Crop Record History</h3>
+        <div class="parcel-crop-table-wrap universal-table-wrap">
+          <table class="farmer-crops-table universal-table">
+            <thead><tr><th>Crop / Commodity</th><th>Farm Parcel</th><th>Schedule</th><th>Area</th><th>Planting Date</th><th>Actions</th></tr></thead>
+            <tbody>
+              {% for crop in archived_crop_records %}
+                <tr>
+                  <td><a href="{% url 'crops:detail' crop.pk %}">{{ crop.crop_type }}</a></td>
+                  <td>{{ crop.parcel.display_name }} · {{ crop.parcel.barangay }}</td>
+                  <td>{{ crop.cropping_schedule|default:'Not recorded' }}</td>
+                  <td>{{ crop.area_hectares }} ha</td>
+                  <td>{{ crop.planting_date|date:'M d, Y'|default:'Not recorded' }}</td>
+                  <td><div class="farmer-crop-actions"><form method="post" action="{% url 'crops:delete' crop.pk %}">{% csrf_token %}<input type="hidden" name="action" value="restore"><button type="submit" title="Restore {{ crop.crop_type }}"><i class="bi bi-arrow-counterclockwise"></i></button></form></div></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

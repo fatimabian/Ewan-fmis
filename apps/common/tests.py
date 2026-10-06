@@ -16,7 +16,7 @@ from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import connection
+from django.db import DatabaseError, connection
 from django.http import HttpResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -29,7 +29,7 @@ from apps.accounts.forms import AccountForm
 from apps.crops.forms import CropRecordForm
 from apps.crops.models import CropRecord
 from apps.dashboard.services import _crop_recommendation
-from apps.farm_parcels.models import FarmParcel
+from apps.farm_parcels.models import FarmParcel, FarmParcelPhoto
 from apps.farmers.forms import (
     CropRegistrationForm,
     CropRegistrationFormSet,
@@ -390,6 +390,17 @@ class FMISRequirementTests(TestCase):
         self.assertIn("next=%2Fdashboard%2F", response.url)
         self.assertNotIn("_auth_user_id", self.client.session)
 
+        landing = self.client.get(response.url)
+        timeout_message = "Your session expired due to inactivity. Please sign in again."
+        self.assertContains(landing, timeout_message)
+        login_response = self.client.post(
+            reverse("authentication:landing"),
+            {"username": "staff", "password": "StrongPass123!"},
+        )
+        self.assertRedirects(login_response, reverse("dashboard:staff_home"))
+        dashboard = self.client.get(reverse("dashboard:staff_home"))
+        self.assertNotContains(dashboard, timeout_message)
+
     def test_duplicate_valid_id_is_rejected(self):
         form = FarmerRegistrationForm(
             data={
@@ -489,6 +500,178 @@ class FMISRequirementTests(TestCase):
         )
         driver_id.is_valid()
         self.assertNotIn("valid_id_number", driver_id.errors)
+
+    def test_birth_date_rejects_future_and_farmers_ten_or_younger(self):
+        today = date.today()
+        try:
+            tenth_birthday = today.replace(year=today.year - 10)
+            eleventh_birthday = today.replace(year=today.year - 11)
+        except ValueError:
+            tenth_birthday = date(today.year - 10, 2, 28)
+            eleventh_birthday = date(today.year - 11, 2, 28)
+
+        base_data = {
+            "last_name": "Ramirez",
+            "first_name": "Fatima",
+            "sex": "FEMALE",
+            "place_of_birth": "Rosario",
+            "mother_maiden_name": "Perea",
+            "barangay": "Bagong Pook",
+            "phone_number": "09953092018",
+            "civil_status": "SINGLE",
+            "valid_id_type": "Driver's License",
+            "valid_id_number": "N01-12-654321",
+            "livelihood": "FARMER",
+            "is_indigenous": "NA",
+            "is_pwd": "NA",
+            "is_four_ps": "NA",
+            "consent_given": "on",
+        }
+
+        future_form = FarmerRegistrationForm(
+            data={**base_data, "birth_date": date(today.year + 1, 1, 1).isoformat()}
+        )
+        self.assertFalse(future_form.is_valid())
+        self.assertIn("future date", future_form.errors["birth_date"][0])
+
+        ten_year_old_form = FarmerRegistrationForm(
+            data={**base_data, "birth_date": tenth_birthday.isoformat()}
+        )
+        self.assertFalse(ten_year_old_form.is_valid())
+        self.assertIn("at least 11", ten_year_old_form.errors["birth_date"][0])
+
+        eleven_year_old_form = FarmerRegistrationForm(
+            data={**base_data, "birth_date": eleventh_birthday.isoformat()}
+        )
+        eleven_year_old_form.is_valid()
+        self.assertNotIn("birth_date", eleven_year_old_form.errors)
+        self.assertEqual(
+            FarmerRegistrationForm().fields["birth_date"].widget.attrs["max"],
+            eleventh_birthday.isoformat(),
+        )
+
+    def test_special_classifications_use_clear_yes_no_choices(self):
+        form = FarmerRegistrationForm(
+            data={
+                "last_name": "Ramirez",
+                "first_name": "Fatima",
+                "sex": "FEMALE",
+                "birth_date": "1990-01-02",
+                "place_of_birth": "Rosario",
+                "mother_maiden_name": "Perea",
+                "barangay": "Bagong Pook",
+                "phone_number": "09953092018",
+                "civil_status": "SINGLE",
+                "valid_id_type": "National ID",
+                "valid_id_number": "8888777766665555",
+                "livelihood": "FARMER",
+                "is_indigenous": "False",
+                "is_pwd": "False",
+                "is_four_ps": "False",
+                "consent_given": "on",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        for name in ("is_indigenous", "is_pwd", "is_four_ps"):
+            self.assertNotIn(("NA", "N/A / Not applicable"), form.fields[name].choices)
+            self.assertFalse(form.cleaned_data[name])
+        self.assertNotIn("N/A / Not applicable", dict(form.fields["philsys_registered"].choices).values())
+
+        missing_choices = FarmerRegistrationForm(data={})
+        missing_choices.is_valid()
+        for name in ("is_indigenous", "is_pwd", "is_four_ps"):
+            self.assertIn(name, missing_choices.errors)
+
+    def test_invalid_registration_explains_that_nothing_was_saved(self):
+        self.client.force_login(self.staff)
+        farmer_count = Farmer.objects.count()
+        response = self.client.post(reverse("farmers:create"), {})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Registration was not saved.")
+        self.assertContains(response, "No partial farmer record was created.")
+        self.assertEqual(Farmer.objects.count(), farmer_count)
+
+    def _valid_registration_payload(self):
+        return {
+            "last_name": "Dela Cruz",
+            "first_name": "Maria",
+            "sex": "FEMALE",
+            "birth_date": "1992-04-08",
+            "place_of_birth": "Rosario",
+            "mother_maiden_name": "Santos",
+            "barangay": "Alupay",
+            "phone_number": "09181234567",
+            "civil_status": "SINGLE",
+            "valid_id_type": "National ID",
+            "valid_id_number": "9999888877776666",
+            "livelihood": "FARMER",
+            "is_indigenous": "NA",
+            "is_pwd": "False",
+            "is_four_ps": "NA",
+            "consent_given": "on",
+            "parcels-TOTAL_FORMS": "1",
+            "parcels-INITIAL_FORMS": "0",
+            "parcels-MIN_NUM_FORMS": "1",
+            "parcels-MAX_NUM_FORMS": "1000",
+            "parcels-0-barangay": "Alupay",
+            "parcels-0-area_hectares": "1.50",
+            "parcels-0-ownership_type": "OWNED",
+            "parcels-0-land_type": "UPLAND",
+            "parcels-0-farm_type": "Mixed vegetables",
+            "parcels-0-is_active": "True",
+            "crops-TOTAL_FORMS": "1",
+            "crops-INITIAL_FORMS": "0",
+            "crops-MIN_NUM_FORMS": "1",
+            "crops-MAX_NUM_FORMS": "1000",
+            "crops-0-parcel_number": "1",
+            "crops-0-crop_type": "Rice",
+            "crops-0-cropping_start_month": "January",
+            "crops-0-cropping_end_month": "March",
+            "crops-0-area_hectares": "1.00",
+            "crops-0-is_organic": "False",
+            "crops-0-is_intercrop": "False",
+            "documents-TOTAL_FORMS": "1",
+            "documents-INITIAL_FORMS": "0",
+            "documents-MIN_NUM_FORMS": "1",
+            "documents-MAX_NUM_FORMS": "1000",
+            "documents-0-document_type": "VALID_ID",
+            "documents-0-description": "National ID",
+            "documents-0-file": SimpleUploadedFile(
+                "valid-id.pdf",
+                b"%PDF-1.4\nFMIS test document\n%%EOF",
+                content_type="application/pdf",
+            ),
+        }
+
+    def test_registration_saves_all_sections_as_one_transaction(self):
+        self.client.force_login(self.staff)
+        farmer_count = Farmer.objects.count()
+        response = self.client.post(
+            reverse("farmers:create"),
+            self._valid_registration_payload(),
+        )
+        self.assertEqual(response.status_code, 302, response.context)
+        self.assertEqual(Farmer.objects.count(), farmer_count + 1)
+        saved = Farmer.objects.get(valid_id_number="9999888877776666")
+        self.assertFalse(saved.is_indigenous)
+        self.assertFalse(saved.is_pwd)
+        self.assertFalse(saved.is_four_ps)
+        self.assertEqual(saved.parcels.count(), 1)
+        self.assertEqual(saved.parcels.get().crops.count(), 1)
+        self.assertEqual(saved.documents.count(), 1)
+
+    def test_database_save_failure_rolls_back_and_shows_retry_message(self):
+        self.client.force_login(self.staff)
+        farmer_count = Farmer.objects.count()
+        with patch("apps.farmers.views.Farmer.save", side_effect=DatabaseError("offline")):
+            response = self.client.post(
+                reverse("farmers:create"),
+                self._valid_registration_payload(),
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertContains(response, "temporarily unavailable", status_code=503)
+        self.assertContains(response, "No partial record was created", status_code=503)
+        self.assertEqual(Farmer.objects.count(), farmer_count)
 
     def test_land_owner_fields_are_conditional_on_ownership(self):
         base_data = {
@@ -595,6 +778,10 @@ class FMISRequirementTests(TestCase):
         self.assertContains(status_page, 'name="rsbsa_number"')
         self.assertNotContains(status_page, 'name="transaction_code"')
         self.assertNotContains(status_page, 'name="registrant_declaration"')
+
+        detail_page = self.client.get(reverse("farmers:detail", args=[self.farmer.pk]))
+        self.assertContains(detail_page, "status-action-completed")
+        self.assertNotContains(detail_page, 'class="farmer-status status-completed"')
 
     def test_office_status_update_needs_no_slip_a_transaction(self):
         self.client.force_login(self.staff)
@@ -781,11 +968,10 @@ class FMISRequirementTests(TestCase):
             reverse("service_requests:detail", args=[request_record.pk])
         )
         self.assertNotContains(service_detail, 'class="request-history"')
-        self.assertContains(service_detail, intervention.reference_id)
-        self.assertContains(
-            service_detail,
-            f"{reverse('interventions:create')}?service_request={request_record.pk}",
-        )
+        self.assertNotContains(service_detail, "Delivered Interventions")
+        self.assertNotContains(service_detail, intervention.reference_id)
+        request_record.status = "IN_PROGRESS"
+        request_record.save(update_fields=["status"])
         linked_form = self.client.get(
             reverse("interventions:create"),
             {"service_request": request_record.pk},
@@ -796,10 +982,29 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(linked_form.context["form"].initial["farmer"], self.farmer)
 
-    def test_single_farmer_rsbsa_export_uses_official_two_page_form(self):
+    def test_single_farmer_rsbsa_export_includes_official_form_and_complete_record(self):
         from pypdf import PdfReader
 
         self.client.force_login(self.staff)
+        service_request = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Request certified seed assistance",
+            priority="MEDIUM",
+            status="COMPLETED",
+            assigned_to=self.staff,
+        )
+        intervention = Intervention.objects.create(
+            farmer=self.farmer,
+            service_request=service_request,
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Certified seed assistance issued",
+            quantity=Decimal("2.00"),
+            unit="bags",
+            estimated_value=Decimal("3200.00"),
+            recorded_by=self.staff,
+        )
         farmer_detail = self.client.get(reverse("farmers:detail", args=[self.farmer.pk]))
         export_url = reverse("farmers:rsbsa_export", args=[self.farmer.pk])
         self.assertContains(farmer_detail, export_url)
@@ -810,10 +1015,18 @@ class FMISRequirementTests(TestCase):
         self.assertIn("attachment", response["Content-Disposition"])
         self.assertTrue(response.content.startswith(b"%PDF"))
         reader = PdfReader(BytesIO(response.content))
-        self.assertEqual(len(reader.pages), 2)
+        self.assertGreaterEqual(len(reader.pages), 3)
         self.assertEqual(reader.metadata.title, f"RSBSA Enrollment Form - {self.farmer.full_name}")
         exported_text = "\n".join(page.extract_text() or "" for page in reader.pages)
         exported_compact = "".join(exported_text.split())
+        self.assertIn("FMIS CURRENT FARMER RECORD", exported_text)
+        self.assertIn("Personal and Registration Information", exported_text)
+        self.assertIn("Farm Parcels", exported_text)
+        self.assertIn("Supporting Documents", exported_text)
+        self.assertIn("Service Requests", exported_text)
+        self.assertIn("Interventions Given", exported_text)
+        self.assertIn(service_request.request_id, exported_text)
+        self.assertIn(intervention.reference_id, exported_text)
         for expected in (
             self.farmer.first_name.upper(),
             self.farmer.last_name.upper(),
@@ -828,7 +1041,7 @@ class FMISRequirementTests(TestCase):
         phone_tail = self.farmer.phone_number[2:] if self.farmer.phone_number.startswith("09") else self.farmer.phone_number
         self.assertIn(phone_tail, exported_compact)
 
-    def test_completed_service_request_moves_to_interventions_once(self):
+    def test_in_progress_service_request_proceeds_to_intervention_and_completes(self):
         self.client.force_login(self.staff)
         request_item = ServiceRequest.objects.create(
             farmer=self.farmer,
@@ -845,17 +1058,34 @@ class FMISRequirementTests(TestCase):
             "service": self.service.pk,
             "subject": request_item.subject,
             "priority": "MEDIUM",
-            "status": "COMPLETED",
+            "status": "IN_PROGRESS",
             "notes": request_item.notes,
             "assigned_to": self.staff.pk,
         }
         response = self.client.post(update_url, payload)
         self.assertRedirects(response, reverse("service_requests:list"))
+        self.assertFalse(Intervention.objects.filter(service_request=request_item).exists())
+        response = self.client.post(
+            f"{reverse('interventions:create')}?service_request={request_item.pk}",
+            {
+                "farmer": self.farmer.pk,
+                "service_request": request_item.pk,
+                "intervention_type": "SEEDS",
+                "intervention_date": date.today().isoformat(),
+                "description": "Certified rice seed delivered",
+                "quantity": "2",
+                "unit": "bags",
+                "provider": "Office for Agricultural Services",
+                "remarks": request_item.notes,
+            },
+        )
+        self.assertRedirects(response, reverse("interventions:list"))
         intervention = Intervention.objects.get(service_request=request_item)
         self.assertEqual(intervention.farmer, self.farmer)
         self.assertEqual(intervention.intervention_type, "SEEDS")
         self.assertEqual(intervention.recorded_by, self.staff)
-        self.assertEqual(intervention.description, request_item.subject)
+        request_item.refresh_from_db()
+        self.assertEqual(request_item.status, "COMPLETED")
 
         default_list = self.client.get(reverse("service_requests:list"))
         self.assertNotContains(default_list, request_item.request_id)
@@ -866,11 +1096,11 @@ class FMISRequirementTests(TestCase):
         )
         self.assertContains(completed_list, request_item.request_id)
 
-        self.client.post(update_url, payload)
-        self.assertEqual(
-            Intervention.objects.filter(service_request=request_item).count(),
-            1,
+        blocked = self.client.get(
+            reverse("interventions:create"),
+            {"service_request": request_item.pk},
         )
+        self.assertRedirects(blocked, reverse("service_requests:detail", args=[request_item.pk]))
 
     def test_slip_b_is_separate_and_contains_official_parcel_workflow(self):
         self.client.force_login(self.staff)
@@ -883,6 +1113,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(parcel_form, "Update Slip B")
         self.assertContains(parcel_form, "Slip B is for verified parcel and land changes")
         self.assertNotContains(parcel_form, "Crops and Commodities")
+        self.assertNotContains(parcel_form, 'name="field_photos"')
         for field_name in (
             "gpx_status",
             "rotational_tiller",
@@ -891,11 +1122,74 @@ class FMISRequirementTests(TestCase):
         ):
             self.assertContains(parcel_form, field_name)
 
+    def test_office_uploads_field_photos_from_parcel_gallery_not_slip_b(self):
+        from PIL import Image
+
+        self.client.force_login(self.staff)
+        parcel_detail = self.client.get(reverse("farm_parcels:detail", args=[self.parcel.pk]))
+        self.assertContains(parcel_detail, "Office field documentation")
+        self.assertContains(parcel_detail, 'name="field_photos"')
+
+        image_bytes = BytesIO()
+        Image.new("RGB", (16, 16), "green").save(image_bytes, format="PNG")
+        history_count = FarmerUpdateHistory.objects.filter(
+            farmer=self.farmer, update_type="SLIP_B"
+        ).count()
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            response = self.client.post(
+                reverse("farm_parcels:photo_upload", args=[self.parcel.pk]),
+                {
+                    "field_photos": SimpleUploadedFile(
+                        "field.png", image_bytes.getvalue(), content_type="image/png"
+                    )
+                },
+            )
+            self.assertRedirects(response, reverse("farm_parcels:detail", args=[self.parcel.pk]))
+            photo = FarmParcelPhoto.objects.get(parcel=self.parcel)
+            self.assertEqual(photo.uploaded_by, self.staff)
+            self.assertTrue(photo.is_active)
+        self.assertEqual(
+            FarmerUpdateHistory.objects.filter(
+                farmer=self.farmer, update_type="SLIP_B"
+            ).count(),
+            history_count,
+        )
+        self.assertTrue(
+            ActivityLog.objects.filter(title="Farm Parcel Photos Added").exists()
+        )
+
+    def test_cancelled_service_request_is_locked_and_cannot_start_intervention(self):
+        self.client.force_login(self.staff)
+        request_item = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Cancelled seed request",
+            status="CANCELLED",
+        )
+        edit_response = self.client.get(
+            reverse("service_requests:edit", args=[request_item.pk])
+        )
+        self.assertRedirects(
+            edit_response,
+            reverse("service_requests:detail", args=[request_item.pk]),
+        )
+        detail = self.client.get(reverse("service_requests:detail", args=[request_item.pk]))
+        self.assertNotContains(detail, "Update Service Request")
+        intervention = self.client.get(
+            reverse("interventions:create"), {"service_request": request_item.pk}
+        )
+        self.assertRedirects(
+            intervention,
+            reverse("service_requests:detail", args=[request_item.pk]),
+        )
+
     def test_parcel_table_hides_rsbsa_column_and_map_can_focus_saved_parcel(self):
         self.client.force_login(self.staff)
         parcel_list = self.client.get(reverse("farm_parcels:list"))
         self.assertEqual(parcel_list.status_code, 200)
         self.assertNotContains(parcel_list, "RSBSA Record")
+        self.assertNotContains(parcel_list, '<select name="crop_type"', html=False)
+        self.assertNotContains(parcel_list, "<th>Crop</th>", html=False)
 
         self.parcel.coordinates = "13.8467000, 121.2060000"
         self.parcel.save(update_fields=["coordinates"])
@@ -1151,6 +1445,115 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(excluded, [])
 
+    def test_intervention_summary_and_complete_register_reports(self):
+        service_request = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Certified rice seed request",
+            status="COMPLETED",
+        )
+        intervention = Intervention.objects.create(
+            farmer=self.farmer,
+            service_request=service_request,
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Certified rice seed distribution",
+            quantity=Decimal("2.00"),
+            unit="bags",
+            estimated_value=Decimal("3200.00"),
+            funding_source="Municipal Agriculture Office",
+            recorded_by=self.staff,
+        )
+        title, headers, rows = build_report("intervention_summary", "all", {})
+        self.assertEqual(title, "Intervention Distribution Summary")
+        self.assertIn("Farmers Served", headers)
+        self.assertEqual(rows[0][1:], [1, 1])
+
+        title, headers, rows = build_report("intervention_registry", "all", {})
+        self.assertEqual(title, "Complete Intervention Register")
+        self.assertIn("Recorded By", headers)
+        self.assertEqual(rows[0][0], intervention.reference_id)
+        self.assertEqual(rows[0][3], self.farmer.full_name)
+        self.assertEqual(rows[0][7], "2.00 bags")
+        self.assertNotIn("Estimated Value (PHP)", headers)
+        self.assertNotIn("Funding Source", headers)
+        self.assertEqual(rows[0][9], service_request.request_id)
+
+        self.client.force_login(self.staff)
+        reports = self.client.get(
+            reverse("reports:home"),
+            {"report_type": "intervention_registry", "date_range": "all"},
+        )
+        self.assertContains(reports, "Complete Intervention Register")
+        self.assertContains(reports, intervention.reference_id)
+        dashboard = self.client.get(reverse("dashboard:staff_home"))
+        self.assertContains(dashboard, "Interventions Given")
+        self.assertNotContains(dashboard, "Open Service Requests")
+
+    def test_service_request_report_lists_who_where_when_and_what(self):
+        request_item = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Request certified rice seed",
+            status="PENDING",
+            priority="HIGH",
+            assigned_to=self.staff,
+        )
+        title, headers, rows = build_report("service_status", "all", {"status": "PENDING"})
+        self.assertEqual(title, "Service Request Status")
+        for header in ("Farmer", "Barangay", "Request Type", "Request", "Date Requested"):
+            self.assertIn(header, headers)
+        row = next(item for item in rows if item[0] == request_item.request_id)
+        self.assertEqual(row[2], self.farmer.full_name)
+        self.assertEqual(row[3], self.farmer.barangay)
+        self.assertEqual(row[5], request_item.subject)
+
+    def test_farmer_master_list_orders_generated_ids_chronologically(self):
+        Farmer.objects.create(
+            first_name="Zena",
+            last_name="Alpha",
+            sex="FEMALE",
+            birth_date=date(1985, 1, 1),
+            place_of_birth="Rosario",
+            mother_maiden_name="Reyes",
+            house_lot_purok="Purok 2",
+            barangay="Bulihan",
+            phone_number="09170000001",
+            civil_status="SINGLE",
+            valid_id_type="National ID",
+            valid_id_number="1111222233334444",
+            livelihood="FARMER",
+            consent_given=True,
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("farmers:list"))
+        ids = [farmer.pk for farmer in response.context["object_list"]]
+        self.assertEqual(ids, sorted(ids))
+
+    def test_reports_start_with_choose_report_and_show_only_relevant_filters(self):
+        self.client.force_login(self.staff)
+        initial = self.client.get(reverse("reports:home"))
+        self.assertEqual(initial.context["selected_report_type"], "")
+        self.assertContains(initial, '<option value="">Choose a report</option>', html=True)
+        self.assertContains(initial, 'data-filter-row="common" hidden')
+        self.assertNotContains(initial, "Summarizes service requests by status")
+
+        service_report = self.client.get(
+            reverse("reports:home"),
+            {"report_type": "service_status", "date_range": "all"},
+        )
+        self.assertContains(service_report, 'data-filter-row="status"')
+        self.assertNotContains(service_report, 'data-filter-row="status" hidden')
+        self.assertContains(service_report, 'data-filter-row="intervention" hidden')
+
+        intervention_report = self.client.get(
+            reverse("reports:home"),
+            {"report_type": "intervention_registry", "date_range": "all"},
+        )
+        self.assertContains(intervention_report, 'data-filter-row="intervention"')
+        self.assertNotContains(intervention_report, 'data-filter-row="intervention" hidden')
+        self.assertContains(intervention_report, 'data-filter-row="status" hidden')
+
     def test_reports_export_csv_and_validate_filters(self):
         self.client.force_login(self.staff)
         response = self.client.post(
@@ -1216,7 +1619,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(empty.context["crops"], 0)
         self.assertContains(empty, "No records match the selected filters")
 
-    def test_staff_dashboard_uses_rosario_crop_records_and_fixed_weather_location(self):
+    def test_staff_dashboard_prioritizes_record_gaps_and_fixed_weather_location(self):
         ServiceRequest.objects.create(
             farmer=self.farmer,
             service=self.service,
@@ -1229,21 +1632,27 @@ class FMISRequirementTests(TestCase):
         response = self.client.get(reverse("dashboard:staff_home"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["request_status"]["pending"], 1)
-        self.assertEqual(response.context["crop_chart"][0]["crop_type"], "Rice")
-        self.assertEqual(response.context["crop_chart"][0]["area"], 2.0)
+        attention = {
+            item["key"]: item["count"]
+            for item in response.context["attention_chart"]
+        }
+        self.assertEqual(attention["registration"], 0)
+        self.assertEqual(attention["parcel"], 0)
+        self.assertEqual(attention["mapping"], 1)
+        self.assertEqual(attention["crop"], 0)
+        self.assertEqual(attention["planting_date"], 0)
         self.assertEqual(response.context["area_planted"], Decimal("2.00"))
         self.assertNotIn("farmer_statistics", response.context)
         self.assertNotContains(response, "Farmer Statistics")
         self.assertContains(response, "Rosario, Batangas")
         self.assertContains(response, 'data-latitude="13.8442"')
-        self.assertContains(response, "Farmers per Commodity")
+        self.assertContains(response, "Records Needing Attention")
+        self.assertContains(response, "Parcels without map pins")
         self.assertContains(response, "Service Request Overview")
-        self.assertContains(response, 'data-card-url="/crops/"')
+        self.assertNotContains(response, 'data-card-url="/crops/"')
         self.assertNotContains(response, "View crop records")
-        self.assertEqual(response.context["crop_chart"][0]["farmers"], 1)
-        self.assertEqual(response.context["crop_chart_ticks"][0], 1)
-        self.assertEqual(response.context["crop_chart_ticks"][-1], 0)
-        self.assertContains(response, "SUGGESTED CROP")
+        self.assertNotContains(response, "SUGGESTED CROP")
+        self.assertNotContains(response, "Data reference")
         self.assertContains(response, 'class="dashboard-utility-row"')
         self.assertContains(response, "Wet season")
         self.assertNotContains(response, "Local FMIS data")
@@ -1252,12 +1661,29 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["crop_recommendation"]["crop"], "Rice")
         self.assertEqual(response.context["crop_recommendation"]["confidence"], "Low")
         page = response.content.decode()
-        self.assertLess(page.index("Farmers per Commodity"), page.index("Service Request Overview"))
+        self.assertLess(page.index("Records Needing Attention"), page.index("Service Request Overview"))
         self.assertLess(page.index("Rosario Weather"), page.index("Rosario reference"))
         self.assertNotContains(response, "Inventor")
         self.assertNotContains(response, "Pending Projects")
         self.assertNotContains(response, "Requests by Service")
         self.assertNotContains(response, "recorded requests")
+
+    @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
+    def test_farmer_qr_uses_configured_authenticated_field_address(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("farmers:qr_print", args=[self.farmer.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            response.context["secure_url"].startswith(
+                "https://field.fmis.example.gov.ph/farmers/field/"
+            )
+        )
+
+    def test_missing_farmer_photo_returns_safe_authenticated_placeholder(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("farmers:photo", args=[self.farmer.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "image/png")
 
         reports = self.client.get(reverse("reports:home"))
         self.assertContains(reports, "FARMER STATISTICS")

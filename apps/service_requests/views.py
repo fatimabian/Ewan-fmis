@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -12,7 +12,6 @@ from apps.common.permissions import StaffRequiredMixin
 from apps.activity_logs.services import record_request_event
 from apps.common.record_history import service_request_rows
 from apps.service_catalog.models import ServiceCatalog
-from apps.interventions.services import ensure_completed_request_intervention
 from .forms import ServiceRequestForm
 from .models import ServiceRequest, ServiceRequestHistory
 
@@ -111,7 +110,7 @@ class ServiceRequestListView(
             queryset = queryset.filter(priority=priority)
         if requested_date:
             queryset = queryset.filter(created_at__date=requested_date)
-        return queryset
+        return queryset.order_by("pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -144,20 +143,7 @@ class ServiceRequestCreateView(
                     }
                 ],
             )
-            intervention = None
-            created_intervention = False
-            if self.object.status == "COMPLETED":
-                intervention, created_intervention = ensure_completed_request_intervention(
-                    self.object,
-                    self.request.user,
-                )
-        if created_intervention:
-            messages.success(
-                self.request,
-                f"{self.object.request_id} was completed and moved to Interventions as {intervention.reference_id}.",
-            )
-        else:
-            messages.success(self.request, f"{self.object.request_id} was created and added to the history log.")
+        messages.success(self.request, f"{self.object.request_id} was created and added to the history log.")
         record_request_event(
             self.request,
             title="Service Request Created",
@@ -191,7 +177,7 @@ class ServiceRequestHistoryView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.update({"history_title": "Service Request History", "record_label": f"{self.object.request_id} · {self.object.subject}", "back_url": reverse_lazy("service_requests:detail", args=[self.object.pk]), "edit_url": reverse_lazy("service_requests:edit", args=[self.object.pk]), "edit_label": "Edit Request", "history_entries": service_request_rows(self.object.history.all())})
+        context.update({"history_title": "Service Request History", "record_label": f"{self.object.request_id} · {self.object.subject}", "back_url": reverse_lazy("service_requests:detail", args=[self.object.pk]), "edit_url": reverse_lazy("service_requests:edit", args=[self.object.pk]) if self.object.status != "CANCELLED" else "", "edit_label": "Edit Request", "history_entries": service_request_rows(self.object.history.all())})
         return context
 
 
@@ -202,6 +188,16 @@ class ServiceRequestUpdateView(
     form_class = ServiceRequestForm
     template_name = "service_requests/form.html"
     success_url = reverse_lazy("service_requests:list")
+
+    def dispatch(self, request, *args, **kwargs):
+        service_request = get_object_or_404(ServiceRequest, pk=kwargs["pk"])
+        if service_request.status == "CANCELLED":
+            messages.info(
+                request,
+                f"{service_request.request_id} is cancelled and can no longer be changed.",
+            )
+            return redirect("service_requests:detail", pk=service_request.pk)
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         before = ServiceRequest.objects.select_related(
@@ -223,20 +219,7 @@ class ServiceRequestUpdateView(
                 to_status=self.object.status,
                 changes=_request_changes(before, self.object, changed_fields),
             )
-            intervention = None
-            created_intervention = False
-            if self.object.status == "COMPLETED":
-                intervention, created_intervention = ensure_completed_request_intervention(
-                    self.object,
-                    self.request.user,
-                )
-        if created_intervention:
-            messages.success(
-                self.request,
-                f"{self.object.request_id} was completed and moved to Interventions as {intervention.reference_id}.",
-            )
-        else:
-            messages.success(self.request, f"{self.object.request_id} was updated and the change was recorded.")
+        messages.success(self.request, f"{self.object.request_id} was updated and the change was recorded.")
         record_request_event(
             self.request,
             title="Service Request Updated",
