@@ -31,15 +31,18 @@ class GroupedCropListTests(TestCase):
             ownership_type="OWNED",
             land_type="UPLAND",
         )
-        for crop_type in ("Rice", "Coffee"):
+        for crop_type, planted_on in (
+            ("Rice", date(2026, 6, 1)),
+            ("Coffee", date(2026, 7, 1)),
+        ):
             CropRecord.objects.create(
                 parcel=cls.parcel,
                 crop_type=crop_type,
                 area_hectares=Decimal("1.00"),
-                planting_date=date(2026, 6, 1),
+                planting_date=planted_on,
             )
 
-    def test_farmer_appears_once_with_all_matching_crops(self):
+    def test_farmer_appears_once_and_list_shows_only_most_recent_crop(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("crops:list"))
         self.assertEqual(response.status_code, 200)
@@ -49,6 +52,10 @@ class GroupedCropListTests(TestCase):
             {crop.crop_type for crop in farmers[0].listed_crop_records},
             {"Rice", "Coffee"},
         )
+        self.assertEqual(farmers[0].listed_crop_name, "Coffee")
+        self.assertEqual(farmers[0].listed_planting_date, "Jul 01, 2026")
+        self.assertContains(response, ">Coffee<")
+        self.assertNotContains(response, "Coffee, Rice")
         self.assertContains(response, reverse("crops:farmer_detail", args=[self.farmer.pk]))
 
     def test_farmer_crop_page_owns_the_detailed_crop_table(self):

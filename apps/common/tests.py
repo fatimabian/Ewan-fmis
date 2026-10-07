@@ -660,6 +660,22 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(saved.parcels.get().crops.count(), 1)
         self.assertEqual(saved.documents.count(), 1)
 
+    def test_registration_accepts_other_supporting_document_without_valid_id(self):
+        self.client.force_login(self.staff)
+        payload = self._valid_registration_payload()
+        payload["valid_id_type"] = ""
+        payload["valid_id_number"] = ""
+        payload["documents-0-document_type"] = "OWNERSHIP"
+        payload["documents-0-description"] = "Barangay-certified tenure record"
+
+        response = self.client.post(reverse("farmers:create"), payload)
+
+        self.assertEqual(response.status_code, 302, response.context)
+        saved = Farmer.objects.get(first_name="Maria", last_name="Dela Cruz")
+        self.assertEqual(saved.valid_id_type, "")
+        self.assertEqual(saved.valid_id_number, "")
+        self.assertEqual(saved.documents.get().document_type, "OWNERSHIP")
+
     def test_database_save_failure_rolls_back_and_shows_retry_message(self):
         self.client.force_login(self.staff)
         farmer_count = Farmer.objects.count()
@@ -757,8 +773,8 @@ class FMISRequirementTests(TestCase):
         masterlist = self.client.get(reverse("farmers:list"))
         self.assertEqual(masterlist.status_code, 200)
         self.assertContains(masterlist, "Farmer ID")
-        self.assertContains(masterlist, "RSBSA ID / Reference Code")
-        self.assertContains(masterlist, "Registration Status")
+        self.assertContains(masterlist, "<th>RSBSA ID</th>", html=True)
+        self.assertContains(masterlist, "<th>Status</th>", html=True)
         self.assertNotContains(masterlist, 'name="registration_status"')
         self.assertNotContains(masterlist, "farmer-workflow-input")
 
@@ -1324,12 +1340,11 @@ class FMISRequirementTests(TestCase):
             "Barangay",
             "Contact Number",
             "Livelihood",
-            "RSBSA ID / Reference Code",
-            "Registration Status",
+            "RSBSA ID",
+            "Status",
             "Actions",
         ):
             self.assertContains(response, f"<th>{heading}</th>", html=True)
-        self.assertNotContains(response, "<th>Status</th>", html=True)
         self.assertNotContains(response, "<th>Last Updated By</th>", html=True)
         self.assertNotContains(response, "<th>Age</th>", html=True)
         self.assertNotContains(response, "<th>Sex</th>", html=True)
@@ -1582,6 +1597,40 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(bad.status_code, 400)
 
+    def test_farmer_master_pdf_is_a_continuous_one_farmer_per_row_table(self):
+        from pypdf import PdfReader
+
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("reports:home"),
+            {
+                "report_type": "farmer_master",
+                "format": "pdf",
+                "date_range": "all",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        exported_text = "\n".join(
+            page.extract_text() or "" for page in PdfReader(BytesIO(response.content)).pages
+        )
+        for heading in (
+            "Farmer ID",
+            "Farmer Name",
+            "RSBSA ID",
+            "Status",
+            "Barangay",
+            "Phone",
+            "Livelihood",
+            "Farm Records",
+        ):
+            self.assertIn(heading, exported_text)
+        self.assertIn(self.farmer.record_id, exported_text)
+        self.assertIn(self.farmer.full_name, exported_text)
+        self.assertNotIn("FARMER INFORMATION", exported_text)
+        self.assertNotIn("FARM PARCELS AND CROPS", exported_text)
+
     def test_report_graphs_and_table_use_selected_database_filters(self):
         self.client.force_login(self.staff)
         response = self.client.get(
@@ -1618,6 +1667,32 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(empty.context["report_preview"]["total_rows"], 0)
         self.assertEqual(empty.context["crops"], 0)
         self.assertContains(empty, "No records match the selected filters")
+
+    def test_farmer_master_preview_shows_farmer_information_without_barangay_graph(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            reverse("reports:home"),
+            {"report_type": "farmer_master", "date_range": "all"},
+        )
+        preview = response.context["report_preview"]
+        self.assertFalse(preview["show_chart"])
+        self.assertEqual(
+            preview["headers"],
+            [
+                "Farmer ID",
+                "Farmer Name",
+                "RSBSA ID",
+                "Registration Status",
+                "Barangay",
+                "Phone",
+                "Livelihood",
+                "Farm Records",
+            ],
+        )
+        self.assertEqual(preview["rows"][0][0], self.farmer.record_id)
+        self.assertEqual(preview["rows"][0][1], self.farmer.full_name)
+        self.assertContains(response, "farmer-master-preview")
+        self.assertNotContains(response, "Farmer Master List chart")
 
     def test_staff_dashboard_prioritizes_record_gaps_and_fixed_weather_location(self):
         ServiceRequest.objects.create(

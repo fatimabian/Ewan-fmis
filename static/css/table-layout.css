@@ -3,6 +3,25 @@
  * Desktop/laptop screens fit tables inside the workspace. Tablets and phones
  * preserve readable column widths and scroll horizontally inside the table.
  */
+html body .app-shell table :is(th,td):not(#fmis-table-specificity){
+    text-align:left!important
+}
+
+.app-shell table :is(
+    .farmer-actions,
+    .parcel-actions,
+    .crop-actions,
+    .request-actions,
+    .table-actions,
+    .farmer-crop-actions
+){
+    justify-content:flex-start!important
+}
+
+.app-shell table td :is(p,small,.cell-description){
+    text-align:left!important
+}
+
 @media (min-width:1101px){
     .app-shell :is(
         .table-panel,
@@ -46,7 +65,7 @@
         white-space:normal!important;
         overflow-wrap:anywhere!important;
         word-break:break-word!important;
-        overflow:hidden!important;
+        overflow:visible!important;
         vertical-align:middle
     }
     .app-shell table th{
@@ -60,23 +79,34 @@
         max-width:100%!important;
         white-space:normal!important
     }
-    .app-shell table :is(.farmer-actions,.parcel-actions,.crop-actions,.request-actions,.table-actions){
+    .app-shell table :is(.parcel-actions,.crop-actions,.request-actions,.table-actions){
         flex-wrap:wrap
     }
+    .app-shell table .farmer-actions{
+        flex-wrap:nowrap!important;
+        gap:10px!important;
+        white-space:nowrap!important
+    }
+    .app-shell table .farmer-actions :is(a,button,form){
+        flex:0 0 auto!important;
+        margin:0!important
+    }
     .app-shell .farmer-table th:nth-child(1),
-    .app-shell .farmer-table td:nth-child(1){width:9%}
+    .app-shell .farmer-table td:nth-child(1){width:8%}
     .app-shell .farmer-table th:nth-child(2),
-    .app-shell .farmer-table td:nth-child(2){width:22%}
+    .app-shell .farmer-table td:nth-child(2){width:20%}
     .app-shell .farmer-table th:nth-child(3),
-    .app-shell .farmer-table td:nth-child(3){width:11%}
+    .app-shell .farmer-table td:nth-child(3){width:10%}
+    .app-shell .farmer-table th:nth-child(4),
+    .app-shell .farmer-table td:nth-child(4){width:12%}
     .app-shell .farmer-table th:nth-child(5),
-    .app-shell .farmer-table td:nth-child(5){width:15%}
+    .app-shell .farmer-table td:nth-child(5){width:13%}
     .app-shell .farmer-table th:nth-child(6),
-    .app-shell .farmer-table td:nth-child(6){width:20%}
+    .app-shell .farmer-table td:nth-child(6){width:15%}
     .app-shell .farmer-table th:nth-child(7),
-    .app-shell .farmer-table td:nth-child(7){width:13%}
+    .app-shell .farmer-table td:nth-child(7){width:10%}
     .app-shell .farmer-table th:nth-child(8),
-    .app-shell .farmer-table td:nth-child(8){width:10%}
+    .app-shell .farmer-table td:nth-child(8){width:12%}
     .app-shell .parcel-table th:nth-child(1),
     .app-shell .parcel-table td:nth-child(1){width:8%;padding-right:8px!important}
     .app-shell .parcel-table th:nth-child(2),
@@ -96,6 +126,75 @@
         height:auto!important;
         white-space:normal!important;
         overflow-wrap:anywhere!important
+    }
+    .app-shell .recent-requests-table th:nth-child(1),
+    .app-shell .recent-requests-table td:nth-child(1){width:24%}
+    .app-shell .recent-requests-table th:nth-child(2),
+    .app-shell .recent-requests-table td:nth-child(2){width:46%}
+    .app-shell .recent-requests-table th:nth-child(3),
+    .app-shell .recent-requests-table td:nth-child(3){width:17%}
+    .app-shell .recent-requests-table th:nth-child(4),
+    .app-shell .recent-requests-table td:nth-child(4){width:13%}
+    .app-shell .recent-requests-table td:nth-child(2){
+        white-space:normal!important;
+        overflow-wrap:normal!important;
+        word-break:normal!important
+    }
+    .app-shell .farmer-master-preview th:nth-child(1),
+    .app-shell .farmer-master-preview td:nth-child(1){width:9%}
+    .app-shell .farmer-master-preview th:nth-child(2),
+    .app-shell .farmer-master-preview td:nth-child(2){width:22%}
+    .app-shell .farmer-master-preview th:nth-child(3),
+    .app-shell .farmer-master-preview td:nth-child(3){width:12%}
+    .app-shell .farmer-master-preview th:nth-child(4),
+    .app-shell .farmer-master-preview td:nth-child(4){width:12%}
+    .app-shell .farmer-master-preview th:nth-child(5),
+    .app-shell .farmer-master-preview td:nth-child(5){width:12%}
+    .app-shell .farmer-master-preview th:nth-child(6),
+    .app-shell .farmer-master-preview td:nth-child(6){width:13%}
+    .app-shell .farmer-master-preview th:nth-child(7),
+    .app-shell .farmer-master-preview td:nth-child(7){width:12%}
+    .app-shell .farmer-master-preview th:nth-child(8),
+    .app-shell .farmer-master-preview td:nth-child(8){width:8%}
+    .app-shell .crop-table th:nth-child(1),
+    .app-shell .crop-table td:nth-child(1){width:10%;padding-right:6px!important}
+    .app-shell .crop-table th:nth-child(2),
+    .app-shell .crop-table td:nth-child(2){width:35%;padding-left:6px!important}
+    .app-shell .crop-table th:nth-child(3),
+    .app-shell .crop-table td:nth-child(3){width:18%}
+    .app-shell .crop-table th:nth-child(4),
+    .app-shell .crop-table td:nth-child(4){width:20%}
+    .app-shell .crop-table th:nth-child(5),
+    .app-shell .crop-table td:nth-child(5){width:17%}
+    .app-shell .crop-table .crop-farmer-name{
+        white-space:normal!important;
+        overflow-wrap:break-word!important;
+        word-break:normal!important
+    }
+    .app-shell .crop-table .crop-actions{
+        flex-wrap:nowrap!important
+    }
+    .app-shell .report-table-wrap{
+        overflow-x:auto!important;
+        overflow-y:auto!important;
+        max-height:460px!important;
+        scrollbar-gutter:stable
+    }
+    .app-shell .report-table-wrap>.report-preview-table{
+        width:max-content!important;
+        min-width:100%!important;
+        table-layout:auto!important
+    }
+    .app-shell .report-preview-table :is(th,td){
+        width:auto!important;
+        min-width:120px!important;
+        white-space:nowrap!important;
+        overflow:visible!important;
+        overflow-wrap:normal!important;
+        word-break:normal!important
+    }
+    .app-shell .farmer-master-preview :is(th,td):nth-child(2){
+        min-width:230px!important
     }
 }
 

@@ -2145,3 +2145,70 @@ body[data-theme="dark"] .rosario-dashboard .commodity-horizontal-row strong{colo
     .rosario-dashboard.dashboard-simplified .dashboard-metrics{grid-template-columns:1fr}
     .rosario-dashboard .commodity-horizontal-row{grid-template-columns:82px minmax(80px,1fr) 28px}
 }
+
+/* Give the two operational panels priority on wide staff workstations. */
+@media(min-width:1051px){
+    .rosario-dashboard.dashboard-simplified{
+        width:100%;
+        max-width:none
+    }
+    .rosario-dashboard.dashboard-simplified .dashboard-insights{
+        grid-template-columns:minmax(0,1.8fr) minmax(360px,1fr);
+        align-items:stretch;
+        gap:16px
+    }
+    .rosario-dashboard.dashboard-simplified .crop-chart-card,
+    .rosario-dashboard.dashboard-simplified .request-overview-card{
+        min-height:340px;
+        padding:26px 28px
+    }
+    .rosario-dashboard .dashboard-insights .card-heading h2{
+        font-size:19px
+    }
+    .rosario-dashboard .dashboard-insights .card-heading p{
+        font-size:11px
+    }
+    .rosario-dashboard .commodity-horizontal-chart{
+        gap:16px;
+        margin-top:28px
+    }
+    .rosario-dashboard .commodity-horizontal-row{
+        grid-template-columns:minmax(170px,210px) minmax(180px,1fr) 44px;
+        gap:16px
+    }
+    .rosario-dashboard .commodity-horizontal-label{
+        overflow:visible;
+        font-size:13px;
+        line-height:1.25;
+        text-overflow:clip;
+        white-space:normal
+    }
+    .rosario-dashboard .commodity-horizontal-track{
+        height:20px
+    }
+    .rosario-dashboard .commodity-horizontal-row strong{
+        font-size:14px
+    }
+    .rosario-dashboard .request-overview-grid{
+        grid-auto-rows:1fr;
+        gap:12px;
+        margin-top:22px
+    }
+    .rosario-dashboard .request-overview-grid>a{
+        min-height:92px;
+        grid-template-columns:10px minmax(0,1fr) auto;
+        gap:10px;
+        padding:18px 15px
+    }
+    .rosario-dashboard .request-overview-grid small{
+        font-size:12px;
+        line-height:1.3
+    }
+    .rosario-dashboard .request-overview-grid b{
+        font-size:26px
+    }
+    .rosario-dashboard .request-overview-grid .status-dot{
+        width:10px;
+        height:10px
+    }
+}

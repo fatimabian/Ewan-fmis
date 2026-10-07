@@ -83,6 +83,7 @@ def report_preview(report_type, date_range, filters, system_report=False):
     title, headers, rows = builder(report_type, date_range, filters)
     chart_values = defaultdict(float)
     value_label = "Records"
+    show_chart = report_type != "farmer_master"
 
     if report_type == "system_overview":
         for row in rows:
@@ -97,9 +98,10 @@ def report_preview(report_type, date_range, filters, system_report=False):
             chart_values[row[2] or "FMIS"] += 1
         value_label = "Activities"
     elif report_type == "farmer_master":
-        for row in rows:
-            chart_values[row[15] or "Not recorded"] += 1
-        value_label = "Farmers"
+        # A master list is for reviewing individual farmer records. Barangay is
+        # retained as a filter and a table field, not used as a substitute for
+        # the farmer information itself.
+        pass
     elif report_type == "commodity_per_parcel":
         for row in rows:
             chart_values[row[4] or "Not recorded"] += 1
@@ -148,14 +150,43 @@ def report_preview(report_type, date_range, filters, system_report=False):
                 "width": max(2, round(float(value) / peak * 100)) if value else 0,
             }
         )
+    preview_headers = headers
+    preview_rows = rows
+    if report_type == "farmer_master":
+        preview_headers = [
+            "Farmer ID",
+            "Farmer Name",
+            "RSBSA ID",
+            "Registration Status",
+            "Barangay",
+            "Phone",
+            "Livelihood",
+            "Farm Records",
+        ]
+        preview_rows = [
+            [
+                row[0],
+                row[8],
+                row[2],
+                row[3],
+                row[15],
+                row[20],
+                row[32],
+                f"{row[47]} parcel(s) · {row[50]} crop(s)",
+            ]
+            for row in rows
+        ]
+
     return {
         "title": title,
-        "headers": headers,
-        "rows": rows[:50],
+        "headers": preview_headers,
+        "rows": preview_rows[:50],
         "total_rows": len(rows),
         "truncated": len(rows) > 50,
         "chart": chart,
         "value_label": value_label,
+        "show_chart": show_chart,
+        "is_farmer_master": report_type == "farmer_master",
     }
 
 

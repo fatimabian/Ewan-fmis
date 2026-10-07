@@ -18,8 +18,8 @@
       href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}"
       rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=2">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=13">
-    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=13">
+    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=18">
+    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=16">
   </head>
   <body>
     <div class="landing-progress" id="landingProgress" aria-hidden="true"></div>
@@ -74,10 +74,6 @@
                 <i class="bi bi-chevron-down"></i>
               </a>
             </div>
-            <p class="hero-caption">
-              <i class="bi bi-check-circle-fill"></i>
-              Reliable farmer and farm records for Rosario.
-            </p>
           </div>
 
           <section
@@ -315,13 +311,6 @@
             <i class="bi bi-person-vcard"></i>
             <h3>Farmer records</h3>
             <p>Registration, personal updates, supporting documents, and update history.</p>
-            <button class="feature-toggle" type="button" aria-expanded="false">
-              View details
-              <i class="bi bi-plus"></i>
-            </button>
-            <div class="feature-more" hidden>
-              Slip A changes retain old and new values so concerns can be reviewed clearly.
-            </div>
           </article>
 
           <article class="capability-card" data-reveal>
@@ -329,13 +318,6 @@
             <i class="bi bi-map"></i>
             <h3>Parcels and crops</h3>
             <p>Rosario-only maps, terrain or satellite pins, parcel tenure, and commodities.</p>
-            <button class="feature-toggle" type="button" aria-expanded="false">
-              View details
-              <i class="bi bi-plus"></i>
-            </button>
-            <div class="feature-more" hidden>
-              Slip B organizes each parcel and allows multiple crop or commodity entries.
-            </div>
           </article>
 
           <article class="capability-card" data-reveal>
@@ -343,13 +325,6 @@
             <i class="bi bi-clipboard2-check"></i>
             <h3>Service coordination</h3>
             <p>Requests, priorities, assigned personnel, progress, and clear status tracking.</p>
-            <button class="feature-toggle" type="button" aria-expanded="false">
-              View details
-              <i class="bi bi-plus"></i>
-            </button>
-            <div class="feature-more" hidden>
-              Staff can find open concerns quickly and retain a readable service history.
-            </div>
           </article>
 
           <article class="capability-card" data-reveal>
@@ -357,13 +332,6 @@
             <i class="bi bi-bar-chart-line"></i>
             <h3>Reports and planning</h3>
             <p>Farmer statistics, crop trends, filtered exports, weather, and seasonal guidance.</p>
-            <button class="feature-toggle" type="button" aria-expanded="false">
-              View details
-              <i class="bi bi-plus"></i>
-            </button>
-            <div class="feature-more" hidden>
-              Reports use maintained Rosario records and can be downloaded for office use.
-            </div>
           </article>
         </div>
       </section>
@@ -655,18 +623,6 @@
               }
               startCarousel();
               startServiceCarousel();
-          });
-
-          document.querySelectorAll(".feature-toggle").forEach(button => {
-              button.addEventListener("click", () => {
-                  const card = button.closest(".capability-card");
-                  const details = card.querySelector(".feature-more");
-                  const isOpen = button.getAttribute("aria-expanded") === "true";
-                  button.setAttribute("aria-expanded", String(!isOpen));
-                  details.hidden = isOpen;
-                  card.classList.toggle("is-open", !isOpen);
-                  button.querySelector("i").className = isOpen ? "bi bi-plus" : "bi bi-dash";
-              });
           });
 
           const recoveryDialog = document.getElementById('passwordRecoveryDialog');

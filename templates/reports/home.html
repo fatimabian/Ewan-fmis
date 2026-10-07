@@ -41,6 +41,14 @@
       padding:7px 8px;
       border-bottom:1px solid #eef2f5
   }
+  #filteredReport{
+      align-self:start;
+      min-height:0
+  }
+  #filteredReport .report-table-wrap{
+      height:auto!important;
+      min-height:0!important
+  }
   .status-badge{
       display:inline-block;
       padding:2px 8px;
@@ -983,7 +991,9 @@
             <div>
               <h3>{{ report_preview.title|upper }}</h3>
               <p>
-                {% if request.user.is_admin %}
+                {% if report_preview.is_farmer_master %}
+                  Farmer records shown below follow the selected year, barangay, commodity, and period filters.
+                {% elif request.user.is_admin %}
                   The graph and table use the selected system report, period, role, account status, and module filters.
                 {% else %}
                   The graph and table use the selected year, barangay, commodity, period, and any category-specific filter shown above.
@@ -995,30 +1005,32 @@
               <p>matching row{{ report_preview.total_rows|pluralize }}</p>
             </div>
           </div>
-          {% if report_preview.chart %}
-            <div class="preview-chart"
-                 role="img"
-                 aria-label="{{ report_preview.title }} chart based on {{ report_preview.total_rows }} matching database rows">
-              {% for item in report_preview.chart %}
-                <div class="preview-chart-row">
-                  <span>{{ item.label }}</span>
-                  <span class="preview-chart-track">
-                    <i style="width:{{ item.width }}%">
-                    </i>
-                  </span>
-                  <strong>{{ item.value }} {{ report_preview.value_label|lower }}</strong>
-                </div>
-              {% endfor %}
-            </div>
-          {% else %}
-            <p class="staff-chart-empty">
-              <i class="bi bi-info-circle">
-              </i> No records match the selected filters.
-            </p>
+          {% if report_preview.show_chart %}
+            {% if report_preview.chart %}
+              <div class="preview-chart"
+                   role="img"
+                   aria-label="{{ report_preview.title }} chart based on {{ report_preview.total_rows }} matching database rows">
+                {% for item in report_preview.chart %}
+                  <div class="preview-chart-row">
+                    <span>{{ item.label }}</span>
+                    <span class="preview-chart-track">
+                      <i style="width:{{ item.width }}%">
+                      </i>
+                    </span>
+                    <strong>{{ item.value }} {{ report_preview.value_label|lower }}</strong>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="staff-chart-empty">
+                <i class="bi bi-info-circle">
+                </i> No records match the selected filters.
+              </p>
+            {% endif %}
           {% endif %}
           {% if report_preview.rows %}
-            <div class="report-table-wrap">
-              <table class="report-preview-table">
+            <div class="report-table-wrap{% if report_preview.is_farmer_master %} farmer-master-table-wrap{% endif %}">
+              <table class="report-preview-table{% if report_preview.is_farmer_master %} farmer-master-preview{% endif %}">
                 <thead>
                   <tr>
                     {% for header in report_preview.headers %}
@@ -1141,8 +1153,8 @@
                     <tr>
                       <th>Farmer</th>
                       <th>Service</th>
-                      <th>Status</th>
                       <th>Date</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1150,10 +1162,10 @@
                       <tr>
                         <td>{{ r.farmer }}</td>
                         <td>{{ r.service }}</td>
+                        <td>{{ r.date }}</td>
                         <td>
                           <span class="status-badge" style="--badge-outline:{{ r.color }}">{{ r.label }}</span>
                         </td>
-                        <td>{{ r.date }}</td>
                       </tr>
                     {% empty %}
                       <tr>

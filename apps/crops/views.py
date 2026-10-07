@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from urllib.parse import urlencode
+from datetime import date
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
@@ -91,16 +92,21 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
                 for parcel in farmer.listed_parcels
                 for crop in parcel.listed_crops
             ]
-            farmer.listed_crop_names = ", ".join(
-                dict.fromkeys(crop.crop_type for crop in farmer.listed_crop_records)
+            farmer.latest_listed_crop = max(
+                farmer.listed_crop_records,
+                key=lambda crop: (crop.planting_date or date.min, crop.pk),
+                default=None,
             )
-            farmer.listed_planting_dates = ", ".join(
-                dict.fromkeys(
-                    crop.planting_date.strftime("%b %d, %Y")
-                    for crop in farmer.listed_crop_records
-                    if crop.planting_date
-                )
-            ) or "Not set"
+            farmer.listed_crop_name = (
+                farmer.latest_listed_crop.crop_type
+                if farmer.latest_listed_crop
+                else "Not recorded"
+            )
+            farmer.listed_planting_date = (
+                farmer.latest_listed_crop.planting_date.strftime("%b %d, %Y")
+                if farmer.latest_listed_crop and farmer.latest_listed_crop.planting_date
+                else "Not set"
+            )
         return context
 
 

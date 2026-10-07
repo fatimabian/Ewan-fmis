@@ -217,7 +217,7 @@
           <div class="step-heading">
             <div>
               <h2>Supporting Documents</h2>
-              <p>Upload readable RSBSA identification and land-tenure documents.</p>
+              <p>Upload any readable document that supports the farmer's identity, address, or land tenure.</p>
             </div>
             <button type="button"
                     class="btn btn-success btn-add-outline btn-sm add-form-row"
@@ -241,7 +241,7 @@
           <div class="registration-note soft">
             <i class="bi bi-file-earmark-check">
             </i>
-            <span>One document form is provided initially and must be a Valid ID. Use Add Document only for another supporting file; every added document row must be completed. Accepted: JPG, PNG, and PDF up to 5 MB each.</span>
+            <span>At least one supporting document is required, but it does not have to be a Valid ID. Proof of address, ownership or tenure records, and other supporting documents are accepted. Every added row must be completed. Accepted files: JPG, PNG, and PDF up to 5 MB each.</span>
           </div>
           <div class="step-actions">
             <button type="button" class="btn btn-outline-secondary prev-step">
@@ -333,15 +333,6 @@
                   if (field.dataset.stepRequired && !String(field.value).trim()) field.setCustomValidity('Complete this required field.');
                   if (!field.checkValidity()) {
                       showStepError(step, field);
-                      return false
-                  }
-              }
-              if (current === 4) {
-                  const validId = [...document.querySelectorAll('#documents-rows select[name$="-document_type"]')].some(select => !select.closest('.deleted') && select.value === 'VALID_ID');
-                  if (!validId) {
-                      const first = document.querySelector('#documents-rows select[name$="-document_type"]');
-                      first?.setCustomValidity('At least one document must be a Valid ID.');
-                      showStepError(step, first, 'Add at least one Valid ID document before continuing.');
                       return false
                   }
               }
@@ -441,11 +432,12 @@
               const rule = type.value ? (idRules[type.value] || genericIdRule) : null;
               const help = number.closest('.registration-field')?.querySelector('small');
               number.setCustomValidity('');
+              number.required = Boolean(type.value);
               if (!rule) {
                   number.removeAttribute('pattern');
                   number.inputMode = 'text';
-                  number.placeholder = 'Choose an ID type first';
-                  if (help) help.textContent = 'The accepted format will appear after an ID type is selected.';
+                  number.placeholder = 'Optional when no valid ID is available';
+                  if (help) help.textContent = 'A valid ID is optional. Other supporting documents may be uploaded in Step 4.';
                   return
               }
               number.pattern = rule.pattern;

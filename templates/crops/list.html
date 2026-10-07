@@ -174,24 +174,24 @@
                 <td>
                   <a class="record-cell-link" href="{% url 'crops:farmer_detail' farmer.pk %}">{{ farmer.record_id }}</a>
                 </td>
-                <td>{{ farmer.list_name }}</td>
-                <td>{{ farmer.listed_crop_names }}</td>
-                <td>{{ farmer.listed_planting_dates }}</td>
+                <td class="crop-farmer-name">{{ farmer.full_name }}</td>
+                <td>{{ farmer.listed_crop_name }}</td>
+                <td>{{ farmer.listed_planting_date }}</td>
                 <td>
                   <div class="crop-actions">
-                    <a href="{% url 'crops:farmer_detail' farmer.pk %}" title="Open all crop records for {{ farmer.list_name }}" aria-label="Open all crop records for {{ farmer.list_name }}">
+                    <a href="{% url 'crops:farmer_detail' farmer.pk %}" title="Open all crop records for {{ farmer.full_name }}" aria-label="Open all crop records for {{ farmer.full_name }}">
                       <i class="bi bi-pencil-square" aria-hidden="true"></i>
                     </a>
                     <form method="post"
                           action="{% url 'crops:farmer_archive' farmer.pk %}"
-                          data-confirm="{% if request.GET.status == 'archived' %}Restore the displayed archived crop records for {{ farmer.list_name|escape }}?{% else %}Archive the displayed crop records for {{ farmer.list_name|escape }}? No data will be permanently deleted.{% endif %}">
+                          data-confirm="{% if request.GET.status == 'archived' %}Restore the displayed archived crop records for {{ farmer.full_name|escape }}?{% else %}Archive the displayed crop records for {{ farmer.full_name|escape }}? No data will be permanently deleted.{% endif %}">
                       {% csrf_token %}
                       {% if request.GET.status == 'archived' %}<input type="hidden" name="action" value="restore">{% endif %}
                       {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}">{% endif %}
                       {% if request.GET.crop_type %}<input type="hidden" name="crop_type" value="{{ request.GET.crop_type }}">{% endif %}
                       {% if request.GET.year %}<input type="hidden" name="year" value="{{ request.GET.year }}">{% endif %}
                       {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
-                      <button type="submit" title="{% if request.GET.status == 'archived' %}Restore{% else %}Archive{% endif %} displayed crop records" aria-label="{% if request.GET.status == 'archived' %}Restore{% else %}Archive{% endif %} displayed crop records for {{ farmer.list_name }}">
+                      <button type="submit" title="{% if request.GET.status == 'archived' %}Restore{% else %}Archive{% endif %} displayed crop records" aria-label="{% if request.GET.status == 'archived' %}Restore{% else %}Archive{% endif %} displayed crop records for {{ farmer.full_name }}">
                         <i class="bi {% if request.GET.status == 'archived' %}bi-arrow-counterclockwise{% else %}bi-archive{% endif %}" aria-hidden="true"></i>
                       </button>
                     </form>

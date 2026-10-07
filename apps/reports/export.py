@@ -218,35 +218,15 @@ def build_report(report_type, date_range, filters=None, compact=False):
                 for crop in crops
             ]
             if compact:
-                parcel_summary = [
-                    f"{parcel.display_name}: {parcel.area_hectares} ha, {parcel.barangay}; "
-                    f"{parcel.get_ownership_type_display()}; "
-                    f"{parcel.get_land_type_display()}; "
-                    f"{parcel.get_farm_type_display() or 'Farm type not recorded'}"
-                    for parcel in parcels
-                ]
-                crop_summary = [
-                    f"{crop.crop_type} ({crop.parcel.display_name}): {crop.area_hectares} ha; "
-                    f"schedule {crop.cropping_schedule or 'not recorded'}; "
-                    f"planted {crop.planting_date or 'not recorded'}"
-                    for crop in crops
-                ]
                 rows.append([
                     farmer.record_id,
-                    farmer.rsbsa_number or "-",
                     farmer.full_name,
-                    farmer.get_sex_display() or "-",
-                    farmer.birth_date or "-",
+                    farmer.rsbsa_number or "Not assigned",
+                    farmer.get_registration_status_display(),
                     farmer.barangay,
-                    farmer.city_municipality,
                     farmer.phone_number or "-",
-                    farmer.email or "-",
                     farmer.get_livelihood_display(),
-                    len(parcels),
-                    sum((parcel.area_hectares for parcel in parcels), 0),
-                    " | ".join(parcel_summary) or "No active parcel",
-                    len(crops),
-                    " | ".join(crop_summary) or "No active crop",
+                    f"{len(parcels)} parcel(s) · {len(crops)} crop(s)",
                 ])
                 continue
             document_details = [
@@ -282,10 +262,8 @@ def build_report(report_type, date_range, filters=None, compact=False):
             return (
                 "Farmer Master List",
                 [
-                    "Farmer ID", "RSBSA Number", "Full Name", "Sex", "Birth Date",
-                    "Barangay", "Municipality", "Phone", "Email", "Livelihood",
-                    "Parcel Count", "Total Parcel Area (ha)", "Farm Parcel Summary",
-                    "Crop Record Count", "Crop Summary",
+                    "Farmer ID", "Farmer Name", "RSBSA ID", "Status", "Barangay",
+                    "Phone", "Livelihood", "Farm Records",
                 ],
                 rows,
             )
@@ -1101,8 +1079,6 @@ def generate_report(report_type, output_format, date_range, filters=None):
         compact=output_format == "pdf" and report_type == "farmer_master",
     )
     if output_format == "pdf":
-        if report_type == "farmer_master":
-            return _farmer_master_pdf_response(title, headers, rows, date_range, filters)
         return _pdf_response(title, headers, rows, date_range, filters)
     return _csv_response(title, headers, rows, date_range, filters)
 

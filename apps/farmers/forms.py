@@ -208,8 +208,8 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
     valid_id_type = forms.ChoiceField(
         choices=VALID_ID_CHOICES,
-        required=True,
-        label="Valid ID type",
+        required=False,
+        label="Valid ID type (optional)",
     )
     is_indigenous = YesNoNAField(label="Member of an Indigenous People / ICC")
     is_pwd = YesNoNAField(label="Person with Disability (PWD)")
@@ -299,8 +299,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "province",
             "phone_number",
             "civil_status",
-            "valid_id_type",
-            "valid_id_number",
             "livelihood",
         ):
             if name in self.fields:
@@ -347,7 +345,7 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             }
         )
         self.fields["valid_id_number"].help_text = (
-            "The accepted format will appear after an ID type is selected."
+            "Optional when the farmer has no valid ID. If an ID type is selected, enter its number."
         )
         today = timezone.localdate()
         try:
@@ -406,6 +404,10 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             or valid_id_type != original_id_type
             or valid_id_number != original_id_number
         )
+        if valid_id_type and not valid_id_number:
+            self.add_error("valid_id_number", "Enter the number shown on the selected ID.")
+        elif valid_id_number and not valid_id_type:
+            self.add_error("valid_id_type", "Select the type of ID for this number.")
         if valid_id_type and valid_id_number and id_was_changed:
             rule = VALID_ID_RULES.get(valid_id_type)
             if rule and not re.fullmatch(rule[0], valid_id_number):
@@ -914,13 +916,13 @@ class BaseDocumentRegistrationFormSet(BaseRequiredRegistrationFormSet):
         super().clean()
         if any(self.errors):
             return
-        document_types = {
-            form.cleaned_data.get("document_type")
+        active_documents = [
+            form.cleaned_data
             for form in self.forms
             if form.cleaned_data and not form.cleaned_data.get("DELETE")
-        }
-        if "VALID_ID" not in document_types:
-            raise ValidationError("Add at least one Valid ID document for the RSBSA registration.")
+        ]
+        if not active_documents:
+            raise ValidationError("Add at least one supporting document for the registration.")
 
 
 ParcelRegistrationFormSet = formset_factory(

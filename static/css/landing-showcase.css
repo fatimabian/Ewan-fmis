@@ -809,17 +809,18 @@ a{
 
 .capability-card{
     position:relative;
-    min-height:310px;
+    min-height:240px;
     padding:23px;
     border:1px solid #dcded4;
     border-radius:13px;
-    background:rgba(246,251,244,.82);
-    transition:transform .2s ease,background .2s ease;
+    background:#fff;
+    transition:transform .2s ease,background-color .2s ease,border-color .2s ease;
 }
 
 .capability-card:hover,
 .capability-card.is-open{
-    background:var(--landing-surface-strong);
+    border-color:#b9d8c3;
+    background:#edf8f0;
     transform:translateY(-4px);
 }
 
@@ -848,35 +849,10 @@ a{
     font:700 18px "Trebuchet MS",Arial,sans-serif;
 }
 
-.capability-card>p,
-.feature-more{
+.capability-card>p{
     color:var(--landing-muted);
     font-size:12px;
     line-height:1.65;
-}
-
-.feature-toggle{
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;
-    gap:8px;
-    width:max-content;
-    margin:22px 0 0 auto;
-    padding:8px 0;
-    border:0!important;
-    border-radius:0!important;
-    outline:0!important;
-    background:transparent!important;
-    box-shadow:none!important;
-    color:var(--landing-green);
-    font-size:10px;
-    font-weight:800;
-    text-align:right;
-    cursor:pointer;
-}
-
-.feature-more{
-    margin-top:10px;
 }
 
 .about-section{

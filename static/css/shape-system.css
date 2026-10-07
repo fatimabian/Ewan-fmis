@@ -66,6 +66,19 @@ html body :is(
     transition:box-shadow .18s ease,transform .18s ease,border-color .18s ease!important
 }
 
+/* Button labels and their icons stay centered as one visual unit. */
+html body :is(.btn,input[type="button"],input[type="submit"],input[type="reset"]):not(#fmis-shape-specificity){
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:7px;
+    text-align:center!important
+}
+
+html body button:not(#fmis-shape-specificity){
+    text-align:center!important
+}
+
 html body :is(
     .btn-outline-secondary,
     .btn-danger,
@@ -208,8 +221,8 @@ html body select:not([multiple]):not(#fmis-shape-specificity){
     appearance:none;
     -webkit-appearance:none;
     padding-right:38px!important;
-    border:0!important;
-    border-radius:0!important;
+    border:1px solid #c7d5cd!important;
+    border-radius:6px!important;
     background-color:var(--surface,#fff)!important;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23334155' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m4 6 4 4 4-4'/%3E%3C/svg%3E")!important;
     background-repeat:no-repeat!important;
@@ -218,39 +231,35 @@ html body select:not([multiple]):not(#fmis-shape-specificity){
 }
 
 html body select:not([multiple]):not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
-    border:0!important;
+    border-color:var(--fmis-accent,#2f7d5c)!important;
     outline:0!important;
-    box-shadow:none!important
+    box-shadow:0 0 0 3px rgba(47,125,92,.14)!important
 }
 
 html body[data-theme="dark"] select:not([multiple]):not(#fmis-shape-specificity){
+    border-color:#526177!important;
     background-color:#1c2735!important;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23e2e8f0' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m4 6 4 4 4-4'/%3E%3C/svg%3E")!important
 }
 
-/* Searchable record selectors follow the same borderless dropdown language. */
+/* Searchable record selectors follow the same clearly bordered dropdown language. */
 html body .farmer-picker-control:not(#fmis-shape-specificity),
 html body .farmer-picker:focus-within .farmer-picker-control:not(#fmis-shape-specificity){
-    grid-template-columns:minmax(0,1fr) 24px!important;
-    border:0!important;
-    border-radius:0!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    border:1px solid #c7d5cd!important;
+    border-radius:6px!important;
     outline:0!important;
     box-shadow:none!important
 }
 
-html body .farmer-picker-control:not(#fmis-shape-specificity)::after{
-    content:"\2304";
-    display:grid;
-    place-items:center;
-    color:#334155;
-    font-size:18px;
-    line-height:1;
-    pointer-events:none
+html body .farmer-picker:focus-within .farmer-picker-control:not(#fmis-shape-specificity){
+    border-color:var(--fmis-accent,#2f7d5c)!important;
+    box-shadow:0 0 0 3px rgba(47,125,92,.14)!important
 }
 
 html body .farmer-picker-list:not(#fmis-shape-specificity){
-    border:0!important;
-    border-radius:0!important
+    border:1px solid #c7d5cd!important;
+    border-radius:6px!important
 }
 
 html body .farmer-picker-option:not(#fmis-shape-specificity),
@@ -267,19 +276,22 @@ html body .farmer-picker-option:last-child:not(#fmis-shape-specificity){
     border-bottom:0!important
 }
 
-html body[data-theme="dark"] .farmer-picker-control:not(#fmis-shape-specificity)::after{
-    color:#e2e8f0
+html body[data-theme="dark"] .farmer-picker-control:not(#fmis-shape-specificity),
+html body[data-theme="dark"] .farmer-picker-list:not(#fmis-shape-specificity){
+    border-color:#526177!important
 }
 
 /* Report navigation is a quiet text link, not a pill-shaped button. */
 html body .report-text-link:not(#fmis-shape-specificity),
 html body .report-text-link:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
-    display:flex!important;
+    display:inline-flex!important;
     align-items:center;
     justify-content:flex-end;
     gap:8px;
-    width:100%;
-    padding:7px 2px!important;
+    width:max-content!important;
+    max-width:100%;
+    margin-left:auto!important;
+    padding:7px 0!important;
     border:0!important;
     border-radius:0!important;
     background:transparent!important;
