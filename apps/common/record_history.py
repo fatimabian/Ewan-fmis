@@ -19,7 +19,9 @@ def farmer_update_rows(entries):
             **_actor_details(entry.actor),
             "audit_id": f"FUH-{entry.pk:06d}",
             "title": entry.get_update_type_display(),
-            "status": entry.transaction_code,
+            "transaction_code": entry.transaction_code,
+            "status": "Completed",
+            "status_label": "Update status",
             "reason": (
                 entry.remarks
                 if entry.update_type == "STATUS"
@@ -42,7 +44,9 @@ def activity_rows(entries):
             **_actor_details(entry.actor),
             "audit_id": f"AL-{entry.pk:06d}",
             "title": entry.title or entry.action,
+            "transaction_code": "",
             "status": entry.status,
+            "status_label": "Activity status",
             "reason": entry.reason or entry.description,
             "changes": entry.details,
         }
@@ -67,7 +71,9 @@ def service_request_rows(entries):
             **_actor_details(entry.actor),
             "audit_id": f"SRH-{entry.pk:06d}",
             "title": entry.get_action_display(),
+            "transaction_code": "",
             "status": status,
+            "status_label": "Status change",
             "reason": "",
             "changes": entry.changes,
         })

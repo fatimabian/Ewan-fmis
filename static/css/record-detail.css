@@ -10,6 +10,29 @@
     justify-content:space-between;
     gap:12px
 }
+
+.record-save-confirmation{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0 0 16px;
+    padding:12px 16px;
+    border-left:4px solid #218358;
+    background:#eaf7ef;
+    color:#154f39;
+    line-height:1.45
+}
+
+.record-save-confirmation i{
+    flex:0 0 auto;
+    color:#218358;
+    font-size:1.2rem
+}
+
+body[data-theme="dark"] .record-save-confirmation{
+    background:#173a2c;
+    color:#d8f3e5
+}
 .record-detail-nav>a{
     display:inline-flex;
     align-items:center;
@@ -625,6 +648,103 @@ body[data-theme="dark"] .record-single-section>h3{
     margin:-4px 0 20px;
     color:var(--text-muted,#64748b)
 }
+.history-creation-summary{
+    margin:0 0 18px;
+    border:1px solid #cfdad4;
+    border-left:4px solid #257a56;
+    background:#fff
+}
+.history-creation-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 16px;
+    background:#edf6f1;
+    color:#174b36
+}
+.history-creation-title>span{
+    display:grid;
+    gap:2px
+}
+.history-creation-title small{
+    color:#557064
+}
+.history-creation-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    margin:0
+}
+.history-creation-grid>div{
+    min-width:0;
+    padding:12px 16px;
+    border-top:1px solid #e1e8e4;
+    border-right:1px solid #e1e8e4
+}
+.history-creation-grid dt{
+    margin:0 0 4px;
+    color:#5c6b63;
+    font-size:.75rem;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase
+}
+.history-creation-grid dd{
+    margin:0;
+    overflow-wrap:anywhere;
+    color:#17233a;
+    font-weight:600
+}
+.history-entry>summary{
+    border-left:4px solid #257a56!important;
+    background:#e5f3eb!important;
+    color:#123d2d!important
+}
+.history-entry[open]>summary{
+    background:#d5ebdf!important
+}
+.history-entry>summary small,
+.history-entry>summary .history-code{
+    color:#365f4d!important
+}
+.history-summary-meta{
+    display:inline-flex!important;
+    align-items:center;
+    justify-content:flex-end;
+    gap:14px;
+    margin-left:auto
+}
+.history-summary-arrow{
+    flex:0 0 auto;
+    color:#257a56;
+    font-size:1rem;
+    transition:transform .18s ease
+}
+.history-entry[open] .history-summary-arrow{
+    transform:rotate(180deg)
+}
+html body .app-shell .history-change-table thead th{
+    background:#ecefed!important;
+    color:#26362f!important
+}
+.history-information-heading{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap
+}
+.history-transaction-code{
+    min-height:24px;
+    display:inline-flex;
+    align-items:center;
+    margin-left:4px;
+    padding-left:18px;
+    border-left:2px solid var(--fmis-accent,#2f7d5c);
+    color:inherit;
+    font-size:.72rem;
+    font-weight:600;
+    letter-spacing:0;
+    text-transform:none
+}
 .history-page .empty-state{
     min-height:180px;
     display:grid;
@@ -643,7 +763,43 @@ body[data-theme="dark"] .record-single-section>h3{
 .history-page .record-detail-nav .btn-success i{
     color:#fff!important
 }
+body[data-theme="dark"] .history-entry>summary,
+body[data-theme="dark"] .history-entry[open]>summary{
+    border-left-color:#59b88a!important;
+    background:#1d4937!important;
+    color:#eefaf4!important
+}
+body[data-theme="dark"] .history-entry>summary small,
+body[data-theme="dark"] .history-entry>summary .history-code,
+body[data-theme="dark"] .history-summary-arrow{
+    color:#cbe8d9!important
+}
+body[data-theme="dark"] .app-shell .history-change-table thead th{
+    background:#343a37!important;
+    color:#f2f5f3!important
+}
+body[data-theme="dark"] .history-creation-summary{
+    border-color:#3c594b;
+    border-left-color:#59b88a;
+    background:#222a26
+}
+body[data-theme="dark"] .history-creation-title{
+    background:#1d4937;
+    color:#eefaf4
+}
+body[data-theme="dark"] .history-creation-title small,
+body[data-theme="dark"] .history-creation-grid dt{
+    color:#b9d5c7
+}
+body[data-theme="dark"] .history-creation-grid>div{
+    border-color:#3c4942
+}
+body[data-theme="dark"] .history-creation-grid dd{
+    color:#f2f5f3
+}
 @media(max-width:600px){
     .history-page-card{padding:0 16px 18px}
     .history-change-table{min-width:520px}
+    .history-creation-grid{grid-template-columns:1fr}
+    .history-summary-meta{width:100%;margin-left:0;justify-content:space-between}
 }

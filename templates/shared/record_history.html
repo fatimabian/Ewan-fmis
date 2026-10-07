@@ -10,15 +10,35 @@
   <section class="record-single-section history-page-card">
     <h3><i class="bi bi-clock-history"></i> {{ history_title }}</h3>
     <p class="history-record-label">{{ record_label }}</p>
+    {% if record_creation %}
+      <section class="history-creation-summary" aria-labelledby="recordCreationHeading">
+        <div class="history-creation-title">
+          <i class="bi bi-person-check" aria-hidden="true"></i>
+          <span><strong id="recordCreationHeading">Record created</strong><small>{{ record_creation.reference }}</small></span>
+        </div>
+        <dl class="history-creation-grid">
+          <div><dt>Farmer name</dt><dd>{{ record_creation.name }}</dd></div>
+          <div><dt>Created by</dt><dd>{{ record_creation.actor }}</dd></div>
+          <div><dt>Account</dt><dd>{{ record_creation.account }}</dd></div>
+          <div><dt>Role</dt><dd>{{ record_creation.role }}</dd></div>
+          <div><dt>Date created</dt><dd>{{ record_creation.date|date:'M d, Y' }}</dd></div>
+          <div><dt>Time created</dt><dd>{{ record_creation.date|date:'g:i:s A' }}</dd></div>
+          <div><dt>Current status</dt><dd>{{ record_creation.status }}</dd></div>
+        </dl>
+      </section>
+    {% endif %}
     <div class="farmer-history-list">
       {% for entry in history_entries %}
         <details class="history-entry" {% if forloop.first %}open{% endif %}>
           <summary>
             <span><strong>{{ entry.title }}</strong><small>Audit entry {{ entry.audit_id }}</small></span>
-            {% if entry.status %}<span class="history-code">{{ entry.status }}</span>{% endif %}
+            <span class="history-summary-meta">
+              {% if entry.status %}<span class="history-code">{{ entry.status_label|default:'Status' }}: {{ entry.status }}</span>{% endif %}
+              <i class="bi bi-chevron-down history-summary-arrow" aria-hidden="true"></i>
+            </span>
           </summary>
           <div class="history-audit-grid" aria-label="Edit audit information">
-            <div class="history-audit-item"><small>Edited by</small><strong>{{ entry.actor }}</strong></div>
+            <div class="history-audit-item"><small>{% if entry.is_creation %}Created by{% else %}Edited by{% endif %}</small><strong>{{ entry.actor }}</strong></div>
             <div class="history-audit-item"><small>Account</small><strong>{% if entry.actor_username %}@{{ entry.actor_username }}{% else %}Not available{% endif %}</strong></div>
             <div class="history-audit-item"><small>Role</small><strong>{{ entry.actor_role }}</strong></div>
             <div class="history-audit-item"><small>Date</small><strong>{{ entry.date|date:'M d, Y' }}</strong></div>
@@ -27,14 +47,14 @@
           {% if entry.reason %}<div class="history-meta"><strong>Reason / remarks</strong><span>{{ entry.reason }}</span></div>{% endif %}
           <div class="history-change-table-wrap">
             <table class="history-change-table">
-              <thead><tr><th>Information</th><th>Before</th><th>After</th></tr></thead>
+              <thead><tr><th><span class="history-information-heading"><span>Information</span>{% if entry.transaction_code %}<small class="history-transaction-code">Transaction code: {{ entry.transaction_code }}</small>{% endif %}</span></th><th>Before</th><th>After</th></tr></thead>
               <tbody>
                 {% for change in entry.changes %}<tr><td>{{ change.field }}</td><td>{{ change.before|default:'—' }}</td><td>{{ change.after|default:'—' }}</td></tr>{% empty %}<tr><td colspan="3">The action was recorded without field-level changes.</td></tr>{% endfor %}
               </tbody>
             </table>
           </div>
         </details>
-      {% empty %}<div class="empty-state"><i class="bi bi-clock-history"></i><p>No update history has been recorded for this record yet.</p></div>{% endfor %}
+      {% empty %}<div class="empty-state"><i class="bi bi-clock-history"></i><p>No Slip A updates have been recorded after this record was created.</p></div>{% endfor %}
     </div>
   </section>
 </div>

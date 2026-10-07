@@ -138,8 +138,8 @@ class FarmParcelHistoryView(
                 updates.append(entry)
         events = ActivityLog.objects.filter(module="Farm Parcels", target_label=f"{self.object.farmer.record_id} - {self.object.display_name}").select_related("actor")
         rows = farmer_update_rows(updates) + activity_rows(events)
-        rows.sort(key=lambda row: row["date"], reverse=True)
-        context.update({"history_title": "Farm Parcel Update History", "record_label": f"{self.object.display_name} · {self.object.farmer.full_name}", "back_url": reverse("farm_parcels:detail", args=[self.object.pk]), "edit_url": reverse("farm_parcels:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Slip B", "history_entries": rows})
+        rows.sort(key=lambda row: row["date"])
+        context.update({"history_title": "Slip B - Farm Parcel Update History", "record_label": f"{self.object.display_name} · {self.object.farmer.full_name}", "back_url": reverse("farm_parcels:detail", args=[self.object.pk]), "edit_url": reverse("farm_parcels:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Slip B", "history_entries": rows})
         return context
 
 
@@ -297,6 +297,7 @@ class ParcelSlipBAuditMixin:
     """Save land-only changes as an official Slip B update."""
 
     def form_valid(self, form):
+        is_update = bool(getattr(self, "object", None) and self.object.pk)
         farmer = form.cleaned_data["farmer"]
         before = farmer_snapshot(farmer)
         with transaction.atomic():
@@ -313,7 +314,8 @@ class ParcelSlipBAuditMixin:
                 date_received=form.cleaned_data.get("date_received"),
                 agriculturist_name=form.cleaned_data.get("agriculturist_name", ""),
             )
-        messages.success(self.request, "The farm parcel Slip B information was saved.")
+        if not is_update:
+            messages.success(self.request, "The farm parcel was saved.")
         return response
 
 
@@ -348,7 +350,7 @@ class FarmParcelUpdateView(
     template_name = "farm_parcels/form.html"
 
     def get_success_url(self):
-        return reverse("farm_parcels:detail", args=[self.object.pk])
+        return f'{reverse("farm_parcels:detail", args=[self.object.pk])}?saved=slip-b'
 
 
 class FarmParcelDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):

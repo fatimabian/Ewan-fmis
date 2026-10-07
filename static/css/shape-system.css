@@ -76,7 +76,23 @@ html body :is(.btn,input[type="button"],input[type="submit"],input[type="reset"]
 }
 
 html body button:not(#fmis-shape-specificity){
+    align-items:center!important;
+    justify-content:center!important;
     text-align:center!important
+}
+
+/* Record action labels remain centered even when a leading icon is present. */
+html body .record-detail-actions .btn:not(#fmis-shape-specificity){
+    position:relative!important;
+    justify-content:center!important;
+    padding-inline:42px!important;
+    text-align:center!important
+}
+
+html body .record-detail-actions .btn>i:first-child:not(#fmis-shape-specificity){
+    position:absolute;
+    left:16px;
+    margin:0!important
 }
 
 html body :is(
@@ -537,17 +553,114 @@ html body[data-theme="dark"] .fmis-date-trigger:not(#fmis-shape-specificity){
 
 html body .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity),
 html body .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    justify-content:space-between!important;
     border:1px solid #cbd8d0!important;
     border-radius:0!important;
     background:#fff!important;
     color:#17233a!important;
     box-shadow:none!important;
+    text-align:left!important;
     transform:none!important;
+}
+
+html body .fmis-date-field .fmis-date-trigger-text:not(#fmis-shape-specificity){
+    flex:1 1 auto;
+    min-width:0;
+    text-align:left!important
 }
 
 html body .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity):is(:hover,:focus-visible){
     border-color:var(--fmis-accent,#2f7d5c)!important;
     box-shadow:0 0 0 3px color-mix(in srgb,var(--fmis-accent,#2f7d5c) 16%,transparent)!important;
+}
+
+/* Compact management filters on phones without changing laptop layouts. */
+@media(max-width:768px){
+    html body :is(
+        .farmer-toolbar,
+        .parcel-toolbar,
+        .crop-toolbar,
+        .request-toolbar,
+        .intervention-toolbar,
+        .activity-filters
+    ):not(#fmis-shape-specificity){
+        display:grid!important;
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        gap:8px!important;
+        align-items:end!important;
+        margin-block:6px 14px!important
+    }
+
+    html body :is(
+        .farmer-toolbar,
+        .parcel-toolbar,
+        .crop-toolbar,
+        .request-toolbar,
+        .intervention-toolbar
+    )>label:first-child:not(#fmis-shape-specificity),
+    html body .activity-filters>:first-child:not(#fmis-shape-specificity){
+        grid-column:1/-1!important
+    }
+
+    html body :is(
+        .farmer-toolbar,
+        .parcel-toolbar,
+        .crop-toolbar,
+        .request-toolbar,
+        .intervention-toolbar
+    ) label:not(#fmis-shape-specificity){
+        gap:3px!important;
+        min-width:0!important;
+        font-size:11px!important;
+        line-height:1.2!important
+    }
+
+    html body :is(
+        .farmer-toolbar,
+        .parcel-toolbar,
+        .crop-toolbar,
+        .request-toolbar,
+        .intervention-toolbar,
+        .activity-filters
+    ) :is(input,select):not(#fmis-shape-specificity){
+        width:100%!important;
+        min-width:0!important;
+        height:40px!important;
+        min-height:40px!important;
+        padding:0 10px!important;
+        font-size:12px!important
+    }
+
+    html body :is(
+        .farmer-toolbar,
+        .parcel-toolbar,
+        .crop-toolbar,
+        .request-toolbar,
+        .intervention-toolbar
+    )>.btn:not(#fmis-shape-specificity){
+        width:auto!important;
+        min-width:0!important;
+        height:40px!important;
+        min-height:40px!important;
+        justify-self:start!important;
+        padding-inline:16px!important;
+        font-size:12px!important
+    }
+
+    html body .parcel-toolbar-actions:not(#fmis-shape-specificity){
+        grid-column:1/-1!important;
+        display:flex!important;
+        justify-content:flex-start!important;
+        gap:8px!important
+    }
+
+    html body .parcel-toolbar-actions .btn:not(#fmis-shape-specificity){
+        width:auto!important;
+        height:40px!important;
+        min-height:40px!important;
+        padding-inline:14px!important;
+        font-size:12px!important
+    }
 }
 
 html body[data-theme="dark"] .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity),

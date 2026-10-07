@@ -186,7 +186,7 @@ class CropHistoryView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropM
         events = ActivityLog.objects.filter(module="Crops", target_label=f"{farmer.record_id} - {self.object.crop_type}").select_related("actor")
         rows = farmer_update_rows(updates) + activity_rows(events)
         rows.sort(key=lambda row: row["date"], reverse=True)
-        context.update({"history_title": "Crop Record Update History", "record_label": f"{self.object.crop_type} · {farmer.full_name}", "back_url": reverse("crops:detail", args=[self.object.pk]), "edit_url": reverse("crops:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Edit Crop", "history_entries": rows})
+        context.update({"history_title": "Slip B - Crop Record Update History", "record_label": f"{self.object.crop_type} · {farmer.full_name}", "back_url": reverse("crops:detail", args=[self.object.pk]), "edit_url": reverse("crops:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Slip B", "history_entries": rows})
         return context
 
 

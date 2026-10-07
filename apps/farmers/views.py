@@ -147,10 +147,18 @@ class FarmerHistoryView(
     model = Farmer
     template_name = "shared/record_history.html"
 
+    def get_queryset(self):
+        return Farmer.objects.select_related("created_by")
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        history_entries = farmer_update_rows(
+            self.object.update_history.filter(update_type="SLIP_A")
+            .select_related("actor")
+            .order_by("created_at", "pk")
+        )
         context.update({
-            "history_title": "Farmer Information Update History",
+            "history_title": "Slip A - Farmer Information Update History",
             "record_label": (
                 f"{self.object.rsbsa_number or 'RSBSA ID not assigned'} · "
                 f"{self.object.full_name}"
@@ -158,9 +166,28 @@ class FarmerHistoryView(
             "back_url": reverse("farmers:detail", args=[self.object.pk]),
             "edit_url": reverse("farmers:edit", args=[self.object.pk]) if self.object.is_active else "",
             "edit_label": "Update Slip A",
-            "history_entries": farmer_update_rows(
-                self.object.update_history.select_related("actor").all()
-            ),
+            "record_creation": {
+                "name": self.object.full_name,
+                "reference": self.object.registration_reference,
+                "date": self.object.created_at,
+                "actor": (
+                    self.object.created_by.display_name
+                    if self.object.created_by
+                    else "Not recorded for this legacy record"
+                ),
+                "account": (
+                    f"@{self.object.created_by.username}"
+                    if self.object.created_by
+                    else "Not available"
+                ),
+                "role": (
+                    self.object.created_by.get_role_display()
+                    if self.object.created_by
+                    else "Not available"
+                ),
+                "status": self.object.get_registration_status_display(),
+            },
+            "history_entries": history_entries,
         })
         return context
 
@@ -300,6 +327,7 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 farmer.registration_status = "ENCODED"
                 farmer.rsbsa_number = None
                 farmer.submitted_at = timezone.now()
+                farmer.created_by = request.user
                 farmer.save()
 
                 saved_parcels = {}
@@ -437,7 +465,7 @@ class FarmerUpdateView(
     form_class = FarmerProfileUpdateForm
     template_name = "farmers/form.html"
     def get_success_url(self):
-        return reverse("farmers:detail", args=[self.object.pk])
+        return f'{reverse("farmers:detail", args=[self.object.pk])}?saved=slip-a'
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -460,7 +488,6 @@ class FarmerUpdateView(
                 date_received=form.cleaned_data.get("date_received"),
                 agriculturist_name=form.cleaned_data.get("agriculturist_name", ""),
             )
-        messages.success(self.request, "The farmer's RSBSA profile information was updated.")
         return response
 
 

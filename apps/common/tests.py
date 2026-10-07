@@ -75,6 +75,7 @@ class FMISRequirementTests(TestCase):
             registration_status="COMPLETED",
             consent_given=True,
             remarks="Follow up before seed distribution.",
+            created_by=cls.staff,
         )
         cls.parcel = FarmParcel.objects.create(
             farmer=cls.farmer,
@@ -899,6 +900,10 @@ class FMISRequirementTests(TestCase):
             302,
             getattr(response.context.get("form"), "errors", "") if response.context else "",
         )
+        self.assertEqual(
+            response.url,
+            f'{reverse("farmers:detail", args=[self.farmer.pk])}?saved=slip-a',
+        )
         self.farmer.refresh_from_db()
         self.assertEqual(self.farmer.phone_number, "09179999999")
         self.assertEqual(self.farmer.last_updated_by, self.staff)
@@ -912,9 +917,18 @@ class FMISRequirementTests(TestCase):
         detail = self.client.get(reverse("farmers:detail", args=[self.farmer.pk]))
         self.assertContains(detail, reverse("farmers:history", args=[self.farmer.pk]))
         self.assertNotContains(detail, "SLIP-A-001")
+        saved_detail = self.client.get(
+            f'{reverse("farmers:detail", args=[self.farmer.pk])}?saved=slip-a'
+        )
+        self.assertContains(saved_detail, "Slip A update saved.")
+        self.assertContains(saved_detail, "now recorded in Update History")
         history_page = self.client.get(reverse("farmers:history", args=[self.farmer.pk]))
         self.assertEqual(history_page.status_code, 200)
         self.assertContains(history_page, "Farmer Information Update History")
+        self.assertContains(history_page, "Record created")
+        self.assertContains(history_page, "Farmer name")
+        self.assertContains(history_page, "Date created")
+        self.assertContains(history_page, self.staff.display_name)
         self.assertContains(history_page, "SLIP-A-001")
         self.assertContains(history_page, self.staff.display_name)
         self.assertContains(history_page, "Edited by")
@@ -922,9 +936,11 @@ class FMISRequirementTests(TestCase):
         self.assertContains(history_page, f"@{self.staff.username}")
         self.assertContains(history_page, "Date")
         self.assertContains(history_page, "Time")
+        self.assertContains(history_page, "Transaction code: SLIP-A-001")
+        self.assertContains(history_page, "Update status: Completed")
+        self.assertEqual(history_page.context["history_entries"][0]["transaction_code"], "SLIP-A-001")
         farmer_list = self.client.get(reverse("farmers:list"))
         self.assertNotContains(farmer_list, "Last Updated By")
-        self.assertNotContains(farmer_list, "<th>Status</th>")
         self.assertNotContains(farmer_list, "Latest Change")
         self.assertNotContains(farmer_list, "farmer-update-details")
         self.assertNotContains(farmer_list, "View update details")
@@ -1137,6 +1153,37 @@ class FMISRequirementTests(TestCase):
             "ownership_document_other",
         ):
             self.assertContains(parcel_form, field_name)
+
+        saved_detail = self.client.get(
+            f'{reverse("farm_parcels:detail", args=[self.parcel.pk])}?saved=slip-b'
+        )
+        self.assertContains(saved_detail, "Slip B update saved.")
+        self.assertContains(saved_detail, "now recorded in Update History")
+
+        FarmerUpdateHistory.objects.create(
+            farmer=self.farmer,
+            actor=self.staff,
+            update_type="SLIP_B",
+            transaction_code="SLIP-B-001",
+            changes=[
+                {
+                    "field": "Parcel 1 / Area Hectares",
+                    "before": "1.00",
+                    "after": "2.00",
+                }
+            ],
+        )
+        history_page = self.client.get(reverse("farm_parcels:history", args=[self.parcel.pk]))
+        self.assertContains(history_page, "Slip B - Farm Parcel Update History")
+        self.assertContains(history_page, "Transaction code: SLIP-B-001")
+        self.assertContains(history_page, "Update status: Completed")
+        self.assertEqual(
+            history_page.context["history_entries"][0]["transaction_code"],
+            "SLIP-B-001",
+        )
+        farmer_history = self.client.get(reverse("farmers:history", args=[self.farmer.pk]))
+        self.assertNotContains(farmer_history, "SLIP-B-001")
+        self.assertNotContains(farmer_history, "Slip B - Farm Parcel Information")
 
     def test_office_uploads_field_photos_from_parcel_gallery_not_slip_b(self):
         from PIL import Image

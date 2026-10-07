@@ -83,6 +83,13 @@ class Farmer(models.Model):
     philsys_pcn = models.CharField(max_length=50, blank=True)
     philsys_trn = models.CharField(max_length=50, blank=True)
     fca_membership = models.CharField(max_length=180, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_farmers",
+    )
     last_updated_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

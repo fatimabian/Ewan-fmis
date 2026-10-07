@@ -3,6 +3,12 @@
 {% block page_subtitle %}Registered farmer profile and supporting information{% endblock %}
 {% block content %}
   <div class="content record-detail">
+    {% if request.GET.saved == 'slip-a' %}
+      <div class="record-save-confirmation" role="status" aria-live="polite">
+        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+        <span><strong>Slip A update saved.</strong> The changes to {{ object.full_name }} are now recorded in Update History.</span>
+      </div>
+    {% endif %}
     <div class="record-detail-nav">
       <a href="{% url 'farmers:list' %}"><i class="bi bi-arrow-left"></i> Back to Farmers</a>
       <div class="record-detail-actions">
@@ -94,10 +100,12 @@
         </div>
       </section>
 
-      <section class="record-single-section">
-        <h3><i class="bi bi-journal-text"></i> Internal Remarks</h3>
-        <p>{{ object.remarks|default:'No remarks recorded.'|linebreaksbr }}</p>
-      </section>
+      {% if object.remarks %}
+        <section class="record-single-section">
+          <h3><i class="bi bi-journal-text"></i> Office Notes</h3>
+          <p>{{ object.remarks|linebreaksbr }}</p>
+        </section>
+      {% endif %}
 
     </div>
   </div>

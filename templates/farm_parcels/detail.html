@@ -56,6 +56,12 @@
   }
   </style>
   <div class="content record-detail">
+    {% if request.GET.saved == 'slip-b' %}
+      <div class="record-save-confirmation" role="status" aria-live="polite">
+        <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+        <span><strong>Slip B update saved.</strong> The changes to {{ object.display_name }} are now recorded in Update History.</span>
+      </div>
+    {% endif %}
     <div class="record-detail-nav">
       <a href="{% url 'farm_parcels:list' %}"><i class="bi bi-arrow-left"></i> Back to Farm Parcels</a>
         <div class="record-detail-actions">
