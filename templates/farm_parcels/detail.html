@@ -122,11 +122,11 @@
                 action="{% url 'farm_parcels:photo_upload' object.pk %}">
             {% csrf_token %}
             <div class="parcel-photo-upload-field">
-              <label for="{{ photo_upload_form.field_photos.id_for_label }}">Office field documentation</label>
-              {{ photo_upload_form.field_photos }}
-              <small>Upload current field photos used by the office for parcel review and decisions.</small>
+              <label for="{{ photo_upload_form.field_photo.id_for_label }}">Office field documentation</label>
+              {{ photo_upload_form.field_photo }}
+              <small>Keep one current field photo for parcel review. Uploading another photo replaces the visible one.</small>
             </div>
-            <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> Upload Photos</button>
+            <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> {% if parcel_photos %}Replace Photo{% else %}Upload Photo{% endif %}</button>
           </form>
         {% endif %}
         {% if parcel_photos %}

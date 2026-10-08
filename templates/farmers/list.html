@@ -58,6 +58,9 @@
       border-bottom:1px solid #dfe7ec;
       white-space:nowrap
   }
+  .app-shell table.farmer-table th:last-child{
+      text-align:center!important
+  }
   .farmer-table td{
       padding:16px 18px;
       border-bottom:1px solid #e6edf1;
@@ -67,9 +70,17 @@
       border-bottom:0
   }
   .farmer-actions{
-      display:flex;
+      display:grid;
+      grid-template-columns:24px 24px 24px;
       gap:12px;
       align-items:center
+  }
+  .farmer-action-slot{
+      display:flex;
+      width:24px;
+      height:24px;
+      align-items:center;
+      justify-content:center
   }
   .farmer-actions a,.farmer-actions button{
       border:0;
@@ -278,11 +289,13 @@
                 </td>
                 <td>
                   <div class="farmer-actions">
+                    <span class="farmer-action-slot" aria-hidden="{% if farmer.is_active and farmer.registration_status == 'COMPLETED' and farmer.rsbsa_number %}false{% else %}true{% endif %}">
                     {% if farmer.is_active and farmer.registration_status == 'COMPLETED' and farmer.rsbsa_number %}<a href="{% url 'farmers:qr_print' farmer.pk %}"
                        title="Print secure QR for {{ farmer.full_name }}">
                       <i class="bi bi-qr-code">
                       </i>
                     </a>{% endif %}
+                    </span>
                     {% if farmer.is_active %}
                     <a href="{% url 'farmers:edit' farmer.pk %}" title="Edit {{ farmer.full_name }}">
                       <i class="bi bi-pencil-square">

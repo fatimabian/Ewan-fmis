@@ -2,6 +2,11 @@
 {% block page_title %}Intervention {{ object.reference_id }}{% endblock %}
 {% block page_subtitle %}Review assistance delivered to the registered farmer{% endblock %}
 {% block content %}
+  <style>
+  .intervention-status{display:inline-flex;align-items:center;justify-content:center;border:1px solid currentColor!important;border-radius:999px!important;padding:5px 11px;font-size:12px!important;font-weight:700;white-space:nowrap;background:#fff!important}
+  .intervention-status.status-draft{color:#5f6b7a}.intervention-status.status-scheduled{color:#1769e0}.intervention-status.status-ongoing{color:#b66a00}.intervention-status.status-completed{color:#087f49}.intervention-status.status-cancelled{color:#c93232}.intervention-status.archived{color:#667085;background:#f4f5f6!important}
+  .recipient-snapshot-table{margin-top:16px}
+  </style>
   <div class="content record-detail">
     <div class="record-detail-nav">
       <a href="{% url 'interventions:list' %}"><i class="bi bi-arrow-left"></i> Back to Interventions</a>
@@ -14,18 +19,18 @@
       <header class="record-hero record-single-hero">
         <div class="record-avatar square"><i class="bi bi-box2-heart"></i></div>
         <div class="record-hero-copy">
-          <small>{{ object.reference_id }} · {% if object.is_active %}Delivered intervention{% else %}Archived intervention{% endif %}</small>
+          <small>{{ object.reference_id }} · {{ object.get_status_display }}{% if not object.is_active %} · Archived{% endif %}</small>
           <h2>{{ object.get_intervention_type_display }}</h2>
-          <p>{{ object.farmer.list_name }} · {{ object.intervention_date|date:"F d, Y" }}</p>
+          <p>{{ object.beneficiary_label }} · {{ object.intervention_date|date:"F d, Y" }}</p>
         </div>
-        <span class="intervention-status {% if object.is_active %}active{% else %}archived{% endif %} record-hero-status">{% if object.is_active %}Delivered{% else %}Archived{% endif %}</span>
+        <span class="intervention-status {% if object.is_active %}status-{{ object.status|lower }}{% else %}archived{% endif %} record-hero-status">{% if object.is_active %}{{ object.get_status_display }}{% else %}Archived{% endif %}</span>
       </header>
       <section class="record-single-section">
-        <h3><i class="bi bi-person-vcard"></i> Farmer &amp; Request Reference</h3>
+        <h3><i class="bi bi-people"></i> Coverage &amp; Request Reference</h3>
         <dl class="record-data">
-          <div><dt>Farmer</dt><dd>{{ object.farmer.list_name }}</dd></div>
-          <div><dt>Farmer ID</dt><dd>{{ object.farmer.record_id }}</dd></div>
-          <div><dt>Barangay</dt><dd>{{ object.farmer.barangay }}</dd></div>
+          <div><dt>Coverage</dt><dd>{% if object.scope == 'BARANGAY' %}All farmers in Brgy. {{ object.target_barangay }}{% elif object.scope == 'ALL' %}All active farmers{% else %}{{ object.get_scope_display }}{% endif %}</dd></div>
+          <div><dt>Beneficiaries</dt><dd>{{ object.active_recipients|length }} farmer{{ object.active_recipients|length|pluralize }}</dd></div>
+          <div><dt>Barangay</dt><dd>{{ object.target_barangay|default:"Multiple / not limited" }}</dd></div>
           <div><dt>Related Service Request</dt><dd>{% if object.service_request %}<a href="{% url 'service_requests:detail' object.service_request.pk %}">{{ object.service_request.request_id }} · {{ object.service_request.subject }}</a>{% else %}Not linked{% endif %}</dd></div>
         </dl>
       </section>
@@ -42,8 +47,16 @@
         <dl class="record-data">
           <div><dt>Recorded By</dt><dd>{% if object.recorded_by %}{{ object.recorded_by.display_name }}{% else %}System{% endif %}</dd></div>
           <div><dt>Last Updated</dt><dd>{{ object.updated_at|date:"M d, Y h:i A" }}</dd></div>
-          <div class="record-data-wide"><dt>Remarks</dt><dd>{{ object.remarks|default:"No remarks recorded."|linebreaksbr }}</dd></div>
         </dl>
+      </section>
+      <section class="record-single-section">
+        <h3><i class="bi bi-person-check"></i> Recipient Snapshot</h3>
+        <div class="universal-table-wrap recipient-snapshot-table">
+          <table class="universal-table">
+            <thead><tr><th>Farmer ID</th><th>Farmer Name</th><th>Barangay</th><th>Receipt Status</th></tr></thead>
+            <tbody>{% for recipient in object.active_recipients %}<tr><td>{{ recipient.farmer.record_id }}</td><td>{{ recipient.farmer.list_name }}</td><td>{{ recipient.farmer.barangay }}</td><td>{{ recipient.get_status_display }}</td></tr>{% empty %}<tr><td colspan="4">No recipients recorded.</td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
       </section>
     </div>
   </div>

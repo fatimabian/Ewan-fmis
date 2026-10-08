@@ -1,6 +1,6 @@
 {% extends base_template %}
 {% block page_title %}{% if object %}Update Intervention{% else %}New Intervention{% endif %}{% endblock %}
-{% block page_subtitle %}Record assistance delivered to a registered farmer{% endblock %}
+{% block page_subtitle %}Plan, record, and monitor assistance for one or more farmers{% endblock %}
 {% block content %}
 <style>
 .intervention-form-card{max-width:1180px;margin:auto}
@@ -13,15 +13,24 @@
 .intervention-errors{color:#c62828;font-size:13px}
 .intervention-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}
 .linked-request-note{display:flex;align-items:flex-start;gap:10px;margin:0 0 22px;padding:13px 15px;border:1px solid #b9dec8;border-radius:9px;background:#edf9f1;color:#185b36}
+.recipient-help{padding:12px 14px;border-left:3px solid #2f7d5c;background:#f2f7f4;color:#405568;font-size:13px}
+.intervention-field[hidden]{display:none!important}
+.intervention-checkbox-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;max-height:310px;overflow-y:auto;border:1px solid #c7d5cd;border-radius:6px;background:var(--surface,#fff)}
+.intervention-checkbox-list>div{border-bottom:1px solid #e7eee9}
+.intervention-checkbox-list>div:nth-last-child(-n+2){border-bottom:0}
+.intervention-checkbox-list label{display:flex;align-items:center;gap:10px;min-height:46px;margin:0;padding:9px 12px;font-weight:400;cursor:pointer}
+.intervention-checkbox-list label:hover{background:#f1f8f4}
+.intervention-checkbox-list label:has(input:checked){background:#e2f3e9;color:#075d38;font-weight:700}
+.intervention-checkbox-list input[type="checkbox"]{flex:0 0 18px;width:18px!important;height:18px;margin:0;padding:0;accent-color:#16834f}
 body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#183126;color:#c7f5d8}
 @media(max-width:950px){.intervention-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.intervention-form-grid{grid-template-columns:1fr}.intervention-field.full{grid-column:auto}}
+@media(max-width:700px){.intervention-form-grid{grid-template-columns:1fr}.intervention-field.full{grid-column:auto}.intervention-checkbox-list{grid-template-columns:1fr}.intervention-checkbox-list>div:nth-last-child(-n+2){border-bottom:1px solid #e7eee9}.intervention-checkbox-list>div:last-child{border-bottom:0}}
 </style>
 <div class="content">
   <section class="panel intervention-form-card">
     <div class="mb-4">
       <h2>{% if object %}Update {{ object.reference_id }}{% else %}Record Delivered Assistance{% endif %}</h2>
-      <p class="text-muted mb-0">Use this form after assistance has been provided or formally delivered.</p>
+      <p class="text-muted mb-0">Choose who is covered, then set the current intervention status.</p>
     </div>
     {% if request.GET.service_request %}
       <div class="linked-request-note"><i class="bi bi-link-45deg"></i><span>The farmer and related service request were filled from the selected request. Confirm the details before saving.</span></div>
@@ -30,15 +39,19 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="form-validation-alert">{{ form.non_field_errors }}</div>{% endif %}
       <div class="intervention-form-grid">
-        <div class="intervention-field"><label>{{ form.farmer.label }}</label>{{ form.farmer }}<span class="intervention-errors">{{ form.farmer.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.scope.label }}</label>{{ form.scope }}<span class="intervention-errors">{{ form.scope.errors }}</span></div>
+        <div class="intervention-field" data-recipient-field="individual"><label>{{ form.farmer.label }}</label>{{ form.farmer }}<span class="intervention-errors">{{ form.farmer.errors }}</span></div>
+        <div class="intervention-field full" data-recipient-field="selected"><label>{{ form.selected_farmers.label }}</label>{{ form.selected_farmers }}<small class="text-muted">{{ form.selected_farmers.help_text }}</small><span class="intervention-errors">{{ form.selected_farmers.errors }}</span></div>
+        <div class="intervention-field" data-recipient-field="barangay"><label>{{ form.target_barangay.label }}</label>{{ form.target_barangay }}<span class="intervention-errors">{{ form.target_barangay.errors }}</span></div>
+        <div class="intervention-field full recipient-help" data-recipient-summary>The recipient list is saved as a fixed snapshot for accurate historical reporting.</div>
         <div class="intervention-field"><label>{{ form.service_request.label }}</label>{{ form.service_request }}<small class="text-muted">{{ form.service_request.help_text }}</small><span class="intervention-errors">{{ form.service_request.errors }}</span></div>
+        <div class="intervention-field"><label>{{ form.status.label }}</label>{{ form.status }}<span class="intervention-errors">{{ form.status.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.intervention_type.label }}</label>{{ form.intervention_type }}<span class="intervention-errors">{{ form.intervention_type.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.intervention_date.label }}</label>{{ form.intervention_date }}<span class="intervention-errors">{{ form.intervention_date.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.quantity.label }}</label>{{ form.quantity }}<span class="intervention-errors">{{ form.quantity.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.unit.label }}</label>{{ form.unit }}<span class="intervention-errors">{{ form.unit.errors }}</span></div>
         <div class="intervention-field full"><label>{{ form.description.label }}</label>{{ form.description }}<span class="intervention-errors">{{ form.description.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.provider.label }}</label>{{ form.provider }}<span class="intervention-errors">{{ form.provider.errors }}</span></div>
-        <div class="intervention-field full"><label>{{ form.remarks.label }}</label>{{ form.remarks }}<span class="intervention-errors">{{ form.remarks.errors }}</span></div>
       </div>
       <div class="intervention-form-actions">
         <a class="btn btn-outline-secondary btn-cancel" href="{% if object %}{% url 'interventions:detail' object.pk %}{% else %}{% url 'interventions:list' %}{% endif %}">Cancel</a>
@@ -47,4 +60,19 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
     </form>
   </section>
 </div>
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+  const scope=document.querySelector('[name="scope"]');
+  if(!scope)return;
+  const sync=()=>{
+    document.querySelectorAll("[data-recipient-field]").forEach(el=>{
+      const visible=(scope.value==="INDIVIDUAL"&&el.dataset.recipientField==="individual")||(scope.value==="SELECTED"&&el.dataset.recipientField==="selected")||(scope.value==="BARANGAY"&&el.dataset.recipientField==="barangay");
+      el.hidden=!visible;
+    });
+    const request=document.querySelector('[name="service_request"]')?.closest('.intervention-field');
+    if(request)request.hidden=scope.value!=="INDIVIDUAL";
+  };
+  scope.addEventListener("change",sync);sync();
+});
+</script>
 {% endblock %}

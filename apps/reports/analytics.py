@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from apps.activity_logs.models import ActivityLog
@@ -53,11 +53,14 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
         if year:
             queryset = queryset.filter(intervention_date__year=int(year))
         if barangay:
-            queryset = queryset.filter(farmer__barangay=barangay)
+            queryset = queryset.filter(
+                recipients__is_active=True, recipients__farmer__barangay=barangay
+            ).distinct()
         if commodity:
             queryset = queryset.filter(
-                farmer__parcels__crops__crop_type=commodity,
-                farmer__parcels__crops__is_active=True,
+                recipients__is_active=True,
+                recipients__farmer__parcels__crops__crop_type=commodity,
+                recipients__farmer__parcels__crops__is_active=True,
             ).distinct()
         if intervention_type:
             queryset = queryset.filter(intervention_type=intervention_type)
@@ -213,7 +216,9 @@ def report_metrics(date_range="all", filters=None):
         ServiceRequest.objects.filter(farmer__is_active=True), "request", date_range, filters
     )
     interventions = _apply_report_filters(
-        Intervention.objects.filter(is_active=True, farmer__is_active=True),
+        Intervention.objects.filter(
+            is_active=True, recipients__is_active=True, recipients__farmer__is_active=True
+        ).distinct(),
         "intervention",
         date_range,
         filters,
@@ -282,7 +287,13 @@ def report_metrics(date_range="all", filters=None):
         for req in requests.select_related("farmer", "service").order_by("-created_at")[:5]
     ]
 
-    intervention_totals = interventions.aggregate(farmers=Count("farmer", distinct=True))
+    intervention_totals = interventions.aggregate(
+        farmers=Count(
+            "recipients__farmer",
+            filter=Q(recipients__is_active=True),
+            distinct=True,
+        )
+    )
     intervention_labels = dict(Intervention.TYPE_CHOICES)
     intervention_summary = [
         {
@@ -292,8 +303,12 @@ def report_metrics(date_range="all", filters=None):
         }
         for item in interventions.values("intervention_type")
         .annotate(
-            total=Count("id"),
-            farmers=Count("farmer", distinct=True),
+            total=Count("id", distinct=True),
+            farmers=Count(
+                "recipients__farmer",
+                filter=Q(recipients__is_active=True),
+                distinct=True,
+            ),
         )
         .order_by("-total", "intervention_type")
     ]

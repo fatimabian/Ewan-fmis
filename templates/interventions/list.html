@@ -11,11 +11,13 @@
 .intervention-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow-x:auto;box-shadow:var(--shadow)}
 .intervention-table{width:100%;border-collapse:collapse;table-layout:fixed!important}
 .app-shell .intervention-table thead th{background:var(--surface-muted);padding:14px 10px!important;border-bottom:1px solid var(--border);line-height:1.2;white-space:normal!important;overflow-wrap:normal;word-break:normal;vertical-align:middle}
-.intervention-table td{padding:15px 12px;border-bottom:1px solid var(--border);vertical-align:middle;overflow-wrap:anywhere}
+.intervention-table td{padding:15px 12px;border-bottom:1px solid var(--border);vertical-align:middle;overflow-wrap:anywhere;word-break:normal;white-space:normal;line-height:1.45}
 .intervention-table small{display:block;color:#6b7890;margin-top:3px}
-.intervention-table :is(th,td):nth-child(1){width:8%}.intervention-table :is(th,td):nth-child(2){width:10%}.intervention-table :is(th,td):nth-child(3){width:9%}.intervention-table :is(th,td):nth-child(4){width:18%}.intervention-table :is(th,td):nth-child(5){width:27%}.intervention-table :is(th,td):nth-child(6){width:10%}.intervention-table :is(th,td):nth-child(7){width:9%;text-align:center}.intervention-table :is(th,td):nth-child(8){width:9%;text-align:center}
-.intervention-status{display:inline-block;border:0!important;border-radius:0!important;padding:2px 0;font-size:12px!important;font-weight:700;white-space:nowrap;box-shadow:none!important;background:transparent!important}
-.intervention-status.active{color:#087f49}.intervention-status.archived{color:#445369}
+.intervention-table :is(th,td):nth-child(1){width:8%}.intervention-table :is(th,td):nth-child(2){width:10%}.intervention-table :is(th,td):nth-child(3){width:17%}.intervention-table :is(th,td):nth-child(4){width:17%}.intervention-table :is(th,td):nth-child(5){width:21%}.intervention-table :is(th,td):nth-child(6){width:8%;white-space:nowrap!important}.intervention-table :is(th,td):nth-child(7){width:10%}.intervention-table :is(th,td):nth-child(8){width:9%;text-align:center}
+.intervention-table :is(th,td):nth-child(3),.intervention-table :is(th,td):nth-child(4){overflow:hidden}
+.coverage-label{display:block;max-width:100%;overflow-wrap:break-word}
+.intervention-status{display:inline-flex;align-items:center;justify-content:center;border:1px solid currentColor!important;border-radius:999px!important;padding:5px 11px;font-size:12px!important;font-weight:700;white-space:nowrap;box-shadow:none!important;background:#fff!important}
+.intervention-status.status-draft{color:#5f6b7a}.intervention-status.status-scheduled{color:#1769e0}.intervention-status.status-ongoing{color:#b66a00}.intervention-status.status-completed{color:#087f49}.intervention-status.status-cancelled{color:#c93232}.intervention-status.archived{color:#667085;background:#f4f5f6!important}
 .intervention-actions{display:flex;gap:9px;align-items:center;justify-content:center}.intervention-actions a,.intervention-actions button{border:0;background:transparent;color:#086cff;font-size:18px;padding:2px}.intervention-actions button{color:#e22323}
 .intervention-footer{display:flex;justify-content:space-between;align-items:center;margin-top:22px}
 body[data-theme="dark"] .intervention-table-wrap,body[data-theme="dark"] .intervention-toolbar input,body[data-theme="dark"] .intervention-toolbar select{background:#1c2735!important;color:#edf3fa!important;border-color:#354457!important}
@@ -32,17 +34,17 @@ body[data-theme="dark"] .intervention-table th{background:#253244!important;colo
   </form>
   <div class="intervention-table-wrap universal-table-wrap">
     <table class="intervention-table universal-table">
-      <thead><tr><th>ID</th><th>Date</th><th>Farmer<br>ID</th><th>Farmer<br>Name</th><th>Intervention</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th>ID</th><th>Date</th><th>Coverage</th><th>Beneficiaries</th><th>Intervention</th><th title="Quantity">QTY</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
       {% for item in object_list %}
         <tr class="record-row" data-record-url="{% url 'interventions:detail' item.pk %}" tabindex="0">
           <td><a class="record-cell-link" href="{% url 'interventions:detail' item.pk %}">{{ item.reference_id }}</a></td>
           <td>{{ item.intervention_date|date:"M d, Y" }}</td>
-          <td>{{ item.farmer.record_id }}</td>
-          <td>{{ item.farmer.list_name }}<small>{{ item.farmer.barangay }}</small></td>
-          <td>{{ item.get_intervention_type_display }}<small>{{ item.description }}</small></td>
+          <td><span class="coverage-label">{% if item.scope == 'BARANGAY' %}All farmers in Brgy.<br>{{ item.target_barangay }}{% elif item.scope == 'ALL' %}All active farmers{% else %}{{ item.get_scope_display }}{% endif %}</span></td>
+          <td><strong>{{ item.beneficiary_count }}</strong> farmer{{ item.beneficiary_count|pluralize }}{% if item.scope == 'INDIVIDUAL' and item.farmer %}<small>{{ item.farmer.list_name }}</small>{% endif %}</td>
+          <td>{{ item.get_intervention_type_display }}</td>
           <td>{% if item.quantity != None %}{{ item.quantity|floatformat:2 }} {{ item.unit }}{% else %}—{% endif %}</td>
-          <td><span class="intervention-status {% if item.is_active %}active{% else %}archived{% endif %}">{% if item.is_active %}Delivered{% else %}Archived{% endif %}</span></td>
+          <td><span class="intervention-status {% if item.is_active %}status-{{ item.status|lower }}{% else %}archived{% endif %}">{% if item.is_active %}{{ item.get_status_display }}{% else %}Archived{% endif %}</span></td>
           <td><div class="intervention-actions"><a href="{% url 'interventions:edit' item.pk %}" title="Edit {{ item.reference_id }}"><i class="bi bi-pencil-square"></i></a><form method="post" action="{% url 'interventions:archive' item.pk %}" data-confirm="{% if item.is_active %}Archive{% else %}Restore{% endif %} {{ item.reference_id }}?">{% csrf_token %}<input type="hidden" name="action" value="{% if item.is_active %}archive{% else %}restore{% endif %}"><button type="submit" title="{% if item.is_active %}Archive{% else %}Restore{% endif %}"><i class="bi {% if item.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}"></i></button></form></div></td>
         </tr>
       {% empty %}<tr><td colspan="8" class="text-center py-5">No interventions matched your filters.</td></tr>{% endfor %}

@@ -454,7 +454,9 @@ def build_report(report_type, date_range, filters=None, compact=False):
 
     if report_type == "intervention_summary":
         queryset = _filter_period(
-            Intervention.objects.filter(is_active=True, farmer__is_active=True),
+            Intervention.objects.filter(
+                is_active=True, recipients__is_active=True, recipients__farmer__is_active=True
+            ).distinct(),
             "intervention_date",
             date_range,
             date_only=True,
@@ -462,19 +464,19 @@ def build_report(report_type, date_range, filters=None, compact=False):
         if year:
             queryset = queryset.filter(intervention_date__year=int(year))
         if barangay:
-            queryset = queryset.filter(farmer__barangay=barangay)
+            queryset = queryset.filter(recipients__farmer__barangay=barangay).distinct()
         if commodity:
             queryset = queryset.filter(
-                farmer__parcels__crops__crop_type=commodity,
-                farmer__parcels__crops__is_active=True,
+                recipients__farmer__parcels__crops__crop_type=commodity,
+                recipients__farmer__parcels__crops__is_active=True,
             ).distinct()
         if intervention_type:
             queryset = queryset.filter(intervention_type=intervention_type)
         data = (
             queryset.values("intervention_type")
             .annotate(
-                interventions=Count("id"),
-                farmers=Count("farmer", distinct=True),
+                interventions=Count("id", distinct=True),
+                farmers=Count("recipients__farmer", distinct=True),
             )
             .order_by("intervention_type")
         )
@@ -494,8 +496,9 @@ def build_report(report_type, date_range, filters=None, compact=False):
 
     if report_type == "intervention_registry":
         queryset = _filter_period(
-            Intervention.objects.filter(is_active=True, farmer__is_active=True)
-            .select_related("farmer", "service_request", "recorded_by"),
+            Intervention.objects.filter(
+                is_active=True, recipients__is_active=True, recipients__farmer__is_active=True
+            ).select_related("service_request", "recorded_by").prefetch_related("recipients__farmer").distinct(),
             "intervention_date",
             date_range,
             date_only=True,
@@ -503,30 +506,32 @@ def build_report(report_type, date_range, filters=None, compact=False):
         if year:
             queryset = queryset.filter(intervention_date__year=int(year))
         if barangay:
-            queryset = queryset.filter(farmer__barangay=barangay)
+            queryset = queryset.filter(recipients__farmer__barangay=barangay).distinct()
         if commodity:
             queryset = queryset.filter(
-                farmer__parcels__crops__crop_type=commodity,
-                farmer__parcels__crops__is_active=True,
+                recipients__farmer__parcels__crops__crop_type=commodity,
+                recipients__farmer__parcels__crops__is_active=True,
             ).distinct()
         if intervention_type:
             queryset = queryset.filter(intervention_type=intervention_type)
-        rows = [
-            [
-                item.reference_id,
-                item.intervention_date,
-                item.farmer.record_id,
-                item.farmer.full_name,
-                item.farmer.barangay,
-                item.get_intervention_type_display(),
-                item.description,
-                f"{item.quantity} {item.unit}".strip() if item.quantity is not None else "-",
-                item.provider or "-",
-                item.service_request.request_id if item.service_request else "-",
-                item.recorded_by.display_name if item.recorded_by else "-",
-            ]
-            for item in queryset.order_by("pk")
-        ]
+        rows = []
+        for item in queryset.order_by("pk"):
+            for recipient in item.recipients.all():
+                if not recipient.is_active or not recipient.farmer.is_active:
+                    continue
+                rows.append([
+                    item.reference_id,
+                    item.intervention_date,
+                    recipient.farmer.record_id,
+                    recipient.farmer.full_name,
+                    recipient.farmer.barangay,
+                    item.get_intervention_type_display(),
+                    item.description,
+                    f"{item.quantity} {item.unit}".strip() if item.quantity is not None else "-",
+                    item.provider or "-",
+                    item.service_request.request_id if item.service_request else "-",
+                    item.recorded_by.display_name if item.recorded_by else "-",
+                ])
         return (
             "Complete Intervention Register",
             [

@@ -10,7 +10,6 @@ from apps.common.constants import (
 )
 from apps.common.forms import (
     InlineValidationMixin,
-    MultipleFileInput,
     MultipleImageField,
     RequiredYesNoField,
     YesNoNAField,
@@ -27,12 +26,12 @@ from .models import FarmParcel
 class FarmParcelPhotoUploadForm(InlineValidationMixin, forms.Form):
     """Office-only field evidence uploaded outside the Slip B workflow."""
 
-    field_photos = MultipleImageField(
+    field_photo = MultipleImageField(
         required=True,
-        label="Upload field photos",
-        help_text="Select one or more current photos of the field.",
-        widget=MultipleFileInput(
-            attrs={"accept": "image/png,image/jpeg,image/webp", "multiple": True}
+        label="Upload field photo",
+        help_text="Select one current photo of the field.",
+        widget=forms.ClearableFileInput(
+            attrs={"accept": "image/png,image/jpeg,image/webp"}
         ),
     )
 

@@ -373,10 +373,11 @@ def staff_dashboard_metrics():
     )
     intervention_summary = Intervention.objects.filter(
         is_active=True,
-        farmer__in=rosario_farmers,
+        recipients__is_active=True,
+        recipients__farmer__in=rosario_farmers,
     ).aggregate(
-        total=Count("pk"),
-        farmers=Count("farmer", distinct=True),
+        total=Count("pk", distinct=True),
+        farmers=Count("recipients__farmer", distinct=True),
     )
     status_counts = {
         "pending": request_summary["pending"],

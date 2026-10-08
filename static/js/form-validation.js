@@ -62,7 +62,13 @@ document.addEventListener("DOMContentLoaded", () => {
         message = "Updating record status…";
       }
       if (loadingTitle) loadingTitle.textContent = message;
-      if (loadingOverlay) loadingOverlay.hidden = false;
+      // Avoid flashing a full-screen blocker for ordinary sub-second saves.
+      // Navigation cancels this timer automatically when the response is fast.
+      if (loadingOverlay) {
+        window.setTimeout(() => {
+          if (!event.defaultPrevented) loadingOverlay.hidden = false;
+        }, 250);
+      }
 
       const submitButton = event.submitter;
       if (submitButton) {

@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from .models import Intervention
+from .models import Intervention, InterventionRecipient
 
 
 INTERVENTION_TYPE_BY_SERVICE_CODE = {
@@ -36,5 +36,13 @@ def ensure_completed_request_intervention(service_request, actor=None):
         description=service_request.subject[:240],
         remarks=service_request.notes[:1000],
         recorded_by=actor or service_request.assigned_to,
+    )
+    InterventionRecipient.objects.get_or_create(
+        intervention=intervention,
+        farmer=service_request.farmer,
+        defaults={
+            "status": "RECEIVED",
+            "received_at": intervention.intervention_date,
+        },
     )
     return intervention, True

@@ -35,6 +35,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("fmisModalMessage").textContent = message;
     document.getElementById("fmisModalIcon").innerHTML = `<i class="bi ${icon}"></i>`;
     document.getElementById("fmisModalConfirm").textContent = normalizedKind === "confirm" ? "Confirm" : "OK";
+    const cancelButton = document.getElementById("fmisModalCancel");
+    cancelButton.hidden = normalizedKind !== "confirm";
+    if (cancelButton.hidden) cancelButton.style.setProperty("display", "none", "important");
+    else cancelButton.style.removeProperty("display");
     modalConfirmAction = onConfirm;
     feedbackModal.hidden = false;
     feedbackModal.setAttribute("aria-hidden", "false");

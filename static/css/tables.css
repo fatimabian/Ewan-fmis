@@ -341,6 +341,21 @@ body[data-theme="dark"] .app-shell :is(.table-panel,.universal-table-wrap,.farme
     background:#60758d;
     border-color:#172230
 }
+
+/* One consistent reading edge for every management table. */
+.app-shell table.universal-table :is(th,td){
+    padding-left:16px!important;
+    padding-right:16px!important;
+    text-align:left!important
+}
+.app-shell table.universal-table :is(.farmer-actions,.parcel-actions,.crop-actions,.request-actions,.intervention-actions,.table-actions){
+    justify-content:flex-start!important;
+    text-align:left!important
+}
+.app-shell table.universal-table :is(.farmer-status,.priority-badge,.request-status,.intervention-status){
+    margin-left:0!important;
+    margin-right:auto!important
+}
 @media(max-width:600px){
     .app-shell table thead th,.app-shell table tr:first-child th,.app-shell table tbody td,.app-shell table tr:not(:first-child) td{
         padding:12px 13px!important;

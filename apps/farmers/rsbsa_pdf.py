@@ -6,6 +6,7 @@ from datetime import date, datetime
 from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
+from apps.interventions.models import Intervention
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -594,8 +595,12 @@ def _summary_pdf(farmer, parcels):
         story.append(KeepTogether([service_heading, p("No service requests recorded.")]))
 
     interventions = list(
-        farmer.interventions.filter(is_active=True)
-        .select_related("service_request", "recorded_by")
+        Intervention.objects.filter(
+            is_active=True,
+            recipients__is_active=True,
+            recipients__farmer=farmer,
+        )
+        .select_related("service_request", "recorded_by").distinct()
         .order_by("-intervention_date", "-pk")
     )
     intervention_heading = Paragraph(f"Interventions Given ({len(interventions)})", section)

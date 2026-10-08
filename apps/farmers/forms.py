@@ -649,10 +649,10 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
     )
     field_photos = MultipleImageField(
         required=False,
-        label="Field photos",
-        help_text="Select one or more current photos of this farm parcel.",
-        widget=MultipleFileInput(
-            attrs={"accept": "image/png,image/jpeg,image/webp", "multiple": True}
+        label="Field photo",
+        help_text="Select one current photo of this farm parcel.",
+        widget=forms.ClearableFileInput(
+            attrs={"accept": "image/png,image/jpeg,image/webp"}
         ),
     )
     within_ancestral_domain = YesNoNAField(

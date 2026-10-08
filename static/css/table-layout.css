@@ -7,6 +7,10 @@ html body .app-shell table :is(th,td):not(#fmis-table-specificity){
     text-align:left!important
 }
 
+html body .app-shell table.farmer-table th:last-child:not(#fmis-table-specificity){
+    text-align:center!important
+}
+
 .app-shell table :is(
     .farmer-actions,
     .parcel-actions,

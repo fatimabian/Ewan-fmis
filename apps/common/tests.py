@@ -122,7 +122,7 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(landing, "data-carousel-next")
         self.assertNotContains(landing, "scope-carousel")
         self.assertContains(landing, "data-service-next")
-        self.assertContains(landing, "feature-toggle")
+        self.assertNotContains(landing, "feature-toggle")
         self.assertContains(landing, "landingProgress")
         self.assertContains(landing, "startServiceCarousel")
         self.assertContains(landing, "advanceServices")
@@ -1191,7 +1191,8 @@ class FMISRequirementTests(TestCase):
         self.client.force_login(self.staff)
         parcel_detail = self.client.get(reverse("farm_parcels:detail", args=[self.parcel.pk]))
         self.assertContains(parcel_detail, "Office field documentation")
-        self.assertContains(parcel_detail, 'name="field_photos"')
+        self.assertContains(parcel_detail, 'name="field_photo"')
+        self.assertNotContains(parcel_detail, 'name="field_photo" multiple')
 
         image_bytes = BytesIO()
         Image.new("RGB", (16, 16), "green").save(image_bytes, format="PNG")
@@ -1202,7 +1203,7 @@ class FMISRequirementTests(TestCase):
             response = self.client.post(
                 reverse("farm_parcels:photo_upload", args=[self.parcel.pk]),
                 {
-                    "field_photos": SimpleUploadedFile(
+                    "field_photo": SimpleUploadedFile(
                         "field.png", image_bytes.getvalue(), content_type="image/png"
                     )
                 },
@@ -1211,6 +1212,29 @@ class FMISRequirementTests(TestCase):
             photo = FarmParcelPhoto.objects.get(parcel=self.parcel)
             self.assertEqual(photo.uploaded_by, self.staff)
             self.assertTrue(photo.is_active)
+
+            replacement_bytes = BytesIO()
+            Image.new("RGB", (16, 16), "blue").save(replacement_bytes, format="PNG")
+            replacement_response = self.client.post(
+                reverse("farm_parcels:photo_upload", args=[self.parcel.pk]),
+                {
+                    "field_photo": SimpleUploadedFile(
+                        "replacement.png",
+                        replacement_bytes.getvalue(),
+                        content_type="image/png",
+                    )
+                },
+            )
+            self.assertRedirects(
+                replacement_response,
+                reverse("farm_parcels:detail", args=[self.parcel.pk]),
+            )
+            photo.refresh_from_db()
+            self.assertFalse(photo.is_active)
+            self.assertEqual(
+                FarmParcelPhoto.objects.filter(parcel=self.parcel, is_active=True).count(),
+                1,
+            )
         self.assertEqual(
             FarmerUpdateHistory.objects.filter(
                 farmer=self.farmer, update_type="SLIP_B"
@@ -1218,7 +1242,7 @@ class FMISRequirementTests(TestCase):
             history_count,
         )
         self.assertTrue(
-            ActivityLog.objects.filter(title="Farm Parcel Photos Added").exists()
+            ActivityLog.objects.filter(title="Farm Parcel Photo Replaced").exists()
         )
 
     def test_cancelled_service_request_is_locked_and_cannot_start_intervention(self):

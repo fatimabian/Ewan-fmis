@@ -6,7 +6,7 @@ from django.urls import reverse
 from apps.authentication.models import CustomUser
 from apps.farmers.models import Farmer
 
-from .models import Intervention
+from .models import Intervention, InterventionRecipient
 
 
 class InterventionModuleTests(TestCase):
@@ -46,7 +46,8 @@ class InterventionModuleTests(TestCase):
         intervention = Intervention.objects.get()
         self.assertEqual(intervention.recorded_by, self.staff)
         listing = self.client.get(reverse("interventions:list"), {"q": intervention.reference_id})
-        self.assertContains(listing, "Certified rice seed distribution")
+        self.assertContains(listing, "Seeds / planting materials")
+        self.assertNotContains(listing, "Certified rice seed distribution")
         self.client.post(reverse("interventions:archive", args=[intervention.pk]))
         intervention.refresh_from_db()
         self.assertFalse(intervention.is_active)
@@ -57,6 +58,30 @@ class InterventionModuleTests(TestCase):
         from .forms import InterventionForm
 
         self.assertNotIn("is_active", InterventionForm().fields)
+
+    def test_selected_farmer_intervention_saves_a_fixed_recipient_snapshot(self):
+        second_farmer = Farmer.objects.create(
+            first_name="Jose", last_name="Reyes", barangay="Alupay", consent_given=True
+        )
+        self.client.force_login(self.staff)
+        response = self.client.post(reverse("interventions:create"), {
+            "scope": "SELECTED",
+            "selected_farmers": [self.farmer.pk, second_farmer.pk],
+            "status": "SCHEDULED",
+            "intervention_type": "TRAINING",
+            "intervention_date": date.today().isoformat(),
+            "description": "Barangay farm safety seminar",
+            "provider": "Office for Agricultural Services",
+        })
+        self.assertRedirects(response, reverse("interventions:list"))
+        intervention = Intervention.objects.get()
+        self.assertIsNone(intervention.farmer)
+        self.assertEqual(intervention.scope, "SELECTED")
+        self.assertEqual(intervention.recipients.filter(is_active=True).count(), 2)
+        self.assertEqual(
+            set(InterventionRecipient.objects.values_list("status", flat=True)),
+            {"PENDING"},
+        )
 
     def test_admin_is_kept_out_of_operational_intervention_pages(self):
         self.client.force_login(self.admin)

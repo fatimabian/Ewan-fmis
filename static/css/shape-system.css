@@ -252,6 +252,14 @@ html body select:not([multiple]):not(#fmis-shape-specificity):is(:hover,:focus,:
     box-shadow:0 0 0 3px rgba(47,125,92,.14)!important
 }
 
+html body select option:not(#fmis-shape-specificity){
+    border:0!important;
+    border-radius:0!important;
+    padding:9px 12px!important;
+    background:var(--surface,#fff)!important;
+    color:inherit!important
+}
+
 html body[data-theme="dark"] select:not([multiple]):not(#fmis-shape-specificity){
     border-color:#526177!important;
     background-color:#1c2735!important;
@@ -288,6 +296,20 @@ html body .farmer-picker-option:not(#fmis-shape-specificity):is(:hover,:focus,:f
     transform:none!important
 }
 
+html body .farmer-picker-option:not(#fmis-shape-specificity){
+    min-height:42px!important;
+    padding:9px 12px!important;
+    background:#fff!important;
+    color:inherit!important;
+    text-align:left!important
+}
+
+html body .farmer-picker-option:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible),
+html body .farmer-picker-option[aria-selected="true"]:not(#fmis-shape-specificity){
+    background:#eef7f1!important;
+    color:#075d38!important
+}
+
 html body .farmer-picker-option:last-child:not(#fmis-shape-specificity){
     border-bottom:0!important
 }
@@ -295,6 +317,42 @@ html body .farmer-picker-option:last-child:not(#fmis-shape-specificity){
 html body[data-theme="dark"] .farmer-picker-control:not(#fmis-shape-specificity),
 html body[data-theme="dark"] .farmer-picker-list:not(#fmis-shape-specificity){
     border-color:#526177!important
+}
+
+/* Final shared dropdown policy: search results are plain rows, never pills. */
+html body .app-shell .farmer-picker-list:not(#fmis-shape-specificity){
+    padding:0!important;
+    border:1px solid #c7d5cd!important;
+    border-radius:0!important;
+    background:var(--surface,#fff)!important;
+    box-shadow:0 8px 18px rgba(15,23,42,.12)!important
+}
+
+html body .app-shell .farmer-picker-list .farmer-picker-option:not(#fmis-shape-specificity),
+html body .app-shell .farmer-picker-list .farmer-picker-option:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    display:block!important;
+    width:100%!important;
+    min-height:42px!important;
+    margin:0!important;
+    padding:10px 12px!important;
+    border:0!important;
+    border-bottom:1px solid #e5ebe7!important;
+    border-radius:0!important;
+    background:var(--surface,#fff)!important;
+    box-shadow:none!important;
+    color:inherit!important;
+    text-align:left!important;
+    transform:none!important
+}
+
+html body .app-shell .farmer-picker-list .farmer-picker-option:last-child:not(#fmis-shape-specificity){
+    border-bottom:0!important
+}
+
+html body .app-shell .farmer-picker-list .farmer-picker-option:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible),
+html body .app-shell .farmer-picker-list .farmer-picker-option[aria-selected="true"]:not(#fmis-shape-specificity){
+    background:#eef7f1!important;
+    color:#075d38!important
 }
 
 /* Report navigation is a quiet text link, not a pill-shaped button. */
@@ -376,6 +434,7 @@ html body .app-shell :is(
     .request-status.pending,
     .request-status.completed,
     .intervention-status.active,
+    .intervention-status.status-completed,
     .farmer-status.active,
     .farmer-status.status-completed,
     .confirmation-status.status-completed,
@@ -441,14 +500,25 @@ html body[data-theme="dark"] .app-shell :is(
     color:#f8fafc!important
 }
 
-/* Delivered/archived intervention labels are plain text, not pills. */
+/* Intervention workflow states stay visibly outlined in list tables. */
 html body .app-shell .intervention-status:not(#fmis-shape-specificity){
-    padding:0!important;
-    border:0!important;
-    border-radius:0!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    min-height:28px!important;
+    padding:4px 11px!important;
+    border:1px solid var(--fmis-badge-outline)!important;
+    border-radius:999px!important;
     background:transparent!important;
-    box-shadow:none!important
+    color:var(--fmis-badge-outline)!important;
+    box-shadow:none!important;
+    white-space:nowrap!important
 }
+
+html body .app-shell .intervention-status.status-draft:not(#fmis-shape-specificity){--fmis-badge-outline:#667085}
+html body .app-shell .intervention-status.status-scheduled:not(#fmis-shape-specificity){--fmis-badge-outline:#1765d8}
+html body .app-shell .intervention-status.status-ongoing:not(#fmis-shape-specificity){--fmis-badge-outline:#b57600}
+html body .app-shell .intervention-status.status-cancelled:not(#fmis-shape-specificity){--fmis-badge-outline:#d32626}
 
 /* Table actions are icon controls, not full-sized pill buttons. */
 html body .app-shell table :is(
