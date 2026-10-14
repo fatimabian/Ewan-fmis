@@ -57,14 +57,10 @@ class SessionTimeoutMiddleware:
                         request,
                         "For your security, please sign in again after seven days.",
                     )
-                    landing_url = reverse("authentication:landing")
+                    login_url = reverse("authentication:login")
                     return redirect(
-                        f"{landing_url}?{urlencode({'next': request.get_full_path()})}"
+                        f"{login_url}?{urlencode({'next': request.get_full_path()})}"
                     )
-                # A remembered device uses the fixed seven-day limit instead
-                # of the much shorter ordinary idle timeout.
-                request.session[self.SESSION_KEY] = now
-                return self.get_response(request)
             last_activity = request.session.get(self.SESSION_KEY)
             if last_activity and now - int(last_activity) > self._timeout_seconds():
                 logout(request)
@@ -75,9 +71,9 @@ class SessionTimeoutMiddleware:
                 messages.warning(
                     request, "Your session expired due to inactivity. Please sign in again."
                 )
-                landing_url = reverse("authentication:landing")
+                login_url = reverse("authentication:login")
                 return redirect(
-                    f"{landing_url}?{urlencode({'next': request.get_full_path()})}"
+                    f"{login_url}?{urlencode({'next': request.get_full_path()})}"
                 )
             request.session[self.SESSION_KEY] = now
         return self.get_response(request)

@@ -1,6 +1,7 @@
 from datetime import timedelta
 import logging
 
+from django.db import transaction
 from django.db.models import Max
 from django.utils import timezone
 
@@ -50,7 +51,10 @@ def record_event(
     try:
         from apps.notifications.services import create_activity_notifications
 
-        create_activity_notifications(activity)
+        # Keep an optional notification failure from poisoning the caller's
+        # transaction after the audit record itself was saved successfully.
+        with transaction.atomic():
+            create_activity_notifications(activity)
     except Exception:
         logger.exception("In-app notification creation failed for activity %s.", activity.pk)
     return activity
@@ -68,7 +72,7 @@ def _friendly_activity(method, path):
     labels = [
         ("/farmers/", "Farmer Record", "Farmers", "added or updated a farmer record."),
         ("/parcels/", "Farm Parcel", "Farm Parcels", "added or updated a farm parcel record."),
-        ("/crops/", "Crop Record", "Crops", "added or updated a crop record."),
+        ("/crops/", "Commodity Record", "Crops", "added or updated a commodity record."),
         (
             "/requests/",
             "Service Request",

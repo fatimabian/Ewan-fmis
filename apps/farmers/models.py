@@ -152,7 +152,7 @@ class Farmer(models.Model):
     @property
     def activities_display(self):
         labels = {
-            "FARMER_CROPS": "Farmer - Crops", "FARMER_LIVESTOCK": "Farmer - Livestock",
+            "FARMER_CROPS": "Farmer - Crop Production", "FARMER_LIVESTOCK": "Farmer - Livestock",
             "FARMER_POULTRY": "Farmer - Poultry", "WORK_LAND_PREPARATION": "Farm Worker - Land Preparation",
             "WORK_PLANTING": "Farm Worker - Planting / Transplanting", "WORK_CULTIVATION": "Farm Worker - Cultivation",
             "WORK_HARVESTING": "Farm Worker - Harvesting", "FISH_CAPTURE": "Fisherfolk - Fish Capture",
@@ -190,6 +190,7 @@ class Farmer(models.Model):
 
 class FarmerDocument(models.Model):
     DOCUMENT_TYPE_CHOICES = [
+        ("RSBSA_FORM", "Scanned RSBSA Enrollment Form"),
         ("VALID_ID", "Valid ID"),
         ("PROOF_OF_ADDRESS", "Proof of Address"),
         ("OWNERSHIP", "Ownership / Tenure Document"),
@@ -218,8 +219,8 @@ class FarmerDocument(models.Model):
 
 class FarmerUpdateHistory(models.Model):
     UPDATE_TYPE_CHOICES = [
-        ("SLIP_A", "Slip A - Personal Information"),
-        ("SLIP_B", "Slip B - Farm Parcel Information"),
+        ("SLIP_A", "Update Record - Farmer Information"),
+        ("SLIP_B", "Update Record - Farm Parcel Information"),
         ("STATUS", "Office Registration Status"),
     ]
     CHANGE_REASON_CHOICES = [

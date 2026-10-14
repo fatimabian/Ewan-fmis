@@ -100,6 +100,10 @@ def report_preview(report_type, date_range, filters, system_report=False):
         for row in rows:
             chart_values[row[2] or "FMIS"] += 1
         value_label = "Activities"
+    elif report_type == "staff_accomplishment":
+        for row in rows:
+            chart_values[row[0] or "Unknown staff"] += float(row[4] or 0)
+        value_label = "Records handled"
     elif report_type == "farmer_master":
         # A master list is for reviewing individual farmer records. Barangay is
         # retained as a filter and a table field, not used as a substitute for
@@ -108,15 +112,11 @@ def report_preview(report_type, date_range, filters, system_report=False):
     elif report_type == "commodity_per_parcel":
         for row in rows:
             chart_values[row[4] or "Not recorded"] += 1
-        value_label = "Crop records"
+        value_label = "Commodity records"
     elif report_type == "intervention_registry":
         for row in rows:
             chart_values[row[5] or "Not recorded"] += 1
         value_label = "Interventions"
-    elif report_type == "farmers_by_barangay":
-        for row in rows:
-            chart_values[row[0] or "Not recorded"] += 1
-        value_label = "Farmers"
     elif report_type == "farm_area_by_barangay":
         for row in rows:
             chart_values[row[0] or "Not recorded"] += float(row[4] or 0)

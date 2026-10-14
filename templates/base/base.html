@@ -134,6 +134,14 @@
     .page-scroll{
         min-height:100vh
     }
+    /* Let every authenticated workspace page use the full width beside the sidebar.
+       This intentionally overrides older page-specific desktop width caps while
+       preserving each page's shared responsive padding and mobile layout. */
+    .app-shell .page-scroll > .content{
+        width:100%!important;
+        max-width:none!important;
+        margin-inline:0!important
+    }
     body[data-theme="dark"]{
         background:#121923!important;
         color:#edf3fa
@@ -183,6 +191,11 @@
         color:#708294
     }
     @media(min-width:601px){
+        body.nav-collapsed .sidebar{
+            padding-left:8px!important;
+            padding-right:8px!important;
+            overflow-x:hidden
+        }
         body.nav-collapsed .sidebar .brand{
             width:100%;
             box-sizing:border-box;
@@ -203,6 +216,18 @@
         body.nav-collapsed .sidebar .brand-logo{
             max-width:100%;
             max-height:100%
+        }
+        body.nav-collapsed .sidebar nav a{
+            width:42px!important;
+            height:48px!important;
+            min-height:48px!important;
+            margin:5px auto!important;
+            padding:0!important;
+            box-sizing:border-box!important;
+            transform:none!important
+        }
+        body.nav-collapsed .sidebar nav a:is(:hover,:focus,:active,.active){
+            transform:none!important
         }
         body.nav-collapsed .sidebar-legal-links{
             flex-direction:column;
@@ -269,7 +294,7 @@
     }
     </style>
     <link rel="stylesheet" href="{% static 'css/dark-mode.css' %}?v=7">
-<link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=26">
+<link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=27">
   </head>
   <body class="{% if request.user.is_admin %}role-admin{% else %}role-staff{% endif %}"
         data-theme="{{ user_preference.theme|default:'system' }}"
@@ -277,6 +302,11 @@
     <script>
       (() => {
           const body = document.body;
+          const desktopNavigation = window.matchMedia("(min-width: 601px)").matches;
+          if (desktopNavigation && localStorage.getItem("fmis-nav-collapsed") === "true") {
+              // Restore the compact state before the sidebar is painted.
+              body.classList.add("nav-collapsed");
+          }
           if (body.dataset.themePreference === "system") {
               body.dataset.theme = window.matchMedia("(prefers-color-scheme: dark)").matches
                   ? "dark"
@@ -338,7 +368,7 @@
             <a href="{% url 'crops:list' %}">
               <i class="bi bi-flower1">
               </i>
-              <span>Crops</span>
+              <span>Commodity</span>
             </a>
             <a href="{% url 'service_requests:list' %}">
               <i class="bi bi-headset">

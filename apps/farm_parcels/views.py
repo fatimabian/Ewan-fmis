@@ -70,6 +70,7 @@ class FarmParcelListView(
         barangay = self.request.GET.get("barangay", "").strip()
         ownership = self.request.GET.get("ownership", "").strip()
         area = self.request.GET.get("area", "").strip()
+        status = self.request.GET.get("status", "active").strip()
         if query:
             farmer_id = query.upper().removeprefix("F-")
             filters = (
@@ -92,6 +93,10 @@ class FarmParcelListView(
             queryset = queryset.filter(area_hectares__gte=1, area_hectares__lte=2)
         elif area == "over2":
             queryset = queryset.filter(area_hectares__gt=2)
+        if status == "inactive":
+            queryset = queryset.filter(is_active=False)
+        elif status != "all":
+            queryset = queryset.filter(is_active=True)
         return queryset.order_by("pk")
 
     def get_context_data(self, **kwargs):
@@ -139,7 +144,7 @@ class FarmParcelHistoryView(
         events = ActivityLog.objects.filter(module="Farm Parcels", target_label=f"{self.object.farmer.record_id} - {self.object.display_name}").select_related("actor")
         rows = farmer_update_rows(updates) + activity_rows(events)
         rows.sort(key=lambda row: row["date"])
-        context.update({"history_title": "Slip B - Farm Parcel Update History", "record_label": f"{self.object.display_name} · {self.object.farmer.full_name}", "back_url": reverse("farm_parcels:detail", args=[self.object.pk]), "edit_url": reverse("farm_parcels:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Slip B", "history_entries": rows})
+        context.update({"history_title": "Farm Parcel Update Record History", "record_label": f"{self.object.display_name} · {self.object.farmer.full_name}", "back_url": reverse("farm_parcels:detail", args=[self.object.pk]), "edit_url": reverse("farm_parcels:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Record", "history_entries": rows})
         return context
 
 
@@ -208,6 +213,7 @@ class FarmParcelMapView(
                     "farmer": farmer.full_name,
                     "parcel": parcel.display_name,
                     "area": f"{parcel.area_hectares} ha",
+                    "barangay": parcel.barangay,
                     "address": f"{parcel.barangay}, Rosario, Batangas",
                     "crops": crops,
                     "field_image_url": (
@@ -361,10 +367,10 @@ class FarmParcelDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         restoring = request.POST.get("action") == "restore"
         parcel.is_active = restoring
         parcel.save(update_fields=["is_active"])
-        action = "restored" if restoring else "archived"
+        action = "restored" if restoring else "set to inactive"
         record_request_event(
             request,
-            title=f"Farm Parcel {action.title()}",
+            title="Farm Parcel Restored" if restoring else "Farm Parcel Set Inactive",
             module="Farm Parcels",
             description=f"{request.user.display_name} {action} a farm parcel without deleting related records.",
             target_label=f"{parcel.farmer.record_id} - {parcel.display_name}",

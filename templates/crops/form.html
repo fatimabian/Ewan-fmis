@@ -1,16 +1,14 @@
 {% extends base_template %}
 {% block page_title %}
   {% if object %}
-    Update Crop Record
+    Update Commodity Record
   {% elif source_parcel %}
-    Add Crop to {{ source_parcel.display_name }}
+    Add Commodity to {{ source_parcel.display_name }}
   {% else %}
-    Add Crop Update
+    Add Commodity
   {% endif %}
 {% endblock %}
-{% block page_subtitle %}
-  Maintain an existing registrant's crop and commodity information using RSBSA Slip B
-{% endblock %}
+{% block page_subtitle %}Maintain an existing registrant's commodity information{% endblock %}
 {% block content %}
   <div class="content">
     <section class="panel form-panel rsbsa-update-form">
@@ -19,9 +17,9 @@
         </i>
         <span>
           {% if source_parcel %}
-            This RSBSA Slip B crop record will be assigned to {{ source_parcel.farmer.record_id }} · {{ source_parcel.display_name }}.
+            This commodity record will be assigned to {{ source_parcel.farmer.record_id }} · {{ source_parcel.display_name }}.
           {% else %}
-            This page updates crops for an existing farmer parcel. Initial crops for new registrants belong in Add Farmer.
+            This page updates commodities for an existing farmer parcel. Initial commodities for new registrants belong in Add Farmer.
           {% endif %}
         </span>
       </div>
@@ -29,14 +27,50 @@
         {% csrf_token %}
         <div class="registration-grid three">
           {% for field in form %}
-            {% include "farmers/registration_field.html" with field=field %}
+            {% if field.name == "cropping_start_month" %}
+              <div class="registration-field crop-schedule-field" data-field-name="cropping_schedule">
+                <label>Cropping schedule <b>*</b></label>
+                <div class="crop-schedule-range">
+                  <span>{{ form.cropping_start_month }}</span>
+                  <strong aria-hidden="true">–</strong>
+                  <span>{{ form.cropping_end_month }}</span>
+                </div>
+                {{ form.cropping_start_month.errors }}
+                {{ form.cropping_end_month.errors }}
+                <small>Select the first and last month of the usual production period.</small>
+              </div>
+            {% elif field.name != "cropping_end_month" %}
+              {% include "farmers/registration_field.html" with field=field %}
+            {% endif %}
           {% endfor %}
         </div>
         <div class="step-actions">
           <a class="btn btn-outline-secondary btn-cancel" href="{% if source_parcel %}{% url 'farm_parcels:detail' source_parcel.pk %}{% else %}{% url 'crops:list' %}{% endif %}">Cancel</a>
-          <button class="btn btn-success">Save Crop Update</button>
+          <button class="btn btn-success">Save Commodity</button>
         </div>
       </form>
     </section>
   </div>
+{% endblock %}
+{% block extra_js %}
+  {{ block.super }}
+  <script>
+    (() => {
+      const commodity = document.querySelector('[data-commodity-type]');
+      const area = document.querySelector('[data-commodity-area]');
+      if (!commodity || !area) return;
+
+      function updateCommodityArea() {
+        const livestock = (commodity.dataset.livestockValues || '').split('|').includes(commodity.value);
+        area.disabled = livestock;
+        area.required = !livestock;
+        if (livestock) area.value = '';
+        area.placeholder = livestock ? 'Not applicable to livestock' : '';
+        area.closest('.registration-field')?.classList.toggle('field-disabled', livestock);
+      }
+
+      commodity.addEventListener('change', updateCommodityArea);
+      updateCommodityArea();
+    })();
+  </script>
 {% endblock %}

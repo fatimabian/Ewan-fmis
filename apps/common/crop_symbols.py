@@ -20,6 +20,20 @@ CROP_SYMBOLS = {
     "bitter gourd": "🥒",
     "chili pepper": "🌶️",
     "leafy vegetables": "🥬",
+    "carabao": "🐃",
+    "cattle": "🐄",
+    "swine": "🐖",
+    "goat": "🐐",
+    "sheep": "🐑",
+    "chicken": "🐔",
+    "rhode island red": "🐔",
+    "plymouth rock": "🐔",
+    "leghorn": "🐔",
+    "gamefowl": "🐓",
+    "duck": "🦆",
+    "quail": "🐦",
+    "turkey": "🦃",
+    "rabbit": "🐇",
 }
 
 

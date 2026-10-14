@@ -6,12 +6,28 @@ ROLE_STAFF = "STAFF"
 ROLE_CHOICES = ((ROLE_ADMIN, "Administrator"), (ROLE_STAFF, "Staff"))
 ASSIGNABLE_ROLE_CHOICES = ((ROLE_STAFF, "Staff"),)
 
+MONTH_CHOICES = (
+    ("", "Select month"),
+    ("January", "January"),
+    ("February", "February"),
+    ("March", "March"),
+    ("April", "April"),
+    ("May", "May"),
+    ("June", "June"),
+    ("July", "July"),
+    ("August", "August"),
+    ("September", "September"),
+    ("October", "October"),
+    ("November", "November"),
+    ("December", "December"),
+)
+
 # Canonical request types used by the Office for Agricultural Services. The
 # database table remains a protected reference table so historical requests
 # retain their foreign-key relationships without requiring a catalog UI.
 CANONICAL_AGRICULTURAL_SERVICES = (
     ("RSBSA-REG", "RSBSA Registration or Record Update", "Farmer Records"),
-    ("PARCEL-UPD", "Farm Parcel or Crop Record Update", "Farmer Records"),
+    ("PARCEL-UPD", "Farm Parcel or Commodity Record Update", "Farmer Records"),
     ("CERT-DATA", "Certification, Endorsement, or Data Request", "Farmer Records"),
     ("SEED", "Seed Assistance", "Farm Inputs"),
     ("PLANT-MAT", "Planting Materials Assistance", "Farm Inputs"),
@@ -39,9 +55,8 @@ ROSARIO_MUNICIPALITY = "Rosario"
 ROSARIO_PROVINCE = "Batangas"
 ROSARIO_REGION = "CALABARZON Region IV-A"
 
-# The municipal office explicitly supports rice, corn, vegetables, coconut,
-# and other high-value crops. Keep the list practical for local encoding while
-# retaining an Other option for commodities not yet listed.
+# Rosario crop, livestock, and poultry commodities. Livestock terminology follows
+# the commodity names used by the Philippine Statistics Authority.
 _ROSARIO_CROP_LABELS = (
     ("Rice", "Rice (Palay)"),
     ("Corn", "Corn"),
@@ -62,10 +77,34 @@ _ROSARIO_CROP_LABELS = (
     ("Bitter Gourd", "Bitter Gourd (Ampalaya)"),
     ("Chili Pepper", "Chili Pepper"),
     ("Leafy Vegetables", "Leafy Vegetables"),
-    ("Other Crop / Commodity", "Other Crop / Commodity"),
+    ("Carabao", "Carabao"),
+    ("Cattle", "Cattle"),
+    ("Swine", "Swine"),
+    ("Goat", "Goat"),
+    ("Sheep", "Sheep"),
+    ("Broiler Chicken", "Broiler Chicken"),
+    ("Layer Chicken", "Layer Chicken"),
+    ("Native Chicken", "Native Chicken (Manok na Tagalog)"),
+    ("Rhode Island Red", "Rhode Island Red"),
+    ("Plymouth Rock", "Plymouth Rock"),
+    ("Leghorn", "Leghorn"),
+    ("Gamefowl", "Gamefowl (Panabong)"),
+    ("Duck", "Duck"),
+    ("Quail", "Quail"),
+    ("Turkey", "Turkey"),
+    ("Rabbit", "Rabbit"),
+    ("Other Crop / Commodity", "Other Commodity"),
 )
 ROSARIO_CROP_CHOICES = (("", "Select crop or commodity"),) + tuple(
     (value, f"{crop_symbol(value)} {label}") for value, label in _ROSARIO_CROP_LABELS
+)
+
+LIVESTOCK_COMMODITIES = frozenset(
+    {
+        "Carabao", "Cattle", "Swine", "Goat", "Sheep", "Broiler Chicken",
+        "Layer Chicken", "Native Chicken", "Rhode Island Red", "Plymouth Rock",
+        "Leghorn", "Gamefowl", "Duck", "Quail", "Turkey", "Rabbit",
+    }
 )
 
 # Philippine Standard Geographic Code (PSGC), Municipality of Rosario,

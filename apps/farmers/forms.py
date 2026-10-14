@@ -9,8 +9,10 @@ from django.utils import timezone
 
 from apps.crops.models import CropRecord
 from apps.common.constants import (
+    MONTH_CHOICES,
     ROSARIO_BARANGAY_CHOICES,
     ROSARIO_CROP_CHOICES,
+    LIVESTOCK_COMMODITIES,
     ROSARIO_MUNICIPALITY,
     ROSARIO_PROVINCE,
     ROSARIO_REGION,
@@ -98,7 +100,7 @@ def validate_registration_inputs(form, cleaned, *, letters=(), digits=(), mixed=
     return cleaned
 
 ACTIVITY_CHOICES = [
-    ("FARMER_CROPS", "Farmer - Crops"),
+    ("FARMER_CROPS", "Farmer - Crop Production"),
     ("FARMER_LIVESTOCK", "Farmer - Livestock"),
     ("FARMER_POULTRY", "Farmer - Poultry"),
     ("WORK_LAND_PREPARATION", "Farm Worker - Land Preparation"),
@@ -159,23 +161,6 @@ VALID_ID_RULES = {
 
 GENERIC_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 .#()/\-]{2,39}$")
 RSBSA_NUMBER_PATTERN = re.compile(r"^\d{2}-\d{2}-\d{2}-\d{3}-\d{6}$")
-MONTH_CHOICES = (
-    ("", "Select month"),
-    ("January", "January"),
-    ("February", "February"),
-    ("March", "March"),
-    ("April", "April"),
-    ("May", "May"),
-    ("June", "June"),
-    ("July", "July"),
-    ("August", "August"),
-    ("September", "September"),
-    ("October", "October"),
-    ("November", "November"),
-    ("December", "December"),
-)
-
-
 class StyledFormMixin(InlineValidationMixin):
     def apply_styles(self):
         for field in self.fields.values():
@@ -208,8 +193,14 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
     valid_id_type = forms.ChoiceField(
         choices=VALID_ID_CHOICES,
-        required=False,
-        label="Valid ID type (optional)",
+        required=True,
+        label="Valid ID type",
+    )
+    rsbsa_form = forms.FileField(
+        required=True,
+        label="Scanned RSBSA enrollment form",
+        help_text="Required. Upload a readable JPG, PNG, or PDF; maximum 5 MB.",
+        widget=forms.ClearableFileInput(attrs={"accept": ".jpg,.jpeg,.png,.pdf"}),
     )
     is_indigenous = YesNoNAField(label="Member of an Indigenous People / ICC")
     is_pwd = YesNoNAField(label="Person with Disability (PWD)")
@@ -336,6 +327,12 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         self.fields["is_indigenous"].widget.attrs["data-indigenous-choice"] = "true"
         self.fields["indigenous_group"].widget.attrs["data-indigenous-group"] = "true"
         self.fields["valid_id_type"].widget.attrs["data-valid-id-type"] = "true"
+        registration_only = not (self.instance and self.instance.pk)
+        self.fields["valid_id_type"].required = registration_only
+        self.fields["valid_id_number"].required = registration_only
+        self.fields["valid_id_type"].label = (
+            "Valid ID type" if registration_only else "Valid ID type"
+        )
         self.fields["valid_id_number"].widget.attrs.update(
             {
                 "data-valid-id-number": "true",
@@ -345,7 +342,9 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             }
         )
         self.fields["valid_id_number"].help_text = (
-            "Optional when the farmer has no valid ID. If an ID type is selected, enter its number."
+            "Required for registration. Enter the number exactly as shown on the selected ID."
+            if registration_only
+            else "Enter the number exactly as shown whenever an ID type is selected."
         )
         today = timezone.localdate()
         try:
@@ -384,6 +383,9 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
                 "Use numbers only and enter 11 digits starting with 09 (for example, 09171234567)."
             )
         return value
+
+    def clean_rsbsa_form(self):
+        return validate_farmer_document_upload(self.cleaned_data["rsbsa_form"])
 
     def clean(self):
         cleaned = super().clean()
@@ -454,7 +456,7 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
     transaction_code = forms.CharField(
         max_length=80,
         label="Transaction code",
-        help_text="Official Slip A transaction code assigned by the encoder.",
+        help_text="Official update-record transaction code assigned by the encoder.",
     )
     change_reason = forms.ChoiceField(
         choices=FarmerUpdateHistory.CHANGE_REASON_CHOICES,
@@ -495,6 +497,7 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields.pop("rsbsa_form", None)
         # Older clients and saved drafts may omit the new tri-state fields.
         # Preserve the stored value on updates instead of silently replacing it.
         for name in ("is_indigenous", "is_pwd", "is_four_ps"):
@@ -599,7 +602,7 @@ class FarmerSlipBLivelihoodForm(StyledFormMixin, forms.ModelForm):
     )
     update_remarks = forms.CharField(
         required=False,
-        label="Slip B remarks",
+        label="Update remarks",
         widget=forms.Textarea(attrs={"rows": 3}),
     )
     date_signed = forms.DateField(
@@ -613,7 +616,7 @@ class FarmerSlipBLivelihoodForm(StyledFormMixin, forms.ModelForm):
     agriculturist_name = forms.CharField(max_length=180, required=False)
     registrant_declaration = forms.BooleanField(
         required=True,
-        label="The registrant confirms the Slip B information and privacy declaration.",
+        label="The registrant confirms the updated information and privacy declaration.",
     )
 
     class Meta:
@@ -763,7 +766,7 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
     crop_type = forms.ChoiceField(
         choices=ROSARIO_CROP_CHOICES,
         required=False,
-        label="Crop / Commodity",
+        label="Commodity",
     )
     is_organic = RequiredYesNoField(label="Organic production?")
     is_intercrop = RequiredYesNoField(label="Intercropping commodity?")
@@ -788,15 +791,15 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
             "archived_at",
             "archived_by",
             "image",
+            "planting_date",
         ]
         labels = {
-            "crop_type": "Crop / Commodity",
+            "crop_type": "Commodity",
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
         }
         widgets = {
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
-            "planting_date": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -841,20 +844,30 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
             self.fields[name].widget.attrs["data-step-required"] = "true"
         self.apply_styles()
         configure_registration_inputs(self, mixed=self.MIXED_FIELDS)
+        self.fields["crop_type"].widget.attrs["data-commodity-type"] = "true"
+        self.fields["crop_type"].widget.attrs["data-livestock-values"] = "|".join(
+            sorted(LIVESTOCK_COMMODITIES)
+        )
+        self.fields["area_hectares"].widget.attrs["data-commodity-area"] = "true"
 
     def clean(self):
         cleaned = super().clean()
         validate_registration_inputs(self, cleaned, mixed=self.MIXED_FIELDS)
         resolve_other_crop(self, cleaned)
+        commodity = cleaned.get("crop_type")
+        livestock = commodity in LIVESTOCK_COMMODITIES
         for name in (
             "parcel_number",
             "crop_type",
-            "area_hectares",
             "cropping_start_month",
             "cropping_end_month",
         ):
             if not cleaned.get(name):
-                self.add_error(name, "Complete this field for the crop or commodity.")
+                self.add_error(name, "Complete this field for the commodity.")
+        if livestock:
+            cleaned["area_hectares"] = None
+        elif not cleaned.get("area_hectares"):
+            self.add_error("area_hectares", "Complete this field for the commodity.")
         start_month = cleaned.get("cropping_start_month")
         end_month = cleaned.get("cropping_end_month")
         cleaned["cropping_schedule"] = (
@@ -881,26 +894,29 @@ class DocumentRegistrationForm(StyledFormMixin, forms.Form):
         return validate_registration_inputs(self, cleaned, mixed=self.MIXED_FIELDS)
 
     def clean_file(self):
-        upload = self.cleaned_data["file"]
-        extension = Path(upload.name).suffix.lower()
-        if extension not in {".jpg", ".jpeg", ".png", ".pdf"}:
-            raise ValidationError("Upload a JPG, PNG, or PDF file.")
-        if upload.size > 5 * 1024 * 1024:
-            raise ValidationError("Each document must be 5 MB or smaller.")
-        position = upload.tell()
-        header = upload.read(12)
-        upload.seek(position)
-        signatures = {
-            ".pdf": header.startswith(b"%PDF-"),
-            ".png": header.startswith(b"\x89PNG\r\n\x1a\n"),
-            ".jpg": header.startswith(b"\xff\xd8\xff"),
-            ".jpeg": header.startswith(b"\xff\xd8\xff"),
-        }
-        if not signatures.get(extension, False):
-            raise ValidationError(
-                "The file contents do not match the selected PDF or image format."
-            )
-        return upload
+        return validate_farmer_document_upload(self.cleaned_data["file"])
+
+
+def validate_farmer_document_upload(upload):
+    extension = Path(upload.name).suffix.lower()
+    if extension not in {".jpg", ".jpeg", ".png", ".pdf"}:
+        raise ValidationError("Upload a JPG, PNG, or PDF file.")
+    if upload.size > 5 * 1024 * 1024:
+        raise ValidationError("Each document must be 5 MB or smaller.")
+    position = upload.tell()
+    header = upload.read(12)
+    upload.seek(position)
+    signatures = {
+        ".pdf": header.startswith(b"%PDF-"),
+        ".png": header.startswith(b"\x89PNG\r\n\x1a\n"),
+        ".jpg": header.startswith(b"\xff\xd8\xff"),
+        ".jpeg": header.startswith(b"\xff\xd8\xff"),
+    }
+    if not signatures.get(extension, False):
+        raise ValidationError(
+            "The file contents do not match the selected PDF or image format."
+        )
+    return upload
 
 
 class BaseRequiredRegistrationFormSet(BaseFormSet):

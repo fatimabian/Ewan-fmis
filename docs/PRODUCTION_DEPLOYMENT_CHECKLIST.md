@@ -1,6 +1,6 @@
 # Production Deployment Checklist
 
-- [ ] Copy `.env.production.example` to the server's protected environment file.
+- [ ] Create a protected server-only `.env`; confirm `git check-ignore .env` reports that Git ignores it.
 - [ ] Generate a unique secret key of at least 50 characters.
 - [ ] Set `DJANGO_DEBUG=False`, the real hostname, and the HTTPS CSRF origin.
 - [ ] Create a least-privilege MySQL application user and run `python manage.py migrate`.

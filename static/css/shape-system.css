@@ -519,6 +519,7 @@ html body .app-shell .intervention-status.status-draft:not(#fmis-shape-specifici
 html body .app-shell .intervention-status.status-scheduled:not(#fmis-shape-specificity){--fmis-badge-outline:#1765d8}
 html body .app-shell .intervention-status.status-ongoing:not(#fmis-shape-specificity){--fmis-badge-outline:#b57600}
 html body .app-shell .intervention-status.status-cancelled:not(#fmis-shape-specificity){--fmis-badge-outline:#d32626}
+html body:not([data-theme="dark"]) .app-shell .intervention-status.status-completed:not(#fmis-shape-specificity){color:#111!important}
 
 /* Table actions are icon controls, not full-sized pill buttons. */
 html body .app-shell table :is(

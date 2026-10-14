@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.contrib.auth import get_user_model
 from django.http import HttpResponseBadRequest
 from django.utils import timezone
 from django.views import View
@@ -42,6 +43,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             "role": source.get("role", ""),
             "account_status": source.get("account_status", ""),
             "module": source.get("module", ""),
+            "staff": source.get("staff", ""),
         }
 
     def get_context_data(self, **kwargs):
@@ -106,6 +108,9 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             .values_list("module", flat=True)
             .distinct()
             .order_by("module"),
+            "staff_choices": get_user_model().objects.filter(role="STAFF").order_by(
+                "first_name", "last_name", "username"
+            ),
             "selected_report_type": selected_report_type,
             "selected_date_range": date_range,
             "selected_filters": filters,
@@ -130,6 +135,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
                     "role": request.POST.get("role", ""),
                     "account_status": request.POST.get("account_status", ""),
                     "module": request.POST.get("module", ""),
+                    "staff": request.POST.get("staff", ""),
                 },
             )
             record_request_event(
@@ -176,7 +182,7 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     farmer.barangay,
                     farmer.phone_number or "-",
                     farmer.get_livelihood_display(),
-                    "Active" if farmer.is_active else "Archived",
+                    "Active" if farmer.is_active else "Inactive",
                 ]
                 for farmer in view.get_queryset()
             ]
@@ -215,6 +221,7 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     parcel.get_ownership_type_display(),
                     parcel.get_land_type_display(),
                     parcel.get_farm_type_display(),
+                    "Active" if parcel.is_active else "Inactive",
                 ]
                 for parcel in view.get_queryset()
             ]
@@ -239,6 +246,7 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     "Ownership",
                     "Land Type",
                     "Farm Type",
+                    "Status",
                 ],
                 rows,
                 filters,
@@ -261,27 +269,20 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     farmer.record_id,
                     farmer.list_name,
                     ", ".join(dict.fromkeys(crop.crop_type for crop in crops)),
-                    ", ".join(
-                        dict.fromkeys(
-                            str(crop.planting_date)
-                            for crop in crops
-                            if crop.planting_date
-                        )
-                    ) or "Not set",
+                    "Active" if max(crops, key=lambda crop: crop.pk).is_active else "Inactive",
                 ])
             filters = {
                 "search": request.GET.get("q", ""),
                 "commodity": request.GET.get("crop_type", ""),
-                "year": request.GET.get("year", ""),
-                "record_view": request.GET.get("status", "").title() or "Current",
+                "record_status": request.GET.get("status", "").title() or "Active",
             }
             return (
-                "Crop Management List",
+                "Commodity Management List",
                 [
                     "Farmer ID",
                     "Farmer Name",
-                    "Crop / Commodity",
-                    "Planting Date",
+                    "Commodity",
+                    "Status",
                 ],
                 rows,
                 filters,

@@ -15,7 +15,7 @@ ADMIN_MODULES = {"User Accounts"}
 RECORD_LABELS = {
     "Farmers": "farmer record",
     "Farm Parcels": "farm parcel",
-    "Crops": "crop record",
+    "Crops": "commodity record",
     "Service Requests": "service request",
     "User Accounts": "user account",
 }

@@ -36,4 +36,4 @@
 
 ## Automated result
 
-The final isolated run discovered **47 tests**, applied all migrations, reported no framework issues, and completed successfully. Migration-drift detection reported no changes and the production security check reported no issues using production-like environment values. Manual browser/device checks, a MySQL recovery drill, production SMTP, Google OAuth configuration, and HTTPS certificate installation must still be executed in the real deployment environment because they depend on external infrastructure.
+The latest isolated run discovered **94 tests**, applied all migrations, reported no framework issues, and completed successfully. Migration-drift detection reported no changes, the production security check reported no issues using production-like environment values, and the pinned Python dependencies had no known vulnerabilities according to `pip-audit`. Manual browser/device checks, a MySQL recovery drill, production SMTP, Google OAuth configuration, HTTPS certificate installation, and production-environment load testing must still be executed because they depend on external infrastructure.

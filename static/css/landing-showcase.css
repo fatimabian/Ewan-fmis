@@ -125,12 +125,13 @@ a{
 }
 
 .showcase-links a{
+    position:relative;
     display:inline-flex;
     align-items:center;
     justify-content:center;
     min-height:36px;
-    padding:0 16px;
-    border-radius:999px;
+    padding:0 14px;
+    border-radius:0;
     color:#d9e3df;
     font-size:12px;
     font-weight:700;
@@ -140,18 +141,49 @@ a{
 
 .showcase-links a:hover{
     color:#fff;
-    background:rgba(255,255,255,.1);
+    background:transparent;
+}
+
+.showcase-links a:not(.showcase-login-button)::after{
+    content:"";
+    position:absolute;
+    right:14px;
+    bottom:1px;
+    left:14px;
+    height:2px;
+    background:#35c46f;
+    transform:scaleX(0);
+    transform-origin:center;
+    transition:transform .18s ease;
+}
+
+.showcase-links a:not(.showcase-login-button):is(:hover,:focus-visible,.is-active)::after{
+    transform:scaleX(1);
 }
 
 .showcase-links a.is-active{
-    background:#16a34a;
+    background:transparent;
     color:#fff;
-    box-shadow:0 5px 12px rgba(40,91,59,.18);
+    box-shadow:none;
 }
 
 .showcase-links a.is-active:hover{
-    background:#13843d;
+    background:transparent;
     color:#fff;
+}
+
+.showcase-links a.showcase-login-button{
+    min-width:88px;
+    margin-left:8px;
+    border:1px solid #20a95a;
+    border-radius:7px;
+    background:#19a653;
+    color:#fff;
+    box-shadow:0 6px 16px rgba(10,92,47,.22);
+}
+
+.showcase-links a.showcase-login-button:hover{
+    background:#148743;
 }
 
 #home,
@@ -793,6 +825,61 @@ a{
 .section-heading.centered>div{
     max-width:760px;
     margin:auto;
+}
+
+.landing-public-hero .hero-content{
+    grid-template-columns:minmax(0,820px);
+    justify-content:start;
+}
+
+.public-auth-page{
+    min-height:100vh;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    margin:0;
+    background:
+        linear-gradient(rgba(10,31,20,.74),rgba(10,31,20,.78)),
+        url("../images/landing/office-gallery/rice-field-data-collection.webp") center/cover fixed;
+    color:var(--landing-ink);
+}
+
+.public-auth-header{
+    min-height:82px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    padding:12px max(24px,calc((100vw - 1380px)/2));
+    border-bottom:1px solid rgba(255,255,255,.12);
+    background:#142231;
+}
+
+.public-auth-back,
+.auth-text-button{
+    color:#fff;
+    font-size:12px;
+    font-weight:800;
+    text-decoration:none;
+}
+
+.public-auth-back{display:inline-flex;align-items:center;gap:8px}
+.public-auth-main{display:grid;place-items:center;padding:42px 20px}
+.auth-standalone-card{width:min(500px,100%)}
+.auth-workflow-card{overflow:hidden;border:1px solid #b8d4c2;border-radius:16px;background:#fff;box-shadow:0 22px 55px rgba(4,17,8,.3)}
+.auth-workflow-card .landing-recovery-form h1{margin:2px 0 0;color:#17251d;font-size:28px;line-height:1.15}
+.auth-text-button{align-self:center;color:#176b3d}
+.auth-session-note{margin:2px 0 0;color:#64748b;font-size:11px;line-height:1.5;text-align:center}
+.auth-session-note i{margin-right:4px;color:#238553}
+.public-auth-footer{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px 22px;padding:18px 24px;background:rgba(10,25,18,.88);color:#cbd8d0;font-size:11px}
+.public-auth-footer a{color:#fff;text-decoration:none}
+
+@media(max-width:720px){
+    .showcase-links{gap:2px}
+    .showcase-links a{padding:0 8px}
+    .showcase-links a:not(.showcase-login-button)::after{right:8px;left:8px}
+    .public-auth-header{padding:12px 18px}
+    .public-auth-back{font-size:0}
+    .public-auth-back i{font-size:18px}
 }
 
 .section-heading.centered p{

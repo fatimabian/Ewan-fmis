@@ -40,10 +40,11 @@ from apps.farmers.forms import (
 )
 from apps.farmers.models import Farmer, FarmerDocument, FarmerUpdateHistory
 from apps.interventions.models import Intervention
-from apps.reports.export import build_report
+from apps.reports.export import build_report, build_system_report
 from apps.service_catalog.models import ServiceCatalog
 from apps.service_requests.forms import ServiceRequestForm
 from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
+from config.startup import prewarm_wsgi_application
 
 
 class FMISRequirementTests(TestCase):
@@ -100,18 +101,16 @@ class FMISRequirementTests(TestCase):
             },
         )
 
-    def test_public_pages_use_the_landing_page_as_the_only_login(self):
+    def test_public_landing_and_authentication_use_separate_pages(self):
         for name in (
             "authentication:landing",
+            "authentication:login",
+            "authentication:password_reset",
             "authentication:privacy",
             "authentication:terms",
         ):
             response = self.client.get(reverse(name))
             self.assertEqual(response.status_code, 200)
-        self.assertRedirects(
-            self.client.get(reverse("authentication:login")),
-            reverse("authentication:landing"),
-        )
         self.assertContains(
             self.client.get(reverse("authentication:privacy")), "Information collected"
         )
@@ -126,6 +125,14 @@ class FMISRequirementTests(TestCase):
         self.assertContains(landing, "landingProgress")
         self.assertContains(landing, "startServiceCarousel")
         self.assertContains(landing, "advanceServices")
+        self.assertContains(landing, reverse("authentication:login"))
+        self.assertContains(landing, "showcase-login-button")
+        self.assertNotContains(landing, "landing-signin-form")
+
+        login_page = self.client.get(reverse("authentication:login"))
+        self.assertContains(login_page, "landing-signin-form")
+        self.assertContains(login_page, reverse("authentication:password_reset"))
+        self.assertNotContains(login_page, "data-service-next")
 
     def test_application_header_shows_only_the_current_page_title(self):
         self.client.force_login(self.admin)
@@ -143,13 +150,10 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(staff_response, "Staff Workspace")
 
     def test_password_fields_have_show_and_hide_controls(self):
-        landing = self.client.get(reverse("authentication:landing"))
-        self.assertContains(landing, "data-password-toggle", count=1)
-        self.assertContains(landing, 'aria-controls="id_password"')
-        self.assertContains(landing, "password-toggle.js")
-
-        login_alias = self.client.get(reverse("authentication:login"))
-        self.assertRedirects(login_alias, reverse("authentication:landing"))
+        login_page = self.client.get(reverse("authentication:login"))
+        self.assertContains(login_page, "data-password-toggle", count=1)
+        self.assertContains(login_page, 'aria-controls="id_password"')
+        self.assertContains(login_page, "password-toggle.js")
 
         self.client.force_login(self.admin)
         account_form = self.client.get(reverse("accounts:create"))
@@ -160,20 +164,24 @@ class FMISRequirementTests(TestCase):
         self.assertContains(account_form, 'aria-controls="id_password2"')
 
     def test_authentication_accepts_valid_credentials_and_rejects_invalid(self):
-        landing_error = self.client.post(
-            reverse("authentication:landing"),
+        login_error = self.client.post(
+            reverse("authentication:login"),
             {"username": "staff", "password": "wrong"},
         )
-        self.assertEqual(landing_error.status_code, 200)
-        self.assertContains(landing_error, "landing-field-error")
-        self.assertContains(landing_error, "The username or password is incorrect.")
-        self.assertContains(landing_error, "has-error", count=2)
-        self.assertContains(landing_error, "novalidate")
+        self.assertEqual(login_error.status_code, 200)
+        self.assertContains(login_error, "landing-field-error")
+        self.assertContains(login_error, "The username or password is incorrect.")
+        self.assertContains(login_error, "has-error", count=2)
+        self.assertContains(login_error, "novalidate")
         response = self.client.post(
-            reverse("authentication:landing"),
+            reverse("authentication:login"),
             {"username": "staff", "password": "StrongPass123!"},
         )
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            self.client.post(reverse("authentication:landing")).status_code,
+            405,
+        )
 
     def test_new_account_is_staff_and_waits_for_email_activation(self):
         form = AccountForm(
@@ -205,7 +213,7 @@ class FMISRequirementTests(TestCase):
             activation_pending=True,
         )
         response = self.client.post(
-            reverse("authentication:landing"),
+            reverse("authentication:login"),
             {"username": pending.username, "password": "Ready4Field!Secure"},
         )
         self.assertRedirects(response, reverse("authentication:activate_account"))
@@ -227,9 +235,9 @@ class FMISRequirementTests(TestCase):
         self.assertTrue(pending.is_active)
         self.assertFalse(pending.activation_pending)
 
-    def test_landing_page_embedded_login_uses_secure_authentication_flow(self):
+    def test_dedicated_login_page_uses_secure_authentication_flow(self):
         response = self.client.post(
-            reverse("authentication:landing"),
+            reverse("authentication:login"),
             {
                 "username": "staff",
                 "password": "StrongPass123!",
@@ -243,7 +251,7 @@ class FMISRequirementTests(TestCase):
 
     def test_remembered_login_uses_a_fixed_seven_day_limit(self):
         self.client.post(
-            reverse("authentication:landing"),
+            reverse("authentication:login"),
             {
                 "username": "staff",
                 "password": "StrongPass123!",
@@ -251,27 +259,31 @@ class FMISRequirementTests(TestCase):
             },
         )
         session = self.client.session
-        session["fmis_last_activity"] = int(time.time()) - (24 * 60 * 60)
-        session.save()
-
-        # Remembered users are not incorrectly logged out by the ordinary
-        # short idle timeout.
-        response = self.client.get(reverse("dashboard:staff_home"))
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("_auth_user_id", self.client.session)
-
-        # The remembered login still has a firm security boundary.
-        session = self.client.session
+        session["fmis_last_activity"] = int(time.time())
         session["fmis_remember_until"] = int(time.time()) - 1
         session.save()
         response = self.client.get(reverse("dashboard:staff_home"))
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith(reverse("authentication:landing")))
+        self.assertTrue(response.url.startswith(reverse("authentication:login")))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_remembered_login_still_expires_after_inactivity(self):
+        self.client.post(
+            reverse("authentication:login"),
+            {"username": "staff", "password": "StrongPass123!", "remember_me": "on"},
+        )
+        session = self.client.session
+        session["fmis_last_activity"] = int(time.time()) - 901
+        session.save()
+        cache.set("fmis:session-timeout-minutes", 15, 60)
+        response = self.client.get(reverse("dashboard:staff_home"))
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith(reverse("authentication:login")))
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_unremembered_login_ends_with_the_browser_session(self):
         response = self.client.post(
-            reverse("authentication:landing"),
+            reverse("authentication:login"),
             {"username": "staff", "password": "StrongPass123!"},
         )
         self.assertRedirects(response, reverse("dashboard:staff_home"))
@@ -387,15 +399,15 @@ class FMISRequirementTests(TestCase):
         cache.set("fmis:session-timeout-minutes", 15, 60)
         response = self.client.get(reverse("dashboard:home"))
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith(reverse("authentication:landing")))
+        self.assertTrue(response.url.startswith(reverse("authentication:login")))
         self.assertIn("next=%2Fdashboard%2F", response.url)
         self.assertNotIn("_auth_user_id", self.client.session)
 
-        landing = self.client.get(response.url)
+        login_page = self.client.get(response.url)
         timeout_message = "Your session expired due to inactivity. Please sign in again."
-        self.assertContains(landing, timeout_message)
+        self.assertContains(login_page, timeout_message)
         login_response = self.client.post(
-            reverse("authentication:landing"),
+            reverse("authentication:login"),
             {"username": "staff", "password": "StrongPass123!"},
         )
         self.assertRedirects(login_response, reverse("dashboard:staff_home"))
@@ -423,7 +435,12 @@ class FMISRequirementTests(TestCase):
                 "livelihood": "FARMER",
                 "activities": "FARMER_CROPS",
                 "consent_given": "on",
-            }
+            },
+            files={
+                "rsbsa_form": SimpleUploadedFile(
+                    "rsbsa.pdf", b"%PDF-1.4\nRSBSA test\n%%EOF", content_type="application/pdf"
+                )
+            },
         )
         self.assertFalse(form.is_valid())
         self.assertIn("already linked", form.errors["valid_id_number"][0])
@@ -497,7 +514,12 @@ class FMISRequirementTests(TestCase):
                 **base_data,
                 "valid_id_type": "Driver's License",
                 "valid_id_number": "N01-12-123456",
-            }
+            },
+            files={
+                "rsbsa_form": SimpleUploadedFile(
+                    "rsbsa.pdf", b"%PDF-1.4\nRSBSA test\n%%EOF", content_type="application/pdf"
+                )
+            },
         )
         driver_id.is_valid()
         self.assertNotIn("valid_id_number", driver_id.errors)
@@ -570,7 +592,12 @@ class FMISRequirementTests(TestCase):
                 "is_pwd": "False",
                 "is_four_ps": "False",
                 "consent_given": "on",
-            }
+            },
+            files={
+                "rsbsa_form": SimpleUploadedFile(
+                    "rsbsa.pdf", b"%PDF-1.4\nRSBSA test\n%%EOF", content_type="application/pdf"
+                )
+            },
         )
         self.assertTrue(form.is_valid(), form.errors)
         for name in ("is_indigenous", "is_pwd", "is_four_ps"):
@@ -610,6 +637,11 @@ class FMISRequirementTests(TestCase):
             "is_pwd": "False",
             "is_four_ps": "NA",
             "consent_given": "on",
+            "rsbsa_form": SimpleUploadedFile(
+                "rsbsa-form.pdf",
+                b"%PDF-1.4\nRequired RSBSA form\n%%EOF",
+                content_type="application/pdf",
+            ),
             "parcels-TOTAL_FORMS": "1",
             "parcels-INITIAL_FORMS": "0",
             "parcels-MIN_NUM_FORMS": "1",
@@ -659,9 +691,10 @@ class FMISRequirementTests(TestCase):
         self.assertFalse(saved.is_four_ps)
         self.assertEqual(saved.parcels.count(), 1)
         self.assertEqual(saved.parcels.get().crops.count(), 1)
-        self.assertEqual(saved.documents.count(), 1)
+        self.assertEqual(saved.documents.count(), 2)
+        self.assertTrue(saved.documents.filter(document_type="RSBSA_FORM").exists())
 
-    def test_registration_accepts_other_supporting_document_without_valid_id(self):
+    def test_registration_requires_valid_id_type_and_number(self):
         self.client.force_login(self.staff)
         payload = self._valid_registration_payload()
         payload["valid_id_type"] = ""
@@ -671,11 +704,10 @@ class FMISRequirementTests(TestCase):
 
         response = self.client.post(reverse("farmers:create"), payload)
 
-        self.assertEqual(response.status_code, 302, response.context)
-        saved = Farmer.objects.get(first_name="Maria", last_name="Dela Cruz")
-        self.assertEqual(saved.valid_id_type, "")
-        self.assertEqual(saved.valid_id_number, "")
-        self.assertEqual(saved.documents.get().document_type, "OWNERSHIP")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("valid_id_type", response.context["profile_form"].errors)
+        self.assertIn("valid_id_number", response.context["profile_form"].errors)
+        self.assertFalse(Farmer.objects.filter(first_name="Maria", last_name="Dela Cruz").exists())
 
     def test_database_save_failure_rolls_back_and_shows_retry_message(self):
         self.client.force_login(self.staff)
@@ -855,7 +887,7 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(parcel_response, "Registered Farmer")
         self.assertNotContains(parcel_response, "Crops on This Parcel")
         crop_response = self.client.get(reverse("crops:detail", args=[self.crop.pk]))
-        self.assertContains(crop_response, "Crop &amp; Production Information")
+        self.assertContains(crop_response, "Commodity &amp; Production Information")
         self.assertNotContains(crop_response, "Registered Farmer")
         self.assertNotContains(crop_response, '<h3><i class="bi bi-map"></i> Farm Parcel</h3>')
 
@@ -920,11 +952,11 @@ class FMISRequirementTests(TestCase):
         saved_detail = self.client.get(
             f'{reverse("farmers:detail", args=[self.farmer.pk])}?saved=slip-a'
         )
-        self.assertContains(saved_detail, "Slip A update saved.")
+        self.assertContains(saved_detail, "Update record saved.")
         self.assertContains(saved_detail, "now recorded in Update History")
         history_page = self.client.get(reverse("farmers:history", args=[self.farmer.pk]))
         self.assertEqual(history_page.status_code, 200)
-        self.assertContains(history_page, "Farmer Information Update History")
+        self.assertContains(history_page, "Farmer Update Record History")
         self.assertContains(history_page, "Record created")
         self.assertContains(history_page, "Farmer name")
         self.assertContains(history_page, "Date created")
@@ -969,9 +1001,9 @@ class FMISRequirementTests(TestCase):
         )
 
         records = (
-            ("farmers", self.farmer.pk, "Farmer Information Update History"),
-            ("farm_parcels", self.parcel.pk, "Farm Parcel Update History"),
-            ("crops", self.crop.pk, "Crop Record Update History"),
+            ("farmers", self.farmer.pk, "Farmer Update Record History"),
+            ("farm_parcels", self.parcel.pk, "Farm Parcel Update Record History"),
+            ("crops", self.crop.pk, "Commodity Update Record History"),
             ("service_requests", request_record.pk, "Service Request History"),
             ("interventions", intervention.pk, "Intervention Update History"),
         )
@@ -1142,8 +1174,8 @@ class FMISRequirementTests(TestCase):
             reverse("farm_parcels:edit", args=[self.parcel.pk]),
         )
         parcel_form = self.client.get(reverse("farm_parcels:edit", args=[self.parcel.pk]))
-        self.assertContains(parcel_form, "Update Slip B")
-        self.assertContains(parcel_form, "Slip B is for verified parcel and land changes")
+        self.assertContains(parcel_form, "Update Farm Parcel Record")
+        self.assertContains(parcel_form, "Use Update Record for verified parcel and land changes")
         self.assertNotContains(parcel_form, "Crops and Commodities")
         self.assertNotContains(parcel_form, 'name="field_photos"')
         for field_name in (
@@ -1157,7 +1189,7 @@ class FMISRequirementTests(TestCase):
         saved_detail = self.client.get(
             f'{reverse("farm_parcels:detail", args=[self.parcel.pk])}?saved=slip-b'
         )
-        self.assertContains(saved_detail, "Slip B update saved.")
+        self.assertContains(saved_detail, "Update record saved.")
         self.assertContains(saved_detail, "now recorded in Update History")
 
         FarmerUpdateHistory.objects.create(
@@ -1174,7 +1206,7 @@ class FMISRequirementTests(TestCase):
             ],
         )
         history_page = self.client.get(reverse("farm_parcels:history", args=[self.parcel.pk]))
-        self.assertContains(history_page, "Slip B - Farm Parcel Update History")
+        self.assertContains(history_page, "Farm Parcel Update Record History")
         self.assertContains(history_page, "Transaction code: SLIP-B-001")
         self.assertContains(history_page, "Update status: Completed")
         self.assertEqual(
@@ -1284,11 +1316,18 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(map_response.status_code, 200)
         self.assertEqual(map_response.context["mapped_count"], 1)
         self.assertEqual(map_response.context["map_markers"][0]["id"], self.parcel.pk)
+        self.assertEqual(map_response.context["map_markers"][0]["barangay"], "Bulihan")
+        self.assertEqual(map_response.context["map_markers"][0]["crops"][0]["name"], "Rice")
+        self.assertContains(map_response, 'id="mapBarangayFilter"')
+        self.assertContains(map_response, 'id="mapCommodityFilter"')
+        self.assertContains(map_response, "applyMapFilters")
         self.assertContains(map_response, "markerByFarmer")
         self.assertContains(map_response, "Parcel Already Pinned")
         self.assertContains(map_response, "farmerMarker.openPopup()")
-        self.assertContains(map_response, "Satellite")
-        self.assertContains(map_response, "Terrain")
+        self.assertNotContains(map_response, 'name="map_layer"')
+        self.assertNotContains(map_response, "Terrain with place names")
+        self.assertNotContains(map_response, "Street map with place names")
+        self.assertContains(map_response, "World_Imagery")
         self.assertContains(map_response, "maxBounds: rosarioBounds")
 
     def test_parcel_map_rejects_pins_outside_rosario_batangas(self):
@@ -1341,7 +1380,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("crop_formset", response.context)
         self.assertNotContains(response, "Add Crop")
-        self.assertContains(response, "Add commodities separately in Crop Management")
+        self.assertContains(response, "Add commodities separately in Commodity Management")
 
         base_data = {
             "farmer": self.farmer.pk,
@@ -1384,7 +1423,8 @@ class FMISRequirementTests(TestCase):
                 "parcel": self.parcel.pk,
                 "crop_type": "Other Crop / Commodity",
                 "other_crop_name": "Dragon Fruit",
-                "cropping_schedule": "Jan-Mar",
+                "cropping_start_month": "January",
+                "cropping_end_month": "March",
                 "area_hectares": "0.50",
                 "number_of_heads": "",
                 "is_organic": "False",
@@ -1531,6 +1571,34 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(excluded, [])
 
+    def test_staff_accomplishment_report_groups_requests_by_staff_and_commodity(self):
+        request_record = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Rice seed request",
+            status="COMPLETED",
+            assigned_to=self.staff,
+        )
+        ServiceRequestHistory.objects.create(
+            service_request=request_record,
+            actor=self.staff,
+            action="UPDATED",
+            from_status="IN_PROGRESS",
+            to_status="COMPLETED",
+        )
+
+        title, headers, rows = build_system_report(
+            "staff_accomplishment", "month", {"staff": str(self.staff.pk)}
+        )
+
+        self.assertEqual(title, "Staff Activity & Accomplishment Report")
+        self.assertIn("Commodity", headers)
+        service_row = next(row for row in rows if row[1] == "Service Requests")
+        self.assertEqual(service_row[0], self.staff.display_name)
+        self.assertEqual(service_row[2], "Seed Assistance")
+        self.assertEqual(service_row[3], "Rice")
+        self.assertEqual(service_row[4:6], [1, 1])
+
     def test_intervention_summary_and_complete_register_reports(self):
         service_request = ServiceRequest.objects.create(
             farmer=self.farmer,
@@ -1573,7 +1641,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(reports, "Complete Intervention Register")
         self.assertContains(reports, intervention.reference_id)
         dashboard = self.client.get(reverse("dashboard:staff_home"))
-        self.assertContains(dashboard, "Interventions Given")
+        self.assertContains(dashboard, "Intervention Delivery")
         self.assertNotContains(dashboard, "Open Service Requests")
 
     def test_service_request_report_lists_who_where_when_and_what(self):
@@ -1722,7 +1790,7 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(response, "Update Graphs")
         self.assertContains(response, "Download Report")
         self.assertContains(response, "refreshPreview")
-        self.assertContains(response, "Crop Production Summary")
+        self.assertContains(response, "Commodity Production Summary")
 
         empty = self.client.get(
             reverse("reports:home"),
@@ -1765,7 +1833,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "farmer-master-preview")
         self.assertNotContains(response, "Farmer Master List chart")
 
-    def test_staff_dashboard_prioritizes_record_gaps_and_fixed_weather_location(self):
+    def test_staff_dashboard_shows_scoped_analytics_and_fixed_weather_location(self):
         ServiceRequest.objects.create(
             farmer=self.farmer,
             service=self.service,
@@ -1786,20 +1854,45 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(attention["parcel"], 0)
         self.assertEqual(attention["mapping"], 1)
         self.assertEqual(attention["crop"], 0)
-        self.assertEqual(attention["planting_date"], 0)
+        self.assertNotIn("planting_date", attention)
+        self.assertEqual(response.context["attention_priority"]["key"], "mapping")
         self.assertEqual(response.context["area_planted"], Decimal("2.00"))
+        self.assertEqual(response.context["managed_land_area"], Decimal("2.50"))
+        self.assertEqual(response.context["data_completeness_score"], 67)
+        self.assertEqual(response.context["commodity_breakdown"][0]["label"], "Rice")
+        self.assertEqual(response.context["commodity_breakdown"][0]["records"], 1)
+        self.assertEqual(response.context["commodity_breakdown"][0]["share"], 100)
+        self.assertEqual(response.context["barangay_distribution"][0]["barangay"], "Bulihan")
+        self.assertEqual(response.context["barangay_distribution"][0]["share"], 100)
+        self.assertEqual(response.context["most_requested_services"][0]["service__name"], "Seed Assistance")
         self.assertNotIn("farmer_statistics", response.context)
         self.assertNotContains(response, "Farmer Statistics")
         self.assertContains(response, "Rosario, Batangas")
         self.assertContains(response, 'data-latitude="13.8442"')
-        self.assertContains(response, "Records Needing Attention")
-        self.assertContains(response, "Parcels without map pins")
-        self.assertContains(response, "Service Request Overview")
+        self.assertNotContains(response, "ROSARIO AGRICULTURAL OPERATIONS")
+        self.assertNotContains(response, "Staff Overview")
+        self.assertNotContains(response, "Records, workload, and priorities at a glance.")
+        self.assertNotContains(response, "Current system overview")
+        self.assertContains(response, "Active farmers")
+        self.assertContains(response, "Production Snapshot")
+        self.assertContains(response, "Commodity Mix")
+        self.assertContains(response, "Where Farmers Are Registered")
+        self.assertNotContains(response, "Records Needing Attention")
+        self.assertContains(response, "Service &amp; Intervention Workload")
+        self.assertContains(response, "Request Pipeline")
+        self.assertContains(response, "Intervention Delivery")
+        self.assertNotContains(response, "Most Requested Services")
+        self.assertNotContains(response, "Continue Your Work")
+        self.assertContains(response, 'class="commodity-donut"')
+        self.assertContains(response, 'class="barangay-coverage-list"')
+        self.assertNotContains(response, 'class="commodity-horizontal-chart"')
+        self.assertNotContains(response, "Six-Month Operational Trend")
+        self.assertNotContains(response, "Parcels without map pins")
         self.assertNotContains(response, 'data-card-url="/crops/"')
         self.assertNotContains(response, "View crop records")
         self.assertNotContains(response, "SUGGESTED CROP")
         self.assertNotContains(response, "Data reference")
-        self.assertContains(response, 'class="dashboard-utility-row"')
+        self.assertContains(response, 'class="staff-operations-weather-grid"')
         self.assertContains(response, "Wet season")
         self.assertNotContains(response, "Local FMIS data")
         self.assertNotContains(response, "Planning aid only")
@@ -1807,12 +1900,12 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["crop_recommendation"]["crop"], "Rice")
         self.assertEqual(response.context["crop_recommendation"]["confidence"], "Low")
         page = response.content.decode()
-        self.assertLess(page.index("Records Needing Attention"), page.index("Service Request Overview"))
-        self.assertLess(page.index("Rosario Weather"), page.index("Rosario reference"))
+        self.assertLess(page.index("Active farmers"), page.index("Production Snapshot"))
+        self.assertLess(page.index("Production Snapshot"), page.index("Service &amp; Intervention Workload"))
+        self.assertLess(page.index("Rosario Weather"), page.index("Planning reference"))
         self.assertNotContains(response, "Inventor")
         self.assertNotContains(response, "Pending Projects")
         self.assertNotContains(response, "Requests by Service")
-        self.assertNotContains(response, "recorded requests")
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
     def test_farmer_qr_uses_configured_authenticated_field_address(self):
@@ -1864,7 +1957,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(admin_reports, "Governance Reports")
         self.assertContains(admin_reports, "User Account Registry")
         self.assertContains(admin_reports, "Activity Audit Trail")
-        self.assertContains(admin_reports, "data-download-form", count=3)
+        self.assertContains(admin_reports, "data-download-form", count=4)
         self.assertNotContains(admin_reports, "System Report Builder")
         self.assertNotContains(admin_reports, "No report selected yet")
 
@@ -1970,7 +2063,7 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(locally_supported["crop"], "Banana")
         self.assertEqual(locally_supported["confidence"], "High")
-        self.assertIn("20 crop record(s)", locally_supported["evidence"])
+        self.assertIn("20 commodity record(s)", locally_supported["evidence"])
 
     def test_activity_log_accepts_detailed_audit_fields(self):
         activity = log_activity(
@@ -2086,7 +2179,12 @@ class FMISRequirementTests(TestCase):
                     actor=self.staff,
                 ).exists()
             )
-            response.close()
+            # Close only the streamed file. HttpResponse.close() emits
+            # request_finished, which closes the MySQL connection that
+            # Django's TestCase intentionally keeps inside an atomic block.
+            for closer in response._resource_closers:
+                closer()
+            response._resource_closers.clear()
 
     def test_missing_farmer_supporting_document_redirects_without_server_error(self):
         with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
@@ -2302,6 +2400,30 @@ class FMISRequirementTests(TestCase):
             elapsed = time.perf_counter() - started
             self.assertEqual(response.status_code, 200)
             self.assertLess(elapsed, 2.0, f"{url} took {elapsed:.3f} seconds")
+
+    def test_wsgi_startup_prewarm_uses_secure_landing_request(self):
+        observed = {}
+
+        def application(environ, start_response):
+            observed.update(environ)
+            start_response("200 OK", [("Content-Type", "text/plain")])
+            return [b"ready"]
+
+        status = prewarm_wsgi_application(application, host="fmis.example.gov.ph")
+
+        self.assertEqual(status, 200)
+        self.assertEqual(observed["REQUEST_METHOD"], "GET")
+        self.assertEqual(observed["PATH_INFO"], "/")
+        self.assertEqual(observed["HTTP_HOST"], "fmis.example.gov.ph")
+        self.assertEqual(observed["wsgi.url_scheme"], "https")
+
+    def test_wsgi_startup_prewarm_rejects_failed_readiness(self):
+        def application(environ, start_response):
+            start_response("500 Internal Server Error", [])
+            return [b"failed"]
+
+        with self.assertRaisesRegex(RuntimeError, "HTTP 500"):
+            prewarm_wsgi_application(application)
 
     def test_backup_command_creates_verified_compressed_fixture(self):
         encryption_key = base64.urlsafe_b64encode(b"x" * 32).decode()

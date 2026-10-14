@@ -1,0 +1,51 @@
+{% extends "authentication/auth_base.html" %}
+{% load static %}
+{% block title %}Sign In | FMIS{% endblock %}
+{% block auth_content %}
+  <section class="landing-signin-card auth-standalone-card" aria-labelledby="loginTitle">
+    <div class="landing-signin-heading">
+      <span class="landing-signin-brand">
+        {% include "shared/brand_logo.html" with logo_class="landing-signin-logo" logo_width="30" logo_height="30" %}
+        Authorized FMIS access
+      </span>
+      <h1 id="loginTitle">Welcome back</h1>
+      <p>Sign in to continue to the municipal workspace.</p>
+    </div>
+
+    {% if messages %}
+      <div class="landing-signin-messages" role="status" aria-live="polite">
+        {% for message in messages %}
+          <div class="landing-signin-message{% if message.tags %} {{ message.tags }}{% endif %}">
+            <i class="bi bi-info-circle" aria-hidden="true"></i><span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'authentication:login' %}" class="landing-signin-form" novalidate>
+      {% csrf_token %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+      <label{% if form.username.errors or form.non_field_errors %} class="has-error"{% endif %}>
+        <span class="signin-field-label">Username</span>
+        <span class="landing-input-wrap">{{ form.username }}</span>
+        {{ form.username.errors }}
+      </label>
+      <label{% if form.password.errors or form.non_field_errors %} class="has-error"{% endif %}>
+        <span class="signin-field-label">Password</span>
+        <span class="landing-input-wrap">
+          {{ form.password }}
+          <button class="password-visibility" type="button" data-password-toggle aria-controls="{{ form.password.id_for_label }}" aria-label="Show password" aria-pressed="false" title="Show password"><i class="bi bi-eye" aria-hidden="true"></i></button>
+        </span>
+        {{ form.password.errors }}
+        {% if form.non_field_errors %}<small class="landing-field-error">The username or password is incorrect.</small>{% endif %}
+      </label>
+      <div class="landing-signin-options">
+        <label class="landing-remember">{{ form.remember_me }}<span>Keep me signed in</span></label>
+        <a class="landing-forgot" href="{% url 'authentication:password_reset' %}">Forgot password?</a>
+      </div>
+      <button class="landing-signin-submit" type="submit">Sign In</button>
+      <p class="auth-session-note"><i class="bi bi-shield-check"></i> Inactive sessions close after 15 minutes. Remembered sign-ins still require your password after seven days.</p>
+    </form>
+  </section>
+{% endblock %}
+{% block scripts %}<script defer src="{% static 'js/password-toggle.js' %}"></script>{% endblock %}

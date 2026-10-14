@@ -6,7 +6,7 @@ This is the maintenance map for FMIS security controls. It explains where to rev
 
 | Security area | Primary files to inspect |
 |---|---|
-| Production secrets, HTTPS, cookies, allowed hosts, database requirements | `config/settings.py`, `.env.production.example` |
+| Production secrets, HTTPS, cookies, allowed hosts, database requirements | `config/settings.py`, server-only `.env` (Git-ignored) |
 | Global browser security headers (CSP, permissions, anti-framing) | `apps/common/middleware.py` (`SecurityHeadersMiddleware`), `config/settings.py` (`MIDDLEWARE`) |
 | URL exposure and development media handling | `config/urls.py`, each app's `urls.py` |
 | Login throttling, session expiry, remembered login | `apps/authentication/views.py`, `apps/common/middleware.py` |
@@ -57,7 +57,7 @@ This is the maintenance map for FMIS security controls. It explains where to rev
 
 ## Required production checks
 
-1. Copy `.env.production.example` to a protected server-only environment and replace every placeholder. Never use the development key, root database account, or an empty database password.
+1. Create a protected server-only `.env` using `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`. Never commit it or use the development key, root database account, or an empty database password.
 2. Set `DJANGO_DEBUG=False`, a unique 50+ character `DJANGO_SECRET_KEY`, exact `DJANGO_ALLOWED_HOSTS`, and exact HTTPS `DJANGO_CSRF_TRUSTED_ORIGINS`.
 3. Terminate TLS with a valid certificate. Keep secure cookies, HTTPS redirect, and HSTS enabled. Set `DJANGO_BEHIND_HTTPS_PROXY=True` only when the trusted proxy correctly sets `X-Forwarded-Proto` and strips client-supplied copies.
 4. Use a least-privilege MariaDB account restricted to the FMIS database and host. Do not expose MariaDB port 3307 to the public network.

@@ -1,9 +1,9 @@
 {% extends base_template %}
 {% block page_title %}
-  Crops
+  Commodity
 {% endblock %}
 {% block page_subtitle %}
-  Record what each farmer planted for the current and previous production years
+  Manage each farmer's agricultural, livestock, and poultry commodities
 {% endblock %}
 {% block content %}
   <style>
@@ -13,7 +13,7 @@
   }
   .crop-toolbar{
       display:grid;
-      grid-template-columns:1.3fr .85fr .7fr .75fr auto;
+      grid-template-columns:1.3fr .85fr .7fr auto;
       gap:14px;
       align-items:end;
       margin:10px 0 24px
@@ -61,6 +61,21 @@
   .crop-table td{
       padding:15px 16px;
       border-bottom:1px solid var(--border)
+  }
+  .app-shell .crop-table .status-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:28px;
+      padding:4px 12px!important;
+      border:1px solid #238553!important;
+      border-radius:999px;
+      background:transparent!important;
+      color:#111!important;
+      font-size:11px;
+      font-weight:800;
+      line-height:1;
+      white-space:nowrap
   }
   .crop-actions{
       display:flex;
@@ -125,11 +140,11 @@
       <label>
         Search<input name="q"
        value="{{ request.GET.q }}"
-       placeholder="Search crop, Farmer ID, or farmer name...">
+       placeholder="Search commodity, Farmer ID, or farmer name...">
       </label>
       <label>
-        Crop<select name="crop_type" onchange="this.form.submit()">
-        <option value="">All Crops</option>
+        Commodity<select name="crop_type" onchange="this.form.submit()">
+        <option value="">All Commodities</option>
         {% for crop_type in crop_types %}
           <option value="{{ crop_type }}"
                   {% if request.GET.crop_type == crop_type %}selected{% endif %}>{{ crop_type }}</option>
@@ -137,23 +152,15 @@
         </select>
       </label>
       <label>
-        Planting Year<select name="year" onchange="this.form.submit()">
-        <option value="">All Years</option>
-        {% for year in years %}
-          <option value="{{ year|date:'Y' }}"
-                  {% if request.GET.year == year|date:'Y' %}selected{% endif %}>{{ year|date:'Y' }}</option>
-        {% endfor %}
-        </select>
-      </label>
-      <label>
-        Record View<select name="status" onchange="this.form.submit()">
-        <option value="">Current records</option>
-        <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option>
+        Record Status<select name="status" onchange="this.form.submit()">
+        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
+        <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All</option>
         </select>
       </label>
       <a class="btn btn-success btn-add-outline" href="{% url 'crops:create' %}">
         <i class="bi bi-plus-lg">
-        </i> Add Crop</a>
+        </i> Add Commodity</a>
       </form>
       <div class="crop-table-wrap universal-table-wrap">
         <table class="crop-table universal-table">
@@ -161,8 +168,8 @@
             <tr>
               <th>Farmer ID</th>
               <th>Farmer Name</th>
-              <th>Crop</th>
-              <th>Planting Date</th>
+              <th>Commodity</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -176,23 +183,22 @@
                 </td>
                 <td class="crop-farmer-name">{{ farmer.full_name }}</td>
                 <td>{{ farmer.listed_crop_name }}</td>
-                <td>{{ farmer.listed_planting_date }}</td>
+                <td><span class="status-pill status-{% if farmer.listed_is_active %}completed{% else %}cancelled{% endif %}">{% if farmer.listed_is_active %}Active{% else %}Inactive{% endif %}</span></td>
                 <td>
                   <div class="crop-actions">
-                    <a href="{% url 'crops:farmer_detail' farmer.pk %}" title="Open all crop records for {{ farmer.full_name }}" aria-label="Open all crop records for {{ farmer.full_name }}">
+                    <a href="{% url 'crops:farmer_detail' farmer.pk %}" title="Open all commodity records for {{ farmer.full_name }}" aria-label="Open all commodity records for {{ farmer.full_name }}">
                       <i class="bi bi-pencil-square" aria-hidden="true"></i>
                     </a>
                     <form method="post"
                           action="{% url 'crops:farmer_archive' farmer.pk %}"
-                          data-confirm="{% if request.GET.status == 'archived' %}Restore the displayed archived crop records for {{ farmer.full_name|escape }}?{% else %}Archive the displayed crop records for {{ farmer.full_name|escape }}? No data will be permanently deleted.{% endif %}">
+                          data-confirm="{% if request.GET.status == 'inactive' %}Restore the displayed inactive commodity records for {{ farmer.full_name|escape }}?{% else %}Set the displayed commodity records for {{ farmer.full_name|escape }} to inactive? No data will be permanently deleted.{% endif %}">
                       {% csrf_token %}
-                      {% if request.GET.status == 'archived' %}<input type="hidden" name="action" value="restore">{% endif %}
+                      {% if request.GET.status == 'inactive' %}<input type="hidden" name="action" value="restore">{% endif %}
                       {% if request.GET.q %}<input type="hidden" name="q" value="{{ request.GET.q }}">{% endif %}
                       {% if request.GET.crop_type %}<input type="hidden" name="crop_type" value="{{ request.GET.crop_type }}">{% endif %}
-                      {% if request.GET.year %}<input type="hidden" name="year" value="{{ request.GET.year }}">{% endif %}
                       {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
-                      <button type="submit" title="{% if request.GET.status == 'archived' %}Restore{% else %}Archive{% endif %} displayed crop records" aria-label="{% if request.GET.status == 'archived' %}Restore{% else %}Archive{% endif %} displayed crop records for {{ farmer.full_name }}">
-                        <i class="bi {% if request.GET.status == 'archived' %}bi-arrow-counterclockwise{% else %}bi-archive{% endif %}" aria-hidden="true"></i>
+                      <button type="submit" title="{% if request.GET.status == 'inactive' %}Restore{% else %}Set inactive{% endif %} displayed commodity records" aria-label="{% if request.GET.status == 'inactive' %}Restore{% else %}Set inactive{% endif %} displayed commodity records for {{ farmer.full_name }}">
+                        <i class="bi {% if request.GET.status == 'inactive' %}bi-arrow-counterclockwise{% else %}bi-archive{% endif %}" aria-hidden="true"></i>
                       </button>
                     </form>
                   </div>
@@ -200,7 +206,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="5" class="text-center py-5">No crop planting records matched your filters.</td>
+                <td colspan="5" class="text-center py-5">No commodity records matched your filters.</td>
               </tr>
             {% endfor %}
           </tbody>

@@ -113,7 +113,7 @@
       <section class="panel record-section field-farms">
         <h3>
           <i class="bi bi-map">
-          </i> Parcels and Current Crops
+          </i> Parcels and Current Commodities
         </h3>
         <div class="record-section-body related-list">
           {% for parcel in farmer.parcels.all %}
@@ -127,7 +127,7 @@
                       ,
                     {% endif %}
                   {% empty %}
-                    No crop recorded
+                    No commodity recorded
                   {% endfor %}
                 </small>
               </span>

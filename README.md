@@ -7,7 +7,7 @@ Farmer Management Information System for the Office of Agriculture, Rosario, Bat
 1. Create and activate a virtual environment.
 2. Install dependencies: `pip install -r requirements.txt`
 3. In phpMyAdmin, import `database/fmis_database.sql`. It safely creates the `fmis` database when it does not exist and never deletes existing records.
-4. Copy `.env.example` to `.env`, then set `MYSQL_USER` and `MYSQL_PASSWORD` to your local MySQL account. XAMPP commonly uses `root` with an empty password.
+4. Create a local `.env` file (Git ignores all `.env*` files), then set `DB_ENGINE=mysql`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_HOST`, and `MYSQL_PORT` for your local MySQL account. XAMPP commonly uses `root` with an empty password for local development only.
    If your XAMPP installation provides MariaDB 10.4, set `MYSQL_ALLOW_LEGACY_MARIADB=True`. Upgrade to MariaDB 10.5 or newer before deploying the system.
 5. Run `python manage.py migrate`. This also installs the protected standard agricultural request types.
 6. Run `python manage.py createsuperuser`, then assign the Administrator role if required.
@@ -36,7 +36,7 @@ The shared logo is `static/images/brand/fmis-logo.png`. Replace that file with a
 - Run the isolated automated suite with `python manage.py test --settings=config.settings_test`.
 - Every push and pull request runs the same tests, migration-drift detection, and production security checks through `.github/workflows/quality.yml`.
 - Run deployment checks with production environment values using `python manage.py check --deploy`.
-- Use `.env.production.example` as the production checklist. It requires HTTPS, secure cookies, a unique secret, MySQL credentials, SMTP, and optional Google sign-in configuration.
+- Use `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md` when preparing the server-only `.env`. Production requires HTTPS, secure cookies, a unique secret, MySQL credentials, SMTP, and optional Google sign-in configuration.
 - Create a verified backup with `python manage.py backup_fmis`; see `docs/BACKUP_AND_RECOVERY.md` for recovery drills.
 - Privacy Notice and Terms of Use are available from the landing page, signed-in footer, and registration consent step.
 

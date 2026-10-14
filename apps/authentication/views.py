@@ -182,20 +182,9 @@ class UserLoginView(LoginView):
         return super().form_invalid(form)
 
 
-class LandingPageView(UserLoginView):
-    """Public landing page with the same secure sign-in flow as /login/."""
-
+class LandingPageView(TemplateView):
+    """Public information page; authentication lives on dedicated pages."""
     template_name = "authentication/landing.html"
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        form.fields["username"].widget.attrs.pop("autofocus", None)
-        return form
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["login_form"] = context["form"]
-        return context
 
 
 class UserLogoutView(LogoutView):
@@ -203,14 +192,14 @@ class UserLogoutView(LogoutView):
 
 
 class AccountActivationView(FormView):
-    template_name = "authentication/landing.html"
+    template_name = "authentication/activate_account.html"
     form_class = ActivationOTPForm
 
     def dispatch(self, request, *args, **kwargs):
         nonce, challenge = get_activation_challenge(request)
         if not nonce or not challenge:
             messages.warning(request, "The activation code expired. Sign in again to request a new code.")
-            return redirect("authentication:landing")
+            return redirect("authentication:login")
         self.activation_nonce = nonce
         self.activation_challenge = challenge
         self.activation_user = get_user_model().objects.filter(
@@ -220,14 +209,12 @@ class AccountActivationView(FormView):
         ).first()
         if not self.activation_user:
             clear_activation_challenge(request, nonce)
-            return redirect("authentication:landing")
+            return redirect("authentication:login")
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["activation_mode"] = True
         context["activation_form"] = context["form"]
-        context["login_form"] = LoginForm(request=self.request)
         context["masked_email"] = masked_email(self.activation_user.email)
         context["attempts_remaining"] = max(
             0,
@@ -253,7 +240,7 @@ class AccountActivationView(FormView):
                 send_activation_code(request, self.activation_user, remember_me=remember_me)
             except Exception:
                 messages.error(request, "The activation email could not be sent. Try again later.")
-                return redirect("authentication:landing")
+                return redirect("authentication:login")
             messages.success(request, "A new six-digit code was sent.")
             return redirect("authentication:activate_account")
         return super().post(request, *args, **kwargs)
@@ -291,14 +278,12 @@ class AccountActivationView(FormView):
 
 
 class PasswordRecoveryView(TemplateView):
-    """Session-bound email OTP password recovery rendered inside the landing modal."""
+    """Session-bound email OTP password recovery on a dedicated public page."""
 
-    template_name = "authentication/landing.html"
+    template_name = "authentication/password_recovery.html"
 
     def _context(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.setdefault("login_form", LoginForm(request=self.request))
-        context["recovery_mode"] = True
         context.setdefault("recovery_step", "request")
         context.setdefault("recovery_identifier_form", IdentifierPasswordResetForm())
         return context
@@ -311,7 +296,7 @@ class PasswordRecoveryView(TemplateView):
         action = request.POST.get("recovery_action", "request")
         if action == "cancel":
             clear_recovery_challenge(request)
-            return redirect("authentication:landing")
+            return redirect("authentication:login")
         if action == "request":
             return self._request_code(request)
         if action == "verify":
@@ -319,7 +304,7 @@ class PasswordRecoveryView(TemplateView):
         if action == "reset":
             return self._reset_password(request)
         clear_recovery_challenge(request)
-        return redirect("authentication:landing")
+        return redirect("authentication:login")
 
     def _request_code(self, request):
         form = IdentifierPasswordResetForm(request.POST)
@@ -415,4 +400,4 @@ class PasswordRecoveryView(TemplateView):
             target_label=user.username,
         )
         messages.success(request, "Your password was changed. Sign in with your new password.")
-        return redirect("authentication:landing")
+        return redirect("authentication:login")

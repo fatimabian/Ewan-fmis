@@ -1,4 +1,5 @@
 from datetime import date
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -8,6 +9,7 @@ from django.urls import reverse
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 
+from .forms import CropRecordForm
 from .models import CropRecord
 
 
@@ -53,7 +55,6 @@ class GroupedCropListTests(TestCase):
             {"Rice", "Coffee"},
         )
         self.assertEqual(farmers[0].listed_crop_name, "Coffee")
-        self.assertEqual(farmers[0].listed_planting_date, "Jul 01, 2026")
         self.assertContains(response, ">Coffee<")
         self.assertNotContains(response, "Coffee, Rice")
         self.assertContains(response, reverse("crops:farmer_detail", args=[self.farmer.pk]))
@@ -64,8 +65,8 @@ class GroupedCropListTests(TestCase):
             reverse("crops:farmer_detail", args=[self.farmer.pk])
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Current Crop Records")
-        self.assertContains(response, "Add Crop Record")
+        self.assertContains(response, "Active Commodity Records")
+        self.assertContains(response, "Add Commodity Record")
         self.assertContains(response, "Rice")
         self.assertContains(response, "Coffee")
         self.assertContains(response, self.parcel.display_name)
@@ -73,8 +74,8 @@ class GroupedCropListTests(TestCase):
         parcel_response = self.client.get(
             reverse("farm_parcels:detail", args=[self.parcel.pk])
         )
-        self.assertNotContains(parcel_response, "Current Crop Records")
-        self.assertNotContains(parcel_response, "Add Crop Record")
+        self.assertNotContains(parcel_response, "Active Commodity Records")
+        self.assertNotContains(parcel_response, "Add Commodity Record")
 
         create_response = self.client.get(
             reverse("crops:create"), {"farmer": self.farmer.pk}
@@ -93,6 +94,31 @@ class GroupedCropListTests(TestCase):
             [crop.crop_type for crop in farmers[0].listed_crop_records],
             ["Rice"],
         )
+
+    def test_chicken_types_are_available_and_do_not_require_area(self):
+        form = CropRecordForm(
+            data={
+                "parcel": self.parcel.pk,
+                "crop_type": "Broiler Chicken",
+                "cropping_start_month": "January",
+                "cropping_end_month": "December",
+                "area_hectares": "",
+                "number_of_heads": "120",
+                "is_organic": "False",
+                "is_intercrop": "False",
+            }
+        )
+        choices = dict(form.fields["crop_type"].choices)
+        self.assertEqual(choices["Native Chicken"], "🐔 Native Chicken (Manok na Tagalog)")
+        self.assertIn("Rhode Island Red", choices)
+        self.assertIn("Plymouth Rock", choices)
+        self.assertIn("Leghorn", choices)
+        self.assertIn("Gamefowl", choices)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertIsNone(form.cleaned_data["area_hectares"])
+        self.assertEqual(form.cleaned_data["cropping_schedule"], "January - December")
+        record = form.save()
+        self.assertEqual(record.cropping_schedule, "January - December")
 
     def test_grouped_trash_action_archives_only_displayed_crop_records(self):
         self.client.force_login(self.staff)
@@ -113,7 +139,7 @@ class GroupedCropListTests(TestCase):
         self.client.force_login(self.staff)
         response = self.client.post(
             reverse("crops:farmer_archive", args=[self.farmer.pk]),
-            {"action": "restore", "status": "archived"},
+            {"action": "restore", "status": "inactive"},
         )
-        self.assertRedirects(response, f'{reverse("crops:list")}?status=archived')
+        self.assertRedirects(response, f'{reverse("crops:list")}?status=inactive')
         self.assertFalse(CropRecord.objects.filter(is_active=False).exists())

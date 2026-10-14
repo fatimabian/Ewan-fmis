@@ -117,7 +117,10 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
             queryset = queryset.filter(barangay=barangay)
         if sex in {"MALE", "FEMALE"}:
             queryset = queryset.filter(sex=sex)
-        queryset = queryset.filter(is_active=status == "active")
+        if status in {"inactive", "archived"}:
+            queryset = queryset.filter(is_active=False)
+        elif status != "all":
+            queryset = queryset.filter(is_active=True)
         return queryset.order_by("pk")
 
     def get_context_data(self, **kwargs):
@@ -158,14 +161,14 @@ class FarmerHistoryView(
             .order_by("created_at", "pk")
         )
         context.update({
-            "history_title": "Slip A - Farmer Information Update History",
+            "history_title": "Farmer Update Record History",
             "record_label": (
                 f"{self.object.rsbsa_number or 'RSBSA ID not assigned'} · "
                 f"{self.object.full_name}"
             ),
             "back_url": reverse("farmers:detail", args=[self.object.pk]),
             "edit_url": reverse("farmers:edit", args=[self.object.pk]) if self.object.is_active else "",
-            "edit_label": "Update Slip A",
+            "edit_label": "Update Record",
             "record_creation": {
                 "name": self.object.full_name,
                 "reference": self.object.registration_reference,
@@ -329,6 +332,13 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 farmer.submitted_at = timezone.now()
                 farmer.created_by = request.user
                 farmer.save()
+
+                FarmerDocument.objects.create(
+                    farmer=farmer,
+                    document_type="RSBSA_FORM",
+                    description="Required registration copy",
+                    file=profile_form.cleaned_data["rsbsa_form"],
+                )
 
                 saved_parcels = {}
                 for row_number, parcel_form in parcel_rows.items():
@@ -566,7 +576,7 @@ class FarmerDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             (
                 f"{farmer.full_name} was restored to active records."
                 if restoring
-                else f"{farmer.full_name} was archived. Find the record under Record Status → Archived; related farm records were preserved."
+                else f"{farmer.full_name} was set to inactive. Find the record under Record Status → Inactive; related farm records were preserved."
             ),
         )
         return redirect("farmers:list")
@@ -584,7 +594,7 @@ class FarmerDocumentDownloadView(FMISLoginRequiredMixin, StaffRequiredMixin, Vie
         if not document.file_available:
             messages.warning(
                 request,
-                "This supporting document file is no longer available. Upload a replacement from Update Slip A.",
+                "This supporting document file is no longer available. Upload a replacement from Update Record.",
             )
             record_request_event(
                 request,
@@ -604,7 +614,7 @@ class FarmerDocumentDownloadView(FMISLoginRequiredMixin, StaffRequiredMixin, Vie
         except (FileNotFoundError, OSError):
             messages.warning(
                 request,
-                "This supporting document could not be opened. Upload a replacement from Update Slip A.",
+                "This supporting document could not be opened. Upload a replacement from Update Record.",
             )
             return redirect("farmers:detail", pk=document.farmer_id)
         response = FileResponse(file_handle, content_type=content_type)

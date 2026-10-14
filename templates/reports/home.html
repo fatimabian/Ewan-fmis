@@ -72,7 +72,8 @@
       margin:15px 0
   }
   .report-metric{
-      background:#f0f3f6;
+      background:#fff;
+      border:1px solid #d2ead9;
       border-radius:11px;
       padding:16px
   }
@@ -183,6 +184,10 @@
       align-content:center;
       column-gap:9px;
       padding:10px 11px!important
+  }
+  body:not([data-theme="dark"]) .farmer-statistics-metrics .report-metric{
+      background:#fff!important;
+      border:1px solid #238b57!important
   }
   .farmer-statistics-metrics .report-metric i{
       grid-row:1/3;
@@ -846,8 +851,18 @@
               <form class="admin-report-actions" method="post" data-download-form>
                 {% csrf_token %}
                 <input type="hidden" name="report_type" value="{{ template.key }}">
-                <input type="hidden" name="date_range" value="all">
-                <button type="submit" name="format" value="pdf"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+                <select name="date_range" aria-label="Report period">
+                  {% for value,label in date_ranges.items %}
+                    <option value="{{ value }}"{% if template.key == 'staff_accomplishment' and value == 'month' %} selected{% elif template.key != 'staff_accomplishment' and value == 'all' %} selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% if template.key == 'staff_accomplishment' %}
+                  <select name="staff" aria-label="Staff member">
+                    <option value="">All staff</option>
+                    {% for staff_member in staff_choices %}<option value="{{ staff_member.pk }}">{{ staff_member.display_name }}</option>{% endfor %}
+                  </select>
+                {% endif %}
+                <button type="submit" name="format" value="pdf"><i class="bi bi-printer"></i> Print PDF</button>
                 <button type="submit" name="format" value="csv"><i class="bi bi-filetype-csv"></i> CSV</button>
               </form>
             </article>

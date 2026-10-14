@@ -1,6 +1,7 @@
 import csv
 import re
 from calendar import monthrange
+from datetime import datetime, time, timedelta
 
 from django.db.models import Count, Sum
 from django.http import HttpResponse
@@ -13,7 +14,7 @@ from apps.common.constants import ROSARIO_BARANGAYS
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
-from apps.service_requests.models import ServiceRequest
+from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
 
 REPORT_TEMPLATES = [
     {
@@ -21,12 +22,6 @@ REPORT_TEMPLATES = [
         "title": "Farmer Master List",
         "description": "Complete farmer profile, registration, parcel, crop, and supporting-record information",
         "icon": "bi-people",
-    },
-    {
-        "key": "farmers_by_barangay",
-        "title": "Total Farmers per Barangay",
-        "description": "Registered farmers grouped by Rosario barangay",
-        "icon": "bi-geo-alt",
     },
     {
         "key": "farm_area_by_barangay",
@@ -42,8 +37,8 @@ REPORT_TEMPLATES = [
     },
     {
         "key": "crop_summary",
-        "title": "Crop Production Summary",
-        "description": "Farmer count, crop records, and planted area by crop",
+        "title": "Commodity Production Summary",
+        "description": "Farmer count, commodity records, and recorded area by commodity",
         "icon": "bi-flower1",
     },
     {
@@ -74,6 +69,12 @@ REPORT_TEMPLATES = [
 REPORT_KEYS = {item["key"] for item in REPORT_TEMPLATES}
 SYSTEM_REPORT_TEMPLATES = [
     {
+        "key": "staff_accomplishment",
+        "title": "Staff Activity & Accomplishment Report",
+        "description": "Printable staff work summary filtered by employee and period, including requests, commodities, completed work, and other FMIS activity",
+        "icon": "bi-person-check",
+    },
+    {
         "key": "system_overview",
         "title": "System Overview",
         "description": "Accounts, activation status, and recorded system activity",
@@ -95,6 +96,9 @@ SYSTEM_REPORT_TEMPLATES = [
 SYSTEM_REPORT_KEYS = {item["key"] for item in SYSTEM_REPORT_TEMPLATES}
 DATE_RANGES = {
     "all": "All Records",
+    "today": "Today",
+    "week": "This Week",
+    "month": "This Month",
     "3": "Last 3 Months",
     "6": "Last 6 Months",
     "12": "Last 12 Months",
@@ -118,13 +122,21 @@ FILTER_LABELS = {
     "role": "User Role",
     "account_status": "Account Status",
     "module": "Activity Module",
+    "staff": "Staff Member",
 }
 
 
 def _cutoff(months):
     if months == "all":
         return None
-    now = timezone.now()
+    now = timezone.localtime(timezone.now())
+    if months in {"today", "week", "month"}:
+        start_date = now.date()
+        if months == "week":
+            start_date -= timedelta(days=start_date.weekday())
+        elif months == "month":
+            start_date = start_date.replace(day=1)
+        return timezone.make_aware(datetime.combine(start_date, time.min), now.tzinfo)
     month_index = now.year * 12 + now.month - 1 - int(months)
     year, zero_based_month = divmod(month_index, 12)
     month = zero_based_month + 1
@@ -280,41 +292,10 @@ def build_report(report_type, date_range, filters=None, compact=False):
                 "PhilSys PCN", "PhilSys TRN", "FCA Membership", "Home Coordinates", "Consent Given",
                 "Farmer Remarks", "Submitted At", "Date Registered", "Last Updated", "Last Updated By",
                 "Document Count", "Supporting Documents", "Parcel Count", "Total Parcel Area (ha)",
-                "Complete Farm Parcel Details", "Crop Record Count", "Complete Crop Details",
+                "Complete Farm Parcel Details", "Commodity Record Count", "Complete Commodity Details",
                 "Field Photo Count",
             ],
             rows,
-        )
-
-    if report_type == "farmers_by_barangay":
-        queryset = _filter_period(
-            Farmer.objects.filter(is_active=True).prefetch_related("parcels__crops"),
-            "created_at",
-            date_range,
-        )
-        if year:
-            queryset = queryset.filter(created_at__year=int(year))
-        if barangay:
-            queryset = queryset.filter(barangay=barangay)
-        if commodity:
-            queryset = queryset.filter(
-                parcels__crops__crop_type=commodity,
-                parcels__crops__is_active=True,
-            ).distinct()
-        return (
-            "Total Farmers per Barangay",
-            ["Barangay", "Farmer ID", "Farmer", "Primary Commodity", "Phone", "Date Registered"],
-            [
-                [
-                    farmer.barangay,
-                    farmer.record_id,
-                    farmer.full_name,
-                    farmer.primary_commodity,
-                    farmer.phone_number or "-",
-                    timezone.localtime(farmer.created_at).date(),
-                ]
-                for farmer in queryset.order_by("barangay", "last_name", "first_name")
-            ],
         )
 
     if report_type == "farm_area_by_barangay":
@@ -380,19 +361,18 @@ def build_report(report_type, date_range, filters=None, compact=False):
             CropRecord.objects.filter(
                 is_active=True, parcel__is_active=True, parcel__farmer__is_active=True
             ),
-            "planting_date",
+            "created_at",
             date_range,
-            date_only=True,
         )
         if year:
-            queryset = queryset.filter(planting_date__year=int(year))
+            queryset = queryset.filter(created_at__year=int(year))
         if barangay:
             queryset = queryset.filter(parcel__barangay=barangay)
         if commodity:
             queryset = queryset.filter(crop_type=commodity)
         return (
-            "Crop Production Summary",
-            ["Crop / Commodity", "Farmer ID", "Farmer", "Barangay", "Parcel", "Area (ha)", "Planting Date"],
+            "Commodity Production Summary",
+            ["Commodity", "Farmer ID", "Farmer", "Barangay", "Parcel", "Area (ha)"],
             [
                 [
                     crop.crop_type,
@@ -400,8 +380,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
                     crop.parcel.farmer.full_name,
                     crop.parcel.barangay,
                     crop.parcel.display_name,
-                    crop.area_hectares,
-                    crop.planting_date or "-",
+                    crop.area_hectares if crop.area_hectares is not None else "Not applicable",
                 ]
                 for crop in queryset.select_related("parcel__farmer").order_by(
                     "crop_type", "parcel__farmer__last_name", "pk"
@@ -414,12 +393,11 @@ def build_report(report_type, date_range, filters=None, compact=False):
             CropRecord.objects.filter(
                 is_active=True, parcel__is_active=True, parcel__farmer__is_active=True
             ).select_related("parcel__farmer"),
-            "planting_date",
+            "created_at",
             date_range,
-            date_only=True,
         )
         if year:
-            queryset = queryset.filter(planting_date__year=int(year))
+            queryset = queryset.filter(created_at__year=int(year))
         if barangay:
             queryset = queryset.filter(parcel__barangay=barangay)
         if commodity:
@@ -431,8 +409,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
                 crop.parcel.display_name,
                 crop.parcel.barangay,
                 crop.crop_type,
-                crop.area_hectares,
-                crop.planting_date or "-",
+                crop.area_hectares if crop.area_hectares is not None else "Not applicable",
             ]
             for crop in queryset.order_by(
                 "parcel__barangay", "parcel__farmer__last_name", "parcel_id", "crop_type"
@@ -447,7 +424,6 @@ def build_report(report_type, date_range, filters=None, compact=False):
                 "Barangay",
                 "Commodity",
                 "Area (ha)",
-                "Planting Date",
             ],
             rows,
         )
@@ -591,10 +567,13 @@ def build_system_report(report_type, date_range, filters=None):
     role = str(filters.get("role", "")).strip()
     account_status = str(filters.get("account_status", "")).strip()
     module = str(filters.get("module", "")).strip()
+    staff = str(filters.get("staff", "")).strip()
     if role and role not in {"ADMIN", "STAFF"}:
         raise ValueError("Choose a valid user role.")
     if account_status and account_status not in {"ACTIVE", "INACTIVE", "PENDING"}:
         raise ValueError("Choose a valid account status.")
+    if staff and not staff.isdigit():
+        raise ValueError("Choose a valid staff member.")
 
     accounts = _filter_period(CustomUser.objects.all(), "date_joined", date_range)
     if role:
@@ -615,6 +594,106 @@ def build_system_report(report_type, date_range, filters=None):
         activities = activities.filter(actor__role=role)
     if module:
         activities = activities.filter(module=module)
+
+    if report_type == "staff_accomplishment":
+        request_history = _filter_period(
+            ServiceRequestHistory.objects.filter(actor__role="STAFF").select_related(
+                "actor", "service_request__service", "service_request__farmer"
+            ),
+            "created_at",
+            date_range,
+        )
+        other_activities = _filter_period(
+            ActivityLog.objects.filter(actor__role="STAFF")
+            .exclude(module__in={"Service Requests", "Reports"})
+            .select_related("actor"),
+            "created_at",
+            date_range,
+        )
+        if staff:
+            request_history = request_history.filter(actor_id=int(staff))
+            other_activities = other_activities.filter(actor_id=int(staff))
+
+        farmer_ids = request_history.values_list(
+            "service_request__farmer_id", flat=True
+        ).distinct()
+        commodity_by_farmer = {}
+        for farmer_id, commodity in (
+            CropRecord.objects.filter(
+                parcel__farmer_id__in=farmer_ids,
+                is_active=True,
+                parcel__is_active=True,
+            )
+            .order_by("parcel__farmer_id", "pk")
+            .values_list("parcel__farmer_id", "crop_type")
+        ):
+            commodity_by_farmer.setdefault(farmer_id, commodity)
+
+        grouped = {}
+        for entry in request_history.order_by("created_at", "pk"):
+            request = entry.service_request
+            key = (
+                entry.actor_id,
+                entry.actor.display_name,
+                request.service.name,
+                commodity_by_farmer.get(request.farmer_id, "Not recorded"),
+            )
+            summary = grouped.setdefault(
+                key, {"records": set(), "completed": set(), "latest": entry.created_at}
+            )
+            summary["records"].add(request.pk)
+            if entry.to_status == "COMPLETED" or request.status == "COMPLETED":
+                summary["completed"].add(request.pk)
+            summary["latest"] = max(summary["latest"], entry.created_at)
+
+        rows = [
+            [
+                staff_name,
+                "Service Requests",
+                service_name,
+                commodity,
+                len(summary["records"]),
+                len(summary["completed"]),
+                _local_datetime(summary["latest"]),
+            ]
+            for (_actor_id, staff_name, service_name, commodity), summary in grouped.items()
+        ]
+
+        activity_groups = {}
+        for log in other_activities.order_by("created_at", "pk"):
+            key = (log.actor_id, log.actor.display_name, log.module or "FMIS")
+            summary = activity_groups.setdefault(
+                key, {"total": 0, "successful": 0, "latest": log.created_at}
+            )
+            summary["total"] += 1
+            summary["successful"] += int(log.status.lower() == "success")
+            summary["latest"] = max(summary["latest"], log.created_at)
+        rows.extend(
+            [
+                staff_name,
+                module,
+                "Recorded system work",
+                "-",
+                summary["total"],
+                summary["successful"],
+                _local_datetime(summary["latest"]),
+            ]
+            for (_actor_id, staff_name, module), summary in activity_groups.items()
+        )
+        rows.sort(key=lambda row: (row[0].lower(), row[1].lower(), row[2].lower()))
+        return (
+            "Staff Activity & Accomplishment Report",
+            [
+                "Staff Member",
+                "Work Area",
+                "Service / Accomplishment",
+                "Commodity",
+                "Records Handled",
+                "Completed / Successful",
+                "Latest Activity",
+            ],
+            rows,
+        )
 
     if report_type == "system_overview":
         return (
@@ -1027,8 +1106,8 @@ def _farmer_master_pdf_response(title, headers, rows, date_range, filters=None):
         "Phone", "Email",
     ]
     farm_fields = [
-        "Parcel Count", "Total Parcel Area (ha)", "Farm Parcel Summary", "Crop Record Count",
-        "Crop Summary",
+        "Parcel Count", "Total Parcel Area (ha)", "Farm Parcel Summary", "Commodity Record Count",
+        "Commodity Summary",
     ]
     for index, row in enumerate(rows):
         if index:
@@ -1040,7 +1119,7 @@ def _farmer_master_pdf_response(title, headers, rows, date_range, filters=None):
             )
         )
         story.extend(section("Farmer information", farmer_fields, row))
-        story.extend(section("Farm parcels and crops", farm_fields, row))
+        story.extend(section("Farm parcels and commodities", farm_fields, row))
 
     if not rows:
         story.append(Paragraph("No farmers matched the selected report criteria.", value_style))

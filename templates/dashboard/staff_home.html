@@ -6,129 +6,180 @@
 {% endblock %}
 
 {% block extra_css %}
-  <link rel="stylesheet" href="{% static 'css/staff-dashboard.css' %}?v=13">
-  <style>
-    /* Critical layout kept with the template so a stale stylesheet cannot stack these desktop cards. */
-    @media (min-width:901px){
-      .rosario-dashboard .dashboard-utility-row{
-        display:grid!important;
-        grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr) minmax(320px,1.35fr)!important;
-        align-items:stretch!important;
-        gap:12px!important
-      }
-      .rosario-dashboard .dashboard-utility-row>.dashboard-card{
-        width:auto!important;
-        min-width:0!important;
-        margin:0!important
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="{% static 'css/staff-dashboard.css' %}?v=26">
 {% endblock %}
 
 {% block content %}
-  <div class="content rosario-dashboard dashboard-simplified">
-    <section class="dashboard-metrics" aria-label="Rosario agricultural record summary">
-      <a class="dashboard-metric metric-farmers" href="{% url 'farmers:list' %}">
-        <span class="metric-icon"><i class="bi bi-people-fill"></i></span>
+  <div class="content rosario-dashboard staff-overview-v2">
+    <section class="staff-kpi-grid" aria-label="Rosario agricultural record summary">
+      <a class="staff-kpi kpi-farmers" href="{% url 'farmers:list' %}">
+        <span class="staff-kpi-icon"><i class="bi bi-people-fill"></i></span>
         <span>
           <b>{{ farmers }}</b>
-          <small>Registered Farmers</small>
+          <small>Active farmers</small>
         </span>
       </a>
 
-      <a class="dashboard-metric metric-crops" href="{% url 'crops:list' %}">
-        <span class="metric-icon"><i class="bi bi-flower1" aria-hidden="true"></i></span>
+      <a class="staff-kpi kpi-parcels" href="{% url 'farm_parcels:list' %}">
+        <span class="staff-kpi-icon"><i class="bi bi-map-fill" aria-hidden="true"></i></span>
+        <span>
+          <b>{{ parcels }}</b>
+          <small>Farm parcels</small>
+        </span>
+      </a>
+
+      <a class="staff-kpi kpi-area" href="{% url 'farm_parcels:list' %}">
+        <span class="staff-kpi-icon"><i class="bi bi-bounding-box-circles"></i></span>
+        <span>
+          <b>{{ managed_land_area|floatformat:2 }} <em>ha</em></b>
+          <small>Managed land</small>
+        </span>
+      </a>
+
+      <a class="staff-kpi kpi-commodities" href="{% url 'crops:list' %}">
+        <span class="staff-kpi-icon"><i class="bi bi-flower1" aria-hidden="true"></i></span>
         <span>
           <b>{{ crops }}</b>
-          <small>Current Crop Records</small>
-        </span>
-      </a>
-
-      <a class="dashboard-metric metric-area" href="{% url 'farm_parcels:list' %}">
-        <span class="metric-icon"><i class="bi bi-graph-up-arrow"></i></span>
-        <span>
-          <b>{{ area_planted|floatformat:2 }} <em>ha</em></b>
-          <small>Recorded Area Planted</small>
-        </span>
-      </a>
-
-      <a class="dashboard-metric metric-interventions" href="{% url 'reports:home' %}?report_type=intervention_registry">
-        <span class="metric-icon"><i class="bi bi-gift-fill"></i></span>
-        <span>
-          <b>{{ intervention_total }}</b>
-          <small>Interventions Given · {{ intervention_farmers }} farmers</small>
+          <small>Commodity records</small>
         </span>
       </a>
     </section>
 
-    <section class="dashboard-insights" aria-label="Record quality and service workload">
-      <article class="dashboard-card crop-chart-card">
+    <section class="staff-primary-grid" aria-label="Production and farmer coverage">
+      <article class="staff-card staff-production-card">
         <div class="card-heading">
-          <div>
-            <span class="card-kicker">DATA QUALITY PRIORITIES</span>
-            <h2>Records Needing Attention</h2>
-            <p>Incomplete records that reduce planning and field-service reliability</p>
+          <div class="staff-card-title">
+            <span class="staff-section-icon production"><i class="bi bi-pie-chart-fill"></i></span>
+            <div>
+              <span class="card-kicker">PRODUCTION &amp; COVERAGE</span>
+              <h2>Production Snapshot</h2>
+              <p>What farmers produce and where they are registered</p>
+            </div>
           </div>
+          <span class="staff-summary-pill">{{ crops }} active record{{ crops|pluralize }}</span>
         </div>
 
-        {% if attention_total %}
-          <div class="commodity-horizontal-chart"
-               role="img"
-               aria-label="Counts of FMIS records requiring completion or verification">
-            {% for item in attention_chart %}
-              <div class="commodity-horizontal-row"
-                   tabindex="0"
-                   title="{{ item.help }}"
-                   aria-label="{{ item.label }}: {{ item.count }}">
-                <span class="commodity-horizontal-label">{{ item.label }}</span>
-                <span class="commodity-horizontal-track"><i style="width:{{ item.width }}%"></i></span>
-                <strong>{{ item.count }}</strong>
+        <div class="production-analytics-grid">
+          <section class="commodity-donut-section" aria-labelledby="commoditySummaryTitle">
+            <div class="ranked-summary-heading">
+              <h3 id="commoditySummaryTitle">Commodity Mix</h3>
+              <span>Share of active records</span>
+            </div>
+            {% if commodity_breakdown %}
+              <div class="commodity-donut-layout">
+                <div class="commodity-donut" role="img" aria-label="Commodity distribution across {{ crops }} active records">
+                  <svg viewBox="0 0 42 42" aria-hidden="true">
+                    <circle class="donut-base" cx="21" cy="21" r="15.9155"></circle>
+                    {% for item in commodity_breakdown %}
+                      <circle class="donut-segment"
+                              cx="21" cy="21" r="15.9155"
+                              stroke="{{ item.color }}"
+                              stroke-dasharray="{{ item.share }} {{ item.remainder }}"
+                              stroke-dashoffset="-{{ item.offset }}"></circle>
+                    {% endfor %}
+                  </svg>
+                  <span><b>{{ crops }}</b><small>records</small></span>
+                </div>
+                <ol class="commodity-legend">
+                  {% for item in commodity_breakdown %}
+                    <li>
+                      <i style="background:{{ item.color }}"></i>
+                      <span><b>{{ item.label }}</b><small>{{ item.records }} record{{ item.records|pluralize }}{% if item.farmers is not None %} · {{ item.farmers }} farmer{{ item.farmers|pluralize }}{% endif %}</small></span>
+                      <strong>{{ item.share|floatformat:0 }}%</strong>
+                    </li>
+                  {% endfor %}
+                </ol>
               </div>
-            {% endfor %}
-          </div>
-          <p class="chart-help">
-            <i class="bi bi-info-circle"></i>
-            Lower counts are better. Complete or verify these records to improve reports, maps, and service decisions.
-          </p>
-        {% else %}
-          <div class="dashboard-empty">
-            <i class="bi bi-check-circle"></i>
-            <b>All tracked records are complete</b>
-            <span>No current data-quality gaps were found.</span>
-          </div>
-        {% endif %}
+            {% else %}
+              <p class="analytics-empty">No active commodity records yet.</p>
+            {% endif %}
+          </section>
+
+          <section class="barangay-coverage-section" aria-labelledby="barangaySummaryTitle">
+            <div class="ranked-summary-heading">
+              <h3 id="barangaySummaryTitle">Where Farmers Are Registered</h3>
+              <span>Top barangays</span>
+            </div>
+            {% if barangay_distribution %}
+              <ol class="barangay-coverage-list">
+                {% for item in barangay_distribution %}
+                  <li>
+                    <span class="coverage-rank">{{ item.rank }}</span>
+                    <span><b>{{ item.barangay|default:"Not recorded" }}</b><small>{{ item.share }}% of active farmers</small></span>
+                    <strong>{{ item.total }}<small>farmer{{ item.total|pluralize }}</small></strong>
+                  </li>
+                {% endfor %}
+              </ol>
+            {% else %}
+              <p class="analytics-empty">No active farmer records yet.</p>
+            {% endif %}
+          </section>
+        </div>
       </article>
 
-      <aside class="dashboard-card request-overview-card dashboard-click-card"
-             data-card-url="{% url 'service_requests:list' %}"
-             role="link"
-             tabindex="0">
-        <div class="card-heading">
-          <div>
-            <span class="card-kicker">CURRENT WORKLOAD</span>
-            <h2>Service Request Overview</h2>
-            <p>Requests requiring staff monitoring</p>
-          </div>
-        </div>
-        <div class="request-overview-grid">
-          <a href="{% url 'service_requests:list' %}?status=PENDING"><span class="status-dot pending"></span><small>Pending</small><b>{{ request_status.pending }}</b></a>
-          <a href="{% url 'service_requests:list' %}?status=IN_PROGRESS"><span class="status-dot progress"></span><small>In progress</small><b>{{ request_status.in_progress }}</b></a>
-          <a href="{% url 'service_requests:list' %}?status=COMPLETED"><span class="status-dot completed"></span><small>Completed</small><b>{{ request_status.completed }}</b></a>
-          <a href="{% url 'service_requests:list' %}?priority=HIGH"><span class="status-dot urgent"></span><small>High priority open</small><b>{{ urgent_requests }}</b></a>
-        </div>
-      </aside>
     </section>
 
-    <section class="dashboard-utility-row" aria-label="Weather, seasonal reference and common staff actions">
-      <article class="dashboard-card weather-card"
+    <section class="staff-operations-weather-grid" aria-label="Farmer support and Rosario weather">
+    <section class="staff-card staff-support-card operations-dashboard-card" aria-labelledby="operationsTitle">
+      <div class="card-heading">
+        <div class="staff-card-title">
+          <span class="staff-section-icon support"><i class="bi bi-heart-pulse-fill"></i></span>
+          <div>
+            <span class="card-kicker">FARMER SUPPORT</span>
+            <h2 id="operationsTitle">Service &amp; Intervention Workload</h2>
+            <p>Open work, delivered assistance, and common farmer needs</p>
+          </div>
+        </div>
+        <a href="{% url 'service_requests:list' %}">Open all requests <i class="bi bi-arrow-right"></i></a>
+      </div>
+
+      <div class="operations-dashboard-grid">
+        <section class="operations-column request-column" aria-labelledby="pipelineTitle">
+          <div class="ranked-summary-heading">
+            <h3 id="pipelineTitle">Request Pipeline</h3>
+            <span>{{ open_requests }} open</span>
+          </div>
+          <div class="request-overview-grid">
+            <a href="{% url 'service_requests:list' %}?status=PENDING"><span class="status-dot pending"></span><small>Pending</small><b>{{ request_status.pending }}</b></a>
+            <a href="{% url 'service_requests:list' %}?status=IN_PROGRESS"><span class="status-dot progress"></span><small>In progress</small><b>{{ request_status.in_progress }}</b></a>
+            <a href="{% url 'service_requests:list' %}?status=COMPLETED"><span class="status-dot completed"></span><small>Completed</small><b>{{ request_status.completed }}</b></a>
+            <a href="{% url 'service_requests:list' %}?priority=HIGH"><span class="status-dot urgent"></span><small>High priority open</small><b>{{ urgent_requests }}</b></a>
+          </div>
+        </section>
+
+        <section class="operations-column intervention-column" aria-labelledby="interventionTitle">
+          <div class="ranked-summary-heading">
+            <h3 id="interventionTitle">Intervention Delivery</h3>
+            <a href="{% url 'reports:home' %}?report_type=intervention_registry">View registry</a>
+          </div>
+          <div class="intervention-delivery-summary">
+            <div class="intervention-total">
+              <b>{{ intervention_total }}</b>
+              <span>interventions for {{ intervention_farmers }} farmer{{ intervention_farmers|pluralize }}</span>
+            </div>
+            <div class="intervention-status-list">
+              <span><i class="scheduled"></i><small>Scheduled</small><b>{{ intervention_status.scheduled }}</b></span>
+              <span><i class="ongoing"></i><small>Ongoing</small><b>{{ intervention_status.ongoing }}</b></span>
+              <span><i class="completed"></i><small>Completed</small><b>{{ intervention_status.completed }}</b></span>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </section>
+
+      <article class="staff-card weather-card"
                id="rosarioWeather"
                data-latitude="13.8442"
                data-longitude="121.2035">
         <div class="card-heading">
-          <div>
-            <span class="card-kicker">ROSARIO FORECAST</span>
-            <h2>Rosario Weather</h2>
-            <p><i class="bi bi-geo-alt-fill"></i> Rosario, Batangas · <span id="weatherUpdated">--</span></p>
+          <div class="staff-card-title">
+            <span class="staff-section-icon weather"><i class="bi bi-cloud-sun-fill"></i></span>
+            <div>
+              <span class="card-kicker">ROSARIO FORECAST</span>
+              <h2>Rosario Weather</h2>
+              <p><i class="bi bi-geo-alt-fill"></i> Rosario, Batangas · <span id="weatherUpdated">--</span></p>
+            </div>
           </div>
           <button id="weatherRefresh"
                   class="weather-refresh"
@@ -180,49 +231,9 @@
             <small>Check the internet connection, then refresh.</small>
           </span>
         </div>
-      </article>
-
-      <aside class="dashboard-card planning-mini-card season-card" id="rosarioPlanning">
-        <p class="technology-label">
-          <i class="bi bi-cloud-sun"></i>
-          Rosario reference
-        </p>
-        <span class="mini-card-label">SEASON</span>
-        <strong class="mini-card-value">{{ crop_recommendation.season }}</strong>
-      </aside>
-      <article class="dashboard-card quick-actions-card compact-actions-card">
-        <div class="card-heading">
-          <div>
-            <span class="card-kicker">QUICK ACTIONS</span>
-            <h2>Common Tasks</h2>
-          </div>
-        </div>
-
-        <div class="quick-actions">
-          <a href="{% url 'farmers:create' %}">
-            <i class="bi bi-person-plus-fill"></i>
-            <span>
-              <b>Register Farmer</b>
-            </span>
-          </a>
-          <a href="{% url 'farm_parcels:list' %}">
-            <i class="bi bi-geo-alt-fill"></i>
-            <span>
-              <b>Open Farm Parcels</b>
-            </span>
-          </a>
-          <a href="{% url 'crops:list' %}">
-            <i class="bi bi-pencil-square"></i>
-            <span>
-              <b>Update Crops</b>
-            </span>
-          </a>
-          <a href="{% url 'service_requests:create' %}">
-            <i class="bi bi-clipboard2-plus-fill"></i>
-            <span>
-              <b>New Service Request</b>
-            </span>
-          </a>
+        <div class="season-reference">
+          <i class="bi bi-calendar3"></i>
+          <span><small>Planning reference</small><b>{{ crop_recommendation.season }}</b></span>
         </div>
       </article>
     </section>

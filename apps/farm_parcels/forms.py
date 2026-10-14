@@ -3,6 +3,8 @@ from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
 
 from apps.common.constants import (
+    LIVESTOCK_COMMODITIES,
+    MONTH_CHOICES,
     ROSARIO_BARANGAY_CHOICES,
     ROSARIO_CROP_CHOICES,
     ROSARIO_MUNICIPALITY,
@@ -65,7 +67,7 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     transaction_code = forms.CharField(
         max_length=80,
         required=False,
-        label="Slip B transaction code",
+        label="Update record transaction code",
     )
     change_reason = forms.ChoiceField(
         choices=FarmerUpdateHistory.CHANGE_REASON_CHOICES,
@@ -74,7 +76,7 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     )
     update_remarks = forms.CharField(
         required=False,
-        label="Updating slip remarks",
+        label="Update record remarks",
         widget=forms.Textarea(attrs={"rows": 3}),
     )
     date_signed = forms.DateField(
@@ -88,7 +90,7 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     agriculturist_name = forms.CharField(max_length=180, required=False)
     registrant_declaration = forms.BooleanField(
         required=False,
-        label="The registrant confirms the Slip B information and privacy declaration.",
+        label="The registrant confirms the updated information and privacy declaration.",
     )
 
     class Meta:
@@ -185,27 +187,29 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
 
 
 class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
-    crop_type = forms.ChoiceField(
-        choices=ROSARIO_CROP_CHOICES,
-        label="Crop / Commodity",
-    )
+    crop_type = forms.ChoiceField(choices=ROSARIO_CROP_CHOICES, label="Commodity")
     is_organic = RequiredYesNoField(label="Organic production?")
     is_intercrop = RequiredYesNoField(label="Intercropping commodity?")
+    cropping_start_month = forms.ChoiceField(
+        choices=MONTH_CHOICES,
+        label="Cropping schedule start",
+    )
+    cropping_end_month = forms.ChoiceField(
+        choices=MONTH_CHOICES,
+        label="Cropping schedule end",
+    )
 
     class Meta:
         model = CropRecord
         fields = [
             "crop_type",
-            "cropping_schedule",
             "area_hectares",
             "number_of_heads",
             "is_organic",
             "is_intercrop",
-            "planting_date",
         ]
         labels = {
-            "crop_type": "Crop / Commodity",
-            "cropping_schedule": "Cropping schedule (for example, Jan-Mar)",
+            "crop_type": "Commodity",
             "area_hectares": "Size / Area Planted (ha)",
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
@@ -215,15 +219,42 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
             "crop_type": forms.TextInput(attrs={"placeholder": "e.g., Rice, Corn, Banana"}),
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "number_of_heads": forms.NumberInput(attrs={"min": "0"}),
-            "planting_date": forms.DateInput(attrs={"type": "date"}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         add_other_crop_field(self)
+        schedule = self.initial.get("cropping_schedule") or getattr(
+            self.instance, "cropping_schedule", ""
+        )
+        if schedule:
+            parts = [part.strip() for part in schedule.replace("–", "-").split("-", 1)]
+            if len(parts) == 2:
+                month_names = {value for value, _label in MONTH_CHOICES if value}
+                month_lookup = {name[:3].lower(): name for name in month_names}
+                start_month = month_lookup.get(parts[0][:3].lower(), parts[0])
+                end_month = month_lookup.get(parts[1][:3].lower(), parts[1])
+                if start_month in month_names and end_month in month_names:
+                    self.initial.setdefault("cropping_start_month", start_month)
+                    self.initial.setdefault("cropping_end_month", end_month)
         self.order_fields(
-            ["crop_type", "other_crop_name"]
-            + [name for name in self.fields if name not in {"crop_type", "other_crop_name"}]
+            [
+                "crop_type",
+                "other_crop_name",
+                "cropping_start_month",
+                "cropping_end_month",
+            ]
+            + [
+                name
+                for name in self.fields
+                if name
+                not in {
+                    "crop_type",
+                    "other_crop_name",
+                    "cropping_start_month",
+                    "cropping_end_month",
+                }
+            ]
         )
         existing_crop = self.instance.crop_type if self.instance and self.instance.pk else ""
         available_crops = {value for value, _label in self.fields["crop_type"].choices}
@@ -232,6 +263,12 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
                 (existing_crop, existing_crop),
             )
         self.fields["area_hectares"].min_value = 0.01
+        self.fields["area_hectares"].required = False
+        self.fields["crop_type"].widget.attrs["data-commodity-type"] = "true"
+        self.fields["crop_type"].widget.attrs["data-livestock-values"] = "|".join(
+            sorted(LIVESTOCK_COMMODITIES)
+        )
+        self.fields["area_hectares"].widget.attrs["data-commodity-area"] = "true"
         for field in self.fields.values():
             if not isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.setdefault("class", "form-control")
@@ -239,7 +276,25 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         resolve_other_crop(self, cleaned)
+        commodity = cleaned.get("crop_type")
+        if commodity in LIVESTOCK_COMMODITIES:
+            cleaned["area_hectares"] = None
+        elif not cleaned.get("area_hectares"):
+            self.add_error("area_hectares", "Enter the area used for this commodity.")
+        start_month = cleaned.get("cropping_start_month")
+        end_month = cleaned.get("cropping_end_month")
+        cleaned["cropping_schedule"] = (
+            f"{start_month} - {end_month}" if start_month and end_month else ""
+        )
         return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.cropping_schedule = self.cleaned_data.get("cropping_schedule", "")
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class RequiredParcelCropFormSet(BaseInlineFormSet):

@@ -130,11 +130,6 @@ def _month_start(value):
     return date(value.year, value.month, 1)
 
 
-def _shift_month(value, months):
-    month_index = value.year * 12 + value.month - 1 + months
-    return date(month_index // 12, month_index % 12 + 1, 1)
-
-
 def _canonical_crop_name(value):
     """Match common local crop labels without treating unknown entries as evidence."""
     normalized = (value or "").strip().lower()
@@ -249,7 +244,7 @@ def _crop_recommendation(today, crop_rows):
 
     if recognized_records:
         evidence = (
-            f"{selected['records']} crop record(s) · {selected['area']:.2f} ha · "
+            f"{selected['records']} commodity record(s) · {selected['area']:.2f} ha · "
             f"{coverage}% recognized labels"
         )
         reason = (
@@ -257,10 +252,10 @@ def _crop_recommendation(today, crop_rows):
             "recorded area, frequency, and planting recency."
         )
     else:
-        evidence = "No recognized Rosario crop records yet · seasonal baseline only"
+        evidence = "No recognized Rosario commodity records yet · seasonal baseline only"
         reason = (
             f"{selected['crop']} leads only on the {season.lower()} baseline. "
-            "Add validated crop records before treating this as local evidence."
+            "Add validated commodity records before treating this as local evidence."
         )
 
     return {
@@ -277,7 +272,7 @@ def _crop_recommendation(today, crop_rows):
             "50% season · up to 25% area · 15% records · 10% recency; "
             "local weight grows with sample size"
         ),
-        "source": "Seasonal baseline plus active Rosario crop records; live weather is shown separately.",
+        "source": "Seasonal baseline plus active Rosario commodity records; live weather is shown separately.",
         "note": (
             "Seasonal reference only—not a planting instruction. Validate soil, drainage, "
             "water access, seed availability, and current DA/PAGASA advisories first."
@@ -339,17 +334,11 @@ def staff_dashboard_metrics():
         },
         {
             "key": "crop",
-            "label": "Parcels without current crops",
-            "help": "Active parcels with no active crop record",
+            "label": "Parcels without commodities",
+            "help": "Active parcels with no active commodity record",
             "count": rosario_parcels.annotate(
                 active_crops=Count("crops", filter=Q(crops__is_active=True))
             ).filter(active_crops=0).count(),
-        },
-        {
-            "key": "planting_date",
-            "label": "Crops missing planting dates",
-            "help": "Active crop records without a planting date",
-            "count": rosario_crops.filter(planting_date__isnull=True).count(),
         },
     ]
     attention_peak = max((item["count"] for item in attention_chart), default=0)
@@ -360,7 +349,72 @@ def staff_dashboard_metrics():
             else 0
         )
 
-    request_summary = requests.aggregate(
+    attention_priority = max(attention_chart, key=lambda item: item["count"])
+
+    sorted_commodity_rows = sorted(
+        recommendation_rows,
+        key=lambda row: (-int(row["records"] or 0), row["crop_type"] or ""),
+    )
+    total_crops = sum(int(row["records"] or 0) for row in sorted_commodity_rows)
+    commodity_rows_for_chart = sorted_commodity_rows[:5]
+    if len(sorted_commodity_rows) > 5:
+        commodity_rows_for_chart = sorted_commodity_rows[:4] + [
+            {
+                "crop_type": "Other commodities",
+                "records": sum(
+                    int(row["records"] or 0) for row in sorted_commodity_rows[4:]
+                ),
+                "farmers": None,
+            }
+        ]
+
+    commodity_breakdown = [
+        {
+            "label": row["crop_type"] or "Not recorded",
+            "records": int(row["records"] or 0),
+            "farmers": (
+                int(row["farmers"] or 0)
+                if row.get("farmers") is not None
+                else None
+            ),
+        }
+        for row in commodity_rows_for_chart
+    ]
+    commodity_colors = ("#238b57", "#4d82cf", "#d68a19", "#7655c4", "#c95656")
+    commodity_offset = 0.0
+    for index, item in enumerate(commodity_breakdown):
+        share = round((item["records"] / total_crops) * 100, 2) if total_crops else 0
+        item.update(
+            {
+                "color": commodity_colors[index],
+                "share": share,
+                "remainder": round(100 - share, 2),
+                "offset": round(commodity_offset, 2),
+            }
+        )
+        commodity_offset += share
+
+    total_farmers = rosario_farmers.count()
+    barangay_distribution = list(
+        rosario_farmers.values("barangay")
+        .annotate(total=Count("pk"))
+        .order_by("-total", "barangay")[:5]
+    )
+    for index, item in enumerate(barangay_distribution, start=1):
+        item["rank"] = index
+        item["share"] = (
+            round((item["total"] / total_farmers) * 100) if total_farmers else 0
+        )
+
+    rosario_requests = requests.filter(farmer__in=rosario_farmers)
+    most_requested_services = list(
+        rosario_requests
+        .values("service__name")
+        .annotate(total=Count("pk"))
+        .order_by("-total", "service__name")[:3]
+    )
+
+    request_summary = rosario_requests.aggregate(
         pending=Count("pk", filter=Q(status="PENDING")),
         in_progress=Count("pk", filter=Q(status="IN_PROGRESS")),
         completed=Count("pk", filter=Q(status="COMPLETED")),
@@ -378,6 +432,9 @@ def staff_dashboard_metrics():
     ).aggregate(
         total=Count("pk", distinct=True),
         farmers=Count("recipients__farmer", distinct=True),
+        scheduled=Count("pk", filter=Q(status="SCHEDULED"), distinct=True),
+        ongoing=Count("pk", filter=Q(status="ONGOING"), distinct=True),
+        completed=Count("pk", filter=Q(status="COMPLETED"), distinct=True),
     )
     status_counts = {
         "pending": request_summary["pending"],
@@ -385,16 +442,30 @@ def staff_dashboard_metrics():
         "completed": request_summary["completed"],
     }
     total_area = sum(
-    (Decimal(str(row["area"] or 0)) for row in recommendation_rows),
-    Decimal("0")
-)
-    total_crops = sum(int(row["records"] or 0) for row in recommendation_rows)
-    total_farmers = rosario_farmers.count()
+        (Decimal(str(row["area"] or 0)) for row in recommendation_rows),
+        Decimal("0"),
+    )
+    total_parcels = rosario_parcels.count()
+    managed_land_area = (
+        rosario_parcels.aggregate(total=Sum("area_hectares"))["total"]
+        or Decimal("0")
+    )
+    registration_complete = total_farmers - attention_chart[0]["count"]
+    mapped_parcels = total_parcels - attention_chart[2]["count"]
+    parcels_with_commodities = total_parcels - attention_chart[3]["count"]
+    completeness_denominator = total_farmers + (total_parcels * 2)
+    completeness_total = registration_complete + mapped_parcels + parcels_with_commodities
+    data_completeness_score = (
+        round((completeness_total / completeness_denominator) * 100)
+        if completeness_denominator
+        else 0
+    )
     return {
         "farmers": total_farmers,
-        "parcels": rosario_parcels.count(),
+        "parcels": total_parcels,
         "crops": total_crops,
         "area_planted": total_area,
+        "managed_land_area": managed_land_area,
         "open_requests": request_summary["open_requests"],
         "urgent_requests": request_summary["urgent_requests"],
         "completed_this_month": request_summary["completed_this_month"],
@@ -403,7 +474,17 @@ def staff_dashboard_metrics():
         "request_status": status_counts,
         "attention_chart": attention_chart,
         "attention_total": sum(item["count"] for item in attention_chart),
+        "attention_priority": attention_priority,
+        "commodity_breakdown": commodity_breakdown,
+        "barangay_distribution": barangay_distribution,
+        "most_requested_services": most_requested_services,
+        "data_completeness_score": data_completeness_score,
+        "intervention_status": {
+            "scheduled": intervention_summary["scheduled"] or 0,
+            "ongoing": intervention_summary["ongoing"] or 0,
+            "completed": intervention_summary["completed"] or 0,
+        },
         "crop_recommendation": _crop_recommendation(today, recommendation_rows),
-        "recent_requests": requests.filter(open_filter)[:5],
+        "recent_requests": rosario_requests.filter(open_filter)[:5],
         "dashboard_date": today,
     }

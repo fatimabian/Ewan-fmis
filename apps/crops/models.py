@@ -10,15 +10,18 @@ class CropRecord(models.Model):
     cropping_schedule = models.CharField(
         max_length=40,
         blank=True,
-        help_text="Official Slip B schedule, for example Jan-Mar",
+        help_text="Recorded production schedule, for example Jan-Mar",
     )
-    area_hectares = models.DecimalField(max_digits=10, decimal_places=2)
+    area_hectares = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
     number_of_heads = models.PositiveIntegerField(null=True, blank=True)
     is_organic = models.BooleanField(default=False)
     is_intercrop = models.BooleanField(default=False)
     planting_date = models.DateField(null=True, blank=True)
     harvest_date = models.DateField(null=True, blank=True)
     image = models.ImageField(upload_to="crop_photos/", blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     archived_at = models.DateTimeField(null=True, blank=True)
     archived_by = models.ForeignKey(

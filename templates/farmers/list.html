@@ -247,8 +247,9 @@
       </label>
       <label>
         Record Status<select name="status" onchange="this.form.submit()">
-        <option value="active" {% if request.GET.status != 'archived' %}selected{% endif %}>Active</option>
-        <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option>
+        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
+        <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All</option>
         </select>
       </label>
       <a class="btn btn-success btn-add-outline" href="{% url 'farmers:create' %}">
@@ -266,6 +267,7 @@
               <th>Livelihood</th>
               <th>RSBSA ID</th>
               <th>Status</th>
+              <th>Record Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -287,6 +289,7 @@
                 <td>
                   <span class="farmer-status status-{{ farmer.registration_status|lower }}">{{ farmer.get_registration_status_display }}</span>
                 </td>
+                <td><span class="farmer-status status-{% if farmer.is_active %}completed{% else %}cancelled{% endif %}">{% if farmer.is_active %}Active{% else %}Inactive{% endif %}</span></td>
                 <td>
                   <div class="farmer-actions">
                     <span class="farmer-action-slot" aria-hidden="{% if farmer.is_active and farmer.registration_status == 'COMPLETED' and farmer.rsbsa_number %}false{% else %}true{% endif %}">
@@ -304,10 +307,10 @@
                     {% endif %}
                     <form method="post"
                           action="{% url 'farmers:delete' farmer.pk %}"
-                          data-confirm="{% if farmer.is_active %}Archive{% else %}Restore{% endif %} {{ farmer.full_name|escape }}? Their related records will be preserved.">
+                          data-confirm="{% if farmer.is_active %}Set {{ farmer.full_name|escape }} inactive{% else %}Restore {{ farmer.full_name|escape }} as active{% endif %}? Their related records will be preserved.">
                       {% csrf_token %}
                       {% if not farmer.is_active %}<input type="hidden" name="action" value="restore">{% endif %}
-                      <button title="{% if farmer.is_active %}Archive{% else %}Restore{% endif %} {{ farmer.full_name }}">
+                      <button title="{% if farmer.is_active %}Set inactive{% else %}Restore as active{% endif %} {{ farmer.full_name }}">
                         <i class="bi {% if farmer.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}">
                         </i>
                       </button>
@@ -317,7 +320,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="8" class="text-center py-5">No farmer records matched your search.</td>
+                <td colspan="9" class="text-center py-5">No farmer records matched your search.</td>
               </tr>
             {% endfor %}
           </tbody>

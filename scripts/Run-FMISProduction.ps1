@@ -1,6 +1,11 @@
 param(
     [string]$ListenAddress = "127.0.0.1:8080",
-    [int]$Threads = 8
+    [ValidateRange(4, 128)]
+    [int]$Threads = 32,
+    [ValidateRange(100, 5000)]
+    [int]$ConnectionLimit = 500,
+    [ValidateRange(64, 4096)]
+    [int]$Backlog = 512
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,4 +26,6 @@ if (-not $env:EMAIL_HOST) {
 & python -m waitress `
     --listen=$ListenAddress `
     --threads=$Threads `
+    --connection-limit=$ConnectionLimit `
+    --backlog=$Backlog `
     config.wsgi:application

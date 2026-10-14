@@ -1,12 +1,12 @@
 {% extends base_template %}
-{% block page_title %}{% if object %}Update Slip B{% else %}Add Farm Parcel{% endif %}{% endblock %}
+{% block page_title %}{% if object %}Update Farm Parcel Record{% else %}Add Farm Parcel{% endif %}{% endblock %}
 {% block page_subtitle %}{% if object %}Change of farm parcel information{% else %}Record land information for an existing farmer{% endif %}{% endblock %}
 {% block content %}
   <div class="content">
     <section class="panel form-panel rsbsa-update-form">
       <div class="registration-note">
         <i class="bi bi-info-circle"></i>
-        <span>{% if object %}Slip B is for verified parcel and land changes. Previous values and the responsible staff member are preserved automatically.{% else %}This page records parcel and land information only. Add commodities separately in Crop Management.{% endif %}</span>
+        <span>{% if object %}Use Update Record for verified parcel and land changes. Previous values and the responsible staff member are preserved automatically.{% else %}This page records parcel and land information only. Add commodities separately in Commodity Management.{% endif %}</span>
       </div>
       <form method="post" enctype="multipart/form-data" id="parcelForm">
         {% csrf_token %}
@@ -22,7 +22,7 @@
         </section>
 
         <section class="form-section">
-          <h3><i class="bi bi-journal-check"></i> Official Slip B Details</h3>
+          <h3><i class="bi bi-journal-check"></i> Update Record Details</h3>
           <div class="registration-grid three">
             {% include "farmers/registration_field.html" with field=form.transaction_code %}
             {% include "farmers/registration_field.html" with field=form.change_reason %}
@@ -38,7 +38,7 @@
 
         <div class="step-actions">
           <a class="btn btn-outline-secondary btn-cancel" href="{% if object %}{% url 'farm_parcels:detail' object.pk %}{% else %}{% url 'farm_parcels:list' %}{% endif %}">Cancel</a>
-          <button class="btn btn-success">{% if object %}Save Slip B Update{% else %}Save Farm Parcel{% endif %}</button>
+          <button class="btn btn-success">{% if object %}Save Update Record{% else %}Save Farm Parcel{% endif %}</button>
         </div>
       </form>
     </section>

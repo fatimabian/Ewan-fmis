@@ -13,7 +13,7 @@
   }
   .parcel-toolbar{
       display:grid;
-      grid-template-columns:1.15fr .85fr .85fr .75fr auto;
+      grid-template-columns:1.15fr .75fr .75fr .65fr .7fr auto;
       gap:14px;
       align-items:end;
       margin:10px 0 24px
@@ -53,23 +53,53 @@
   }
   .parcel-table{
       width:100%;
-      border-collapse:collapse
+      border-collapse:collapse;
+      table-layout:fixed!important
   }
-  .parcel-table th{
+  .app-shell .parcel-table th{
       background:var(--surface-muted);
       color:var(--text-primary,#1c2940);
-      padding:15px 16px;
+      padding:13px 14px!important;
       border-bottom:1px solid var(--border);
+      line-height:1.25;
+      white-space:nowrap!important
+  }
+  .app-shell .parcel-table td{
+      height:auto!important;
+      padding:13px 14px!important;
+      border-bottom:1px solid var(--border);
+      color:var(--text-secondary,#35445c);
+      line-height:1.35
+  }
+  .app-shell .parcel-table .farmer-status{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:26px;
+      padding:4px 12px!important;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:800;
+      line-height:1;
       white-space:nowrap
   }
-  .parcel-table td{
-      padding:15px 16px;
-      border-bottom:1px solid var(--border);
-      color:var(--text-secondary,#35445c)
+  .app-shell .parcel-table :is(th,td):nth-child(1){width:8%!important}
+  .app-shell .parcel-table :is(th,td):nth-child(2){width:25%!important}
+  .app-shell .parcel-table :is(th,td):nth-child(3){width:9%!important}
+  .app-shell .parcel-table :is(th,td):nth-child(4){width:18%!important}
+  .app-shell .parcel-table :is(th,td):nth-child(5){width:11%!important}
+  .app-shell .parcel-table :is(th,td):nth-child(6){width:13%!important}
+  .app-shell .parcel-table :is(th,td):nth-child(7){width:8%!important}
+  .app-shell .parcel-table :is(th,td):nth-child(8){width:8%!important}
+  .app-shell .parcel-table td:nth-child(2),
+  .app-shell .parcel-table td:nth-child(4){
+      overflow-wrap:normal!important;
+      word-break:normal!important
   }
   .parcel-actions{
-      display:flex;
-      gap:12px;
+      display:grid;
+      grid-template-columns:24px 24px;
+      gap:10px;
       align-items:center
   }
   .parcel-actions a,.parcel-actions button{
@@ -166,6 +196,13 @@
         <option value="over2" {% if request.GET.area == 'over2' %}selected{% endif %}>Above 2 ha</option>
         </select>
       </label>
+      <label>
+        Record Status<select name="status" onchange="this.form.submit()">
+        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
+        <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All</option>
+        </select>
+      </label>
       <div class="parcel-toolbar-actions">
         <a class="btn btn-outline-success" href="{% url 'farm_parcels:map' %}">
           <i class="bi bi-geo-alt">
@@ -185,6 +222,7 @@
                 <th>Ownership</th>
                 <th>Land Type</th>
                 <th>Farm Type</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -201,20 +239,21 @@
                   <td>{{ parcel.get_ownership_type_display }}</td>
                   <td>{{ parcel.get_land_type_display }}</td>
                   <td>{{ parcel.get_farm_type_display }}</td>
+                  <td><span class="farmer-status {% if parcel.is_active %}status-completed{% else %}archived{% endif %}">{% if parcel.is_active %}Active{% else %}Inactive{% endif %}</span></td>
                   <td>
                     <div class="parcel-actions">
                       {% if parcel.is_active %}
-                        <a href="{% url 'farm_parcels:edit' parcel.pk %}" title="Update Slip B for {{ parcel.display_name }}">
+                        <a href="{% url 'farm_parcels:edit' parcel.pk %}" title="Update record for {{ parcel.display_name }}">
                           <i class="bi bi-pencil-square">
                           </i>
                         </a>
                       {% endif %}
                       <form method="post"
                             action="{% url 'farm_parcels:delete' parcel.pk %}"
-                            data-confirm="{% if parcel.is_active %}Archive this farm parcel? Its crop records will be preserved.{% else %}Restore this farm parcel?{% endif %}">
+                            data-confirm="{% if parcel.is_active %}Mark this farm parcel inactive? Its commodity records will be preserved.{% else %}Restore this farm parcel as active?{% endif %}">
                         {% csrf_token %}
                         {% if not parcel.is_active %}<input type="hidden" name="action" value="restore">{% endif %}
-                        <button title="{% if parcel.is_active %}Archive{% else %}Restore{% endif %} parcel">
+                        <button title="{% if parcel.is_active %}Set parcel inactive{% else %}Restore parcel as active{% endif %}">
                           <i class="bi {% if parcel.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}">
                           </i>
                         </button>
@@ -224,7 +263,7 @@
                 </tr>
               {% empty %}
                 <tr>
-                  <td colspan="7" class="text-center py-5">No farm parcels matched your filters.</td>
+                <td colspan="8" class="text-center py-5">No farm parcels matched your filters.</td>
                 </tr>
               {% endfor %}
             </tbody>

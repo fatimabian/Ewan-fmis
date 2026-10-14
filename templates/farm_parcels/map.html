@@ -4,7 +4,7 @@
   Farm Parcel Map
 {% endblock %}
 {% block page_subtitle %}
-  Map agricultural parcels within Rosario, Batangas and review their registered crops
+  Map agricultural parcels within Rosario, Batangas and review their registered commodities
 {% endblock %}
 {% block content %}
   <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
@@ -29,39 +29,24 @@
   .map-toolbar select{
       height:46px
   }
-  .map-layer-switcher{
-      grid-column:2/-1;
-      display:flex;
-      justify-content:flex-end;
-      gap:16px;
-      margin:0;
-      padding:2px 0 0;
-      border:0
-  }
-  .map-layer-switcher legend{
-      position:absolute;
-      width:1px;
-      height:1px;
-      overflow:hidden;
-      clip:rect(0 0 0 0)
-  }
-  .map-layer-switcher label{
-      display:flex;
-      grid-column:auto;
-      align-items:center;
-      gap:6px;
-      font-size:12px;
-      font-weight:600;
-      cursor:pointer
-  }
-  .map-layer-switcher input{
-      margin:0
-  }
   .map-counts{
       display:flex;
       gap:8px;
       flex-wrap:wrap
   }
+  .map-filters{
+      display:grid;
+      grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) auto;
+      gap:10px;
+      align-items:end;
+      margin:0 0 14px;
+      padding:13px;
+      border:1px solid var(--ag-border,#dce7e0);
+      background:var(--surface,#fff)
+  }
+  .map-filters label{display:grid;gap:5px;font-size:12px;font-weight:700}
+  .map-filters select{height:44px}
+  .map-filter-summary{grid-column:1/-1;margin:0;color:#52645a;font-size:12px}
   .map-scope-note{
       display:flex;
       align-items:center;
@@ -347,10 +332,6 @@
       .map-toolbar label{
           grid-column:1/-1
       }
-      .map-layer-switcher{
-          grid-column:1/-1;
-          justify-content:flex-start
-      }
       .unmapped-list{
           grid-template-columns:1fr 1fr
       }
@@ -365,10 +346,8 @@
       .map-toolbar .btn{
           width:100%
       }
-      .map-layer-switcher{
-          flex-direction:column;
-          gap:8px
-      }
+      .map-filters{grid-template-columns:1fr}
+      .map-filter-summary{grid-column:auto}
       .unmapped-list{
           grid-template-columns:1fr
       }
@@ -428,16 +407,24 @@
       <a class="btn btn-outline-success" href="{% url 'farm_parcels:list' %}">
         <i class="bi bi-table">
         </i> Parcel Table</a>
-      <fieldset class="map-layer-switcher" aria-label="Map type">
-        <legend>Map type</legend>
-        <label><input type="radio" name="map_layer" value="satellite" checked> Satellite</label>
-        <label><input type="radio" name="map_layer" value="terrain"> Terrain with place names</label>
-        <label><input type="radio" name="map_layer" value="streets"> Street map with place names</label>
-      </fieldset>
       </form>
+      <section class="map-filters" aria-label="Farm parcel map filters">
+        <label>Barangay
+          <select id="mapBarangayFilter">
+            <option value="">All barangays</option>
+          </select>
+        </label>
+        <label>Commodity
+          <select id="mapCommodityFilter">
+            <option value="">All commodities</option>
+          </select>
+        </label>
+        <button class="btn btn-outline-success" id="clearMapFilters" type="button">Clear Filters</button>
+        <p class="map-filter-summary" id="mapFilterSummary" aria-live="polite">Showing all mapped farm parcels.</p>
+      </section>
       <div class="map-counts">
         <span class="map-count">
-          <strong>{{ mapped_count }}</strong> mapped parcels</span>
+          <strong id="visibleMappedCount">{{ mapped_count }}</strong> mapped parcels shown</span>
         <span class="map-count">
           <strong>{{ unmapped_count }}</strong> parcels need a pin</span>
       </div>
@@ -501,6 +488,12 @@
                 pinEditFarmer = document.getElementById('pinEditFarmer'),
                 cancelPinMove = document.getElementById('cancelPinMove'),
                 savePinMove = document.getElementById('savePinMove'),
+                barangayFilter = document.getElementById('mapBarangayFilter'),
+                commodityFilter = document.getElementById('mapCommodityFilter'),
+                clearMapFilters = document.getElementById('clearMapFilters'),
+                mapFilterSummary = document.getElementById('mapFilterSummary'),
+                visibleMappedCount = document.getElementById('visibleMappedCount'),
+                mapEmpty = document.getElementById('mapEmpty'),
                 markerByFarmer = new Map();
             const map = L.map(mapNode, {
                 scrollWheelZoom: false,
@@ -525,28 +518,7 @@
                     attribution: 'Place labels &copy; Esri'
                 }
             );
-            const satellite = L.layerGroup([satelliteImagery, placeLabels]);
-            const terrain = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-                maxNativeZoom: 18,
-                maxZoom: 19,
-                attribution: 'Topographic map &copy; Esri and data providers'
-            });
-            const streets = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-                maxNativeZoom: 18,
-                maxZoom: 19,
-                attribution: 'Street map &copy; Esri and data providers'
-            });
-            satellite.addTo(map);
-            const baseLayers = { satellite, terrain, streets };
-            let activeBaseLayer = satellite;
-            document.querySelectorAll('input[name="map_layer"]').forEach((control) => {
-                control.addEventListener('change', () => {
-                    if (!control.checked || !baseLayers[control.value]) return;
-                    map.removeLayer(activeBaseLayer);
-                    activeBaseLayer = baseLayers[control.value];
-                    activeBaseLayer.addTo(map)
-                })
-            });
+            L.layerGroup([satelliteImagery, placeLabels]).addTo(map);
             map.fitBounds(rosarioBounds, {
                 padding: [18, 18]
             });
@@ -609,14 +581,14 @@
                 facts.appendChild(location);
                 popup.appendChild(facts);
                 const crops = make('div', 'parcel-popup-crops');
-                crops.appendChild(make('strong', '', 'Crops / Commodities'));
+                crops.appendChild(make('strong', '', 'Commodities'));
                 const gallery = make('div', 'parcel-popup-crop-list');
                 if (item.crops.length) {
                     item.crops.slice(0, 6).forEach(crop => {
                         gallery.appendChild(make('span', '', `${crop.symbol || '🌱'} ${crop.name}`))
                     })
                 } else {
-                    gallery.appendChild(make('span', '', 'No crops recorded'))
+                    gallery.appendChild(make('span', '', 'No commodities recorded'))
                 }
                 crops.appendChild(gallery);
                 popup.appendChild(crops);
@@ -644,6 +616,61 @@
                 farmerMarker.fmisFarmer = item;
                 markerByFarmer.set(String(item.id), farmerMarker);
                 bounds.push([item.lat, item.lng]);
+            });
+
+            const appendFilterOptions = (select, values) => {
+                [...new Set(values.filter(Boolean))]
+                    .sort((a, b) => a.localeCompare(b))
+                    .forEach(value => {
+                        const option = document.createElement('option');
+                        option.value = value;
+                        option.textContent = value;
+                        select.appendChild(option)
+                    })
+            };
+            appendFilterOptions(barangayFilter, markers.map(item => item.barangay));
+            appendFilterOptions(
+                commodityFilter,
+                markers.flatMap(item => item.crops.map(commodity => commodity.name))
+            );
+
+            const applyMapFilters = (fit = true) => {
+                const barangay = barangayFilter.value;
+                const commodity = commodityFilter.value;
+                const visible = [];
+                markers.forEach(item => {
+                    const marker = markerByFarmer.get(String(item.id));
+                    const matchesBarangay = !barangay || item.barangay === barangay;
+                    const matchesCommodity = !commodity || item.crops.some(entry => entry.name === commodity);
+                    if (matchesBarangay && matchesCommodity) {
+                        if (!map.hasLayer(marker)) marker.addTo(map);
+                        visible.push(item)
+                    } else if (map.hasLayer(marker)) {
+                        map.removeLayer(marker)
+                    }
+                });
+                visibleMappedCount.textContent = visible.length;
+                const scopeLabels = [
+                    barangay ? `Barangay ${barangay}` : '',
+                    commodity ? commodity : ''
+                ].filter(Boolean);
+                mapFilterSummary.textContent = visible.length
+                    ? `Showing ${visible.length} mapped parcel${visible.length === 1 ? '' : 's'}${scopeLabels.length ? ` for ${scopeLabels.join(' and ')}` : ''}.`
+                    : `No mapped parcels match${scopeLabels.length ? ` ${scopeLabels.join(' and ')}` : ' the selected filters'}.`;
+                mapNode.style.display = visible.length ? 'block' : 'none';
+                mapEmpty.style.display = visible.length ? 'none' : 'grid';
+                if (fit && visible.length === 1) {
+                    map.setView([visible[0].lat, visible[0].lng], 16)
+                } else if (fit && visible.length > 1) {
+                    map.fitBounds(visible.map(item => [item.lat, item.lng]), {padding:[35,35],maxZoom:16})
+                }
+            };
+            barangayFilter.addEventListener('change', () => applyMapFilters());
+            commodityFilter.addEventListener('change', () => applyMapFilters());
+            clearMapFilters.addEventListener('click', () => {
+                barangayFilter.value = '';
+                commodityFilter.value = '';
+                applyMapFilters()
             });
             if (bounds.length > 1) map.fitBounds(bounds, {
                 padding: [35, 35],
@@ -676,6 +703,11 @@
                 const farmerMarker = markerByFarmer.get(String(farmerSelect.value));
                 setPinButton(Boolean(farmerMarker));
                 if (!farmerMarker) return;
+                if (!map.hasLayer(farmerMarker)) {
+                    barangayFilter.value = '';
+                    commodityFilter.value = '';
+                    applyMapFilters(false)
+                }
                 const point = farmerMarker.getLatLng();
                 map.flyTo(point, Math.max(map.getZoom(), 16), {
                     animate: true,

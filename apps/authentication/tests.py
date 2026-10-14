@@ -59,7 +59,7 @@ class PasswordRecoveryOTPTests(TestCase):
                 "new_password2": "New-password-593!",
             },
         )
-        self.assertRedirects(changed, reverse("authentication:landing"))
+        self.assertRedirects(changed, reverse("authentication:login"))
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("New-password-593!"))
 

@@ -7,7 +7,6 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from urllib.parse import urlencode
-from datetime import date
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
@@ -39,8 +38,7 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
         crops = CropRecord.objects.select_related("parcel", "parcel__farmer")
         query = self.request.GET.get("q", "").strip()
         crop_type = self.request.GET.get("crop_type", "").strip()
-        year = self.request.GET.get("year", "").strip()
-        status = self.request.GET.get("status", "").strip()
+        status = self.request.GET.get("status", "active").strip()
 
         if query:
             farmer_id = query.upper().removeprefix("F-")
@@ -57,17 +55,15 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
             crops = crops.filter(filters)
         if crop_type:
             crops = crops.filter(crop_type=crop_type)
-        if year.isdigit():
-            crops = crops.filter(planting_date__year=int(year))
-        if status == "archived":
+        if status in {"inactive", "archived"}:
             crops = crops.filter(is_active=False)
-        else:
+        elif status != "all":
             crops = crops.filter(is_active=True)
 
         parcel_queryset = FarmParcel.objects.order_by("pk").prefetch_related(
             Prefetch(
                 "crops",
-                queryset=crops.order_by("crop_type", "planting_date", "pk"),
+                queryset=crops.order_by("crop_type", "pk"),
                 to_attr="listed_crops",
             )
         )
@@ -85,7 +81,6 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
         context["crop_types"] = (
             CropRecord.objects.values_list("crop_type", flat=True).distinct().order_by("crop_type")
         )
-        context["years"] = CropRecord.objects.dates("planting_date", "year", order="DESC")
         for farmer in context["object_list"]:
             farmer.listed_crop_records = [
                 crop
@@ -94,7 +89,7 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
             ]
             farmer.latest_listed_crop = max(
                 farmer.listed_crop_records,
-                key=lambda crop: (crop.planting_date or date.min, crop.pk),
+                key=lambda crop: crop.pk,
                 default=None,
             )
             farmer.listed_crop_name = (
@@ -102,10 +97,8 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
                 if farmer.latest_listed_crop
                 else "Not recorded"
             )
-            farmer.listed_planting_date = (
-                farmer.latest_listed_crop.planting_date.strftime("%b %d, %Y")
-                if farmer.latest_listed_crop and farmer.latest_listed_crop.planting_date
-                else "Not set"
+            farmer.listed_is_active = bool(
+                farmer.latest_listed_crop and farmer.latest_listed_crop.is_active
             )
         return context
 
@@ -186,7 +179,7 @@ class CropHistoryView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropM
         events = ActivityLog.objects.filter(module="Crops", target_label=f"{farmer.record_id} - {self.object.crop_type}").select_related("actor")
         rows = farmer_update_rows(updates) + activity_rows(events)
         rows.sort(key=lambda row: row["date"], reverse=True)
-        context.update({"history_title": "Slip B - Crop Record Update History", "record_label": f"{self.object.crop_type} · {farmer.full_name}", "back_url": reverse("crops:detail", args=[self.object.pk]), "edit_url": reverse("crops:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Slip B", "history_entries": rows})
+        context.update({"history_title": "Commodity Update Record History", "record_label": f"{self.object.crop_type} · {farmer.full_name}", "back_url": reverse("crops:detail", args=[self.object.pk]), "edit_url": reverse("crops:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Record", "history_entries": rows})
         return context
 
 
@@ -296,15 +289,15 @@ class CropDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         crop.archived_at = None if restoring else timezone.now()
         crop.archived_by = None if restoring else request.user
         crop.save(update_fields=["is_active", "archived_at", "archived_by"])
-        action = "restored" if restoring else "archived"
+        action = "restored" if restoring else "set to inactive"
         record_request_event(
             request,
-            title=f"Crop Record {action.title()}",
+            title="Commodity Record Restored" if restoring else "Commodity Record Set Inactive",
             module="Crops",
-            description=f"{request.user.display_name} {action} a crop record without deleting it.",
+            description=f"{request.user.display_name} {action} a commodity record without deleting it.",
             target_label=f"{crop.parcel.farmer.record_id} - {crop.crop_type}",
         )
-        messages.success(request, f"{crop.crop_type} crop record was {action}; no data was deleted.")
+        messages.success(request, f"{crop.crop_type} commodity record was {action}; no data was deleted.")
         return redirect("crops:list")
 
 
@@ -333,24 +326,28 @@ class FarmerCropArchiveView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     archived_at=None if restoring else timezone.now(),
                     archived_by=None if restoring else request.user,
                 )
-                action = "restored" if restoring else "archived"
+                action = "restored" if restoring else "set to inactive"
                 record_request_event(
                     request,
-                    title=f"Farmer Crop Records {action.title()}",
+                    title=(
+                        "Farmer Commodity Records Restored"
+                        if restoring
+                        else "Farmer Commodity Records Set Inactive"
+                    ),
                     module="Crops",
                     description=(
-                        f"{request.user.display_name} {action} {record_count} crop "
+                        f"{request.user.display_name} {action} {record_count} commodity "
                         f"record{'s' if record_count != 1 else ''}."
                     ),
                     target_label=f"{farmer.record_id} - {farmer.full_name}",
                 )
             messages.success(
                 request,
-                f"{record_count} crop record{'s were' if record_count != 1 else ' was'} "
+                f"{record_count} commodity record{'s were' if record_count != 1 else ' was'} "
                 f"{action}; no data was deleted.",
             )
         else:
-            messages.info(request, "No matching crop records needed to be changed.")
+            messages.info(request, "No matching commodity records needed to be changed.")
 
         query = {
             key: request.POST.get(key)
