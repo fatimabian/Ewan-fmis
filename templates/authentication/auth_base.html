@@ -9,14 +9,14 @@
     <link rel="icon" type="image/png" href="{% static 'images/brand/fmis-logo.png' %}">
     <link href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=2">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=22">
-    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=17">
+    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=31">
+    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=18">
   </head>
   <body class="public-auth-page">
     <header class="public-auth-header">
-      <a class="showcase-brand" href="{% url 'authentication:landing' %}" aria-label="FMIS public home">
+      <a class="showcase-brand" href="{% url 'authentication:landing' %}" aria-label="Farmer Management Information System public home">
         {% include "shared/brand_logo.html" with logo_class="showcase-brand-logo" logo_width="30" logo_height="30" %}
-        <span><strong>FMIS</strong><small>Office for Agricultural Services</small></span>
+        <span><strong class="showcase-brand-name">FARMER MANAGEMENT INFORMATION SYSTEM</strong><small>Office for Agricultural Services</small></span>
       </a>
       <a class="public-auth-back" href="{% url 'authentication:landing' %}">
         <i class="bi bi-arrow-left"></i> Back to website

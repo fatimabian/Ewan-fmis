@@ -583,7 +583,7 @@ body[data-theme="dark"] .header-profile:hover{
     color:#edf3fa
 }
 .sidebar,.app-shell main{
-    transition:width .24s ease,margin-left .24s ease,transform .24s ease
+    transition:transform .18s ease
 }
 .sidebar .brand-copy,.sidebar nav a span,.sidebar-footer .logout span{
     transition:opacity .15s ease

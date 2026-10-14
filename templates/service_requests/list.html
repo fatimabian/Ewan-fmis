@@ -58,10 +58,12 @@
       width:8%!important
   }
   .request-table :is(th,td):nth-child(2){
-      width:18%!important
+      width:18%!important;
+      min-width:0
   }
   .request-table :is(th,td):nth-child(3){
-      width:10%!important
+      width:10%!important;
+      white-space:nowrap
   }
   .request-table :is(th,td):nth-child(4){
       width:22%!important
@@ -95,6 +97,12 @@
       padding:15px 14px;
       border-bottom:1px solid var(--border);
       vertical-align:middle
+  }
+  .request-type-cell{
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap
   }
   .priority-badge,.request-status{
       display:inline-block;
@@ -279,7 +287,7 @@
                 <td>
                   <a class="record-cell-link" href="{% url 'service_requests:detail' item.pk %}">{{ item.request_id }}</a>
                 </td>
-                <td>{{ item.service.name }}</td>
+                <td class="request-type-cell" title="{{ item.service.name }}">{{ item.service.name }}</td>
                 <td>{{ item.farmer.record_id }}</td>
                 <td>{{ item.farmer.list_name }}</td>
                 <td>

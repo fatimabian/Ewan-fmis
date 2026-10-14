@@ -41,7 +41,7 @@ body[data-theme="dark"] .intervention-table th{background:#253244!important;colo
           <td><a class="record-cell-link" href="{% url 'interventions:detail' item.pk %}">{{ item.reference_id }}</a></td>
           <td>{{ item.intervention_date|date:"M d, Y" }}</td>
           <td><span class="coverage-label">{% if item.scope == 'BARANGAY' %}All farmers in Brgy.<br>{{ item.target_barangay }}{% elif item.scope == 'ALL' %}All active farmers{% else %}{{ item.get_scope_display }}{% endif %}</span></td>
-          <td><strong>{{ item.beneficiary_count }}</strong> farmer{{ item.beneficiary_count|pluralize }}{% if item.scope == 'INDIVIDUAL' and item.farmer %}<small>{{ item.farmer.list_name }}</small>{% endif %}</td>
+          <td><strong>{{ item.beneficiary_count }}</strong> farmer{{ item.beneficiary_count|pluralize }}</td>
           <td>{{ item.get_intervention_type_display }}</td>
           <td>{% if item.quantity != None %}{{ item.quantity|floatformat:2 }} {{ item.unit }}{% else %}—{% endif %}</td>
           <td><span class="intervention-status {% if item.is_active %}status-{{ item.status|lower }}{% else %}archived{% endif %}">{% if item.is_active %}{{ item.get_status_display }}{% else %}Archived{% endif %}</span></td>

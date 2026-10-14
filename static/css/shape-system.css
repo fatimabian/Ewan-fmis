@@ -1,15 +1,17 @@
 /*
  * FMIS global shape language
  *
- * The interface deliberately uses only two silhouettes:
- *   1. rectangular/square surfaces (0 radius), and
- *   2. fully rounded controls and compact indicators (90px radius).
+ * The interface deliberately uses three related silhouettes:
+ *   1. rectangular/square surfaces (0 radius),
+ *   2. rounded-rectangle action controls (8px radius), and
+ *   3. fully rounded compact indicators (90px radius).
  *
  * This file is loaded after page-level styles so older component rules cannot
  * reintroduce a mixture of unrelated corner radii.
  */
 :root{
     --fmis-radius-square:0;
+    --fmis-radius-button:8px;
     --fmis-radius-round:90px;
     --radius:var(--fmis-radius-square);
     --ui-radius:var(--fmis-radius-square);
@@ -22,7 +24,7 @@ html body *:not(#fmis-shape-specificity)::after{
     border-radius:var(--fmis-radius-square)!important
 }
 
-/* Actions and navigation affordances use the single rounded silhouette. */
+/* Actions and navigation affordances use one compact rounded rectangle. */
 html body :is(
     button,
     .btn,
@@ -32,17 +34,22 @@ html body :is(
     input[type="reset"],
     .page-link,
     .pagination a,
+    .fmis-page-button,
     .sidebar nav a,
     .sidebar-toggle,
     .notification-btn,
+    .notification-menu summary,
+    .table-export-control>summary,
     .showcase-links a,
+    .showcase-login-button,
     .hero-location,
     .hero-secondary,
     .landing-signin-submit,
     .catalog-add,
-    .panel-link
+    .panel-link,
+    .btn-cancel
 ):not(#fmis-shape-specificity){
-    border-radius:var(--fmis-radius-round)!important
+    border-radius:var(--fmis-radius-button)!important
 }
 
 /* Buttons use color as an outline only; solid fills made labels hard to read. */
@@ -179,6 +186,46 @@ html body .app-shell .notification-list-item>button:not(#fmis-shape-specificity)
     background-image:none!important;
     box-shadow:none!important;
     transform:none!important
+}
+
+/* Notification content is a reading list, so it must not inherit the global
+ * centered button treatment. */
+html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity),
+html body .app-shell .notification-list-item>button:not(#fmis-shape-specificity){
+    text-align:left!important
+}
+html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity){
+    justify-content:stretch!important;
+    justify-items:start!important
+}
+html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity)>*{
+    width:100%;
+    margin-inline:0 auto;
+    text-align:left!important
+}
+html body .app-shell .notification-list-item .notification-item-copy:not(#fmis-shape-specificity),
+html body .app-shell .notification-list-item .notification-item-copy:not(#fmis-shape-specificity)>*{
+    text-align:left!important
+}
+html body:not([data-theme="dark"]) .app-shell .notification-preview-list button:not(#fmis-shape-specificity)>span,
+html body:not([data-theme="dark"]) .app-shell .notification-list-item .notification-item-copy:not(#fmis-shape-specificity)>strong{
+    color:#111!important
+}
+html body .app-shell .notification-preview-list form:not(#fmis-shape-specificity),
+html body .app-shell .notification-list-item:not(#fmis-shape-specificity){
+    border-bottom:1px solid #dfe7e2!important
+}
+html body .app-shell .notification-preview-list form:last-child:not(#fmis-shape-specificity),
+html body .app-shell .notification-list-item:last-child:not(#fmis-shape-specificity){
+    border-bottom:0!important
+}
+html body[data-theme="dark"] .app-shell .notification-preview-list button:not(#fmis-shape-specificity)>span,
+html body[data-theme="dark"] .app-shell .notification-list-item .notification-item-copy:not(#fmis-shape-specificity)>strong{
+    color:#f8fafc!important
+}
+html body[data-theme="dark"] .app-shell .notification-preview-list form:not(#fmis-shape-specificity),
+html body[data-theme="dark"] .app-shell .notification-list-item:not(#fmis-shape-specificity){
+    border-bottom-color:#3b4a43!important
 }
 
 html body[data-theme="dark"] :is(
@@ -355,27 +402,27 @@ html body .app-shell .farmer-picker-list .farmer-picker-option[aria-selected="tr
     color:#075d38!important
 }
 
-/* Report navigation is a quiet text link, not a pill-shaped button. */
+/* Report navigation uses the same outlined rounded rectangle as every other
+ * action button. */
 html body .report-text-link:not(#fmis-shape-specificity),
 html body .report-text-link:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
     display:inline-flex!important;
     align-items:center;
-    justify-content:flex-end;
+    justify-content:center;
     gap:8px;
     width:max-content!important;
     max-width:100%;
-    margin-left:auto!important;
-    padding:7px 0!important;
-    border:0!important;
-    border-radius:0!important;
+    padding:10px 15px!important;
+    border:1px solid var(--fmis-button-outline,#168052)!important;
+    border-radius:var(--fmis-radius-button)!important;
     background:transparent!important;
-    color:var(--fmis-accent,#2f7d5c)!important;
-    box-shadow:none!important;
-    transform:none!important;
-    text-align:right
+    color:#111!important;
+    box-shadow:0 3px 9px rgba(20,36,54,.14),0 1px 2px rgba(20,36,54,.1)!important;
+    text-align:left
 }
 
-/* Compact labels, identities, and icon holders remain circles or capsules. */
+/* Status, priority, badge, tag, and chip controls use the same rounded
+ * rectangle as buttons instead of an oblong capsule. */
 html body :is(
     .badge,
     .status,
@@ -383,7 +430,14 @@ html body :is(
     .chip,
     .pill,
     [class*="badge"],
-    [class*="status"],
+    [class*="status"]
+):not(#fmis-shape-specificity){
+    border-radius:var(--fmis-radius-button)!important
+}
+
+/* Identity images, icon holders, and native radios retain their circular
+ * meaning. */
+html body :is(
     [class*="avatar"],
     [class*="icon"],
     input[type="radio"]
@@ -508,7 +562,7 @@ html body .app-shell .intervention-status:not(#fmis-shape-specificity){
     min-height:28px!important;
     padding:4px 11px!important;
     border:1px solid var(--fmis-badge-outline)!important;
-    border-radius:999px!important;
+    border-radius:var(--fmis-radius-button)!important;
     background:transparent!important;
     color:var(--fmis-badge-outline)!important;
     box-shadow:none!important;

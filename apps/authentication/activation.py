@@ -43,12 +43,21 @@ def send_activation_code(request, user, remember_me=False):
         "contact your FMIS administrator.\n\n"
         "Office for Agricultural Services\nRosario, Batangas"
     )
-    EmailMultiAlternatives(
-        "Your FMIS account activation code",
-        body,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-    ).send()
+    try:
+        sent_count = EmailMultiAlternatives(
+            "Your FMIS account activation code",
+            body,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+        ).send(fail_silently=False)
+        if sent_count != 1:
+            raise RuntimeError("The activation email provider did not accept the message.")
+    except Exception:
+        # Never leave a usable OTP challenge behind when its email was not
+        # accepted for delivery. The user can safely try signing in again.
+        cache.delete(_cache_key(nonce))
+        request.session.pop(ACTIVATION_SESSION_KEY, None)
+        raise
     return nonce
 
 

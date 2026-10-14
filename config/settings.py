@@ -77,6 +77,10 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASE_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+DB_CONN_MAX_AGE = max(
+    0,
+    int(os.getenv("DB_CONN_MAX_AGE", "60" if not DEBUG else "0")),
+)
 
 if not DEBUG and DATABASE_ENGINE != "mysql":
     raise ImproperlyConfigured("Production FMIS requires DB_ENGINE=mysql.")
@@ -95,6 +99,8 @@ if DATABASE_ENGINE == "mysql":
             "PASSWORD": os.getenv("MYSQL_PASSWORD"),
             "HOST": os.getenv("MYSQL_HOST", "127.0.0.1"),
             "PORT": os.getenv("MYSQL_PORT", "3306"),
+            "CONN_MAX_AGE": DB_CONN_MAX_AGE,
+            "CONN_HEALTH_CHECKS": True,
             "OPTIONS": {"charset": "utf8mb4", "init_command": "SET sql_mode='STRICT_TRANS_TABLES'"},
         }
     }
@@ -122,6 +128,12 @@ AUTH_USER_MODEL = "authentication.CustomUser"
 LOGIN_URL = "authentication:login"
 LOGIN_REDIRECT_URL = "dashboard:home"
 LOGOUT_REDIRECT_URL = "authentication:landing"
+# Cache only explicitly decorated public pages. Authenticated screens remain
+# private and uncached. A zero timeout keeps local development changes instant.
+PUBLIC_PAGE_CACHE_SECONDS = max(
+    0,
+    int(os.getenv("PUBLIC_PAGE_CACHE_SECONDS", "300" if not DEBUG else "0")),
+)
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "FMIS <noreply@fmis.local>")
 STATIC_ROOT = BASE_DIR / "staticfiles"
 BACKUP_ROOT = Path(os.getenv("FMIS_BACKUP_ROOT", BASE_DIR / "backups"))
@@ -163,6 +175,10 @@ if os.getenv("EMAIL_HOST"):
     EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
     EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+    EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
+    EMAIL_TIMEOUT = max(1, int(os.getenv("EMAIL_TIMEOUT", "15")))
+    if EMAIL_USE_TLS and EMAIL_USE_SSL:
+        raise ImproperlyConfigured("EMAIL_USE_TLS and EMAIL_USE_SSL cannot both be enabled.")
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 

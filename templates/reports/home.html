@@ -363,7 +363,7 @@
   .status-donut{
       width:116px;
       height:116px;
-      border-radius:50%;
+      border-radius:50%!important;
       background:conic-gradient(var(--request-gradient));
       margin:16px auto;
       display:grid;
@@ -376,7 +376,7 @@
       width:74px;
       height:74px;
       background:var(--surface,#fff);
-      border-radius:50%
+      border-radius:50%!important
   }
   .status-donut b{
       z-index:1
@@ -755,25 +755,66 @@
   }
   .admin-report-actions{
       grid-column:1/-1;
-      display:flex;
-      gap:7px;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 104px;
+      align-items:stretch;
+      gap:10px;
       margin-top:3px
   }
+  .admin-report-fields,
+  .admin-report-buttons{
+      display:grid;
+      gap:8px
+  }
+  .admin-report-fields{
+      width:100%;
+      max-width:220px;
+      justify-self:start
+  }
+  .admin-report-buttons{
+      justify-self:end
+  }
+  .admin-report-actions select{
+      width:100%;
+      min-width:0;
+      height:39px;
+      padding:0 34px 0 12px;
+      border:1px solid #cdded3;
+      border-radius:7px;
+      background:#fff;
+      color:#1d2c3d
+  }
   .admin-report-actions button{
-      flex:1;
-      padding:7px 9px;
+      min-height:39px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:8px 12px;
       border:1px solid #cdded3;
       border-radius:7px;
       background:#fff;
       color:#176438;
-      font-size:9px;
+      font-size:10px;
       font-weight:800;
+      line-height:1.2;
       cursor:pointer
   }
   .admin-report-actions button:first-of-type{
       border-color:#087b45;
       background:#087b45;
       color:#fff
+  }
+  .reports-page .report-text-link:not(#fmis-shape-specificity),
+  .reports-page .report-text-link:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+      justify-content:center!important;
+      margin-left:0!important;
+      padding:10px 15px!important;
+      border:1px solid #168052!important;
+      border-radius:8px!important;
+      color:#153426!important;
+      line-height:1.25;
+      text-align:left
   }
   @media(max-width:900px){
       .admin-report-cards{
@@ -851,19 +892,23 @@
               <form class="admin-report-actions" method="post" data-download-form>
                 {% csrf_token %}
                 <input type="hidden" name="report_type" value="{{ template.key }}">
-                <select name="date_range" aria-label="Report period">
-                  {% for value,label in date_ranges.items %}
-                    <option value="{{ value }}"{% if template.key == 'staff_accomplishment' and value == 'month' %} selected{% elif template.key != 'staff_accomplishment' and value == 'all' %} selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-                {% if template.key == 'staff_accomplishment' %}
-                  <select name="staff" aria-label="Staff member">
-                    <option value="">All staff</option>
-                    {% for staff_member in staff_choices %}<option value="{{ staff_member.pk }}">{{ staff_member.display_name }}</option>{% endfor %}
+                <div class="admin-report-fields">
+                  <select name="date_range" aria-label="Report period">
+                    {% for value,label in date_ranges.items %}
+                      <option value="{{ value }}"{% if template.key == 'staff_accomplishment' and value == 'month' %} selected{% elif template.key != 'staff_accomplishment' and value == 'all' %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
                   </select>
-                {% endif %}
-                <button type="submit" name="format" value="pdf"><i class="bi bi-printer"></i> Print PDF</button>
-                <button type="submit" name="format" value="csv"><i class="bi bi-filetype-csv"></i> CSV</button>
+                  {% if template.key == 'staff_accomplishment' %}
+                    <select name="staff" aria-label="Staff member">
+                      <option value="">All staff</option>
+                      {% for staff_member in staff_choices %}<option value="{{ staff_member.pk }}">{{ staff_member.display_name }}</option>{% endfor %}
+                    </select>
+                  {% endif %}
+                </div>
+                <div class="admin-report-buttons">
+                  <button type="submit" name="format" value="pdf"><i class="bi bi-printer"></i> Print PDF</button>
+                  <button type="submit" name="format" value="csv"><i class="bi bi-filetype-csv"></i> CSV</button>
+                </div>
               </form>
             </article>
           {% endfor %}

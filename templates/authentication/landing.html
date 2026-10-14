@@ -12,25 +12,23 @@
     <link rel="preload"
           as="image"
           href="{% static 'images/landing/office-gallery/rice-field-data-collection.webp' %}"
+          imagesrcset="{% static 'images/landing/office-gallery/rice-field-data-collection-720.webp' %} 720w, {% static 'images/landing/office-gallery/rice-field-data-collection.webp' %} 1422w"
+          imagesizes="100vw"
           type="image/webp"
           fetchpriority="high">
-    <link
-      href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}"
-      rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=2">
-    <link rel="stylesheet" href="{% static 'css/shape-system.css' %}?v=22">
-    <link rel="stylesheet" href="{% static 'css/landing-showcase.css' %}?v=16">
+    <link rel="preload" href="{% static 'vendor/bootstrap-icons/fonts/bootstrap-icons.woff2' %}" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="{% static 'css/fmis-public.min.css' %}?v=1">
   </head>
   <body>
     <div class="landing-progress" id="landingProgress" aria-hidden="true"></div>
 
     <header class="showcase-header">
       <nav class="showcase-nav" aria-label="Public navigation">
-        <a class="showcase-brand" href="#home" aria-label="FMIS home">
+        <a class="showcase-brand" href="#home" aria-label="Farmer Management Information System home">
           {% include "shared/brand_logo.html" with logo_class="showcase-brand-logo" logo_width="30" logo_height="30" %}
           <span>
-            <strong>FMIS</strong>
-            <small>Local records. Better agricultural decisions.</small>
+            <strong class="showcase-brand-name">FARMER MANAGEMENT INFORMATION SYSTEM</strong>
+            <small>Office for Agricultural Services</small>
           </span>
         </a>
 
@@ -50,9 +48,12 @@
         <figure class="hero-image">
           <img
             src="{% static 'images/landing/office-gallery/rice-field-data-collection.webp' %}"
+            srcset="{% static 'images/landing/office-gallery/rice-field-data-collection-720.webp' %} 720w, {% static 'images/landing/office-gallery/rice-field-data-collection.webp' %} 1422w"
+            sizes="100vw"
             alt="Rosario agricultural personnel collecting farm data in a rice field"
             width="1422"
             height="654"
+            decoding="async"
             fetchpriority="high">
         </figure>
         <div class="hero-shade" aria-hidden="true"></div>
@@ -105,6 +106,8 @@
           <article class="service-photo-card">
             <img
               src="{% static 'images/landing/office-gallery/farmer-registration-assistance.webp' %}"
+              srcset="{% static 'images/landing/office-gallery/farmer-registration-assistance-480.webp' %} 480w, {% static 'images/landing/office-gallery/farmer-registration-assistance.webp' %} 870w"
+              sizes="(max-width:700px) calc(100vw - 40px), 340px"
               alt="Rosario personnel assisting farmers with registration records"
               width="870"
               height="645"
@@ -120,6 +123,8 @@
           <article class="service-photo-card">
             <img
               src="{% static 'images/landing/office-gallery/rice-field-georeferencing.webp' %}"
+              srcset="{% static 'images/landing/office-gallery/rice-field-georeferencing-480.webp' %} 480w, {% static 'images/landing/office-gallery/rice-field-georeferencing.webp' %} 874w"
+              sizes="(max-width:700px) calc(100vw - 40px), 340px"
               alt="Rosario field personnel gathering parcel location information"
               width="874"
               height="651"
@@ -135,6 +140,8 @@
           <article class="service-photo-card">
             <img
               src="{% static 'images/landing/office-gallery/corn-field-monitoring.webp' %}"
+              srcset="{% static 'images/landing/office-gallery/corn-field-monitoring-480.webp' %} 480w, {% static 'images/landing/office-gallery/corn-field-monitoring.webp' %} 1161w"
+              sizes="(max-width:700px) calc(100vw - 40px), 340px"
               alt="Rosario personnel monitoring a recorded corn field"
               width="1161"
               height="656"
@@ -150,6 +157,8 @@
           <article class="service-photo-card">
             <img
               src="{% static 'images/landing/office-gallery/farmer-input-release.webp' %}"
+              srcset="{% static 'images/landing/office-gallery/farmer-input-release-480.webp' %} 480w, {% static 'images/landing/office-gallery/farmer-input-release.webp' %} 551w"
+              sizes="(max-width:700px) calc(100vw - 40px), 340px"
               alt="Rosario personnel documenting agricultural support for a farmer"
               width="551"
               height="570"
@@ -165,6 +174,8 @@
           <article class="service-photo-card">
             <img
               src="{% static 'images/landing/office-gallery/rsbsa-record-encoding.webp' %}"
+              srcset="{% static 'images/landing/office-gallery/rsbsa-record-encoding-480.webp' %} 480w, {% static 'images/landing/office-gallery/rsbsa-record-encoding.webp' %} 551w"
+              sizes="(max-width:700px) calc(100vw - 40px), 340px"
               alt="Rosario staff reviewing and encoding agricultural records"
               width="551"
               height="570"
@@ -180,6 +191,8 @@
           <article class="service-photo-card">
             <img
               src="{% static 'images/landing/office-gallery/community-registration-assistance.webp' %}"
+              srcset="{% static 'images/landing/office-gallery/community-registration-assistance-480.webp' %} 480w, {% static 'images/landing/office-gallery/community-registration-assistance.webp' %} 554w"
+              sizes="(max-width:700px) calc(100vw - 40px), 340px"
               alt="Authorized Rosario personnel assisting citizens with municipal records"
               width="554"
               height="570"
@@ -260,18 +273,13 @@
         <div class="about-image" data-reveal>
           <img
             src="{% static 'images/landing/office-gallery/barangay-farmer-registration.webp' %}"
+            srcset="{% static 'images/landing/office-gallery/barangay-farmer-registration-480.webp' %} 480w, {% static 'images/landing/office-gallery/barangay-farmer-registration.webp' %} 551w"
+            sizes="(max-width:700px) calc(100vw - 40px), 50vw"
             alt="Rosario municipal personnel assisting farmers in a barangay"
             width="551"
             height="570"
             decoding="async"
             loading="lazy">
-          <div class="about-image-note">
-            <i class="bi bi-flower1"></i>
-            <span>
-              <strong>Local information</strong>
-              <small>Turned into practical agricultural service</small>
-            </span>
-          </div>
         </div>
 
         <div class="about-copy" data-reveal>
@@ -304,166 +312,35 @@
 
     </main>
 
-    <footer class="showcase-footer">
-      <div>
-        <a class="showcase-brand" href="#home">
-          {% include "shared/brand_logo.html" with logo_class="showcase-brand-logo" logo_width="30" logo_height="30" %}
-          <span>
-            <strong>FMIS</strong>
-            <small>Office for Agricultural Services</small>
-          </span>
-        </a>
-        <p>Municipality of Rosario, Batangas</p>
-      </div>
+    <footer class="showcase-footer" aria-label="FMIS footer">
+      <div class="showcase-footer-inner">
+        <div class="footer-brand-block">
+          <a class="showcase-brand" href="#home" aria-label="Back to the Farmer Management Information System home section">
+            {% include "shared/brand_logo.html" with logo_class="showcase-brand-logo" logo_width="30" logo_height="30" %}
+            <span>
+              <strong class="showcase-brand-name">FARMER MANAGEMENT INFORMATION SYSTEM</strong>
+              <small>Office for Agricultural Services</small>
+              <small class="footer-municipality">Municipality of Rosario, Batangas</small>
+            </span>
+          </a>
+        </div>
 
-      <div class="footer-contact">
-        <span>Y. Zuño Street, Poblacion B, Rosario, Batangas 4225</span>
-        <span>rosariobatangasoas@gmail.com</span>
-        <span>(043) 405-3932</span>
-      </div>
+        <address class="footer-contact">
+          <strong>CONTACT</strong>
+          <span><i class="bi bi-geo-alt" aria-hidden="true"></i> Y. Zuño Street, Poblacion B, Rosario, Batangas 4225</span>
+          <a href="mailto:rosariobatangasoas@gmail.com"><i class="bi bi-envelope" aria-hidden="true"></i> rosariobatangasoas@gmail.com</a>
+          <a href="tel:+63434053932"><i class="bi bi-telephone" aria-hidden="true"></i> (043) 405-3932</a>
+        </address>
 
-      <div class="footer-links">
-        <a href="{% url 'authentication:privacy' %}">Privacy Notice</a>
-        <a href="{% url 'authentication:terms' %}">Terms of Use</a>
-        <span>&copy; 2026</span>
+        <div class="footer-links">
+          <strong>LEGAL</strong>
+          <a href="{% url 'authentication:privacy' %}">Privacy Notice</a>
+          <a href="{% url 'authentication:terms' %}">Terms of Use</a>
+          <span>&copy; 2026 Municipality of Rosario</span>
+        </div>
       </div>
     </footer>
 
-    <script>
-      (() => {
-          const progress = document.getElementById("landingProgress");
-          const updateProgress = () => {
-              const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-              const percent = scrollable > 0 ? (window.scrollY / scrollable) * 100 : 0;
-              progress.style.width = `${Math.min(100, percent)}%`;
-          };
-
-          window.addEventListener("scroll", updateProgress, { passive: true });
-          updateProgress();
-
-          const navigationLinks = [...document.querySelectorAll('.showcase-links a[href^="#"]')];
-          const navigationSections = navigationLinks
-              .map(link => document.querySelector(link.getAttribute("href")))
-              .filter(Boolean);
-          const setActiveNavigation = sectionId => {
-              navigationLinks.forEach(link => {
-                  const isActive = link.getAttribute("href") === `#${sectionId}`;
-                  link.classList.toggle("is-active", isActive);
-                  if (isActive) {
-                      link.setAttribute("aria-current", "page");
-                  } else {
-                      link.removeAttribute("aria-current");
-                  }
-              });
-          };
-          const updateActiveNavigation = () => {
-              const marker = window.scrollY + 120;
-              let currentSection = navigationSections[0];
-              navigationSections.forEach(section => {
-                  if (section.offsetTop <= marker) currentSection = section;
-              });
-              if (currentSection) setActiveNavigation(currentSection.id);
-          };
-          navigationLinks.forEach(link => {
-              link.addEventListener("click", () => {
-                  setActiveNavigation(link.getAttribute("href").slice(1));
-              });
-          });
-          window.addEventListener("scroll", updateActiveNavigation, { passive: true });
-          window.addEventListener("resize", updateActiveNavigation);
-          updateActiveNavigation();
-
-          document.body.classList.add("reveal-ready");
-          const observer = new IntersectionObserver(entries => {
-              entries.forEach(entry => {
-                  if (!entry.isIntersecting) return;
-                  entry.target.classList.add("is-visible");
-                  observer.unobserve(entry.target);
-              });
-          }, { threshold: 0.12 });
-
-          document.querySelectorAll("[data-reveal]").forEach(element => {
-              observer.observe(element);
-          });
-
-          const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-          const serviceCarousel = document.getElementById("serviceCarousel");
-          const serviceCards = [...serviceCarousel.querySelectorAll("article")];
-          let serviceCarouselTimer;
-          let serviceCenterFrame;
-          const updateCenteredService = () => {
-              const carouselBox = serviceCarousel.getBoundingClientRect();
-              const center = carouselBox.left + carouselBox.width / 2;
-              let centeredCard = serviceCards[0];
-              let nearestDistance = Number.POSITIVE_INFINITY;
-              serviceCards.forEach(card => {
-                  const box = card.getBoundingClientRect();
-                  const distance = Math.abs(box.left + box.width / 2 - center);
-                  if (distance < nearestDistance) {
-                      nearestDistance = distance;
-                      centeredCard = card;
-                  }
-              });
-              serviceCards.forEach(card => {
-                  const isCentered = card === centeredCard;
-                  card.classList.toggle("is-centered", isCentered);
-                  if (isCentered) card.setAttribute("aria-current", "true");
-                  else card.removeAttribute("aria-current");
-              });
-          };
-          serviceCarousel.addEventListener("scroll", () => {
-              window.cancelAnimationFrame(serviceCenterFrame);
-              serviceCenterFrame = window.requestAnimationFrame(updateCenteredService);
-          }, {passive:true});
-          window.addEventListener("resize", updateCenteredService);
-          const scrollServices = direction => {
-              const firstCard = serviceCarousel.querySelector("article");
-              const amount = firstCard.getBoundingClientRect().width + 18;
-              serviceCarousel.scrollBy({
-                  left: amount * direction,
-                  behavior: prefersReducedMotion ? "auto" : "smooth"
-              });
-          };
-          const advanceServices = () => {
-              const reachedEnd = serviceCarousel.scrollLeft + serviceCarousel.clientWidth
-                  >= serviceCarousel.scrollWidth - 8;
-              if (reachedEnd) {
-                  serviceCarousel.scrollTo({
-                      left: 0,
-                      behavior: prefersReducedMotion ? "auto" : "smooth"
-                  });
-                  return;
-              }
-              scrollServices(1);
-          };
-          const stopServiceCarousel = () => window.clearInterval(serviceCarouselTimer);
-          const startServiceCarousel = () => {
-              stopServiceCarousel();
-              if (prefersReducedMotion || document.hidden) return;
-              serviceCarouselTimer = window.setInterval(advanceServices, 4500);
-          };
-          document.querySelector("[data-service-previous]").addEventListener("click", () => {
-              scrollServices(-1);
-              startServiceCarousel();
-          });
-          document.querySelector("[data-service-next]").addEventListener("click", () => {
-              scrollServices(1);
-              startServiceCarousel();
-          });
-          updateCenteredService();
-          startServiceCarousel();
-
-          document.addEventListener("visibilitychange", () => {
-              if (document.hidden) {
-                  stopCarousel();
-                  stopServiceCarousel();
-                  return;
-              }
-              startCarousel();
-              startServiceCarousel();
-          });
-
-      })();
-    </script>
+    <script defer src="{% static 'js/landing.js' %}?v=1"></script>
   </body>
 </html>

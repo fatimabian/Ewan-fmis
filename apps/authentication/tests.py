@@ -1,9 +1,34 @@
 import re
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
+
+from apps.authentication.activation import ACTIVATION_SESSION_KEY
+
+
+class AccountActivationDeliveryTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="pendingdelivery",
+            email="pending@example.com",
+            password="Ready4Field!Secure",
+            role="STAFF",
+            is_active=False,
+            activation_pending=True,
+        )
+
+    @patch("apps.authentication.activation.EmailMultiAlternatives.send", return_value=0)
+    def test_rejected_activation_email_does_not_leave_a_valid_challenge(self, _send):
+        response = self.client.post(
+            reverse("authentication:login"),
+            {"username": self.user.username, "password": "Ready4Field!Secure"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The activation email could not be sent")
+        self.assertNotIn(ACTIVATION_SESSION_KEY, self.client.session)
 
 
 class PasswordRecoveryOTPTests(TestCase):

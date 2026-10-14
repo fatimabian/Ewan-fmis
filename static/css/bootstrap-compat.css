@@ -1,0 +1,26 @@
+/* Minimal Bootstrap compatibility layer used by FMIS templates. */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;padding:.5rem .9rem;border:1px solid transparent;border-radius:.375rem;background:transparent;color:inherit;font:inherit;font-weight:600;line-height:1.5;text-align:center;text-decoration:none;vertical-align:middle;cursor:pointer;user-select:none}
+.btn:disabled,.btn.disabled{pointer-events:none;opacity:.65}
+.btn-sm{padding:.3rem .6rem;font-size:.875rem}
+.btn-success{border-color:#198754;background:#198754;color:#fff}
+.btn-outline-success{border-color:#198754;color:#198754}
+.btn-outline-secondary{border-color:#6c757d;color:#6c757d}
+.alert{position:relative;margin-bottom:1rem;padding:1rem;border:1px solid transparent}
+.alert-danger{border-color:#f1aeb5;background:#f8d7da;color:#58151c}
+.badge{display:inline-block;padding:.35em .65em;font-size:.75em;font-weight:700;line-height:1;text-align:center;white-space:nowrap;vertical-align:baseline}
+.progress{display:flex;height:1rem;overflow:hidden;background:#e9ecef}
+.spinner-border{display:inline-block;width:2rem;height:2rem;border:.25em solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-.125em;animation:bootstrap-compat-spin .75s linear infinite}
+.spinner-border-sm{width:1rem;height:1rem;border-width:.2em}
+.small,small{font-size:.875em}
+.d-block{display:block!important}
+.text-center{text-align:center!important}
+.text-muted{color:#6c757d!important}
+.text-danger{color:#dc3545!important}
+.mt-3{margin-top:1rem!important}
+.mb-0{margin-bottom:0!important}
+.mb-1{margin-bottom:.25rem!important}
+.mb-4{margin-bottom:1.5rem!important}
+.py-5{padding-top:3rem!important;padding-bottom:3rem!important}
+.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+@keyframes bootstrap-compat-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spinner-border{animation-duration:1.5s}}

@@ -41,9 +41,12 @@ a{
     z-index:100;
     top:0;
     left:0;
-    width:0;
+    width:100%;
     height:3px;
     background:#43c875;
+    transform:scaleX(var(--landing-progress,0));
+    transform-origin:left center;
+    will-change:transform;
 }
 
 .showcase-header{
@@ -107,6 +110,13 @@ a{
     font-family:"Trebuchet MS",Arial,sans-serif;
     font-size:20px;
     letter-spacing:.3px;
+}
+
+.showcase-brand .showcase-brand-name{
+    max-width:315px;
+    font-size:14px;
+    line-height:1.15;
+    letter-spacing:.45px;
 }
 
 .showcase-brand small{
@@ -839,7 +849,7 @@ a{
     margin:0;
     background:
         linear-gradient(rgba(10,31,20,.74),rgba(10,31,20,.78)),
-        url("../images/landing/office-gallery/rice-field-data-collection.webp") center/cover fixed;
+        url("../images/landing/office-gallery/rice-field-data-collection.webp") center/cover;
     color:var(--landing-ink);
 }
 
@@ -852,6 +862,14 @@ a{
     padding:12px max(24px,calc((100vw - 1380px)/2));
     border-bottom:1px solid rgba(255,255,255,.12);
     background:#142231;
+}
+
+.public-auth-header .showcase-brand{
+    color:#fff;
+}
+
+.public-auth-header .showcase-brand-name{
+    color:#fff;
 }
 
 .public-auth-back,
@@ -964,39 +982,6 @@ a{
     object-fit:cover;
 }
 
-.about-image-note{
-    position:absolute;
-    right:-25px;
-    bottom:28px;
-    display:flex;
-    align-items:center;
-    gap:11px;
-    padding:15px 18px;
-    border-radius:11px;
-    background:var(--landing-surface);
-    box-shadow:0 17px 45px rgba(20,44,27,.2);
-}
-
-.about-image-note>i{
-    color:var(--landing-green-bright);
-    font-size:25px;
-}
-
-.about-image-note strong,
-.about-image-note small{
-    display:block;
-}
-
-.about-image-note strong{
-    font-size:11px;
-}
-
-.about-image-note small{
-    margin-top:3px;
-    color:var(--landing-muted);
-    font-size:9px;
-}
-
 .about-copy ul{
     display:grid;
     gap:12px;
@@ -1075,17 +1060,40 @@ a{
 }
 
 .showcase-footer{
-    display:grid;
-    grid-template-columns:1fr 1fr auto;
-    gap:45px;
-    padding:45px max(5vw,24px);
+    padding:28px clamp(26px,5vw,88px);
+    border-top:3px solid #39bd73;
     background:#101b13;
-    color:#aab9ae;
-    font-size:10px;
+    color:#b8c7bc;
+    font-size:12px;
+    line-height:1.5;
+}
+
+.showcase-footer-inner{
+    width:100%;
+    max-width:1600px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:minmax(340px,1.05fr) minmax(390px,1fr) minmax(210px,.65fr);
+    align-items:start;
+    gap:clamp(36px,6vw,96px);
+}
+
+/* Skip below-the-fold layout and paint work until each section approaches
+   the viewport. Intrinsic sizing prevents the page from jumping while the
+   browser defers that work. */
+@supports (content-visibility:auto){
+    .service-section,
+    .scope-strip,
+    .capability-section,
+    .about-section{
+        content-visibility:auto;
+        contain-intrinsic-size:auto 720px;
+    }
 }
 
 .showcase-footer .showcase-brand{
-    width:max-content;
+    width:100%;
+    max-width:410px;
     color:#fff;
 }
 
@@ -1093,8 +1101,13 @@ a{
     color:#94a499;
 }
 
-.showcase-footer p{
-    margin:13px 0 0;
+.showcase-footer .footer-municipality{
+    margin-top:4px;
+    color:#b8c7bc;
+    font-size:11px;
+    line-height:1.35;
+    text-transform:none;
+    letter-spacing:0;
 }
 
 .footer-contact,
@@ -1104,13 +1117,53 @@ a{
     gap:8px;
 }
 
+.footer-contact{
+    margin:0;
+    font-style:normal;
+}
+
+.footer-contact strong,
+.footer-links strong{
+    margin-bottom:2px;
+    color:#72d395;
+    font-size:10px;
+    letter-spacing:1.2px;
+}
+
+.footer-contact span,
+.footer-contact a{
+    display:grid;
+    grid-template-columns:16px minmax(0,1fr);
+    gap:7px;
+    align-items:start;
+    color:#d8e4da;
+    line-height:1.45;
+    text-decoration:none;
+}
+
+.footer-contact i{
+    color:#72d395;
+}
+
 .footer-links{
     text-align:right;
+}
+
+.footer-links span{
+    margin-top:4px;
+    color:#9eafa3;
 }
 
 .footer-links a{
     color:#d8e4da;
     text-decoration:none;
+}
+
+.footer-links a:hover,
+.footer-contact a:hover{
+    color:#fff;
+    text-decoration:underline;
+    text-underline-offset:3px;
 }
 
 .reveal-ready [data-reveal]{
@@ -1271,10 +1324,6 @@ a{
         min-height:400px;
     }
 
-    .about-image-note{
-        right:14px;
-    }
-
     .landing-cta{
         align-items:flex-start;
         flex-direction:column;
@@ -1282,8 +1331,12 @@ a{
         padding:32px;
     }
 
-    .showcase-footer{
+    .showcase-footer-inner{
         grid-template-columns:1fr 1fr;
+    }
+
+    .footer-brand-block{
+        grid-column:1/-1;
     }
 
     .footer-links{
@@ -1415,12 +1468,25 @@ a{
     }
 
     .showcase-footer{
+        padding:28px 22px;
+    }
+
+    .showcase-footer-inner{
         grid-template-columns:1fr;
         gap:26px;
     }
 
+    .footer-brand-block,
     .footer-links{
         grid-column:auto;
+    }
+
+    .showcase-footer .showcase-brand-name{
+        font-size:12px;
+    }
+
+    .footer-links{
+        text-align:left;
     }
 }
 

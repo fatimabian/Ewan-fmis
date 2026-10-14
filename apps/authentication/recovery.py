@@ -35,12 +35,19 @@ def start_recovery_challenge(request, user=None):
             "reset, contact your FMIS administrator.\n\n"
             "Office for Agricultural Services\nRosario, Batangas"
         )
-        EmailMultiAlternatives(
-            "Your FMIS password recovery code",
-            body,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-        ).send()
+        try:
+            sent_count = EmailMultiAlternatives(
+                "Your FMIS password recovery code",
+                body,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+            ).send(fail_silently=False)
+            if sent_count != 1:
+                raise RuntimeError("The recovery email provider did not accept the message.")
+        except Exception:
+            cache.delete(_cache_key(nonce))
+            request.session.pop(RECOVERY_SESSION_KEY, None)
+            raise
     return nonce
 
 

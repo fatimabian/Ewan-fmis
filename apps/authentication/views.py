@@ -8,6 +8,8 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.core.cache import cache
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from django.views.generic import FormView, TemplateView
 
 from apps.activity_logs.services import record_event, record_request_event
@@ -182,6 +184,7 @@ class UserLoginView(LoginView):
         return super().form_invalid(form)
 
 
+@method_decorator(cache_page(settings.PUBLIC_PAGE_CACHE_SECONDS), name="dispatch")
 class LandingPageView(TemplateView):
     """Public information page; authentication lives on dedicated pages."""
     template_name = "authentication/landing.html"

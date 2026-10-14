@@ -248,3 +248,77 @@ html body .app-shell table.farmer-table th:last-child:not(#fmis-table-specificit
         white-space:nowrap!important
     }
 }
+
+/* Expanded desktop navigation leaves less horizontal workspace. Keep every
+ * authenticated table inside that workspace and shorten only overflowing
+ * labels. The final action column and compact status controls stay intact. */
+@media (min-width:1101px){
+    body:not(.nav-collapsed) .app-shell :is(
+        .table-panel,
+        .universal-table-wrap,
+        .farmer-table-wrap,
+        .parcel-table-wrap,
+        .crop-table-wrap,
+        .request-table-wrap,
+        .intervention-table-wrap,
+        .report-table-wrap,
+        .history-change-table-wrap,
+        .audit-change-table-wrap,
+        .recent-requests-table-wrap,
+        .parcel-crop-table-wrap
+    ){
+        overflow-x:hidden!important
+    }
+    body:not(.nav-collapsed) .app-shell table{
+        width:100%!important;
+        min-width:0!important;
+        max-width:100%!important;
+        table-layout:fixed!important
+    }
+    body:not(.nav-collapsed) .app-shell table :is(th,td){
+        min-width:0!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        white-space:nowrap!important;
+        overflow-wrap:normal!important;
+        word-break:normal!important
+    }
+    body:not(.nav-collapsed) .app-shell table td:not(:last-child)>
+        :is(a,p,span,strong,small,.cell-description){
+        display:block;
+        min-width:0!important;
+        max-width:100%!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        white-space:nowrap!important
+    }
+    body:not(.nav-collapsed) .app-shell table td:last-child,
+    body:not(.nav-collapsed) .app-shell table :is(
+        .farmer-actions,
+        .parcel-actions,
+        .crop-actions,
+        .request-actions,
+        .intervention-actions,
+        .table-actions,
+        .farmer-crop-actions
+    ){
+        overflow:visible!important;
+        text-overflow:clip!important;
+        white-space:nowrap!important
+    }
+    body:not(.nav-collapsed) .app-shell table :is(
+        .badge,
+        .status,
+        .farmer-status,
+        .priority-badge,
+        .request-status,
+        .intervention-status
+    ){
+        display:inline-flex;
+        width:max-content;
+        max-width:100%;
+        overflow:visible!important;
+        text-overflow:clip!important;
+        white-space:nowrap!important
+    }
+}

@@ -2857,17 +2857,6 @@ body[data-theme="dark"] .season-reference{border-color:#365443;background:#1d2d2
     overflow:hidden;
     background:linear-gradient(135deg,color-mix(in srgb,var(--kpi-color) 7%,#fff),#fff 68%)
 }
-.staff-overview-v2 .staff-kpi::after{
-    content:"";
-    position:absolute;
-    right:-27px;
-    bottom:-39px;
-    width:84px;
-    height:84px;
-    border:12px solid color-mix(in srgb,var(--kpi-color) 8%,transparent);
-    border-radius:50%;
-    pointer-events:none
-}
 .staff-overview-v2 .staff-kpi-icon{
     box-shadow:0 5px 12px color-mix(in srgb,var(--kpi-color) 15%,transparent)
 }

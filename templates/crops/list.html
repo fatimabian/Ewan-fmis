@@ -62,11 +62,23 @@
       padding:15px 16px;
       border-bottom:1px solid var(--border)
   }
+  .app-shell .crop-table :is(th,td):nth-child(1){width:11%!important}
+  .app-shell .crop-table :is(th,td):nth-child(2){width:39%!important}
+  .app-shell .crop-table :is(th,td):nth-child(3){width:22%!important}
+  .app-shell .crop-table :is(th,td):nth-child(4){
+      width:12%!important;
+      text-align:center!important
+  }
+  .app-shell .crop-table :is(th,td):nth-child(5){width:16%!important}
   .app-shell .crop-table .status-pill{
-      display:inline-flex;
+      display:inline-flex!important;
       align-items:center;
       justify-content:center;
+      width:max-content!important;
+      min-width:72px;
+      max-width:100%!important;
       min-height:28px;
+      margin-inline:auto!important;
       padding:4px 12px!important;
       border:1px solid #238553!important;
       border-radius:999px;
@@ -75,6 +87,7 @@
       font-size:11px;
       font-weight:800;
       line-height:1;
+      text-align:center!important;
       white-space:nowrap
   }
   .crop-actions{

@@ -652,3 +652,177 @@ html body[data-theme="dark"] .app-shell .theme-choice:has(input:checked):after{
     background:#65a989!important;
     color:#10251a!important
 }
+
+/*
+ * System-wide dark-theme icon audit (v8).
+ * Keep icon glyphs distinct from their tiles. Several newer components used
+ * light-mode mixes against white, which made both the tile and glyph nearly
+ * white after the surrounding card switched to dark mode.
+ */
+html body[data-theme="dark"] .app-shell{
+    --dark-icon-bg:#20382b;
+    --dark-icon-border:#456854;
+    --dark-icon-fg:#9be0b3
+}
+
+/* Persistent navigation and header controls must remain visible at a glance. */
+html body[data-theme="dark"] .app-shell .sidebar nav a .bi{
+    color:#b8c8d8!important;
+    opacity:1!important
+}
+html body[data-theme="dark"] .app-shell .sidebar nav a:is(:hover,.active) .bi{
+    color:#79dfa7!important
+}
+html body[data-theme="dark"] .app-shell :is(
+    .sidebar-toggle,
+    .notification-menu>summary,
+    .header-profile
+) :is(.bi,i,i::before){
+    color:#dce7f1!important;
+    opacity:1!important
+}
+
+/* Shared icon tiles used by dashboards, reports, forms and empty states. */
+html body[data-theme="dark"] .app-shell :is(
+    .metric-icon,
+    .staff-metric-card>i,
+    .metric-grid article>i,
+    .report-metric>i,
+    .quick-actions>a>i,
+    .notification-item-icon,
+    .service-icon,
+    .recommendation-icon,
+    .catalog-empty-icon,
+    .dashboard-section-label>span,
+    .staff-kpi-icon,
+    .staff-section-icon
+){
+    background:var(--dark-icon-bg)!important;
+    color:var(--dark-icon-fg)!important;
+    border-color:var(--dark-icon-border)!important;
+    opacity:1!important
+}
+html body[data-theme="dark"] .app-shell :is(
+    .metric-icon,
+    .staff-metric-card>i,
+    .metric-grid article>i,
+    .report-metric>i,
+    .quick-actions>a>i,
+    .notification-item-icon,
+    .service-icon,
+    .recommendation-icon,
+    .catalog-empty-icon,
+    .dashboard-section-label>span,
+    .staff-kpi-icon,
+    .staff-section-icon
+) :is(.bi,i,i::before,svg){
+    color:inherit!important;
+    fill:currentColor!important;
+    opacity:1!important
+}
+
+/* Preserve the visual categories on the current staff dashboard. */
+html body[data-theme="dark"] .app-shell .staff-kpi.kpi-farmers .staff-kpi-icon{
+    background:#203b2b!important;
+    color:#8fe0aa!important;
+    border:1px solid #416b50!important
+}
+html body[data-theme="dark"] .app-shell .staff-kpi.kpi-parcels .staff-kpi-icon{
+    background:#1d334d!important;
+    color:#94c7ff!important;
+    border:1px solid #3d6085!important
+}
+html body[data-theme="dark"] .app-shell .staff-kpi.kpi-area .staff-kpi-icon{
+    background:#432c21!important;
+    color:#ffbd8b!important;
+    border:1px solid #754b35!important
+}
+html body[data-theme="dark"] .app-shell .staff-kpi.kpi-commodities .staff-kpi-icon{
+    background:#35294f!important;
+    color:#c7b0ff!important;
+    border:1px solid #5e4b82!important
+}
+html body[data-theme="dark"] .app-shell .staff-section-icon.production{
+    background:#1d334d!important;
+    color:#94c7ff!important;
+    border:1px solid #3d6085!important
+}
+html body[data-theme="dark"] .app-shell .staff-section-icon.support{
+    background:#35294f!important;
+    color:#c7b0ff!important;
+    border:1px solid #5e4b82!important
+}
+html body[data-theme="dark"] .app-shell .staff-section-icon.weather{
+    background:#493817!important;
+    color:#ffd277!important;
+    border:1px solid #765d28!important
+}
+html body[data-theme="dark"] .app-shell .staff-section-icon.actions{
+    background:#203b2b!important;
+    color:#8fe0aa!important;
+    border:1px solid #416b50!important
+}
+
+/* Ranked locations were especially low-contrast in the production card. */
+html body[data-theme="dark"] .app-shell .coverage-rank{
+    background:#1d3b55!important;
+    color:#b9dcff!important;
+    border:1px solid #456b91!important;
+    opacity:1!important
+}
+
+/* Utility icons and symbols that are not wrapped in an icon tile. */
+html body[data-theme="dark"] .app-shell :is(
+    .season-reference>i,
+    .staff-dashboard-heading-meta i,
+    .record-single-section>h3>i,
+    .empty-state>i,
+    .empty-state .bi
+){
+    color:#8fddb0!important;
+    opacity:1!important
+}
+
+/* Prevent pale pseudo-elements from washing out icon glyphs. */
+html body[data-theme="dark"] .app-shell :is(.staff-kpi-icon,.staff-section-icon,.metric-icon)::after{
+    opacity:.16!important
+}
+
+/* Remaining reusable icon components outside the dashboard family. */
+html body[data-theme="dark"] .app-shell :is(
+    .request-icon,
+    .confirmation-summary-icon,
+    .registration-confirmation-icon,
+    .fmis-feedback-icon
+){
+    background:#20382b!important;
+    color:#9be0b3!important;
+    border-color:#456854!important;
+    opacity:1!important
+}
+html body[data-theme="dark"] .app-shell :is(
+    .request-icon,
+    .confirmation-summary-icon,
+    .registration-confirmation-icon,
+    .fmis-feedback-icon
+) :is(.bi,i,i::before,svg){
+    color:inherit!important;
+    fill:currentColor!important;
+    opacity:1!important
+}
+html body[data-theme="dark"] .app-shell .fmis-feedback-modal:is([data-kind="error"],[data-kind="danger"]) .fmis-feedback-icon{
+    background:#48232a!important;
+    color:#ffb8c1!important;
+    border-color:#78414b!important
+}
+html body[data-theme="dark"] .app-shell .fmis-feedback-modal:is([data-kind="warning"],[data-kind="confirm"]) .fmis-feedback-icon{
+    background:#493b18!important;
+    color:#ffdc83!important;
+    border-color:#79652d!important
+}
+
+/* Button and link glyphs follow the already-audited foreground color. */
+html body[data-theme="dark"] .app-shell :is(button,.btn,[class*="btn-"],a)>.bi{
+    color:inherit!important;
+    opacity:1!important
+}
