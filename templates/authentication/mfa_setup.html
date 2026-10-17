@@ -20,6 +20,13 @@
       <label for="{{ mfa_form.code.id_for_label }}">{{ mfa_form.code.label }}</label>
       <div class="landing-activation-code">{{ mfa_form.code }}{{ mfa_form.code.errors }}</div>
       <small class="landing-activation-attempts">{{ attempts_remaining }} attempt{{ attempts_remaining|pluralize }} remaining</small>
+      <label class="mfa-trust-choice">
+        {{ mfa_form.trust_device }}
+        <span>
+          <strong>{{ mfa_form.trust_device.label }}</strong>
+          <small>Do not select this on a shared or public browser.</small>
+        </span>
+      </label>
       <div class="landing-activation-actions">
         <button type="submit">Verify and Enable</button>
       </div>

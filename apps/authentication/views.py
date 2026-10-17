@@ -45,8 +45,11 @@ from .mfa import (
     generate_secret,
     get_mfa_challenge,
     hash_recovery_codes,
+    forget_trusted_devices,
     provisioning_qr_data_uri,
+    remember_trusted_device,
     start_mfa_challenge,
+    trusted_device_is_valid,
     verify_totp,
 )
 from .recovery import (
@@ -108,7 +111,7 @@ def _complete_mfa_login(request, user, challenge, *, method):
         request,
         title="Successful sign-in",
         module="Security",
-        description=f"{user.display_name} signed in with multi-factor authentication.",
+        description=f"{user.display_name} completed a protected sign-in.",
         target_label=user.username,
         details=[{"field": "Second factor", "after": method}],
     )
@@ -206,6 +209,14 @@ class UserLoginView(LoginView):
                 remember_me=form.cleaned_data.get("remember_me"),
                 next_url=self.get_redirect_url(),
             )
+            if user.mfa_enabled and trusted_device_is_valid(self.request, user):
+                destination = _complete_mfa_login(
+                    self.request,
+                    user,
+                    get_mfa_challenge(self.request),
+                    method="Trusted browser",
+                )
+                return redirect(destination)
             return redirect(
                 "authentication:mfa_verify"
                 if user.mfa_enabled
@@ -251,6 +262,11 @@ class LandingPageView(TemplateView):
 
 class UserLogoutView(LogoutView):
     next_page = reverse_lazy("authentication:landing")
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        forget_trusted_devices(response)
+        return response
 
 
 class AccountActivationView(FormView):
@@ -458,7 +474,12 @@ class MFASetupView(PendingMFAViewMixin, FormView):
         self.request.session[MFA_RECOVERY_SESSION_KEY] = recovery_codes
         self.request.session["fmis_mfa_destination"] = destination
         messages.success(self.request, "Authenticator verification is now enabled.")
-        return redirect("authentication:mfa_recovery_codes")
+        response = redirect("authentication:mfa_recovery_codes")
+        if form.cleaned_data.get("trust_device"):
+            remember_trusted_device(self.request, response, user)
+        else:
+            forget_trusted_devices(response)
+        return response
 
 
 class MFAVerificationView(PendingMFAViewMixin, FormView):
@@ -530,7 +551,12 @@ class MFAVerificationView(PendingMFAViewMixin, FormView):
         destination = _complete_mfa_login(
             self.request, self.mfa_user, self.mfa_challenge, method=method
         )
-        return redirect(destination)
+        response = redirect(destination)
+        if form.cleaned_data.get("trust_device"):
+            remember_trusted_device(self.request, response, self.mfa_user)
+        else:
+            forget_trusted_devices(response)
+        return response
 
 
 class MFARecoveryCodesView(TemplateView):
@@ -667,7 +693,9 @@ class PasswordRecoveryView(TemplateView):
                 self._context(recovery_step="reset", recovery_password_form=form),
                 status=400,
             )
-        form.save()
+        changed_user = form.save()
+        changed_user.mfa_version += 1
+        changed_user.save(update_fields=["mfa_version"])
         clear_recovery_challenge(request, nonce)
         request.session.cycle_key()
         cache.delete(_request_limit_key("password-recovery", request, user.email))

@@ -3,12 +3,14 @@ import time
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.core import mail
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from apps.authentication.activation import ACTIVATION_SESSION_KEY
 from apps.authentication.mfa import (
+    TRUSTED_DEVICE_COOKIE,
     encrypt_secret,
     hash_recovery_codes,
     totp_at,
@@ -93,6 +95,7 @@ class PasswordRecoveryOTPTests(TestCase):
         self.assertRedirects(changed, reverse("authentication:login"))
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("New-password-593!"))
+        self.assertEqual(self.user.mfa_version, 1)
 
     def test_unknown_identifier_uses_same_otp_screen_without_sending_email(self):
         response = self.client.post(
@@ -219,6 +222,73 @@ class MultiFactorAuthenticationTests(TestCase):
         self.assertRedirects(response, reverse("dashboard:staff_home"))
         self.user.refresh_from_db()
         self.assertEqual(self.user.mfa_recovery_codes, [])
+
+    def test_trusted_private_browser_skips_mfa_for_later_password_login(self):
+        secret = "JBSWY3DPEHPK3PXP"
+        self.user.mfa_enabled = True
+        self.user.mfa_secret = encrypt_secret(secret)
+        self.user.save(update_fields=["mfa_enabled", "mfa_secret"])
+        self._start_login()
+        code = totp_at(secret, int(time.time() // 30))
+        verified = self.client.post(
+            reverse("authentication:mfa_verify"),
+            {"code": code, "trust_device": "on"},
+        )
+        self.assertRedirects(verified, reverse("dashboard:staff_home"))
+        trusted_cookie = verified.cookies[TRUSTED_DEVICE_COOKIE]
+        self.assertTrue(trusted_cookie["httponly"])
+        self.assertEqual(trusted_cookie["samesite"], "Lax")
+        self.assertEqual(int(trusted_cookie["max-age"]), 30 * 24 * 60 * 60)
+
+        self.client.cookies.pop(settings.SESSION_COOKIE_NAME, None)
+        later_login = self._start_login()
+        self.assertRedirects(later_login, reverse("dashboard:staff_home"))
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_tampered_or_reset_trusted_browser_requires_mfa_again(self):
+        secret = "JBSWY3DPEHPK3PXP"
+        self.user.mfa_enabled = True
+        self.user.mfa_secret = encrypt_secret(secret)
+        self.user.save(update_fields=["mfa_enabled", "mfa_secret"])
+        self._start_login()
+        code = totp_at(secret, int(time.time() // 30))
+        response = self.client.post(
+            reverse("authentication:mfa_verify"),
+            {"code": code, "trust_device": "on"},
+        )
+        self.assertIn(TRUSTED_DEVICE_COOKIE, response.cookies)
+        valid_cookie_value = response.cookies[TRUSTED_DEVICE_COOKIE].value
+
+        self.client.cookies.pop(settings.SESSION_COOKIE_NAME, None)
+        self.client.cookies[TRUSTED_DEVICE_COOKIE] = valid_cookie_value + "tampered"
+        response = self._start_login()
+        self.assertRedirects(response, reverse("authentication:mfa_verify"))
+
+        self.client.cookies[TRUSTED_DEVICE_COOKIE] = valid_cookie_value
+        self.user.mfa_version += 1
+        self.user.save(update_fields=["mfa_version"])
+        self.client.cookies.pop(settings.SESSION_COOKIE_NAME, None)
+        response = self._start_login()
+        self.assertRedirects(response, reverse("authentication:mfa_verify"))
+
+    def test_manual_logout_forgets_the_trusted_browser(self):
+        secret = "JBSWY3DPEHPK3PXP"
+        self.user.mfa_enabled = True
+        self.user.mfa_secret = encrypt_secret(secret)
+        self.user.save(update_fields=["mfa_enabled", "mfa_secret"])
+        self._start_login()
+        response = self.client.post(
+            reverse("authentication:mfa_verify"),
+            {
+                "code": totp_at(secret, int(time.time() // 30)),
+                "trust_device": "on",
+            },
+        )
+        self.assertIn(TRUSTED_DEVICE_COOKIE, response.cookies)
+        logout_response = self.client.post(reverse("authentication:logout"))
+        self.assertEqual(logout_response.cookies[TRUSTED_DEVICE_COOKIE]["max-age"], 0)
+        response = self._start_login()
+        self.assertRedirects(response, reverse("authentication:mfa_verify"))
 
     def test_admin_reset_revokes_existing_session_and_requires_reenrollment(self):
         self.user.mfa_enabled = True

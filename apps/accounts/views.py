@@ -206,7 +206,8 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
             return redirect("accounts:list")
 
         account.is_active = restoring
-        account.save(update_fields=["is_active"])
+        account.mfa_version += 1
+        account.save(update_fields=["is_active", "mfa_version"])
         action = "reactivated" if restoring else "deactivated"
         record_request_event(
             request,

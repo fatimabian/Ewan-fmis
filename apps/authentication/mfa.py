@@ -11,10 +11,13 @@ import qrcode
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
+from django.core import signing
 
 
 MFA_SESSION_KEY = "fmis_mfa_challenge"
 MFA_RECOVERY_SESSION_KEY = "fmis_mfa_recovery_codes"
+TRUSTED_DEVICE_COOKIE = "fmis_trusted_device"
+TRUSTED_DEVICE_SALT = "authentication.trusted-device.v1"
 MFA_CHALLENGE_SECONDS = 10 * 60
 MFA_MAX_ATTEMPTS = 5
 TOTP_PERIOD_SECONDS = 30
@@ -22,6 +25,73 @@ TOTP_DIGITS = 6
 TOTP_ISSUER = "Rosario FMIS"
 RECOVERY_CODE_COUNT = 10
 RECOVERY_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+
+def _trusted_device_seconds():
+    return int(settings.FMIS_TRUSTED_DEVICE_DAYS) * 24 * 60 * 60
+
+
+def _trusted_entries(request):
+    signed_value = request.COOKIES.get(TRUSTED_DEVICE_COOKIE, "")
+    if not signed_value:
+        return {}
+    try:
+        payload = signing.loads(signed_value, salt=TRUSTED_DEVICE_SALT)
+    except (signing.BadSignature, TypeError, ValueError):
+        return {}
+    entries = payload.get("accounts", {}) if isinstance(payload, dict) else {}
+    return entries if isinstance(entries, dict) else {}
+
+
+def trusted_device_is_valid(request, user, *, now=None):
+    if not user.mfa_enabled:
+        return False
+    current_time = int(time.time() if now is None else now)
+    entry = _trusted_entries(request).get(str(user.pk), {})
+    try:
+        trusted_at = int(entry["trusted_at"])
+        version = int(entry["mfa_version"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    age = current_time - trusted_at
+    return 0 <= age <= _trusted_device_seconds() and version == user.mfa_version
+
+
+def remember_trusted_device(request, response, user):
+    now = int(time.time())
+    lifetime = _trusted_device_seconds()
+    entries = {}
+    for user_id, entry in _trusted_entries(request).items():
+        try:
+            if 0 <= now - int(entry["trusted_at"]) <= lifetime:
+                entries[str(user_id)] = entry
+        except (KeyError, TypeError, ValueError):
+            continue
+    entries[str(user.pk)] = {
+        "mfa_version": user.mfa_version,
+        "trusted_at": now,
+    }
+    # The office has fewer than ten accounts; this also bounds cookie growth.
+    newest = sorted(
+        entries.items(), key=lambda item: int(item[1]["trusted_at"]), reverse=True
+    )[:20]
+    response.set_cookie(
+        TRUSTED_DEVICE_COOKIE,
+        signing.dumps({"accounts": dict(newest)}, salt=TRUSTED_DEVICE_SALT, compress=True),
+        max_age=lifetime,
+        secure=not settings.DEBUG,
+        httponly=True,
+        samesite="Lax",
+        path="/",
+    )
+
+
+def forget_trusted_devices(response):
+    response.delete_cookie(
+        TRUSTED_DEVICE_COOKIE,
+        path="/",
+        samesite="Lax",
+    )
 
 
 def _fernet():

@@ -3,6 +3,7 @@
 ## Staff authentication readiness
 
 - [ ] Keep `FMIS_REQUIRE_MFA=True` in the production environment.
+- [ ] Keep `FMIS_TRUSTED_DEVICE_DAYS=30`; staff should trust only private, office-controlled browser profiles—not shared or public browsers.
 - [ ] Ask every administrator and staff member to install a compatible authenticator app on their own phone before first production sign-in.
 - [ ] Have each staff member privately store the ten one-time recovery codes shown after enrollment.
 - [ ] Enroll at least two administrator accounts so one administrator can reset the other's MFA after identity confirmation.

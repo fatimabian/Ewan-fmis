@@ -58,6 +58,12 @@ class MFASetupForm(ActivationOTPForm):
             }
         ),
     )
+    trust_device = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Trust this private office browser for 30 days",
+        widget=forms.CheckboxInput(attrs={"class": "remember-checkbox"}),
+    )
 
     def clean_code(self):
         code = self.cleaned_data["code"].strip()
@@ -77,6 +83,12 @@ class MFAVerificationForm(InlineValidationMixin, forms.Form):
                 "autofocus": True,
             }
         ),
+    )
+    trust_device = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Trust this private office browser for 30 days",
+        widget=forms.CheckboxInput(attrs={"class": "remember-checkbox"}),
     )
 
     def clean_code(self):

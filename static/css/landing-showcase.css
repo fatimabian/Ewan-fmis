@@ -893,6 +893,11 @@ a{
 .mfa-manual-key p{margin:9px 0 6px}
 .mfa-manual-key code{display:block;overflow-wrap:anywhere;padding:8px;background:#fff;color:#17251d;font-size:13px;letter-spacing:.08em}
 .mfa-code-input input{letter-spacing:5px}
+.mfa-trust-choice{display:flex!important;align-items:flex-start!important;gap:10px;padding:12px 13px;border:1px solid #d7e6dc;border-radius:9px;background:#f7fbf8;cursor:pointer}
+.mfa-trust-choice input{flex:0 0 auto;width:18px!important;height:18px!important;margin:2px 0 0;padding:0!important}
+.mfa-trust-choice span,.mfa-trust-choice strong,.mfa-trust-choice small{display:block}
+.mfa-trust-choice strong{color:#273b30;font-size:12px;line-height:1.4}
+.mfa-trust-choice small{margin-top:2px;color:#68786e;font-size:11px;line-height:1.4}
 .mfa-return-link{justify-self:center;color:#176b43;font-size:12px;font-weight:700;text-decoration:none}
 .mfa-recovery-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:14px;border:1px solid #d7e6dc;border-radius:10px;background:#f7fbf8}
 .mfa-recovery-codes code{padding:8px;border:1px solid #e1e9e4;border-radius:7px;background:#fff;color:#17251d;text-align:center;font-size:14px;font-weight:700;letter-spacing:.08em}
