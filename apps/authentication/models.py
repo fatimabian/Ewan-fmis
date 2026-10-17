@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractUser
+from django.utils.crypto import salted_hmac
 from django.db import models
 from apps.common.constants import ROLE_ADMIN, ROLE_CHOICES
 
@@ -14,6 +15,11 @@ class CustomUser(AbstractUser):
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_username = models.CharField(max_length=150, blank=True)
     deleted_display_name = models.CharField(max_length=255, blank=True)
+    mfa_enabled = models.BooleanField(default=False)
+    mfa_secret = models.TextField(blank=True)
+    mfa_recovery_codes = models.JSONField(default=list, blank=True)
+    mfa_last_counter = models.BigIntegerField(null=True, blank=True)
+    mfa_version = models.PositiveIntegerField(default=0)
 
     @property
     def is_admin(self):
@@ -30,3 +36,11 @@ class CustomUser(AbstractUser):
     @property
     def is_deleted(self):
         return self.deleted_at is not None
+
+    def get_session_auth_hash(self):
+        """Invalidate every session when an administrator resets MFA."""
+        password_hash = super().get_session_auth_hash()
+        return salted_hmac(
+            "authentication.CustomUser.session",
+            f"{password_hash}:{self.mfa_version}",
+        ).hexdigest()

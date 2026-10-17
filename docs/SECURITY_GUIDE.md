@@ -1,5 +1,13 @@
 # FMIS Security Guide
 
+## Staff multi-factor authentication
+
+Production requires `FMIS_REQUIRE_MFA=True`. A new staff account first verifies its registered email address, then enrolls an authenticator app by scanning the QR code shown by FMIS. Every later password sign-in requires a fresh six-digit authenticator code.
+
+The ten recovery codes displayed after enrollment are single-use secrets. The staff member must store them privately and must not email or chat them. If the phone and recovery codes are unavailable, a different administrator can use **Edit User Account → Reset MFA** after confirming the staff member's identity. Resetting MFA revokes that account's existing sessions and requires enrollment at the next sign-in.
+
+Authenticator secrets are encrypted in the database using key material derived from `DJANGO_SECRET_KEY`. Changing the production Django secret makes existing authenticator enrollments unreadable, so plan a supervised MFA reset for every account if that secret must be rotated.
+
 This is the maintenance map for FMIS security controls. It explains where to review a control when requirements or deployment conditions change. It is not a promise that attacks are impossible; security also depends on the server, database, network, staff practices, backups, and timely dependency updates.
 
 ## Where to check each security control

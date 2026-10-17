@@ -5,6 +5,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 from uuid import uuid4
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.views import View
 from apps.authentication.models import CustomUser
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import AdminRequiredMixin
@@ -162,6 +163,11 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
                 account.google_sub = None
                 account.is_active = False
                 account.activation_pending = False
+                account.mfa_enabled = False
+                account.mfa_secret = ""
+                account.mfa_recovery_codes = []
+                account.mfa_last_counter = None
+                account.mfa_version += 1
                 account.set_unusable_password()
                 account.save(
                     update_fields=(
@@ -174,6 +180,11 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
                         "google_sub",
                         "is_active",
                         "activation_pending",
+                        "mfa_enabled",
+                        "mfa_secret",
+                        "mfa_recovery_codes",
+                        "mfa_last_counter",
+                        "mfa_version",
                         "password",
                     )
                 )
@@ -211,3 +222,44 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
         )
         messages.success(request, f"{account.display_name}'s account was {action}; its history was preserved.")
         return redirect("accounts:list")
+
+
+class AccountMFAResetView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, pk):
+        account = CustomUser.objects.filter(pk=pk, deleted_at__isnull=True).first()
+        if not account:
+            messages.error(request, "The account could not be found.")
+            return redirect("accounts:list")
+        if account.pk == request.user.pk:
+            messages.error(
+                request,
+                "For safety, another administrator must reset MFA for the account you are using.",
+            )
+            return redirect("accounts:edit", pk=account.pk)
+        account.mfa_enabled = False
+        account.mfa_secret = ""
+        account.mfa_recovery_codes = []
+        account.mfa_last_counter = None
+        account.mfa_version += 1
+        account.save(
+            update_fields=[
+                "mfa_enabled",
+                "mfa_secret",
+                "mfa_recovery_codes",
+                "mfa_last_counter",
+                "mfa_version",
+            ]
+        )
+        record_request_event(
+            request,
+            title="Multi-factor Authentication Reset",
+            module="Security",
+            description=f"{request.user.display_name} reset MFA for a user account.",
+            target_label=account.display_name,
+            details=[{"field": "MFA", "before": "Enabled", "after": "Enrollment required"}],
+        )
+        messages.success(
+            request,
+            f"MFA was reset for {account.display_name}. Existing sessions were revoked; the next sign-in requires new enrollment.",
+        )
+        return redirect("accounts:edit", pk=account.pk)

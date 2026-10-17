@@ -1,0 +1,19 @@
+{% extends "authentication/auth_base.html" %}
+{% block title %}Save Recovery Codes | FMIS{% endblock %}
+{% block auth_content %}
+  <section class="auth-standalone-card auth-workflow-card mfa-workflow-card" aria-labelledby="recoveryCodesTitle">
+    <form method="post" class="landing-recovery-form landing-activation-form">
+      {% csrf_token %}
+      <span class="landing-dialog-icon"><i class="bi bi-shield-check"></i></span>
+      <span class="landing-dialog-kicker">FINAL SECURITY STEP</span>
+      <h1 id="recoveryCodesTitle">Save your recovery codes</h1>
+      <p>Each code works once if your phone is unavailable. Store them privately and never send them through chat or email. They will not be shown again.</p>
+      <div class="mfa-recovery-codes" aria-label="One-time recovery codes">
+        {% for code in recovery_codes %}<code>{{ code }}</code>{% endfor %}
+      </div>
+      <div class="landing-activation-actions">
+        <button type="submit">I Have Saved These Codes</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

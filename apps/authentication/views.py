@@ -6,10 +6,12 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.views import LoginView, LogoutView
 from django.core.cache import cache
+from django.db import transaction
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
+from django.views.decorators.cache import cache_page, never_cache
 from django.views.generic import FormView, TemplateView
 
 from apps.activity_logs.services import record_event, record_request_event
@@ -27,8 +29,25 @@ from .forms import (
     ActivationOTPForm,
     IdentifierPasswordResetForm,
     LoginForm,
+    MFASetupForm,
+    MFAVerificationForm,
     PasswordRecoveryOTPForm,
     RecoverySetPasswordForm,
+)
+from .mfa import (
+    MFA_MAX_ATTEMPTS,
+    MFA_RECOVERY_SESSION_KEY,
+    clear_mfa_challenge,
+    consume_recovery_code,
+    decrypt_secret,
+    encrypt_secret,
+    generate_recovery_codes,
+    generate_secret,
+    get_mfa_challenge,
+    hash_recovery_codes,
+    provisioning_qr_data_uri,
+    start_mfa_challenge,
+    verify_totp,
 )
 from .recovery import (
     RECOVERY_MAX_ATTEMPTS,
@@ -67,6 +86,33 @@ def configure_login_session(request, remember_me):
     else:
         request.session.set_expiry(0)
         request.session.pop(REMEMBER_UNTIL_SESSION_KEY, None)
+
+
+def _mfa_destination(request, challenge, user):
+    candidate = challenge.get("next_url", "")
+    if candidate and url_has_allowed_host_and_scheme(
+        candidate,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return candidate
+    return reverse(dashboard_for(user))
+
+
+def _complete_mfa_login(request, user, challenge, *, method):
+    destination = _mfa_destination(request, challenge, user)
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    configure_login_session(request, challenge.get("remember_me", False))
+    clear_mfa_challenge(request)
+    record_request_event(
+        request,
+        title="Successful sign-in",
+        module="Security",
+        description=f"{user.display_name} signed in with multi-factor authentication.",
+        target_label=user.username,
+        details=[{"field": "Second factor", "after": method}],
+    )
+    return destination
 
 
 class PrivacyNoticeView(TemplateView):
@@ -152,15 +198,28 @@ class UserLoginView(LoginView):
     def form_valid(self, form):
         if getattr(self, "login_limit_key", None):
             cache.delete(self.login_limit_key)
+        user = form.get_user()
+        if settings.FMIS_REQUIRE_MFA:
+            start_mfa_challenge(
+                self.request,
+                user,
+                remember_me=form.cleaned_data.get("remember_me"),
+                next_url=self.get_redirect_url(),
+            )
+            return redirect(
+                "authentication:mfa_verify"
+                if user.mfa_enabled
+                else "authentication:mfa_setup"
+            )
         response = super().form_valid(form)
+        configure_login_session(self.request, form.cleaned_data.get("remember_me"))
         record_request_event(
             self.request,
             title="Successful sign-in",
             module="Security",
-            description=f"{self.request.user.display_name} signed in successfully.",
-            target_label=self.request.user.username,
+            description=f"{user.display_name} signed in successfully.",
+            target_label=user.username,
         )
-        configure_login_session(self.request, form.cleaned_data.get("remember_me"))
         return response
 
     def form_invalid(self, form):
@@ -263,6 +322,21 @@ class AccountActivationView(FormView):
         user.activation_pending = False
         user.save(update_fields=["is_active", "activation_pending"])
         clear_activation_challenge(self.request, self.activation_nonce)
+        if settings.FMIS_REQUIRE_MFA:
+            start_mfa_challenge(self.request, user, remember_me=remember_me)
+            record_event(
+                title="Account activated",
+                module="Security",
+                description=f"{user.display_name} completed first-time email activation.",
+                path=self.request.path,
+                status="Success",
+                target_label=user.username,
+            )
+            messages.success(
+                self.request,
+                "Your email is verified. Set up your authenticator app to finish securing the account.",
+            )
+            return redirect("authentication:mfa_setup")
         login(
             self.request,
             user,
@@ -278,6 +352,209 @@ class AccountActivationView(FormView):
         )
         messages.success(self.request, "Your FMIS staff account is now active.")
         return redirect(reverse(dashboard_for(user)))
+
+
+class PendingMFAViewMixin:
+    @method_decorator(never_cache)
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect(dashboard_for(request.user))
+        self.mfa_challenge = get_mfa_challenge(request)
+        if not self.mfa_challenge:
+            messages.warning(request, "The sign-in verification expired. Enter your password again.")
+            return redirect("authentication:login")
+        self.mfa_user = get_user_model().objects.filter(
+            pk=self.mfa_challenge.get("user_id"),
+            is_active=True,
+            deleted_at__isnull=True,
+        ).first()
+        if not self.mfa_user:
+            clear_mfa_challenge(request)
+            return redirect("authentication:login")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class MFASetupView(PendingMFAViewMixin, FormView):
+    template_name = "authentication/mfa_setup.html"
+    form_class = MFASetupForm
+
+    def get(self, request, *args, **kwargs):
+        if self.mfa_user.mfa_enabled:
+            return redirect("authentication:mfa_verify")
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if self.mfa_user.mfa_enabled:
+            return redirect("authentication:mfa_verify")
+        return super().post(request, *args, **kwargs)
+
+    def _secret(self):
+        secret = self.request.session.get("fmis_mfa_setup_secret")
+        if not secret:
+            secret = generate_secret()
+            self.request.session["fmis_mfa_setup_secret"] = secret
+        return secret
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        secret = self._secret()
+        context.update(
+            mfa_form=context["form"],
+            qr_data_uri=provisioning_qr_data_uri(secret, self.mfa_user),
+            manual_key=secret,
+            account_label=self.mfa_user.email or self.mfa_user.username,
+            attempts_remaining=max(
+                0,
+                MFA_MAX_ATTEMPTS
+                - int(
+                    cache.get(
+                        _request_limit_key("mfa-setup", self.request, str(self.mfa_user.pk)),
+                        0,
+                    )
+                ),
+            ),
+        )
+        return context
+
+    def form_valid(self, form):
+        limit_key = _request_limit_key("mfa-setup", self.request, str(self.mfa_user.pk))
+        if int(cache.get(limit_key, 0)) >= MFA_MAX_ATTEMPTS:
+            form.add_error("code", "Too many incorrect codes. Wait 10 minutes and sign in again.")
+            clear_mfa_challenge(self.request)
+            return self.form_invalid(form)
+        secret = self._secret()
+        counter = verify_totp(secret, form.cleaned_data["code"])
+        if counter is None:
+            attempts = _record_attempt(limit_key, timeout=10 * 60)
+            form.add_error(
+                "code",
+                "That code is incorrect. Check the phone time and try again."
+                if attempts < MFA_MAX_ATTEMPTS
+                else "Too many incorrect codes. Wait 10 minutes and sign in again.",
+            )
+            if attempts >= MFA_MAX_ATTEMPTS:
+                clear_mfa_challenge(self.request)
+            return self.form_invalid(form)
+        cache.delete(limit_key)
+        recovery_codes = generate_recovery_codes()
+        user = self.mfa_user
+        user.mfa_enabled = True
+        user.mfa_secret = encrypt_secret(secret)
+        user.mfa_recovery_codes = hash_recovery_codes(recovery_codes)
+        user.mfa_last_counter = counter
+        user.mfa_version += 1
+        user.save(
+            update_fields=[
+                "mfa_enabled",
+                "mfa_secret",
+                "mfa_recovery_codes",
+                "mfa_last_counter",
+                "mfa_version",
+            ]
+        )
+        destination = _complete_mfa_login(
+            self.request, user, self.mfa_challenge, method="Authenticator app enrollment"
+        )
+        self.request.session[MFA_RECOVERY_SESSION_KEY] = recovery_codes
+        self.request.session["fmis_mfa_destination"] = destination
+        messages.success(self.request, "Authenticator verification is now enabled.")
+        return redirect("authentication:mfa_recovery_codes")
+
+
+class MFAVerificationView(PendingMFAViewMixin, FormView):
+    template_name = "authentication/mfa_verify.html"
+    form_class = MFAVerificationForm
+
+    def get(self, request, *args, **kwargs):
+        if not self.mfa_user.mfa_enabled:
+            return redirect("authentication:mfa_setup")
+        return super().get(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        if not self.mfa_user.mfa_enabled:
+            return redirect("authentication:mfa_setup")
+        return super().post(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["mfa_form"] = context["form"]
+        context["attempts_remaining"] = max(
+            0,
+            MFA_MAX_ATTEMPTS
+            - int(cache.get(_request_limit_key("mfa", self.request, str(self.mfa_user.pk)), 0)),
+        )
+        return context
+
+    def form_valid(self, form):
+        limit_key = _request_limit_key("mfa", self.request, str(self.mfa_user.pk))
+        if int(cache.get(limit_key, 0)) >= MFA_MAX_ATTEMPTS:
+            form.add_error("code", "Too many incorrect codes. Wait 10 minutes and sign in again.")
+            clear_mfa_challenge(self.request)
+            return self.form_invalid(form)
+
+        submitted = form.cleaned_data["code"]
+        with transaction.atomic():
+            locked_user = get_user_model().objects.select_for_update().get(pk=self.mfa_user.pk)
+            secret = decrypt_secret(locked_user.mfa_secret)
+            counter = (
+                verify_totp(
+                    secret,
+                    submitted,
+                    last_counter=locked_user.mfa_last_counter,
+                )
+                if secret
+                else None
+            )
+            method = None
+            if counter is not None:
+                locked_user.mfa_last_counter = counter
+                locked_user.save(update_fields=["mfa_last_counter"])
+                method = "Authenticator app"
+            elif consume_recovery_code(locked_user, submitted):
+                method = "Recovery code"
+            self.mfa_user = locked_user
+
+        if not method:
+            attempts = _record_attempt(limit_key, timeout=10 * 60)
+            form.add_error(
+                "code",
+                "That code is invalid, expired, or already used."
+                if attempts < MFA_MAX_ATTEMPTS
+                else "Too many incorrect codes. Wait 10 minutes and sign in again.",
+            )
+            if attempts >= MFA_MAX_ATTEMPTS:
+                clear_mfa_challenge(self.request)
+            return self.form_invalid(form)
+
+        cache.delete(limit_key)
+        destination = _complete_mfa_login(
+            self.request, self.mfa_user, self.mfa_challenge, method=method
+        )
+        return redirect(destination)
+
+
+class MFARecoveryCodesView(TemplateView):
+    template_name = "authentication/mfa_recovery_codes.html"
+
+    @method_decorator(never_cache)
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("authentication:login")
+        if not request.session.get(MFA_RECOVERY_SESSION_KEY):
+            return redirect(dashboard_for(request.user))
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["recovery_codes"] = self.request.session[MFA_RECOVERY_SESSION_KEY]
+        return context
+
+    def post(self, request, *args, **kwargs):
+        destination = request.session.pop(
+            "fmis_mfa_destination", reverse(dashboard_for(request.user))
+        )
+        request.session.pop(MFA_RECOVERY_SESSION_KEY, None)
+        return redirect(destination)
 
 
 class PasswordRecoveryView(TemplateView):

@@ -1,0 +1,28 @@
+{% extends "authentication/auth_base.html" %}
+{% block title %}Secure Your Account | FMIS{% endblock %}
+{% block auth_content %}
+  <section class="auth-standalone-card auth-workflow-card mfa-workflow-card" aria-labelledby="mfaSetupTitle">
+    <form method="post" class="landing-recovery-form landing-activation-form">
+      {% csrf_token %}
+      <span class="landing-dialog-icon"><i class="bi bi-shield-lock"></i></span>
+      <span class="landing-dialog-kicker">ACCOUNT SECURITY</span>
+      <h1 id="mfaSetupTitle">Set up your authenticator</h1>
+      <p>Use Google Authenticator, Microsoft Authenticator, or another compatible app. Scan this QR code, then enter the six-digit code shown by the app.</p>
+      {% if messages %}{% for message in messages %}<div class="landing-dialog-message">{{ message }}</div>{% endfor %}{% endif %}
+      <div class="mfa-qr-wrap">
+        <img src="{{ qr_data_uri }}" width="210" height="210" alt="Authenticator setup QR code">
+      </div>
+      <details class="mfa-manual-key">
+        <summary>Cannot scan the QR code?</summary>
+        <p>Enter this setup key manually for <strong>{{ account_label }}</strong>:</p>
+        <code>{{ manual_key }}</code>
+      </details>
+      <label for="{{ mfa_form.code.id_for_label }}">{{ mfa_form.code.label }}</label>
+      <div class="landing-activation-code">{{ mfa_form.code }}{{ mfa_form.code.errors }}</div>
+      <small class="landing-activation-attempts">{{ attempts_remaining }} attempt{{ attempts_remaining|pluralize }} remaining</small>
+      <div class="landing-activation-actions">
+        <button type="submit">Verify and Enable</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

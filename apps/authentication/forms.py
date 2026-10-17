@@ -43,6 +43,46 @@ class ActivationOTPForm(InlineValidationMixin, forms.Form):
         return code
 
 
+class MFASetupForm(ActivationOTPForm):
+    code = forms.CharField(
+        label="Six-digit authenticator code",
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(
+            attrs={
+                "inputmode": "numeric",
+                "autocomplete": "one-time-code",
+                "pattern": "[0-9]{6}",
+                "placeholder": "000000",
+                "autofocus": True,
+            }
+        ),
+    )
+
+    def clean_code(self):
+        code = self.cleaned_data["code"].strip()
+        if not code.isdigit():
+            raise forms.ValidationError("Enter the six-digit code from your authenticator app.")
+        return code
+
+
+class MFAVerificationForm(InlineValidationMixin, forms.Form):
+    code = forms.CharField(
+        label="Authenticator or recovery code",
+        max_length=20,
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "one-time-code",
+                "placeholder": "Six-digit code",
+                "autofocus": True,
+            }
+        ),
+    )
+
+    def clean_code(self):
+        return self.cleaned_data["code"].strip()
+
+
 def normalized_phone(value):
     """Return a comparison-friendly Philippine phone number."""
     return normalize_phone_digits(value)

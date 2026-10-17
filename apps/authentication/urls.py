@@ -2,6 +2,9 @@ from django.urls import path
 from .views import (
     AccountActivationView,
     LandingPageView,
+    MFARecoveryCodesView,
+    MFASetupView,
+    MFAVerificationView,
     PasswordRecoveryView,
     PrivacyNoticeView,
     TermsOfUseView,
@@ -16,6 +19,13 @@ urlpatterns = [
     path("login/", UserLoginView.as_view(), name="login"),
     path("logout/", UserLogoutView.as_view(), name="logout"),
     path("activate-account/", AccountActivationView.as_view(), name="activate_account"),
+    path("mfa/setup/", MFASetupView.as_view(), name="mfa_setup"),
+    path("mfa/verify/", MFAVerificationView.as_view(), name="mfa_verify"),
+    path(
+        "mfa/recovery-codes/",
+        MFARecoveryCodesView.as_view(),
+        name="mfa_recovery_codes",
+    ),
     path("privacy/", PrivacyNoticeView.as_view(), name="privacy"),
     path("terms/", TermsOfUseView.as_view(), name="terms"),
     path("password-reset/", PasswordRecoveryView.as_view(), name="password_reset"),

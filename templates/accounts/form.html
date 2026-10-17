@@ -10,7 +10,7 @@
   {% if object %}
     Update identity, role, and account access
   {% else %}
-    Create a staff account with first-login email verification
+    Create a staff account with email and authenticator verification
   {% endif %}
 {% endblock %}
 {% block content %}
@@ -223,7 +223,7 @@
             {% if object %}
               Use Active or Inactive to temporarily manage access. Permanent deletion is available below when an account must be removed and its contact details reused.
             {% else %}
-              Username, email, phone number, and password are required. New accounts are staff-only and remain inactive until email verification.
+              Username, email, phone number, and password are required. New accounts remain inactive until email verification, then require authenticator-app enrollment.
             {% endif %}
           </span>
         </div>
@@ -284,6 +284,22 @@
         </div>
       </form>
       {% if object and object.pk != request.user.pk %}
+        {% if object.mfa_enabled %}
+          <form class="account-danger-zone"
+                method="post"
+                action="{% url 'accounts:reset_mfa' object.pk %}"
+                data-confirm="Reset multi-factor authentication for {{ object.display_name|escape }}? Their current authenticator, recovery codes, and signed-in sessions will stop working.">
+            {% csrf_token %}
+            <span>
+              <strong>Reset multi-factor authentication</strong>
+              <small>Use this only after confirming the staff member's identity. They must enroll an authenticator again at next sign-in.</small>
+            </span>
+            <button class="btn btn-outline-danger btn-cancel" type="submit">
+              <i class="bi bi-shield-lock" aria-hidden="true"></i>
+              Reset MFA
+            </button>
+          </form>
+        {% endif %}
         <form class="account-danger-zone"
               method="post"
               action="{% url 'accounts:delete' object.pk %}"

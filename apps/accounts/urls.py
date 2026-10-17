@@ -4,6 +4,7 @@ from .views import (
     AccountDeleteView,
     AccountDetailView,
     AccountListView,
+    AccountMFAResetView,
     AccountUpdateView,
 )
 
@@ -14,4 +15,5 @@ urlpatterns = [
     path("<int:pk>/", AccountDetailView.as_view(), name="detail"),
     path("<int:pk>/edit/", AccountUpdateView.as_view(), name="edit"),
     path("<int:pk>/delete/", AccountDeleteView.as_view(), name="delete"),
+    path("<int:pk>/reset-mfa/", AccountMFAResetView.as_view(), name="reset_mfa"),
 ]

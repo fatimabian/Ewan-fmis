@@ -885,6 +885,18 @@ a{
 .auth-standalone-card{width:min(500px,100%)}
 .auth-workflow-card{overflow:hidden;border:1px solid #b8d4c2;border-radius:16px;background:#fff;box-shadow:0 22px 55px rgba(4,17,8,.3)}
 .auth-workflow-card .landing-recovery-form h1{margin:2px 0 0;color:#17251d;font-size:28px;line-height:1.15}
+.mfa-workflow-card{width:min(560px,calc(100% - 32px))}
+.mfa-qr-wrap{display:grid;place-items:center;padding:12px;border:1px solid #d7e6dc;border-radius:12px;background:#fff}
+.mfa-qr-wrap img{display:block;max-width:100%;height:auto}
+.mfa-manual-key{padding:11px 13px;border:1px solid #d7e6dc;border-radius:9px;background:#f7fbf8;color:#43564a;font-size:12px}
+.mfa-manual-key summary{cursor:pointer;font-weight:700;color:#176b43}
+.mfa-manual-key p{margin:9px 0 6px}
+.mfa-manual-key code{display:block;overflow-wrap:anywhere;padding:8px;background:#fff;color:#17251d;font-size:13px;letter-spacing:.08em}
+.mfa-code-input input{letter-spacing:5px}
+.mfa-return-link{justify-self:center;color:#176b43;font-size:12px;font-weight:700;text-decoration:none}
+.mfa-recovery-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:14px;border:1px solid #d7e6dc;border-radius:10px;background:#f7fbf8}
+.mfa-recovery-codes code{padding:8px;border:1px solid #e1e9e4;border-radius:7px;background:#fff;color:#17251d;text-align:center;font-size:14px;font-weight:700;letter-spacing:.08em}
+@media(max-width:480px){.mfa-recovery-codes{grid-template-columns:1fr}}
 .auth-text-button{align-self:center;color:#176b3d}
 .auth-session-note{margin:2px 0 0;color:#64748b;font-size:11px;line-height:1.5;text-align:center}
 .auth-session-note i{margin-right:4px;color:#238553}

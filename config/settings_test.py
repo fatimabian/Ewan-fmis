@@ -10,3 +10,4 @@ STORAGES["staticfiles"] = {
 }
 MEDIA_ROOT = BASE_DIR / "tmp" / "test-media"
 BACKUP_ROOT = BASE_DIR / "tmp" / "test-backups"
+FMIS_REQUIRE_MFA = False

@@ -1,5 +1,14 @@
 # Production Deployment Checklist
 
+## Staff authentication readiness
+
+- [ ] Keep `FMIS_REQUIRE_MFA=True` in the production environment.
+- [ ] Ask every administrator and staff member to install a compatible authenticator app on their own phone before first production sign-in.
+- [ ] Have each staff member privately store the ten one-time recovery codes shown after enrollment.
+- [ ] Enroll at least two administrator accounts so one administrator can reset the other's MFA after identity confirmation.
+
+Existing active accounts are guided through authenticator enrollment after their next successful password login. Newly created accounts complete email activation first, then authenticator enrollment.
+
 - [ ] Run `scripts/Prepare-FMISProductionEnv.ps1`, replace every `CHANGE_ME` value in `.env.production`, install it as a protected server-only `.env`, and confirm Git ignores both files.
 - [ ] Generate a unique secret key of at least 50 characters.
 - [ ] Set `DJANGO_DEBUG=False`, the real hostname, and the HTTPS CSRF origin.

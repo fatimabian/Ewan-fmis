@@ -1,0 +1,20 @@
+{% extends "authentication/auth_base.html" %}
+{% block title %}Verify Sign In | FMIS{% endblock %}
+{% block auth_content %}
+  <section class="auth-standalone-card auth-workflow-card mfa-workflow-card" aria-labelledby="mfaVerifyTitle">
+    <form method="post" class="landing-recovery-form landing-activation-form">
+      {% csrf_token %}
+      <span class="landing-dialog-icon"><i class="bi bi-shield-lock"></i></span>
+      <span class="landing-dialog-kicker">TWO-STEP VERIFICATION</span>
+      <h1 id="mfaVerifyTitle">Verify it is you</h1>
+      <p>Enter the current six-digit code from your authenticator app. You may also enter one unused recovery code.</p>
+      <label for="{{ mfa_form.code.id_for_label }}">{{ mfa_form.code.label }}</label>
+      <div class="landing-activation-code mfa-code-input">{{ mfa_form.code }}{{ mfa_form.code.errors }}</div>
+      <small class="landing-activation-attempts">{{ attempts_remaining }} attempt{{ attempts_remaining|pluralize }} remaining</small>
+      <div class="landing-activation-actions">
+        <button type="submit">Verify and Sign In</button>
+      </div>
+      <a class="mfa-return-link" href="{% url 'authentication:login' %}">Return to sign in</a>
+    </form>
+  </section>
+{% endblock %}
