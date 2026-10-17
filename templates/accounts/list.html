@@ -73,6 +73,7 @@
   .account-row-actions{
       display:flex;
       align-items:center;
+      justify-content:flex-end;
       gap:8px
   }
   .account-row-actions a,.account-row-actions button{
@@ -87,6 +88,19 @@
   }
   .account-row-actions button{
       color:#d32626
+  }
+  @media(min-width:1181px){
+      .account-table :is(th,td):nth-child(1){width:17%}
+      .account-table :is(th,td):nth-child(2){width:12%}
+      .account-table :is(th,td):nth-child(3){width:28%}
+      .account-table :is(th,td):nth-child(4){width:15%}
+      .account-table :is(th,td):nth-child(5){width:17%}
+      .account-table :is(th,td):nth-child(6){width:11%;text-align:right}
+      .account-table :is(th,td):nth-child(3){
+          overflow:hidden;
+          text-overflow:ellipsis;
+          white-space:nowrap!important
+      }
   }
   @media(max-width:1100px){
       .accounts-overview{
@@ -162,11 +176,11 @@
                 </td>
                 <td>
                   {% if user.activation_pending %}
-                    Pending activation
+                    <span class="status-badge status-pending">Pending activation</span>
                   {% elif user.is_active %}
-                    Active
+                    <span class="status-badge status-active">Active</span>
                   {% else %}
-                    Inactive
+                    <span class="status-badge status-inactive">Inactive</span>
                   {% endif %}
                 </td>
                 <td>

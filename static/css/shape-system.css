@@ -1,27 +1,59 @@
 /*
  * FMIS global shape language
  *
- * The interface deliberately uses three related silhouettes:
- *   1. rectangular/square surfaces (0 radius),
- *   2. rounded-rectangle action controls (8px radius), and
- *   3. fully rounded compact indicators (90px radius).
+ * The interface deliberately uses two related silhouettes:
+ *   1. rounded-rectangle surfaces and controls (8px radius), and
+ *   2. truly circular identity/icon elements (90px radius).
  *
  * This file is loaded after page-level styles so older component rules cannot
  * reintroduce a mixture of unrelated corner radii.
  */
 :root{
-    --fmis-radius-square:0;
+    --fmis-radius-surface:8px;
+    --fmis-radius-square:var(--fmis-radius-surface);
     --fmis-radius-button:8px;
     --fmis-radius-round:90px;
-    --radius:var(--fmis-radius-square);
-    --ui-radius:var(--fmis-radius-square);
-    --card-radius:var(--fmis-radius-square)
+    --radius:var(--fmis-radius-surface);
+    --ui-radius:var(--fmis-radius-surface);
+    --card-radius:var(--fmis-radius-surface)
 }
 
 html body *:not(#fmis-shape-specificity),
 html body *:not(#fmis-shape-specificity)::before,
 html body *:not(#fmis-shape-specificity)::after{
     border-radius:var(--fmis-radius-square)!important
+}
+
+/* Hidden interface states must stay hidden even when a component declares its
+ * own flex or grid display mode. */
+html body [hidden]:not(#fmis-shape-specificity){
+    display:none!important
+}
+
+/* Keep table headings as one clean rectangular band. The global surface
+ * radius belongs to cards and controls, not to individual header cells. */
+html body table thead:not(#fmis-shape-specificity),
+html body table thead tr:not(#fmis-shape-specificity),
+html body table thead th:not(#fmis-shape-specificity){
+    border-radius:0!important
+}
+
+/* The application shell and permanent side navigation meet the viewport at
+ * true 90-degree corners. Rounded corners remain reserved for the controls
+ * inside the navigation. */
+html body .app-shell>.sidebar:not(#fmis-shape-specificity),
+html body .app-shell>.sidebar:not(#fmis-shape-specificity)::before,
+html body .app-shell>main:not(#fmis-shape-specificity){
+    border-radius:0!important
+}
+
+/* Keep the authenticated workspace header visible while its page scrolls.
+ * Sticky positioning preserves the header's place in the document, so page
+ * content never becomes hidden underneath it. */
+html body .app-shell>.page-scroll>.app-header:not(#fmis-shape-specificity){
+    position:sticky!important;
+    top:0!important;
+    z-index:30!important
 }
 
 /* Actions and navigation affordances use one compact rounded rectangle. */
@@ -47,7 +79,8 @@ html body :is(
     .landing-signin-submit,
     .catalog-add,
     .panel-link,
-    .btn-cancel
+    .btn-cancel,
+    .logout
 ):not(#fmis-shape-specificity){
     border-radius:var(--fmis-radius-button)!important
 }
@@ -285,7 +318,7 @@ html body select:not([multiple]):not(#fmis-shape-specificity){
     -webkit-appearance:none;
     padding-right:38px!important;
     border:1px solid #c7d5cd!important;
-    border-radius:6px!important;
+    border-radius:var(--fmis-radius-button)!important;
     background-color:var(--surface,#fff)!important;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23334155' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m4 6 4 4 4-4'/%3E%3C/svg%3E")!important;
     background-repeat:no-repeat!important;
@@ -318,7 +351,7 @@ html body .farmer-picker-control:not(#fmis-shape-specificity),
 html body .farmer-picker:focus-within .farmer-picker-control:not(#fmis-shape-specificity){
     grid-template-columns:minmax(0,1fr)!important;
     border:1px solid #c7d5cd!important;
-    border-radius:6px!important;
+    border-radius:var(--fmis-radius-button)!important;
     outline:0!important;
     box-shadow:none!important
 }
@@ -330,7 +363,7 @@ html body .farmer-picker:focus-within .farmer-picker-control:not(#fmis-shape-spe
 
 html body .farmer-picker-list:not(#fmis-shape-specificity){
     border:1px solid #c7d5cd!important;
-    border-radius:6px!important
+    border-radius:var(--fmis-radius-button)!important
 }
 
 html body .farmer-picker-option:not(#fmis-shape-specificity),
@@ -370,7 +403,7 @@ html body[data-theme="dark"] .farmer-picker-list:not(#fmis-shape-specificity){
 html body .app-shell .farmer-picker-list:not(#fmis-shape-specificity){
     padding:0!important;
     border:1px solid #c7d5cd!important;
-    border-radius:0!important;
+    border-radius:var(--fmis-radius-button)!important;
     background:var(--surface,#fff)!important;
     box-shadow:0 8px 18px rgba(15,23,42,.12)!important
 }
@@ -457,7 +490,7 @@ html body .farmer-pin i:not(#fmis-shape-specificity){
 
 /* Preserve the native distinction between a square checkbox and round radio. */
 html body input[type="checkbox"]:not(#fmis-shape-specificity){
-    border-radius:var(--fmis-radius-square)!important
+    border-radius:5px!important
 }
 
 /* Status and priority labels use color on the outline, never as a fill. */
@@ -472,7 +505,8 @@ html body .app-shell :is(
     .parcel-status,
     .crop-status,
     .activity-status,
-    .status-badge
+    .status-badge,
+    .status-pill
 ):not(#fmis-shape-specificity){
     --fmis-badge-outline:#2f7d5c;
     border:1px solid var(--fmis-badge-outline)!important;
@@ -481,6 +515,35 @@ html body .app-shell :is(
     background-image:none!important;
     color:#111!important;
     box-shadow:none!important
+}
+
+/* Workflow labels are compact outlined rounded rectangles. Keep the label
+ * centered while allowing longer states (such as "In Progress") to grow. */
+html body .app-shell :is(
+    .priority-badge,
+    .request-priority,
+    .request-status,
+    .intervention-status,
+    .farmer-status,
+    .confirmation-status,
+    .parcel-status,
+    .crop-status,
+    .activity-status,
+    .status-badge,
+    .status-pill
+):not(#fmis-shape-specificity){
+    display:inline-flex!important;
+    width:max-content!important;
+    max-width:100%!important;
+    min-width:76px!important;
+    min-height:31px!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:5px 12px!important;
+    border-radius:var(--fmis-radius-button)!important;
+    line-height:1.2!important;
+    text-align:center!important;
+    white-space:nowrap!important
 }
 
 html body .app-shell :is(
@@ -492,6 +555,8 @@ html body .app-shell :is(
     .farmer-status.active,
     .farmer-status.status-completed,
     .confirmation-status.status-completed,
+    .status-badge.status-active,
+    .status-pill.status-completed,
     .parcel-status:not(.inactive)
 ):not(#fmis-shape-specificity){
     --fmis-badge-outline:#238553
@@ -501,7 +566,8 @@ html body .app-shell :is(
     .priority-badge.medium,
     .request-priority.priority-medium,
     .farmer-status.status-submitted,
-    .confirmation-status.status-submitted
+    .confirmation-status.status-submitted,
+    .status-badge.status-pending
 ):not(#fmis-shape-specificity){
     --fmis-badge-outline:#b57600
 }
@@ -512,6 +578,8 @@ html body .app-shell :is(
     .request-status.cancelled,
     .farmer-status.status-skipped,
     .confirmation-status.status-skipped,
+    .status-badge.status-inactive,
+    .status-pill.status-cancelled,
     .parcel-status.inactive
 ):not(#fmis-shape-specificity){
     --fmis-badge-outline:#d32626
@@ -548,7 +616,8 @@ html body[data-theme="dark"] .app-shell :is(
     .parcel-status,
     .crop-status,
     .activity-status,
-    .status-badge
+    .status-badge,
+    .status-pill
 ):not(#fmis-shape-specificity){
     background:transparent!important;
     color:#f8fafc!important
@@ -680,7 +749,7 @@ html body .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity),
 html body .fmis-date-field .fmis-date-trigger:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
     justify-content:space-between!important;
     border:1px solid #cbd8d0!important;
-    border-radius:0!important;
+    border-radius:var(--fmis-radius-button)!important;
     background:#fff!important;
     color:#17233a!important;
     box-shadow:none!important;

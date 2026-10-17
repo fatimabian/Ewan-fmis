@@ -7,5 +7,7 @@ venv/
 node_modules/
 staticfiles/
 tmp/
+.codex-tmp/
 backups/
+logs/
 media/

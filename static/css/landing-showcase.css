@@ -749,7 +749,7 @@ a{
     opacity:.78;
     transform:scale(.94);
     transform-origin:center;
-    transition:opacity .3s ease,transform .3s ease,box-shadow .3s ease,border-color .3s ease;
+    transition:opacity .3s ease,transform .3s ease;
 }
 
 .service-carousel article.is-centered{

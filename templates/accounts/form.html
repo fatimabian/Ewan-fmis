@@ -86,13 +86,17 @@
       background:transparent;
       color:#66758a;
       cursor:pointer;
-      transform:translateY(-50%)
+      transform:translateY(-50%)!important;
+      box-shadow:none!important
   }
   .account-password-toggle:hover,
-  .account-password-toggle:focus-visible{
+  .account-password-toggle:focus-visible,
+  .account-password-toggle:active{
       background:#e8f5ed;
       color:#087443;
-      outline:2px solid #1590522b
+      outline:2px solid #1590522b;
+      transform:translateY(-50%)!important;
+      box-shadow:none!important
   }
   .account-field .helptext{
       color:#6b7b8e;
@@ -118,6 +122,31 @@
   .account-form-actions .btn{
       min-width:125px;
       padding:10px 16px
+  }
+  .account-danger-zone{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      margin:0 25px 25px;
+      padding:18px;
+      border:1px solid #efc1c1;
+      background:#fff8f8
+  }
+  .account-danger-zone strong,
+  .account-danger-zone small{
+      display:block
+  }
+  .account-danger-zone strong{
+      margin-bottom:3px;
+      color:#8f1d1d
+  }
+  .account-danger-zone small{
+      color:#6b5960;
+      line-height:1.45
+  }
+  .account-danger-zone .btn{
+      flex:0 0 auto
   }
   .password-feedback{
       display:grid;
@@ -170,6 +199,14 @@
       .account-form-actions .btn{
           width:100%
       }
+      .account-danger-zone{
+          align-items:stretch;
+          flex-direction:column;
+          margin:0 19px 19px
+      }
+      .account-danger-zone .btn{
+          width:100%
+      }
   }
   </style>
   <div class="content account-form-wrap">
@@ -184,7 +221,7 @@
           </i>
           <span>
             {% if object %}
-              Select Active or Inactive to manage this account without deleting it.
+              Use Active or Inactive to temporarily manage access. Permanent deletion is available below when an account must be removed and its contact details reused.
             {% else %}
               Username, email, phone number, and password are required. New accounts are staff-only and remain inactive until email verification.
             {% endif %}
@@ -246,6 +283,23 @@
           </button>
         </div>
       </form>
+      {% if object and object.pk != request.user.pk %}
+        <form class="account-danger-zone"
+              method="post"
+              action="{% url 'accounts:delete' object.pk %}"
+              data-confirm="Permanently delete {{ object.display_name|escape }}'s account? This cannot be undone. Their username, email address, and phone number will become available for a new account, while recorded audit history will remain.">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="delete">
+          <span>
+            <strong>Delete account permanently</strong>
+            <small>Use this only when the account should be removed—not for temporary access suspension.</small>
+          </span>
+          <button class="btn btn-outline-danger btn-cancel" type="submit">
+            <i class="bi bi-trash" aria-hidden="true"></i>
+            Delete Account
+          </button>
+        </form>
+      {% endif %}
     </section>
   </div>
   <script>

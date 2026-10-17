@@ -10,18 +10,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-if ($env:DJANGO_DEBUG -ne "False") {
-    throw "DJANGO_DEBUG must be False before FMIS can start in production mode."
+function Invoke-FMISCommand {
+    param([string[]]$Arguments)
+    & python @Arguments
+    if ($LASTEXITCODE -ne 0) {
+        throw "FMIS production validation failed: python $($Arguments -join ' ')"
+    }
 }
-if ($env:DB_ENGINE -ne "mysql") {
-    throw "DB_ENGINE must be mysql before FMIS can start in production mode."
-}
-if (-not $env:DJANGO_SECRET_KEY -or $env:DJANGO_SECRET_KEY.Length -lt 50) {
-    throw "DJANGO_SECRET_KEY must contain a protected random value of at least 50 characters."
-}
-if (-not $env:EMAIL_HOST) {
-    throw "EMAIL_HOST must be configured for account activation and recovery."
-}
+
+Invoke-FMISCommand @("manage.py", "check", "--deploy")
+Invoke-FMISCommand @("manage.py", "migrate", "--check")
+Invoke-FMISCommand @("manage.py", "check_fmis_readiness")
 
 & python -m waitress `
     --listen=$ListenAddress `
@@ -29,3 +28,6 @@ if (-not $env:EMAIL_HOST) {
     --connection-limit=$ConnectionLimit `
     --backlog=$Backlog `
     config.wsgi:application
+if ($LASTEXITCODE -ne 0) {
+    throw "The FMIS Waitress process stopped with exit code $LASTEXITCODE."
+}

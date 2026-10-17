@@ -153,7 +153,7 @@ def _encrypt_archive(source, destination, key):
         encrypted_file.write(encryptor.tag)
 
 
-def _verify_encrypted_archive(path, key):
+def _decrypt_archive_to_temp(path, key):
     size = path.stat().st_size
     minimum_size = len(BACKUP_MAGIC) + NONCE_BYTES + TAG_BYTES + 1
     if size < minimum_size:
@@ -181,11 +181,20 @@ def _verify_encrypted_archive(path, key):
             except Exception:
                 verified_path.unlink(missing_ok=True)
                 raise RuntimeError("Encrypted backup authentication failed.")
+    return verified_path
+
+
+def _validate_recovery_archive(path):
+    with tarfile.open(path, "r:gz") as archive:
+        names = set(archive.getnames())
+        if "manifest.json" not in names or not any(name.startswith("database/") for name in names):
+            raise RuntimeError("Recovery archive is missing required database or manifest files.")
+
+
+def _verify_encrypted_archive(path, key):
+    verified_path = _decrypt_archive_to_temp(path, key)
     try:
-        with tarfile.open(verified_path, "r:gz") as archive:
-            names = set(archive.getnames())
-            if "manifest.json" not in names or not any(name.startswith("database/") for name in names):
-                raise RuntimeError("Recovery archive is missing required database or manifest files.")
+        _validate_recovery_archive(verified_path)
     finally:
         verified_path.unlink(missing_ok=True)
 
@@ -267,6 +276,23 @@ def verify_existing_backup(path):
     path = Path(path).expanduser().resolve()
     _verify_encrypted_archive(path, _encryption_key())
     return _file_checksum(path)
+
+
+def extract_verified_backup(path, output_dir):
+    """Authenticate and unpack a recovery point for an isolated restoration drill."""
+    source = Path(path).expanduser().resolve()
+    destination = Path(output_dir).expanduser().resolve()
+    if destination.exists() and any(destination.iterdir()):
+        raise RuntimeError("Recovery output directory must be empty.")
+    destination.mkdir(parents=True, exist_ok=True)
+    decrypted_path = _decrypt_archive_to_temp(source, _encryption_key())
+    try:
+        _validate_recovery_archive(decrypted_path)
+        with tarfile.open(decrypted_path, "r:gz") as archive:
+            archive.extractall(destination, filter="data")
+    finally:
+        decrypted_path.unlink(missing_ok=True)
+    return destination, _file_checksum(source)
 
 
 def create_verified_backup(output_dir=None):

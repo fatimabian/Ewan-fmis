@@ -1,7 +1,9 @@
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.contrib import messages
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
+from django.utils import timezone
+from uuid import uuid4
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 from apps.authentication.models import CustomUser
 from apps.common.mixins import FMISLoginRequiredMixin
@@ -15,6 +17,9 @@ class AccountListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
     model = CustomUser
     template_name = "accounts/list.html"
 
+    def get_queryset(self):
+        return CustomUser.objects.filter(deleted_at__isnull=True)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update(account_summary())
@@ -24,6 +29,9 @@ class AccountListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
 class AccountDetailView(FMISLoginRequiredMixin, AdminRequiredMixin, DetailView):
     model = CustomUser
     template_name = "accounts/detail.html"
+
+    def get_queryset(self):
+        return CustomUser.objects.filter(deleted_at__isnull=True)
 
 
 class AccountCreateView(FMISLoginRequiredMixin, AdminRequiredMixin, CreateView):
@@ -65,6 +73,9 @@ class AccountUpdateView(FMISLoginRequiredMixin, AdminRequiredMixin, UpdateView):
     form_class = AccountUpdateForm
     template_name = "accounts/form.html"
     success_url = reverse_lazy("accounts:list")
+
+    def get_queryset(self):
+        return CustomUser.objects.filter(deleted_at__isnull=True)
 
     def form_valid(self, form):
         original_account = CustomUser.objects.get(pk=form.instance.pk)
@@ -115,20 +126,74 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
     model = CustomUser
     success_url = reverse_lazy("accounts:list")
 
+    def get_queryset(self):
+        return CustomUser.objects.filter(deleted_at__isnull=True)
+
     def post(self, request, *args, **kwargs):
         account = self.get_object()
-        restoring = request.POST.get("action") == "restore"
+        requested_action = request.POST.get("action", "deactivate")
+        restoring = requested_action == "restore"
+        permanently_deleting = requested_action == "delete"
         if account.pk == request.user.pk and not restoring:
-            messages.error(request, "You cannot deactivate the account you are currently using.")
+            messages.error(request, "You cannot deactivate or delete the account you are currently using.")
             return redirect("accounts:list")
         if (
             account.is_admin
+            and not restoring
             and not CustomUser.objects.filter(role="ADMIN", is_active=True)
             .exclude(pk=account.pk)
             .exists()
         ):
-            messages.error(request, "The final active administrator account cannot be deactivated.")
+            messages.error(request, "The final active administrator account cannot be deactivated or deleted.")
             return redirect("accounts:list")
+
+        if permanently_deleting:
+            account_label = account.display_name
+            original_username = account.username
+            account_role = account.get_role_display()
+            account_status = "Active" if account.is_active else "Inactive"
+            with transaction.atomic():
+                account.deleted_display_name = account_label
+                account.deleted_username = original_username
+                account.deleted_at = timezone.now()
+                account.username = f"deleted-{account.pk}-{uuid4().hex[:12]}"
+                account.email = ""
+                account.phone_number = ""
+                account.google_sub = None
+                account.is_active = False
+                account.activation_pending = False
+                account.set_unusable_password()
+                account.save(
+                    update_fields=(
+                        "deleted_display_name",
+                        "deleted_username",
+                        "deleted_at",
+                        "username",
+                        "email",
+                        "phone_number",
+                        "google_sub",
+                        "is_active",
+                        "activation_pending",
+                        "password",
+                    )
+                )
+                record_request_event(
+                    request,
+                    title="User Account Deleted",
+                    module="User Accounts",
+                    description=f"{request.user.display_name} permanently deleted a user account.",
+                    target_label=account_label,
+                    details=[
+                        {"field": "Role", "before": account_role, "after": "Deleted"},
+                        {"field": "Account status", "before": account_status, "after": "Deleted"},
+                    ],
+                )
+            messages.success(
+                request,
+                f"{account_label}'s account was deleted and access was permanently removed. Its username, email address, and phone number can now be reused; linked office history was retained.",
+            )
+            return redirect("accounts:list")
+
         account.is_active = restoring
         account.save(update_fields=["is_active"])
         action = "reactivated" if restoring else "deactivated"

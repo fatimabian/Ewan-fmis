@@ -54,7 +54,17 @@ Every run decrypts and opens the archive before it is marked **Verified**. A tec
 python manage.py verify_fmis_backup C:\protected-backups\fmis-backup-YYYYMMDD-HHMMSS.fmisbak
 ```
 
+Prepare a verified recovery point in a new, empty drill directory:
+
+```powershell
+python manage.py prepare_fmis_recovery C:\protected-backups\fmis-backup-YYYYMMDD-HHMMSS.fmisbak C:\FMIS\recovery-drill\2026-Q4
+```
+
+The extracted `database/database.sql` is then imported into a separate empty MariaDB database using a recovery-only database account. Point an isolated FMIS instance at that database and the extracted `media/` directory. Never import the drill dump into production and never reuse production service credentials for the drill.
+
 At least quarterly, restore the native SQL dump into a separate, empty recovery database and restore media into an isolated directory. Never test restoration over the production database. Verify administrator login, staff login, farmers, parcels, commodities, service requests, reports, media, notifications, and audit history, then record the result and archive checksum.
+
+The daily job keeps encrypted local recovery points using 7 daily, 4 weekly, and 12 monthly retention. When Azure is configured, every successful run also uploads the encrypted archive and verifies the remote object size. The encryption key must be escrowed separately; neither the local nor Azure copy can be recovered without it.
 
 ## Security boundaries
 

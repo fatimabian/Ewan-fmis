@@ -92,7 +92,7 @@ def dashboard_metrics():
     activity_line_points = " ".join(
         f'{item["chart_x"]},{item["chart_y"]}' for item in activity_trend
     )
-    account_summary = CustomUser.objects.aggregate(
+    account_summary = CustomUser.objects.filter(deleted_at__isnull=True).aggregate(
         accounts=Count("pk"),
         active_accounts=Count("pk", filter=Q(is_active=True)),
         admins=Count("pk", filter=Q(role="ADMIN", is_active=True)),

@@ -259,49 +259,6 @@ body{
 .auth-submit:hover{
     background:#118c40
 }
-.auth-divider{
-    display:flex;
-    align-items:center;
-    gap:13px;
-    margin:21px 0;
-    color:#8a97a8;
-    font-size:11px
-}
-.auth-divider:before,.auth-divider:after{
-    content:"";
-    height:1px;
-    flex:1;
-    background:#e1e7eb
-}
-.google-slot{
-    min-height:44px;
-    display:grid;
-    place-items:center
-}
-.google-setup{
-    width:100%;
-    min-height:44px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:10px;
-    border:1px solid #d7dfe5;
-    border-radius:8px;
-    background:#fff;
-    color:#344256;
-    font-weight:700;
-    cursor:pointer
-}
-.google-g{
-    font:700 18px Arial;
-    color:#4285f4
-}
-.auth-note{
-    margin:24px 0 0;
-    text-align:center;
-    color:#8390a1;
-    font-size:11px
-}
 .auth-card{
     width:min(520px,94vw);
     padding:42px;

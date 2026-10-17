@@ -575,7 +575,11 @@ def build_system_report(report_type, date_range, filters=None):
     if staff and not staff.isdigit():
         raise ValueError("Choose a valid staff member.")
 
-    accounts = _filter_period(CustomUser.objects.all(), "date_joined", date_range)
+    accounts = _filter_period(
+        CustomUser.objects.filter(deleted_at__isnull=True),
+        "date_joined",
+        date_range,
+    )
     if role:
         accounts = accounts.filter(role=role)
     if account_status == "ACTIVE":

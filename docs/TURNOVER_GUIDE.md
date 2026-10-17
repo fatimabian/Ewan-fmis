@@ -28,7 +28,7 @@ Before a client signs acceptance:
 6. Verify SMTP password recovery, backup scheduling and off-site retention.
 7. Record the deployed commit hash, database migration state, tester, date, and client acceptance decision.
 8. Approve and sign `DATA_GOVERNANCE_AND_INCIDENT_POLICY.md`, including every pending retention decision.
-9. Verify that the production web server denies direct public access to `media/farm_documents/`.
+9. Verify that the production web server denies direct public access to `media/farm_documents/`, `media/farmer_photos/`, `media/parcel_photos/`, and `media/account_profiles/`.
 10. Include `THIRD_PARTY_NOTICES.md` and the pinned `requirements.txt` in the delivered source package.
 
 The source can pass its automated gate independently, but production-dependent checklist items must not be marked complete until they are tested on the client deployment.

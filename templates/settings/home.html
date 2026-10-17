@@ -64,7 +64,7 @@
   .settings-card{
       background:#fff;
       border:1px solid #e3ebef;
-      border-radius:0!important;
+      border-radius:var(--fmis-radius-surface,8px)!important;
       padding:0 20px 14px;
       box-shadow:none;
       margin-bottom:0
@@ -508,7 +508,7 @@
                 <div class="profile-photo-stage">
                   <div class="profile-avatar" data-profile-photo-preview>
                     {% if user_preference.profile_photo %}
-                      <img src="{{ user_preference.profile_photo.url }}" alt="{{ request.user.display_name }} profile photo">
+                      <img src="{% url 'settings_page:profile_photo' %}" alt="{{ request.user.display_name }} profile photo">
                     {% else %}
                       <span>{{ request.user.display_name|slice:':1' }}</span>
                     {% endif %}

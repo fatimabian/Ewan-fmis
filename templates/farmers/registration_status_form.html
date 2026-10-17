@@ -14,7 +14,7 @@
     html body #registration-status-panel textarea,
     html body #registration-status-panel .btn,
     html body #registration-status-panel button{
-      border-radius:0!important;
+      border-radius:var(--fmis-radius-button,8px)!important;
     }
     html body #registration-status-panel .status-cancel{
       border-color:#c62828!important;
@@ -35,7 +35,7 @@
     }
   </style>
   <div class="content">
-    <section id="registration-status-panel" class="panel form-panel rsbsa-update-form status-update-form" style="border-radius:0!important">
+    <section id="registration-status-panel" class="panel form-panel rsbsa-update-form status-update-form">
       <form method="post">
         {% csrf_token %}
         <section class="form-section registration-workflow-section">

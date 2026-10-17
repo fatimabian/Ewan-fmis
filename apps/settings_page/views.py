@@ -1,8 +1,10 @@
+import mimetypes
+
 from django.contrib import messages
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import FormView
@@ -122,6 +124,30 @@ class ChangePasswordView(FMISLoginRequiredMixin, View):
                 status=400,
             )
         return redirect("settings_page:home")
+
+
+class ProfilePhotoView(FMISLoginRequiredMixin, View):
+    """Serve a user's own profile image without exposing the media directory."""
+
+    def get(self, request):
+        preference = UserPreference.objects.filter(user=request.user).first()
+        if not preference or not preference.profile_photo:
+            raise Http404
+        try:
+            content_type = (
+                mimetypes.guess_type(preference.profile_photo.name)[0]
+                or "application/octet-stream"
+            )
+            response = FileResponse(
+                preference.profile_photo.open("rb"),
+                content_type=content_type,
+            )
+        except (FileNotFoundError, OSError, ValueError) as error:
+            raise Http404 from error
+        response["Content-Disposition"] = "inline"
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
 
 
 class ManualBackupView(FMISLoginRequiredMixin, AdminRequiredMixin, View):

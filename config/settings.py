@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.gzip.GZipMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -121,6 +122,16 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    },
+}
+WHITENOISE_MAX_AGE = 31_536_000 if not DEBUG else 0
+# Keep source copies on Windows. Some vendored font URLs contain query hashes,
+# which are valid URLs but invalid Windows filenames during WhiteNoise cleanup.
+WHITENOISE_KEEP_ONLY_HASHED_FILES = False
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -137,6 +148,7 @@ PUBLIC_PAGE_CACHE_SECONDS = max(
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "FMIS <noreply@fmis.local>")
 STATIC_ROOT = BASE_DIR / "staticfiles"
 BACKUP_ROOT = Path(os.getenv("FMIS_BACKUP_ROOT", BASE_DIR / "backups"))
+FMIS_MIN_FREE_DISK_GB = max(1, int(os.getenv("FMIS_MIN_FREE_DISK_GB", "5")))
 FMIS_BACKUP_ENCRYPTION_KEY = os.getenv("FMIS_BACKUP_ENCRYPTION_KEY", "")
 BACKUP_AZURE_CONTAINER_URL = os.getenv("BACKUP_AZURE_CONTAINER_URL", "")
 MARIADB_DUMP_PATH = os.getenv("MARIADB_DUMP_PATH", "")
@@ -186,3 +198,45 @@ if not DEBUG and not os.getenv("EMAIL_HOST"):
     raise ImproperlyConfigured(
         "Production FMIS requires EMAIL_HOST so activation and password recovery can operate."
     )
+
+LOG_LEVEL = os.getenv("FMIS_LOG_LEVEL", "INFO").upper()
+LOG_ROOT = Path(os.getenv("FMIS_LOG_ROOT", BASE_DIR / "logs"))
+log_handlers = {
+    "console": {
+        "class": "logging.StreamHandler",
+        "formatter": "standard",
+    }
+}
+if not DEBUG:
+    LOG_ROOT.mkdir(parents=True, exist_ok=True)
+    log_handlers["application_file"] = {
+        "class": "logging.handlers.RotatingFileHandler",
+        "filename": LOG_ROOT / "fmis-application.log",
+        "maxBytes": 10 * 1024 * 1024,
+        "backupCount": 14,
+        "formatter": "standard",
+        "encoding": "utf-8",
+    }
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        }
+    },
+    "handlers": log_handlers,
+    "root": {
+        "handlers": list(log_handlers),
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django.security": {
+            "handlers": list(log_handlers),
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}

@@ -25,19 +25,19 @@ Open `http://127.0.0.1:8000/` to view the public landing page, then choose **Sig
 
 The shared logo is `static/images/brand/fmis-logo.png`. Replace that file with another transparent PNG using the same filename to update the landing page, sign-in and recovery pages, sidebar, favicon, and printable farmer QR card. A restart or browser cache refresh may be needed.
 
-## Optional sign-in services
+## Account access
 
-- Google Sign-In requires a Google Identity Services Web OAuth client. Add its client ID to `GOOGLE_OAUTH_CLIENT_ID` in `.env`, allow `http://127.0.0.1:8000` and `http://localhost:8000` as JavaScript origins, and restart Django. Google access is limited to existing active FMIS accounts whose saved email matches the verified Google email.
 - Forgot Password accepts either the email address or phone number saved on an active FMIS account and sends a secure reset link to that account's registered email. During local development, console-email reset links appear in the server terminal.
-- The Google Identity Services flow uses the public Web client ID only. Never save the Google OAuth client secret in this project.
 
 ## Verification and production
 
+- Rebuild optimized frontend bundles after changing shared CSS with `python scripts/build_frontend_assets.py`; CI verifies that committed bundles are current with `python scripts/build_frontend_assets.py --check`.
 - Run the isolated automated suite with `python manage.py test --settings=config.settings_test`.
 - Every push and pull request runs the same tests, migration-drift detection, and production security checks through `.github/workflows/quality.yml`.
 - Run deployment checks with production environment values using `python manage.py check --deploy`.
-- Use `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md` when preparing the server-only `.env`. Production requires HTTPS, secure cookies, a unique secret, MySQL credentials, SMTP, and optional Google sign-in configuration.
+- Copy `deployment.env.example` to the server-only `.env`, then use `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`. Production requires HTTPS, secure cookies, a unique secret, MySQL credentials, and SMTP.
 - Create a verified backup with `python manage.py backup_fmis`; see `docs/BACKUP_AND_RECOVERY.md` for recovery drills.
+- Use `docs/EMAIL_DELIVERY.md` to turn over an Office-owned sender mailbox and validate SMTP plus SPF/DKIM/DMARC before account activation is enabled in production.
 - Privacy Notice and Terms of Use are available from the landing page, signed-in footer, and registration consent step.
 
 Turnover and operations references are in `docs/TURNOVER_GUIDE.md`, `docs/PRODUCTION_HOSTING.md`, `docs/DATA_GOVERNANCE_AND_INCIDENT_POLICY.md`, `docs/BACKUP_AND_RECOVERY.md`, and `docs/THIRD_PARTY_NOTICES.md`.

@@ -3,12 +3,15 @@ from django.conf.urls.static import static
 from django.http import Http404
 from django.urls import include, path
 
+from apps.common.views import health_check
+
 
 def deny_direct_farmer_document_access(request, path):
     """Keep sensitive documents behind the authenticated download view in development."""
     raise Http404
 
 urlpatterns = [
+    path("health/", health_check, name="health_check"),
     path("", include("apps.authentication.urls")),
     path("dashboard/", include("apps.dashboard.urls")),
     path("accounts/", include("apps.accounts.urls")),
@@ -34,6 +37,10 @@ if settings.DEBUG:
         ),
         path(
             f"{settings.MEDIA_URL.strip('/')}/parcel_photos/<path:path>",
+            deny_direct_farmer_document_access,
+        ),
+        path(
+            f"{settings.MEDIA_URL.strip('/')}/account_profiles/<path:path>",
             deny_direct_farmer_document_access,
         ),
     ]

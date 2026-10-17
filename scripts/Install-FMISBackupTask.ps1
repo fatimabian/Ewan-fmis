@@ -1,10 +1,17 @@
 param(
-    [string]$PythonPath = "C:\Users\arnig\AppData\Local\Python\pythoncore-3.14-64\python.exe",
-    [string]$ProjectPath = "C:\Users\arnig\OneDrive\Documents\GitHub\Ewan-fmis",
+    [string]$PythonPath = "",
+    [string]$ProjectPath = "",
     [string]$DailyTime = "02:00"
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $ProjectPath) {
+    $ProjectPath = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+}
+if (-not $PythonPath) {
+    $pythonCommand = Get-Command python -ErrorAction Stop
+    $PythonPath = $pythonCommand.Source
+}
 $managePath = Join-Path $ProjectPath "manage.py"
 if (-not (Test-Path -LiteralPath $PythonPath -PathType Leaf)) {
     throw "Python was not found at the configured path."

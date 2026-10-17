@@ -27,13 +27,42 @@ CORE_SOURCES = (
     "css/table-layout.css",
 )
 
+CORE_JS_SOURCES = (
+    "js/fmis.js",
+    "js/password-toggle.js",
+    "js/form-validation.js",
+    "js/date-picker.js",
+)
+
 
 def minify_css(value: str) -> str:
     value = re.sub(r"/\*(?!\!)[\s\S]*?\*/", "", value)
     value = re.sub(r"\s+", " ", value)
-    value = re.sub(r"\s*([{}:;,>])\s*", r"\1", value)
+    # A space before `:is()` / `:not()` can be a descendant combinator. Do not
+    # strip whitespace before colons or selectors such as `body :is(button)`
+    # become the very different (and usually impossible) `body:is(button)`.
+    value = re.sub(r"\s*([{};,>])\s*", r"\1", value)
+    value = re.sub(r":\s+", ":", value)
     value = re.sub(r";}", "}", value)
     return value.strip() + "\n"
+
+
+def compact_js(value: str) -> str:
+    """Safely compact checked-in JS while retaining newlines for ASI semantics."""
+    lines = []
+    for line in value.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("//"):
+            continue
+        lines.append(stripped)
+    return "\n".join(lines) + "\n"
+
+
+def js_bundle(sources: tuple[str, ...]) -> str:
+    return ";\n".join(
+        compact_js((STATIC / source).read_text(encoding="utf-8")).rstrip()
+        for source in sources
+    ) + "\n"
 
 
 def icon_subset() -> str:
@@ -83,11 +112,29 @@ def outputs() -> dict[Path, str]:
             ("css/dark-mode.css", "css/shape-system.css")
         ),
         STATIC / "css/fmis-public.min.css": bundle(
-            ("css/typography.css", "css/shape-system.css", "css/landing-showcase.css"),
+            ("css/typography.css", "css/landing-showcase.css", "css/shape-system.css"),
             include_icons=True,
+        ),
+        STATIC / "css/fmis-auth.min.css": bundle(
+            (
+                "css/auth.css",
+                "css/auth-enhancements.css",
+                "css/typography.css",
+                "css/form-validation.css",
+                "css/shape-system.css",
+            ),
+            include_icons=True,
+        ),
+        STATIC / "css/fmis-legal.min.css": bundle(
+            ("css/typography.css", "css/shape-system.css")
         ),
         STATIC / "css/staff-dashboard.min.css": bundle(("css/staff-dashboard.css",)),
         STATIC / "css/bootstrap-icons-fmis.min.css": minify_css(icon_subset()),
+        STATIC / "js/fmis-core.min.js": js_bundle(CORE_JS_SOURCES),
+        STATIC / "js/landing.min.js": js_bundle(("js/landing.js",)),
+        STATIC / "js/staff-dashboard.min.js": js_bundle(("js/staff-dashboard.js",)),
+        STATIC / "js/form-validation.min.js": js_bundle(("js/form-validation.js",)),
+        STATIC / "js/password-toggle.min.js": js_bundle(("js/password-toggle.js",)),
     }
 
 
@@ -95,6 +142,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true", help="fail if bundles are stale")
     args = parser.parse_args()
+    selector_probe = "body :is(button){color:red}\n"
+    if minify_css("body :is(button) { color: red; }") != selector_probe:
+        raise RuntimeError("CSS minification changed descendant pseudo-class semantics")
     stale: list[str] = []
     for path, content in outputs().items():
         if args.check:

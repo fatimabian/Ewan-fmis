@@ -245,7 +245,7 @@
         <option value="">All Users</option>
         {% for user in users %}
           <option value="{{ user.pk }}"
-                  {% if request.GET.user == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.display_name }} ({{ user.username }})</option>
+                  {% if request.GET.user == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.display_name }} ({{ user.audit_username }}){% if user.is_deleted %} — Deleted account{% endif %}</option>
         {% endfor %}
       </select>
     </form>
@@ -272,7 +272,7 @@
             <div class="audit-facts">
               <div class="audit-fact">
                 <small>Who</small>
-                <strong>{{ log.actor.display_name|default:'System' }}{% if log.actor %} · {{ log.actor.username }}{% endif %}</strong>
+                <strong>{{ log.actor.display_name|default:'System' }}{% if log.actor %} · {{ log.actor.audit_username }}{% if log.actor.is_deleted %} · Deleted account{% endif %}{% endif %}</strong>
               </div>
               <div class="audit-fact">
                 <small>When</small>

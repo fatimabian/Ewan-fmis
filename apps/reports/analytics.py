@@ -343,12 +343,12 @@ def report_metrics(date_range="all", filters=None):
         .annotate(total=Count("id"))
         .order_by("-total")[:5],
         "farmer_statistics": farmer_statistics,
-        "total_accounts": CustomUser.objects.count(),
-        "active_accounts": CustomUser.objects.filter(is_active=True).count(),
-        "admin_accounts": CustomUser.objects.filter(role="ADMIN", is_active=True).count(),
-        "staff_accounts": CustomUser.objects.filter(role="STAFF", is_active=True).count(),
-        "inactive_accounts": CustomUser.objects.filter(is_active=False).count(),
-        "pending_activations": CustomUser.objects.filter(activation_pending=True).count(),
+        "total_accounts": CustomUser.objects.filter(deleted_at__isnull=True).count(),
+        "active_accounts": CustomUser.objects.filter(deleted_at__isnull=True, is_active=True).count(),
+        "admin_accounts": CustomUser.objects.filter(deleted_at__isnull=True, role="ADMIN", is_active=True).count(),
+        "staff_accounts": CustomUser.objects.filter(deleted_at__isnull=True, role="STAFF", is_active=True).count(),
+        "inactive_accounts": CustomUser.objects.filter(deleted_at__isnull=True, is_active=False).count(),
+        "pending_activations": CustomUser.objects.filter(deleted_at__isnull=True, activation_pending=True).count(),
         "total_activities": ActivityLog.objects.count(),
         "failed_activities": ActivityLog.objects.exclude(status__iexact="Success").count(),
     }

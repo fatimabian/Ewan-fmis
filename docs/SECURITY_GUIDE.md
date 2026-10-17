@@ -36,7 +36,7 @@ This is the maintenance map for FMIS security controls. It explains where to rev
 | Session theft/fixation | HttpOnly/SameSite cookies, login rotation through Django, idle timeout, fixed remembered-login expiry, and Secure cookies in production. HTTPS is mandatory in production. |
 | Clickjacking | `X_FRAME_OPTIONS = "DENY"` and CSP `frame-ancestors 'none'`. |
 | Open redirect | Django validates login `next`; notification destinations are restricted to the current host. |
-| Malicious upload / unrestricted file upload | Size, extension, and file-signature/image validation are applied. Farmer documents are delivered through an authenticated view; direct development access to `media/farm_documents/` is denied. Production web-server rules must also deny that folder. Antivirus scanning is still recommended for production uploads. |
+| Malicious upload / unrestricted file upload | Size, extension, and file-signature/image validation are applied. Documents and private photos are delivered through authenticated views; direct development access to the four private media directories is denied. Production web-server rules must enforce the same boundary. Antivirus scanning is still recommended for production uploads. |
 | CSV/formula injection | CSV export cells beginning with spreadsheet formula markers are escaped. |
 | Path traversal | Application file access uses Django storage/model references rather than user-provided filesystem paths. Backup destinations are server configuration, not web input. |
 | Command injection | Database backup uses a fixed argument list with `shell=False`; no application shell execution from user input was found. |
@@ -61,7 +61,7 @@ This is the maintenance map for FMIS security controls. It explains where to rev
 2. Set `DJANGO_DEBUG=False`, a unique 50+ character `DJANGO_SECRET_KEY`, exact `DJANGO_ALLOWED_HOSTS`, and exact HTTPS `DJANGO_CSRF_TRUSTED_ORIGINS`.
 3. Terminate TLS with a valid certificate. Keep secure cookies, HTTPS redirect, and HSTS enabled. Set `DJANGO_BEHIND_HTTPS_PROXY=True` only when the trusted proxy correctly sets `X-Forwarded-Proto` and strips client-supplied copies.
 4. Use a least-privilege MariaDB account restricted to the FMIS database and host. Do not expose MariaDB port 3307 to the public network.
-5. Configure the production web server to **deny direct requests to `/media/farm_documents/`**. Documents must only be served through `/farmers/documents/<id>/` after authentication.
+5. Configure the production web server to **deny direct requests to `/media/farm_documents/`, `/media/farmer_photos/`, `/media/parcel_photos/`, and `/media/account_profiles/`**. Use `deployment/iis/web.config.example` for IIS. These records must only be served by their authenticated Django endpoints.
 6. Put FMIS behind a reverse proxy/firewall with request-size limits, connection limits, request-rate limits, access logs, and IP restrictions where appropriate.
 7. Configure SMTP, encrypted backups, off-site storage, scheduled backups, restore drills, log monitoring, and operating-system patching.
 8. Use a shared cache (Redis or Memcached) if more than one application process/server is deployed, so login and recovery throttles are not per-process.

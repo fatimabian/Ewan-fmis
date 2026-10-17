@@ -8,7 +8,7 @@ This document is an operational template for approval by the Municipality of Ros
 - Staff access farmer, parcel, crop, document, report, and service-request functions only for assigned official duties.
 - Each user receives an individual account. Shared accounts and shared passwords are prohibited.
 - Staff must sign a confidentiality acknowledgement before receiving access and must immediately report lost credentials or suspected disclosure.
-- Access is removed when duties change or employment ends. Accounts are deactivated rather than deleted so their audit attribution remains intact.
+- Access is removed when duties change or employment ends. Use deactivation when access may be restored. If an administrator selects deletion, FMIS retires the login, removes reusable contact identifiers, and hides the account from account management while retaining its internal audit identity and links to official transaction history. Database rows must not be manually purged outside an approved records-disposition process.
 
 ## Data minimization
 

@@ -116,15 +116,15 @@ class FMISRequirementTests(TestCase):
         )
         landing = self.client.get(reverse("authentication:landing"))
         self.assertContains(landing, "rice-field-data-collection.webp")
-        self.assertContains(landing, "images/brand/fmis-logo.png")
+        self.assertContains(landing, "images/brand/fmis-logo-display.webp")
         self.assertNotContains(landing, 'id="heroCarousel"')
         self.assertNotContains(landing, "data-carousel-next")
         self.assertNotContains(landing, "scope-carousel")
         self.assertContains(landing, "data-service-next")
         self.assertNotContains(landing, "feature-toggle")
         self.assertContains(landing, "landingProgress")
-        self.assertContains(landing, "startServiceCarousel")
-        self.assertContains(landing, "advanceServices")
+        self.assertContains(landing, "js/landing.min.js")
+        self.assertContains(landing, "script defer")
         self.assertContains(landing, reverse("authentication:login"))
         self.assertContains(landing, "showcase-login-button")
         self.assertNotContains(landing, "landing-signin-form")
@@ -153,7 +153,7 @@ class FMISRequirementTests(TestCase):
         login_page = self.client.get(reverse("authentication:login"))
         self.assertContains(login_page, "data-password-toggle", count=1)
         self.assertContains(login_page, 'aria-controls="id_password"')
-        self.assertContains(login_page, "password-toggle.js")
+        self.assertContains(login_page, "password-toggle.min.js")
 
         self.client.force_login(self.admin)
         account_form = self.client.get(reverse("accounts:create"))
@@ -200,6 +200,95 @@ class FMISRequirementTests(TestCase):
         self.assertTrue(user.activation_pending)
         self.assertEqual(user.first_name, "")
         self.assertEqual(user.last_name, "")
+
+    def test_admin_can_permanently_delete_account_and_reuse_contact_details(self):
+        User = get_user_model()
+        disposable = User.objects.create_user(
+            username="staff2",
+            email="staff2@example.com",
+            phone_number="09924526840",
+            password="Ready4Field!Secure",
+            role="STAFF",
+            is_active=False,
+        )
+        historical_activity = ActivityLog.objects.create(
+            actor=disposable,
+            action="POST /farmers/new/",
+            path="/farmers/new/",
+            title="Farmer Record Created",
+            module="Farmers",
+            description="staff2 created a farmer record.",
+        )
+        historical_request = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject="Historical seed request",
+            assigned_to=disposable,
+        )
+        request_history = ServiceRequestHistory.objects.create(
+            service_request=historical_request,
+            actor=disposable,
+            action="CREATED",
+            to_status="PENDING",
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("accounts:delete", args=[disposable.pk]),
+            {"action": "delete"},
+        )
+
+        self.assertRedirects(response, reverse("accounts:list"))
+        disposable.refresh_from_db()
+        self.assertTrue(disposable.is_deleted)
+        self.assertFalse(disposable.is_active)
+        self.assertEqual(disposable.deleted_username, "staff2")
+        self.assertEqual(disposable.email, "")
+        self.assertEqual(disposable.phone_number, "")
+        self.assertFalse(disposable.has_usable_password())
+        historical_activity.refresh_from_db()
+        self.assertEqual(historical_activity.actor_id, disposable.pk)
+        self.assertEqual(historical_activity.actor.audit_username, "staff2")
+        historical_request.refresh_from_db()
+        request_history.refresh_from_db()
+        self.assertEqual(historical_request.assigned_to_id, disposable.pk)
+        self.assertEqual(request_history.actor_id, disposable.pk)
+        account_list = self.client.get(reverse("accounts:list"))
+        self.assertNotContains(account_list, disposable.username)
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                title="User Account Deleted",
+                target_label="staff2",
+            ).exists()
+        )
+        replacement = AccountForm(
+            data={
+                "username": "staff2",
+                "email": "staff2@example.com",
+                "phone_number": "09924526840",
+                "password1": "Ready4Field!Secure",
+                "password2": "Ready4Field!Secure",
+            }
+        )
+        self.assertTrue(replacement.is_valid(), replacement.errors)
+
+    def test_current_admin_cannot_delete_own_account(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("accounts:delete", args=[self.admin.pk]),
+            {"action": "delete"},
+        )
+
+        self.assertRedirects(response, reverse("accounts:list"))
+        self.assertTrue(get_user_model().objects.filter(pk=self.admin.pk).exists())
+
+    def test_health_check_reports_database_readiness_without_internal_details(self):
+        response = self.client.get(reverse("health_check"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+        self.assertIn("no-store", response["Cache-Control"])
 
     def test_pending_staff_activates_with_first_login_email_otp(self):
         User = get_user_model()
@@ -2351,8 +2440,15 @@ class FMISRequirementTests(TestCase):
             self.assertTrue(preference.profile_photo.storage.exists(stored_name))
 
             settings_page = self.client.get(reverse("settings_page:home"))
-            self.assertContains(settings_page, preference.profile_photo.url)
+            protected_photo_url = reverse("settings_page:profile_photo")
+            self.assertContains(settings_page, protected_photo_url)
             self.assertContains(settings_page, "Remove photo")
+            protected_photo = self.client.get(protected_photo_url)
+            self.assertEqual(protected_photo.status_code, 200)
+            protected_photo.close()
+            self.client.logout()
+            self.assertEqual(self.client.get(protected_photo_url).status_code, 302)
+            self.client.force_login(self.staff)
 
             response = self.client.post(
                 reverse("settings_page:home"),
@@ -2441,6 +2537,16 @@ class FMISRequirementTests(TestCase):
             self.assertEqual(run.status, "VERIFIED")
             self.assertFalse(run.offsite)
             self.assertEqual(run.storage, "Encrypted server storage")
+
+            recovery_dir = Path(temp_dir) / "recovery-drill"
+            call_command(
+                "prepare_fmis_recovery",
+                str(backups[0]),
+                str(recovery_dir),
+                verbosity=0,
+            )
+            self.assertTrue((recovery_dir / "manifest.json").is_file())
+            self.assertTrue((recovery_dir / "database" / "database.json").is_file())
 
     def test_administrator_can_trigger_encrypted_manual_backup(self):
         encryption_key = base64.urlsafe_b64encode(b"x" * 32).decode()
