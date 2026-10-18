@@ -1195,8 +1195,26 @@ a{
 }
 
 @media(max-width:1050px){
+    .showcase-nav{
+        gap:16px;
+    }
+
+    .showcase-brand .showcase-brand-name{
+        max-width:220px;
+        font-size:12px;
+    }
+
     .showcase-links{
-        display:none;
+        gap:2px;
+    }
+
+    .showcase-links a{
+        padding:0 8px;
+    }
+
+    .showcase-links a:not(.showcase-login-button)::after{
+        right:8px;
+        left:8px;
     }
 
     .hero-content{
@@ -1232,6 +1250,37 @@ a{
 @media(max-width:780px){
     .showcase-nav{
         width:calc(100% - 28px);
+        flex-wrap:wrap;
+        gap:8px;
+        padding:10px 0;
+    }
+
+    .showcase-brand{
+        width:100%;
+        min-width:0;
+        justify-content:center;
+    }
+
+    .showcase-brand .showcase-brand-name{
+        max-width:none;
+        font-size:12px;
+    }
+
+    .showcase-links{
+        display:flex;
+        width:100%;
+        justify-content:center;
+        margin-left:0;
+        overflow-x:auto;
+        scrollbar-width:none;
+    }
+
+    .showcase-links::-webkit-scrollbar{
+        display:none;
+    }
+
+    .showcase-links a{
+        flex:0 0 auto;
     }
 
     .showcase-signin-link{
@@ -1365,6 +1414,25 @@ a{
 @media(max-width:540px){
     .showcase-brand small{
         display:none;
+    }
+
+    .showcase-brand .showcase-brand-name{
+        font-size:11px;
+    }
+
+    .showcase-links{
+        justify-content:space-between;
+    }
+
+    .showcase-links a{
+        min-height:34px;
+        padding:0 5px;
+        font-size:11px;
+    }
+
+    .showcase-links a.showcase-login-button{
+        min-width:62px;
+        margin-left:2px;
     }
 
     .hero-content{
