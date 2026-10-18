@@ -17,7 +17,7 @@
           type="image/webp"
           fetchpriority="high">
     <link rel="preload" href="{% static 'vendor/bootstrap-icons/fonts/bootstrap-icons.woff2' %}" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="{% static 'css/fmis-public.min.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'css/fmis-public.min.css' %}?v=6">
   </head>
   <body>
     <div class="landing-progress" id="landingProgress" aria-hidden="true"></div>
@@ -32,7 +32,15 @@
           </span>
         </a>
 
-        <div class="showcase-links">
+        <button class="showcase-menu-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="showcaseLinks"
+                aria-label="Open navigation menu">
+          <span></span><span></span><span></span>
+        </button>
+
+        <div class="showcase-links" id="showcaseLinks">
           <a class="is-active" href="#home" aria-current="page">Home</a>
           <a href="#services">Services</a>
           <a href="#capabilities">System</a>

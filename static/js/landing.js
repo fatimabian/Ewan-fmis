@@ -14,6 +14,32 @@
   window.addEventListener("resize", scheduleProgress, { passive: true });
   updateProgress();
 
+  const menuToggle = document.querySelector(".showcase-menu-toggle");
+  const menu = document.getElementById("showcaseLinks");
+  const closeMenu = () => {
+    if (!menuToggle || !menu) return;
+    menuToggle.setAttribute("aria-expanded", "false");
+    menuToggle.setAttribute("aria-label", "Open navigation menu");
+    menu.classList.remove("is-open");
+  };
+  menuToggle?.addEventListener("click", () => {
+    const willOpen = menuToggle.getAttribute("aria-expanded") !== "true";
+    menuToggle.setAttribute("aria-expanded", String(willOpen));
+    menuToggle.setAttribute("aria-label", willOpen ? "Close navigation menu" : "Open navigation menu");
+    menu?.classList.toggle("is-open", willOpen);
+  });
+  menu?.querySelectorAll("a").forEach((link) => link.addEventListener("click", closeMenu));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeMenu();
+  });
+  document.addEventListener("click", (event) => {
+    if (!menu?.classList.contains("is-open")) return;
+    if (!event.target.closest(".showcase-nav")) closeMenu();
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 780) closeMenu();
+  }, { passive: true });
+
   const navigationLinks = [...document.querySelectorAll('.showcase-links a[href^="#"]')];
   const linkBySection = new Map();
   navigationLinks.forEach((link) => {
