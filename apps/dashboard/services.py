@@ -122,7 +122,9 @@ def dashboard_metrics():
         "latest_backup": latest_backup,
         "backup_scheduler_configured": settings.FMIS_BACKUP_SCHEDULER_CONFIGURED,
         "backup_encryption_configured": bool(settings.FMIS_BACKUP_ENCRYPTION_KEY),
-        "backup_offsite_configured": bool(settings.BACKUP_AZURE_CONTAINER_URL),
+        "backup_offsite_configured": bool(
+            settings.BACKUP_AZURE_CONTAINER_URL or settings.BACKUP_RCLONE_REMOTE
+        ),
     }
 
 

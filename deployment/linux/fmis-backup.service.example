@@ -1,0 +1,17 @@
+[Unit]
+Description=Create and verify an encrypted FMIS backup
+After=mysql.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fmis
+Group=fmis
+WorkingDirectory=/srv/fmis/app
+EnvironmentFile=/etc/fmis/fmis.env
+ExecStart=/srv/fmis/venv/bin/python manage.py backup_fmis --force
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/fmis/app/media /var/log/fmis /var/backups/fmis

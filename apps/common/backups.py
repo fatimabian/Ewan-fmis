@@ -210,10 +210,65 @@ def _azure_blob_url(filename):
     return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, ""))
 
 
+def _rclone_executable():
+    configured = getattr(settings, "RCLONE_PATH", "").strip()
+    candidates = [configured, shutil.which("rclone")]
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return Path(candidate)
+    raise RuntimeError("rclone was not found. Install it or configure RCLONE_PATH.")
+
+
+def _rclone_destination(filename):
+    remote = getattr(settings, "BACKUP_RCLONE_REMOTE", "").strip()
+    if not remote:
+        return ""
+    if ":" not in remote or any(character in remote for character in ("\n", "\r")):
+        raise RuntimeError("BACKUP_RCLONE_REMOTE must use the form remote:folder.")
+    return f"{remote.rstrip('/')}/{filename}"
+
+
+def offsite_backup_configured():
+    return bool(
+        getattr(settings, "BACKUP_AZURE_CONTAINER_URL", "").strip()
+        or getattr(settings, "BACKUP_RCLONE_REMOTE", "").strip()
+    )
+
+
+def _upload_with_rclone(path):
+    destination = _rclone_destination(path.name)
+    if not destination:
+        return False
+    executable = str(_rclone_executable())
+    upload = subprocess.run(
+        [executable, "copyto", str(path), destination],
+        capture_output=True,
+        text=True,
+        timeout=1800,
+    )
+    if upload.returncode:
+        raise RuntimeError("Encrypted off-site backup upload failed.")
+    verification = subprocess.run(
+        [executable, "size", destination, "--json"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if verification.returncode:
+        raise RuntimeError("Off-site backup upload could not be verified.")
+    try:
+        remote_size = int(json.loads(verification.stdout)["bytes"])
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        raise RuntimeError("Off-site backup verification returned an invalid result.") from error
+    if remote_size != path.stat().st_size:
+        raise RuntimeError("Off-site backup size did not match the verified local archive.")
+    return True
+
+
 def _upload_and_verify(path, checksum):
     blob_url = _azure_blob_url(path.name)
     if not blob_url:
-        return False
+        return _upload_with_rclone(path)
     try:
         with path.open("rb") as backup_file:
             response = requests.put(

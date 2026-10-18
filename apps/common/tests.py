@@ -2598,3 +2598,30 @@ class FMISRequirementTests(TestCase):
             self.assertIn("fmis-backup-test.fmisbak", upload.call_args.args[0])
             self.assertEqual(upload.call_args.kwargs["headers"]["x-ms-blob-type"], "BlockBlob")
             self.assertEqual(verify.call_count, 1)
+
+    def test_rclone_backup_upload_verifies_remote_size(self):
+        from apps.common.backups import _upload_and_verify
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            archive = Path(temp_dir) / "fmis-backup-test.fmisbak"
+            archive.write_bytes(b"encrypted-backup")
+            completed = Mock(returncode=0, stdout="")
+            verified = Mock(
+                returncode=0,
+                stdout=json.dumps({"count": 1, "bytes": archive.stat().st_size}),
+            )
+            with override_settings(
+                BACKUP_AZURE_CONTAINER_URL="",
+                BACKUP_RCLONE_REMOTE="gdrive:fmis-production",
+                RCLONE_PATH="/usr/bin/rclone",
+            ), patch("apps.common.backups.Path.is_file", return_value=True), patch(
+                "apps.common.backups.subprocess.run",
+                side_effect=[completed, verified],
+            ) as run:
+                self.assertTrue(_upload_and_verify(archive, "a" * 64))
+            self.assertEqual(run.call_args_list[0].args[0][1], "copyto")
+            self.assertEqual(
+                run.call_args_list[0].args[0][-1],
+                "gdrive:fmis-production/fmis-backup-test.fmisbak",
+            )
+            self.assertEqual(run.call_args_list[1].args[0][1], "size")

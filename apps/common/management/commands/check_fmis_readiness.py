@@ -6,7 +6,13 @@ from django.core.mail import get_connection
 from django.core.management import BaseCommand, CommandError
 from django.db import connection
 
-from apps.common.backups import _azure_blob_url, _dump_executable, _encryption_key
+from apps.common.backups import (
+    _azure_blob_url,
+    _dump_executable,
+    _encryption_key,
+    _rclone_destination,
+    _rclone_executable,
+)
 
 
 class Command(BaseCommand):
@@ -41,7 +47,7 @@ class Command(BaseCommand):
         check("SMTP connection", self._open_email_connection)
         check("Backup encryption key", _encryption_key)
         check("MariaDB dump utility", _dump_executable)
-        check("Azure backup URL", lambda: _azure_blob_url("readiness-test.fmisbak") or self._missing_azure())
+        check("Off-site backup storage", self._check_offsite_storage)
         check("Application log directory", self._check_log_directory)
         check("Backup free disk space", self._check_backup_disk)
 
@@ -71,8 +77,15 @@ class Command(BaseCommand):
             email_connection.close()
 
     @staticmethod
-    def _missing_azure():
-        raise RuntimeError("BACKUP_AZURE_CONTAINER_URL is not configured")
+    def _check_offsite_storage():
+        if _azure_blob_url("readiness-test.fmisbak"):
+            return
+        if _rclone_destination("readiness-test.fmisbak"):
+            _rclone_executable()
+            return
+        raise RuntimeError(
+            "configure BACKUP_AZURE_CONTAINER_URL or BACKUP_RCLONE_REMOTE"
+        )
 
     @staticmethod
     def _check_log_directory():

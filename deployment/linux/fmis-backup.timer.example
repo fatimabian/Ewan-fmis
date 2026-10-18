@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the encrypted FMIS backup every night
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 Asia/Manila
+Persistent=true
+RandomizedDelaySec=10m
+Unit=fmis-backup.service
+
+[Install]
+WantedBy=timers.target

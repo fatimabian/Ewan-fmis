@@ -1,0 +1,24 @@
+[Unit]
+Description=Rosario FMIS Django application
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=fmis
+Group=fmis
+WorkingDirectory=/srv/fmis/app
+EnvironmentFile=/etc/fmis/fmis.env
+ExecStart=/srv/fmis/venv/bin/python -m waitress --listen=127.0.0.1:8080 --threads=16 --connection-limit=250 --backlog=256 config.wsgi:application
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/fmis/app/media /var/log/fmis /var/backups/fmis
+
+[Install]
+WantedBy=multi-user.target

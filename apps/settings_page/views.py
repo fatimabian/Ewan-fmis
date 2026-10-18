@@ -9,7 +9,7 @@ from django.shortcuts import redirect
 from django.views import View
 from django.views.generic import FormView
 from apps.common.mixins import FMISLoginRequiredMixin
-from apps.common.backups import create_verified_backup
+from apps.common.backups import create_verified_backup, offsite_backup_configured
 from apps.common.permissions import AdminRequiredMixin
 from apps.activity_logs.services import record_request_event
 from .forms import ProfileForm
@@ -61,7 +61,7 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
                         else 0
                     ),
                     "backup_encryption_configured": bool(settings.FMIS_BACKUP_ENCRYPTION_KEY),
-                    "backup_offsite_configured": bool(settings.BACKUP_AZURE_CONTAINER_URL),
+                    "backup_offsite_configured": offsite_backup_configured(),
                     "backup_scheduler_configured": settings.FMIS_BACKUP_SCHEDULER_CONFIGURED,
                 }
             )
