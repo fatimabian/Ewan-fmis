@@ -153,6 +153,11 @@ class UserLoginView(LoginView):
     authentication_form = LoginForm
     redirect_authenticated_user = True
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["remember_login_seconds"] = settings.REMEMBER_LOGIN_SECONDS
+        return context
+
     def post(self, request, *args, **kwargs):
         self.login_limit_key = _request_limit_key(
             "login", request, request.POST.get("username", "")

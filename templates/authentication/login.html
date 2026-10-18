@@ -22,7 +22,7 @@
       </div>
     {% endif %}
 
-    <form method="post" action="{% url 'authentication:login' %}" class="landing-signin-form" novalidate>
+    <form method="post" action="{% url 'authentication:login' %}" class="landing-signin-form" autocomplete="on" data-remember-seconds="{{ remember_login_seconds|default:604800 }}" novalidate>
       {% csrf_token %}
       {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
       <label{% if form.username.errors or form.non_field_errors %} class="has-error"{% endif %}>
@@ -47,4 +47,40 @@
     </form>
   </section>
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'js/password-toggle.min.js' %}?v=1"></script>{% endblock %}
+{% block scripts %}
+  <script defer src="{% static 'js/password-toggle.min.js' %}?v=1"></script>
+  <script>
+    (() => {
+      const form = document.querySelector(".landing-signin-form");
+      const username = form?.querySelector('[name="username"]');
+      const remember = form?.querySelector('[name="remember_me"]');
+      const storageKey = "fmis.remembered-login";
+      if (!form || !username || !remember) return;
+
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+        if (saved && saved.expiresAt > Date.now()) {
+          remember.checked = true;
+          if (!username.value) username.value = saved.username || "";
+        } else {
+          localStorage.removeItem(storageKey);
+        }
+
+        remember.addEventListener("change", () => {
+          if (!remember.checked) localStorage.removeItem(storageKey);
+        });
+        form.addEventListener("submit", () => {
+          if (!remember.checked) {
+            localStorage.removeItem(storageKey);
+            return;
+          }
+          const seconds = Number(form.dataset.rememberSeconds) || 604800;
+          localStorage.setItem(storageKey, JSON.stringify({
+            username: username.value.trim(),
+            expiresAt: Date.now() + (seconds * 1000),
+          }));
+        });
+      } catch (error) {}
+    })();
+  </script>
+{% endblock %}

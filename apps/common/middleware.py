@@ -61,20 +61,21 @@ class SessionTimeoutMiddleware:
                     return redirect(
                         f"{login_url}?{urlencode({'next': request.get_full_path()})}"
                     )
-            last_activity = request.session.get(self.SESSION_KEY)
-            if last_activity and now - int(last_activity) > self._timeout_seconds():
-                logout(request)
-                if request.headers.get("x-requested-with") == "XMLHttpRequest":
-                    return JsonResponse(
-                        {"detail": "Your session expired due to inactivity."}, status=401
+            else:
+                last_activity = request.session.get(self.SESSION_KEY)
+                if last_activity and now - int(last_activity) > self._timeout_seconds():
+                    logout(request)
+                    if request.headers.get("x-requested-with") == "XMLHttpRequest":
+                        return JsonResponse(
+                            {"detail": "Your session expired due to inactivity."}, status=401
+                        )
+                    messages.warning(
+                        request, "Your session expired due to inactivity. Please sign in again."
                     )
-                messages.warning(
-                    request, "Your session expired due to inactivity. Please sign in again."
-                )
-                login_url = reverse("authentication:login")
-                return redirect(
-                    f"{login_url}?{urlencode({'next': request.get_full_path()})}"
-                )
+                    login_url = reverse("authentication:login")
+                    return redirect(
+                        f"{login_url}?{urlencode({'next': request.get_full_path()})}"
+                    )
             request.session[self.SESSION_KEY] = now
         return self.get_response(request)
 

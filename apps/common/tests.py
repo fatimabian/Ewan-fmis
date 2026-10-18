@@ -356,7 +356,7 @@ class FMISRequirementTests(TestCase):
         self.assertTrue(response.url.startswith(reverse("authentication:login")))
         self.assertNotIn("_auth_user_id", self.client.session)
 
-    def test_remembered_login_still_expires_after_inactivity(self):
+    def test_remembered_login_stays_active_during_idle_period(self):
         self.client.post(
             reverse("authentication:login"),
             {"username": "staff", "password": "StrongPass123!", "remember_me": "on"},
@@ -366,9 +366,17 @@ class FMISRequirementTests(TestCase):
         session.save()
         cache.set("fmis:session-timeout-minutes", 15, 60)
         response = self.client.get(reverse("dashboard:staff_home"))
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(response.url.startswith(reverse("authentication:login")))
-        self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_login_page_restores_remembered_username_without_storing_password(self):
+        response = self.client.get(reverse("authentication:login"))
+        self.assertContains(response, 'autocomplete="on"')
+        self.assertContains(response, 'autocomplete="username"')
+        self.assertContains(response, 'autocomplete="current-password"')
+        self.assertContains(response, 'data-remember-seconds="604800"')
+        self.assertContains(response, 'fmis.remembered-login')
+        self.assertNotContains(response, "password: username.value")
 
     def test_unremembered_login_ends_with_the_browser_session(self):
         response = self.client.post(
