@@ -288,15 +288,14 @@ def staff_dashboard_metrics():
     current_month = _month_start(today)
     requests = ServiceRequest.objects.select_related("farmer", "service")
     open_filter = Q(status="PENDING") | Q(status="IN_PROGRESS")
-    rosario_farmers = Farmer.objects.filter(
-        is_active=True,
-        city_municipality__iexact="Rosario",
-        province__iexact="Batangas",
-    )
+    # FMIS is already scoped to Rosario at the application and form level.
+    # Query the live operational tables directly here. Re-filtering on free-text
+    # location fields caused otherwise valid saved records (for example legacy
+    # values with trailing spaces) to disappear from every dashboard metric.
+    rosario_farmers = Farmer.objects.filter(is_active=True)
     rosario_parcels = FarmParcel.objects.filter(
         is_active=True,
-        municipality__iexact="Rosario",
-        province__iexact="Batangas",
+        farmer__is_active=True,
     )
     rosario_crops = CropRecord.objects.filter(is_active=True, parcel__in=rosario_parcels)
     recommendation_rows = list(

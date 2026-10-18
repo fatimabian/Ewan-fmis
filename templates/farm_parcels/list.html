@@ -218,6 +218,7 @@
               <tr>
                 <th>Farmer ID</th>
                 <th>Farmer Name</th>
+                <th>Farm Parcel</th>
                 <th>Area (ha)</th>
                 <th>Ownership</th>
                 <th>Land Type</th>
@@ -235,6 +236,7 @@
                     <a class="record-cell-link" href="{% url 'farm_parcels:detail' parcel.pk %}">{{ parcel.farmer.record_id }}</a>
                   </td>
                   <td>{{ parcel.farmer.list_name }}</td>
+                  <td>{{ parcel.display_name }}</td>
                   <td>{{ parcel.area_hectares }}</td>
                   <td>{{ parcel.get_ownership_type_display }}</td>
                   <td>{{ parcel.get_land_type_display }}</td>
@@ -263,7 +265,7 @@
                 </tr>
               {% empty %}
                 <tr>
-                <td colspan="8" class="text-center py-5">No farm parcels matched your filters.</td>
+                <td colspan="9" class="text-center py-5">No farm parcels matched your filters.</td>
                 </tr>
               {% endfor %}
             </tbody>

@@ -116,8 +116,11 @@
       background:var(--surface,#fff)
   }
   .farmer-popup{
-      width:470px;
-      max-width:100%
+      width:min(300px,calc(100vw - 70px));
+      max-width:100%;
+      max-height:min(58vh,430px);
+      overflow-y:auto;
+      overscroll-behavior:contain
   }
   .farmer-popup-head{
       display:flex;
@@ -126,9 +129,9 @@
       margin-bottom:11px
   }
   .farmer-popup-head img,.farmer-avatar{
-      width:56px;
-      height:56px;
-      flex:0 0 56px;
+      width:44px;
+      height:44px;
+      flex:0 0 44px;
       border-radius:12px;
       object-fit:cover
   }
@@ -142,7 +145,7 @@
   }
   .farmer-popup h3{
       margin:0 0 3px;
-      font-size:18px
+      font-size:16px
   }
   .farmer-popup small{
       color:#657287
@@ -155,7 +158,7 @@
   }
   .parcel-popup-photo{
       width:100%;
-      height:190px;
+      height:110px;
       margin:10px 0 12px;
       object-fit:cover;
       border:1px solid #dfe7e2;
@@ -356,7 +359,8 @@
           height:58vh
       }
       .farmer-popup{
-          width:min(290px,78vw)
+          width:min(244px,calc(100vw - 92px));
+          max-height:min(52vh,360px)
       }
       .farmer-popup-head img,.farmer-avatar{
           width:48px;
@@ -596,6 +600,7 @@
                 edit.href = item.edit_url;
                 popup.appendChild(edit);
                 const mobilePopup = window.matchMedia('(max-width:560px)').matches;
+                const popupWidth = Math.max(190, Math.min(mobilePopup ? 244 : 300, map.getSize().x - 54));
                 const farmerMarker = L.marker([item.lat, item.lng], {
                     icon: farmerIcon,
                     draggable: false,
@@ -609,9 +614,13 @@
                         className: 'farmer-map-label'
                     })
                     .bindPopup(popup, {
-                        maxWidth: mobilePopup ? 310 : 510,
-                        minWidth: mobilePopup ? 260 : 470,
-                        maxHeight: 620
+                        maxWidth: popupWidth,
+                        minWidth: Math.min(190, popupWidth),
+                        maxHeight: mobilePopup ? 360 : 430,
+                        autoPan: true,
+                        keepInView: true,
+                        autoPanPaddingTopLeft: [18, 82],
+                        autoPanPaddingBottomRight: [18, 18]
                     });
                 farmerMarker.fmisFarmer = item;
                 markerByFarmer.set(String(item.id), farmerMarker);

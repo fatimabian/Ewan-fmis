@@ -77,13 +77,20 @@ document.addEventListener("DOMContentLoaded", () => {
     alert.hidden = true;
   });
   const sidebarToggle = document.getElementById("sidebarToggle");
+  const notificationMenu = document.querySelector(".notification-menu");
   const isMobileNavigation = () => window.matchMedia("(max-width: 600px)").matches;
+  const closeMobileNavigation = () => {
+    document.body.classList.remove("nav-mobile-open");
+    if (isMobileNavigation()) sidebarToggle?.setAttribute("aria-expanded", "false");
+  };
+  const closeNotifications = () => notificationMenu?.removeAttribute("open");
   if (!isMobileNavigation() && localStorage.getItem("fmis-nav-collapsed") === "true") {
     document.body.classList.add("nav-collapsed");
     sidebarToggle?.setAttribute("aria-expanded", "false");
   }
   sidebarToggle?.addEventListener("click", () => {
     if (isMobileNavigation()) {
+      closeNotifications();
       const opened = document.body.classList.toggle("nav-mobile-open");
       sidebarToggle.setAttribute("aria-expanded", String(opened));
     } else {
@@ -92,9 +99,32 @@ document.addEventListener("DOMContentLoaded", () => {
       sidebarToggle.setAttribute("aria-expanded", String(!collapsed));
     }
   });
-  document.querySelectorAll(".sidebar nav a").forEach((link) => link.addEventListener("click", () => document.body.classList.remove("nav-mobile-open")));
+  document.querySelectorAll(".sidebar nav a, .sidebar .brand").forEach((link) => link.addEventListener("click", closeMobileNavigation));
+  document.querySelector("[data-notification-close]")?.addEventListener("click", closeNotifications);
+  notificationMenu?.addEventListener("toggle", () => {
+    if (notificationMenu.open) closeMobileNavigation();
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (notificationMenu?.open && !notificationMenu.contains(event.target)) closeNotifications();
+    if (isMobileNavigation() && document.body.classList.contains("nav-mobile-open") &&
+        !event.target.closest(".sidebar") && !event.target.closest("#sidebarToggle")) {
+      closeMobileNavigation();
+    }
+  });
+  window.addEventListener("scroll", closeNotifications, { passive: true });
+  document.addEventListener("scroll", closeNotifications, { passive: true, capture: true });
+  window.addEventListener("resize", () => {
+    closeMobileNavigation();
+    closeNotifications();
+    if (!isMobileNavigation()) {
+      sidebarToggle?.setAttribute("aria-expanded", String(!document.body.classList.contains("nav-collapsed")));
+    }
+  });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") document.body.classList.remove("nav-mobile-open");
+    if (event.key === "Escape") {
+      closeMobileNavigation();
+      closeNotifications();
+    }
   });
   const currentPath = window.location.pathname;
   const roleLabel = document.querySelector(".sidebar-user small")?.textContent.trim();

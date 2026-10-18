@@ -433,7 +433,15 @@
                 <div class="notification-panel">
                   <div class="notification-panel-heading">
                     <strong>Notifications</strong>
-                    <a href="{% url 'notifications:list' %}">View all</a>
+                    <div class="notification-panel-actions">
+                      <a href="{% url 'notifications:list' %}">View all</a>
+                      <button type="button"
+                              class="notification-close"
+                              data-notification-close
+                              aria-label="Close notifications">
+                        <i class="bi bi-x-lg"></i>
+                      </button>
+                    </div>
                   </div>
                   <div class="notification-preview-list">
                     {% for notification in notification_preview %}

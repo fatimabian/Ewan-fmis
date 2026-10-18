@@ -1418,6 +1418,21 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(map_response, "Street map with place names")
         self.assertContains(map_response, "World_Imagery")
         self.assertContains(map_response, "maxBounds: rosarioBounds")
+        self.assertContains(map_response, "keepInView: true")
+
+    def test_newest_parcel_is_first_and_named_in_the_farm_parcel_table(self):
+        newest = FarmParcel.objects.create(
+            farmer=self.farmer,
+            parcel_name="Newest Registered Field",
+            barangay="Bulihan",
+            area_hectares=Decimal("1.25"),
+            ownership_type="OWNED",
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("farm_parcels:list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["object_list"][0], newest)
+        self.assertContains(response, "Newest Registered Field")
 
     def test_parcel_map_rejects_pins_outside_rosario_batangas(self):
         self.client.force_login(self.staff)
@@ -1995,6 +2010,25 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(response, "Inventor")
         self.assertNotContains(response, "Pending Projects")
         self.assertNotContains(response, "Requests by Service")
+
+    def test_staff_dashboard_reads_all_active_saved_records_from_the_database(self):
+        # Older imports and user-entered records may contain harmless spacing in
+        # fixed location fields. They are still FMIS records and must be counted.
+        self.farmer.city_municipality = "Rosario "
+        self.farmer.province = "Batangas "
+        self.farmer.save(update_fields=["city_municipality", "province"])
+        self.parcel.municipality = "Rosario "
+        self.parcel.province = "Batangas "
+        self.parcel.save(update_fields=["municipality", "province"])
+
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard:staff_home"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["farmers"], 1)
+        self.assertEqual(response.context["parcels"], 1)
+        self.assertEqual(response.context["crops"], 1)
+        self.assertEqual(response.context["managed_land_area"], Decimal("2.50"))
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
     def test_farmer_qr_uses_configured_authenticated_field_address(self):
