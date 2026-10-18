@@ -1232,6 +1232,7 @@ class FMISRequirementTests(TestCase):
             {
                 "farmer": self.farmer.pk,
                 "service_request": request_item.pk,
+                "status": "COMPLETED",
                 "intervention_type": "SEEDS",
                 "intervention_date": date.today().isoformat(),
                 "description": "Certified rice seed delivered",

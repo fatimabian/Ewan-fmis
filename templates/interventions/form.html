@@ -22,6 +22,8 @@
 .intervention-checkbox-list label:hover{background:#f1f8f4}
 .intervention-checkbox-list label:has(input:checked){background:#e2f3e9;color:#075d38;font-weight:700}
 .intervention-checkbox-list input[type="checkbox"]{flex:0 0 18px;width:18px!important;height:18px;margin:0;padding:0;accent-color:#16834f}
+.intervention-farmer-search{margin-bottom:8px}
+.intervention-search-result{margin-top:6px;color:#667085;font-size:13px}
 body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#183126;color:#c7f5d8}
 @media(max-width:950px){.intervention-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.intervention-form-grid{grid-template-columns:1fr}.intervention-field.full{grid-column:auto}.intervention-checkbox-list{grid-template-columns:1fr}.intervention-checkbox-list>div:nth-last-child(-n+2){border-bottom:1px solid #e7eee9}.intervention-checkbox-list>div:last-child{border-bottom:0}}
@@ -41,9 +43,8 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
       <div class="intervention-form-grid">
         <div class="intervention-field"><label>{{ form.scope.label }}</label>{{ form.scope }}<span class="intervention-errors">{{ form.scope.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="individual"><label>{{ form.farmer.label }}</label>{{ form.farmer }}<span class="intervention-errors">{{ form.farmer.errors }}</span></div>
-        <div class="intervention-field full" data-recipient-field="selected"><label>{{ form.selected_farmers.label }}</label>{{ form.selected_farmers }}<small class="text-muted">{{ form.selected_farmers.help_text }}</small><span class="intervention-errors">{{ form.selected_farmers.errors }}</span></div>
+        <div class="intervention-field full" data-recipient-field="selected"><label>{{ form.selected_farmers.label }}</label><input class="intervention-farmer-search" type="search" placeholder="Search by Farmer ID, RSBSA number, name, or barangay" autocomplete="off" data-selected-farmer-search>{{ form.selected_farmers }}<small class="intervention-search-result" data-selected-farmer-result aria-live="polite"></small><small class="text-muted">{{ form.selected_farmers.help_text }}</small><span class="intervention-errors">{{ form.selected_farmers.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="barangay"><label>{{ form.target_barangay.label }}</label>{{ form.target_barangay }}<span class="intervention-errors">{{ form.target_barangay.errors }}</span></div>
-        <div class="intervention-field full recipient-help" data-recipient-summary>The recipient list is saved as a fixed snapshot for accurate historical reporting.</div>
         <div class="intervention-field"><label>{{ form.service_request.label }}</label>{{ form.service_request }}<small class="text-muted">{{ form.service_request.help_text }}</small><span class="intervention-errors">{{ form.service_request.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.status.label }}</label>{{ form.status }}<span class="intervention-errors">{{ form.status.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.intervention_type.label }}</label>{{ form.intervention_type }}<span class="intervention-errors">{{ form.intervention_type.errors }}</span></div>
@@ -66,6 +67,8 @@ document.addEventListener("DOMContentLoaded",()=>{
   const serviceRequest=document.querySelector('[name="service_request"]');
   const interventionType=document.querySelector('[name="intervention_type"]');
   const farmer=document.querySelector('[name="farmer"]');
+  const farmerSearch=document.querySelector('[data-selected-farmer-search]');
+  const farmerResult=document.querySelector('[data-selected-farmer-result]');
   if(!scope)return;
   const sync=()=>{
     document.querySelectorAll("[data-recipient-field]").forEach(el=>{
@@ -94,6 +97,19 @@ document.addEventListener("DOMContentLoaded",()=>{
   };
   scope.addEventListener("change",sync);
   serviceRequest?.addEventListener("change",syncRequest);
+  const filterSelectedFarmers=()=>{
+    if(!farmerSearch)return;
+    const query=farmerSearch.value.trim().toLowerCase();
+    const rows=[...document.querySelectorAll('.intervention-checkbox-list>div')];
+    let matches=0;
+    rows.forEach(row=>{
+      const visible=!query||row.textContent.toLowerCase().includes(query);
+      row.hidden=!visible;
+      if(visible)matches+=1;
+    });
+    if(farmerResult)farmerResult.textContent=query?`${matches} matching farmer${matches===1?'':'s'}`:"";
+  };
+  farmerSearch?.addEventListener("input",filterSelectedFarmers);
   sync();syncRequest();
 });
 </script>

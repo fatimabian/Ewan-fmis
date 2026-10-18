@@ -7,7 +7,10 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.authentication.models import CustomUser
+from apps.crops.models import CropRecord
+from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
+from apps.service_requests.models import ServiceRequest
 
 from .models import Intervention, InterventionRecipient
 
@@ -37,6 +40,7 @@ class InterventionModuleTests(TestCase):
         self.client.force_login(self.staff)
         response = self.client.post(reverse("interventions:create"), {
             "farmer": self.farmer.pk,
+            "status": "COMPLETED",
             "intervention_type": "SEEDS",
             "intervention_date": date.today().isoformat(),
             "description": "Certified rice seed distribution",
@@ -87,7 +91,22 @@ class InterventionModuleTests(TestCase):
     def test_active_status_is_managed_only_by_archive_actions(self):
         from .forms import InterventionForm
 
-        self.assertNotIn("is_active", InterventionForm().fields)
+        form = InterventionForm()
+        self.assertNotIn("is_active", form.fields)
+        self.assertEqual(form.initial["status"], "")
+        self.assertTrue(form.fields["status"].required)
+
+    def test_create_form_has_searchable_farmer_selection_without_snapshot_notice(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("interventions:create"))
+        self.assertContains(
+            response,
+            "Search by Farmer ID, RSBSA number, name, or barangay",
+        )
+        self.assertNotContains(
+            response,
+            "The recipient list is saved as a fixed snapshot",
+        )
 
     def test_selected_farmer_intervention_saves_a_fixed_recipient_snapshot(self):
         second_farmer = Farmer.objects.create(
@@ -120,13 +139,19 @@ class InterventionModuleTests(TestCase):
         self.assertEqual(response.url, reverse("dashboard:home"))
 
     def test_demo_farmer_commands_are_repeatable_and_safely_removable(self):
-        call_command("seed_demo_farmers", count=7, stdout=StringIO())
-        call_command("seed_demo_farmers", count=7, stdout=StringIO())
-        demo_farmers = Farmer.objects.filter(rsbsa_number__startswith="DEMO-RSBSA-")
-        self.assertEqual(demo_farmers.count(), 7)
-        self.assertTrue(
-            demo_farmers.filter(remarks__startswith="FMIS-DEMO-DATA:").exists()
+        call_command("seed_demo_farmers", count=12, stdout=StringIO())
+        call_command("seed_demo_farmers", count=12, stdout=StringIO())
+        demo_farmers = Farmer.objects.filter(remarks__startswith="FMIS-DEMO-DATA:")
+        self.assertEqual(demo_farmers.count(), 12)
+        self.assertFalse(demo_farmers.filter(first_name__startswith="Demo").exists())
+        self.assertEqual(
+            set(demo_farmers.values_list("registration_status", flat=True)),
+            {"COMPLETED", "SUBMITTED", "ENCODED", "SKIPPED"},
         )
+        self.assertEqual(FarmParcel.objects.filter(farmer__in=demo_farmers).count(), 12)
+        self.assertEqual(CropRecord.objects.filter(parcel__farmer__in=demo_farmers).count(), 12)
+        self.assertEqual(ServiceRequest.objects.filter(farmer__in=demo_farmers).count(), 4)
+        self.assertEqual(Intervention.objects.filter(farmer__in=demo_farmers).count(), 3)
         with self.assertRaises(CommandError):
             call_command("delete_demo_farmers", stdout=StringIO())
 
@@ -136,5 +161,5 @@ class InterventionModuleTests(TestCase):
             stdout=StringIO(),
         )
 
-        self.assertFalse(Farmer.objects.filter(rsbsa_number__startswith="DEMO-RSBSA-").exists())
+        self.assertFalse(Farmer.objects.filter(remarks__startswith="FMIS-DEMO-DATA:").exists())
         self.assertTrue(Farmer.objects.filter(pk=self.farmer.pk).exists())

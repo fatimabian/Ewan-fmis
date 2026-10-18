@@ -101,11 +101,8 @@
     clear.className = "fmis-date-clear";
     clear.textContent = "Clear";
     clear.hidden = isRequired;
-    const apply = document.createElement("button");
-    apply.type = "button";
-    apply.className = "fmis-date-apply";
-    apply.innerHTML = '<i class="bi bi-calendar-check" aria-hidden="true"></i> Choose date';
-    footer.append(clear, apply);
+    footer.append(clear);
+    footer.hidden = isRequired;
     panel.append(header, weekdayRow, days, footer);
 
     const initial = parseISO(input.value);
@@ -163,7 +160,12 @@
           button.classList.toggle("is-selected", sameDay(date, draft));
           button.addEventListener("click", () => {
             draft = date;
-            render();
+            selected = date;
+            input.value = toISO(date);
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            updateTrigger();
+            close(true);
           });
         }
         days.appendChild(button);
@@ -220,15 +222,6 @@
     yearSelect.addEventListener("change", () => {
       view = new Date(Number(yearSelect.value), view.getMonth(), 1);
       render();
-    });
-    apply.addEventListener("click", () => {
-      if (!draft) return;
-      input.value = toISO(draft);
-      selected = draft;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      updateTrigger();
-      close(true);
     });
     clear.addEventListener("click", () => {
       input.value = "";

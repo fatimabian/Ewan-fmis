@@ -72,9 +72,11 @@ class InterventionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         active_farmers = active_farmer_queryset()
         self.fields["scope"].required = False
-        self.fields["status"].required = False
+        self.fields["status"].required = True
+        self.fields["status"].choices = [("", "---------"), *Intervention.STATUS_CHOICES]
         self.fields["scope"].initial = self.instance.scope or "INDIVIDUAL"
-        self.fields["status"].initial = self.instance.status or "COMPLETED"
+        if not self.instance.pk and not self.is_bound:
+            self.initial["status"] = ""
         self.fields["selected_farmers"].queryset = active_farmers
         if self.instance and self.instance.pk:
             self.fields["selected_farmers"].initial = self.instance.recipients.filter(
@@ -106,7 +108,6 @@ class InterventionForm(forms.ModelForm):
                 request.service.code, "OTHER"
             )
         cleaned["scope"] = scope
-        cleaned["status"] = cleaned.get("status") or "COMPLETED"
         farmer = cleaned.get("farmer")
         selected = cleaned.get("selected_farmers")
         barangay = cleaned.get("target_barangay")
