@@ -9,7 +9,7 @@ User=fmis
 Group=fmis
 WorkingDirectory=/srv/fmis/app
 EnvironmentFile=/etc/fmis/fmis.env
-ExecStart=/srv/fmis/venv/bin/python -m waitress --listen=127.0.0.1:8080 --threads=16 --connection-limit=250 --backlog=256 config.wsgi:application
+ExecStart=/srv/fmis/venv/bin/python -m waitress --listen=127.0.0.1:8080 --trusted-proxy=127.0.0.1 --trusted-proxy-headers=x-forwarded-proto --threads=16 --connection-limit=250 --backlog=256 config.wsgi:application
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30

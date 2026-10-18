@@ -24,6 +24,8 @@ and `check --deploy` with the production environment loaded.
 Copy `deployment/linux/fmis.service.example` to
 `/etc/systemd/system/fmis.service`, then enable and start it. Waitress listens
 only on `127.0.0.1:8080`; it must never be exposed directly to the internet.
+The service trusts only the local Nginx proxy's `X-Forwarded-Proto` header so
+Django can enforce HTTPS without accepting spoofed proxy headers remotely.
 
 Copy `deployment/linux/nginx-fmis.conf.example` to the Nginx sites directory,
 replace the example hostname, test the Nginx configuration, and enable it. The
