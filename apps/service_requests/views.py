@@ -110,7 +110,7 @@ class ServiceRequestListView(
             queryset = queryset.filter(priority=priority)
         if requested_date:
             queryset = queryset.filter(created_at__date=requested_date)
-        return queryset.order_by("pk")
+        return queryset.order_by("-created_at", "-pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -177,7 +177,7 @@ class ServiceRequestHistoryView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.update({"history_title": "Service Request History", "record_label": f"{self.object.request_id} · {self.object.subject}", "back_url": reverse_lazy("service_requests:detail", args=[self.object.pk]), "edit_url": reverse_lazy("service_requests:edit", args=[self.object.pk]) if self.object.status != "CANCELLED" else "", "edit_label": "Edit Request", "history_entries": service_request_rows(self.object.history.all())})
+        context.update({"history_title": "Service Request History", "record_label": f"{self.object.request_id} · {self.object.service.name}", "back_url": reverse_lazy("service_requests:detail", args=[self.object.pk]), "edit_url": reverse_lazy("service_requests:edit", args=[self.object.pk]) if self.object.status != "CANCELLED" else "", "edit_label": "Edit Request", "history_entries": service_request_rows(self.object.history.all())})
         return context
 
 

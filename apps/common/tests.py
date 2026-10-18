@@ -542,20 +542,20 @@ class FMISRequirementTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("already linked", form.errors["valid_id_number"][0])
 
-    def test_invalid_service_request_is_rejected(self):
+    def test_service_request_subject_is_generated_from_request_type(self):
         form = ServiceRequestForm(
             data={
                 "farmer": self.farmer.pk,
                 "service": self.service.pk,
-                "subject": "No",
                 "priority": "MEDIUM",
                 "status": "PENDING",
                 "notes": "",
                 "assigned_to": self.staff.pk,
             }
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("at least 5", form.errors["subject"][0])
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertNotIn("subject", form.fields)
+        self.assertEqual(form.save().subject, self.service.name)
 
     def test_service_requests_use_protected_standard_dropdown(self):
         self.assertTrue(ServiceCatalog.objects.filter(code="OTHER", is_active=True).exists())
@@ -1263,6 +1263,31 @@ class FMISRequirementTests(TestCase):
         )
         self.assertRedirects(blocked, reverse("service_requests:detail", args=[request_item.pk]))
 
+    def test_pending_request_is_available_and_prefills_intervention_type(self):
+        self.client.force_login(self.staff)
+        request_item = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject=self.service.name,
+            priority="MEDIUM",
+            status="PENDING",
+            assigned_to=self.staff,
+        )
+
+        response = self.client.get(reverse("interventions:create"))
+        self.assertContains(response, request_item.request_id)
+        self.assertContains(response, self.service.name)
+
+        linked = self.client.get(
+            reverse("interventions:create"),
+            {"service_request": request_item.pk},
+        )
+        self.assertEqual(linked.status_code, 200)
+        self.assertEqual(linked.context["form"].initial["farmer"], self.farmer)
+        self.assertEqual(linked.context["form"].initial["service_request"], request_item)
+        self.assertEqual(linked.context["form"].initial["intervention_type"], "SEEDS")
+        self.assertContains(linked, 'data-intervention-type="SEEDS"')
+
     def test_slip_b_is_separate_and_contains_official_parcel_workflow(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("farmers:slip_b", args=[self.farmer.pk]))
@@ -1406,6 +1431,10 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(parcel_list, "RSBSA Record")
         self.assertNotContains(parcel_list, '<select name="crop_type"', html=False)
         self.assertNotContains(parcel_list, "<th>Crop</th>", html=False)
+        self.assertContains(parcel_list, "<th>Actions</th>", html=False)
+        self.assertContains(parcel_list, reverse("farm_parcels:edit", args=[self.parcel.pk]))
+        self.assertContains(parcel_list, reverse("farm_parcels:delete", args=[self.parcel.pk]))
+        self.assertContains(parcel_list, ":nth-child(9){width:8%!important}")
 
         self.parcel.coordinates = "13.8467000, 121.2060000"
         self.parcel.save(update_fields=["coordinates"])
@@ -1774,7 +1803,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(row[3], self.farmer.barangay)
         self.assertEqual(row[5], request_item.subject)
 
-    def test_farmer_master_list_orders_generated_ids_chronologically(self):
+    def test_farmer_master_list_orders_newest_records_first(self):
         Farmer.objects.create(
             first_name="Zena",
             last_name="Alpha",
@@ -1794,7 +1823,71 @@ class FMISRequirementTests(TestCase):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("farmers:list"))
         ids = [farmer.pk for farmer in response.context["object_list"]]
-        self.assertEqual(ids, sorted(ids))
+        self.assertEqual(ids, sorted(ids, reverse=True))
+
+    def test_operational_record_tables_show_newest_entries_first(self):
+        newest_farmer = Farmer.objects.create(
+            first_name="Latest",
+            last_name="Record",
+            barangay="Bulihan",
+            consent_given=True,
+        )
+        newest_parcel = FarmParcel.objects.create(
+            farmer=newest_farmer,
+            barangay="Bulihan",
+            area_hectares=Decimal("1.00"),
+            ownership_type="OWNED",
+        )
+        newest_crop = CropRecord.objects.create(
+            parcel=newest_parcel,
+            crop_type="Coffee",
+            area_hectares=Decimal("1.00"),
+        )
+        newest_request = ServiceRequest.objects.create(
+            farmer=newest_farmer,
+            service=self.service,
+            subject=self.service.name,
+            status="PENDING",
+        )
+        newest_intervention = Intervention.objects.create(
+            farmer=newest_farmer,
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Latest delivered assistance",
+        )
+
+        self.client.force_login(self.staff)
+        self.assertEqual(
+            self.client.get(reverse("farmers:list")).context["object_list"][0],
+            newest_farmer,
+        )
+        self.assertEqual(
+            self.client.get(reverse("farm_parcels:list")).context["object_list"][0],
+            newest_parcel,
+        )
+        crop_response = self.client.get(reverse("crops:list"))
+        listed_farmer = crop_response.context["object_list"][0]
+        self.assertEqual(listed_farmer, newest_farmer)
+        self.assertEqual(listed_farmer.listed_crop_records[0], newest_crop)
+        self.assertEqual(
+            self.client.get(reverse("service_requests:list")).context["object_list"][0],
+            newest_request,
+        )
+        self.assertEqual(
+            self.client.get(reverse("interventions:list")).context["object_list"][0],
+            newest_intervention,
+        )
+
+        self.client.force_login(self.admin)
+        newest_account = get_user_model().objects.create_user(
+            username="newest-account",
+            password="StrongPass123!",
+            role="STAFF",
+        )
+        self.assertEqual(
+            self.client.get(reverse("accounts:list")).context["object_list"][0],
+            newest_account,
+        )
 
     def test_reports_start_with_choose_report_and_show_only_relevant_filters(self):
         self.client.force_login(self.staff)
@@ -2062,7 +2155,10 @@ class FMISRequirementTests(TestCase):
 
         parcel_list = self.client.get(reverse("farm_parcels:list"))
         listed_parcels = list(parcel_list.context["object_list"])
-        self.assertEqual([parcel.pk for parcel in listed_parcels], sorted(parcel.pk for parcel in listed_parcels))
+        self.assertEqual(
+            [parcel.pk for parcel in listed_parcels],
+            sorted((parcel.pk for parcel in listed_parcels), reverse=True),
+        )
         self.assertIn(inactive_parcel, listed_parcels)
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")

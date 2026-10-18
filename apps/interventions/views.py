@@ -16,6 +16,7 @@ from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
 
 from .forms import InterventionForm
 from .models import Intervention, InterventionRecipient
+from .services import INTERVENTION_TYPE_BY_SERVICE_CODE
 
 
 def _resolved_recipient_ids(form):
@@ -93,7 +94,7 @@ class InterventionListView(InterventionAccessMixin, ListView):
             queryset = queryset.filter(intervention_type=kind)
         if status != "all":
             queryset = queryset.filter(is_active=status != "archived")
-        return queryset.order_by("pk")
+        return queryset.order_by("-intervention_date", "-created_at", "-pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -112,10 +113,10 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
         request_id = request.GET.get("service_request", "").strip()
         if request_id.isdigit():
             service_request = get_object_or_404(ServiceRequest, pk=int(request_id))
-            if service_request.status != "IN_PROGRESS":
+            if service_request.status not in {"PENDING", "IN_PROGRESS"}:
                 messages.error(
                     request,
-                    "Only an In Progress service request can proceed to an intervention.",
+                    "Only a Pending or In Progress service request can proceed to an intervention.",
                 )
                 return redirect("service_requests:detail", pk=service_request.pk)
         return super().dispatch(request, *args, **kwargs)
@@ -125,14 +126,18 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
         request_id = self.request.GET.get("service_request", "").strip()
         if request_id.isdigit():
             service_request = ServiceRequest.objects.filter(
-                pk=int(request_id), status="IN_PROGRESS"
-            ).first()
+                pk=int(request_id), status__in=("PENDING", "IN_PROGRESS")
+            ).select_related("service", "farmer").first()
             if service_request:
                 initial.update(
                     {
                         "scope": "INDIVIDUAL",
                         "service_request": service_request,
                         "farmer": service_request.farmer,
+                        "intervention_type": INTERVENTION_TYPE_BY_SERVICE_CODE.get(
+                            service_request.service.code,
+                            "OTHER",
+                        ),
                     }
                 )
         return initial
@@ -149,24 +154,34 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
             response = super().form_valid(form)
             recipient_ids = _resolved_recipient_ids(form)
             _sync_recipients(self.object, recipient_ids)
-            if linked_request and self.object.status == "COMPLETED":
+            if linked_request:
                 previous_status = linked_request.status
-                linked_request.status = "COMPLETED"
-                linked_request.save(update_fields=["status", "updated_at"])
-                ServiceRequestHistory.objects.create(
-                    service_request=linked_request,
-                    actor=self.request.user,
-                    action="UPDATED",
-                    from_status=previous_status,
-                    to_status="COMPLETED",
-                    changes=[
-                        {
-                            "field": "Status",
-                            "before": "In Progress",
-                            "after": "Completed after intervention was recorded",
-                        }
-                    ],
+                next_status = (
+                    "COMPLETED" if self.object.status == "COMPLETED" else "IN_PROGRESS"
                 )
+                if previous_status != next_status:
+                    linked_request.status = next_status
+                    linked_request.save(update_fields=["status", "updated_at"])
+                    ServiceRequestHistory.objects.create(
+                        service_request=linked_request,
+                        actor=self.request.user,
+                        action="UPDATED",
+                        from_status=previous_status,
+                        to_status=next_status,
+                        changes=[
+                            {
+                                "field": "Status",
+                                "before": dict(ServiceRequest.STATUS_CHOICES).get(
+                                    previous_status, previous_status
+                                ),
+                                "after": (
+                                    "Completed after intervention was recorded"
+                                    if next_status == "COMPLETED"
+                                    else "In Progress after intervention was linked"
+                                ),
+                            }
+                        ],
+                    )
             record_request_event(self.request, title="Intervention Recorded", module="Interventions", description=f"{self.request.user.display_name} recorded assistance for {len(recipient_ids)} farmer(s).", target_label=self.object.reference_id)
         if self.object.service_request:
             messages.success(

@@ -6,11 +6,34 @@ from apps.farmers.models import Farmer
 from apps.service_requests.models import ServiceRequest
 
 from .models import Intervention
+from .services import INTERVENTION_TYPE_BY_SERVICE_CODE
 
 
 class FarmerMultipleChoiceField(forms.ModelMultipleChoiceField):
     def label_from_instance(self, farmer):
         return f"{farmer.record_id} - {farmer.list_name} ({farmer.barangay})"
+
+
+class RelatedServiceRequestSelect(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(
+            name, value, label, selected, index, subindex=subindex, attrs=attrs
+        )
+        request = getattr(value, "instance", None)
+        if request:
+            option["attrs"]["data-intervention-type"] = (
+                INTERVENTION_TYPE_BY_SERVICE_CODE.get(request.service.code, "OTHER")
+            )
+            option["attrs"]["data-farmer-id"] = str(request.farmer_id)
+        return option
+
+
+class ServiceRequestChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, request):
+        return (
+            f"{request.request_id} — {request.farmer.list_name} — "
+            f"{request.service.name} ({request.get_status_display()})"
+        )
 
 
 class InterventionForm(forms.ModelForm):
@@ -24,6 +47,12 @@ class InterventionForm(forms.ModelForm):
     )
     target_barangay = forms.ChoiceField(
         choices=ROSARIO_BARANGAY_CHOICES, required=False, label="Barangay"
+    )
+    service_request = ServiceRequestChoiceField(
+        queryset=ServiceRequest.objects.none(),
+        required=False,
+        label="Related service request (optional)",
+        widget=RelatedServiceRequestSelect,
     )
 
     class Meta:
@@ -51,14 +80,16 @@ class InterventionForm(forms.ModelForm):
             self.fields["selected_farmers"].initial = self.instance.recipients.filter(
                 is_active=True
             ).values_list("farmer_id", flat=True)
-        request_ids = ServiceRequest.objects.filter(status="IN_PROGRESS").values_list("pk", flat=True)
+        request_ids = ServiceRequest.objects.filter(
+            status__in=("PENDING", "IN_PROGRESS")
+        ).values_list("pk", flat=True)
         if self.instance and self.instance.pk and self.instance.service_request_id:
             request_ids = ServiceRequest.objects.filter(
                 pk__in=[*request_ids, self.instance.service_request_id]
             ).values_list("pk", flat=True)
         self.fields["service_request"].queryset = ServiceRequest.objects.filter(
             pk__in=request_ids
-        ).select_related("farmer", "service")
+        ).select_related("farmer", "service").order_by("-created_at", "-pk")
         self.fields["service_request"].required = False
         self.fields["service_request"].help_text = (
             "Link the assistance to the request it fulfills, when applicable."
@@ -85,11 +116,11 @@ class InterventionForm(forms.ModelForm):
             )
         if request and farmer and request.farmer_id != farmer.pk:
             self.add_error("service_request", "Choose a request belonging to the selected farmer.")
-        if request and request.status != "IN_PROGRESS" and not (
+        if request and request.status not in {"PENDING", "IN_PROGRESS"} and not (
             self.instance.pk and self.instance.service_request_id == request.pk
         ):
             self.add_error(
                 "service_request",
-                "Only an In Progress service request can proceed to an intervention.",
+                "Only a Pending or In Progress service request can be linked to an intervention.",
             )
         return cleaned

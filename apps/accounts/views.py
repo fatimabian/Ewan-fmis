@@ -19,7 +19,9 @@ class AccountListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
     template_name = "accounts/list.html"
 
     def get_queryset(self):
-        return CustomUser.objects.filter(deleted_at__isnull=True)
+        return CustomUser.objects.filter(deleted_at__isnull=True).order_by(
+            "-date_joined", "-pk"
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

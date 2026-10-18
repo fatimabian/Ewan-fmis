@@ -121,7 +121,7 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
             queryset = queryset.filter(is_active=False)
         elif status != "all":
             queryset = queryset.filter(is_active=True)
-        return queryset.order_by("pk")
+        return queryset.order_by("-created_at", "-pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -158,7 +158,7 @@ class FarmerHistoryView(
         history_entries = farmer_update_rows(
             self.object.update_history.filter(update_type="SLIP_A")
             .select_related("actor")
-            .order_by("created_at", "pk")
+            .order_by("-created_at", "-pk")
         )
         context.update({
             "history_title": "Farmer Update Record History",

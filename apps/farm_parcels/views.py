@@ -97,9 +97,9 @@ class FarmParcelListView(
             queryset = queryset.filter(is_active=False)
         elif status != "all":
             queryset = queryset.filter(is_active=True)
-        # Show every saved parcel by default, including inactive records, and
-        # keep the register in true chronological order (oldest to newest).
-        return queryset.order_by("created_at", "pk")
+        # Show every saved parcel by default, including inactive records, with
+        # the most recently registered parcel first for immediate verification.
+        return queryset.order_by("-created_at", "-pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -145,7 +145,7 @@ class FarmParcelHistoryView(
                 updates.append(entry)
         events = ActivityLog.objects.filter(module="Farm Parcels", target_label=f"{self.object.farmer.record_id} - {self.object.display_name}").select_related("actor")
         rows = farmer_update_rows(updates) + activity_rows(events)
-        rows.sort(key=lambda row: row["date"])
+        rows.sort(key=lambda row: row["date"], reverse=True)
         context.update({"history_title": "Farm Parcel Update Record History", "record_label": f"{self.object.display_name} · {self.object.farmer.full_name}", "back_url": reverse("farm_parcels:detail", args=[self.object.pk]), "edit_url": reverse("farm_parcels:edit", args=[self.object.pk]) if self.object.is_active else "", "edit_label": "Update Record", "history_entries": rows})
         return context
 

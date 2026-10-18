@@ -22,16 +22,13 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
 
     class Meta:
         model = ServiceRequest
-        fields = ["farmer", "service", "subject", "priority", "status", "notes", "assigned_to"]
+        fields = ["farmer", "service", "priority", "status", "notes", "assigned_to"]
         labels = {
             "service": "Request Type",
             "assigned_to": "Assign to Staff",
             "notes": "Request Details",
         }
         widgets = {
-            "subject": forms.TextInput(
-                attrs={"placeholder": "Briefly describe what the farmer needs"}
-            ),
             "notes": forms.Textarea(
                 attrs={"rows": 5, "placeholder": "Add useful details about the farmer's request..."}
             ),
@@ -57,11 +54,13 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         ).order_by("first_name", "last_name", "username")
         self.fields["assigned_to"].required = False
 
-    def clean_subject(self):
-        subject = self.cleaned_data.get("subject", "").strip()
-        if len(subject) < 5:
-            raise forms.ValidationError("Describe the request in at least 5 characters.")
-        return subject
+    def save(self, commit=True):
+        request = super().save(commit=False)
+        request.subject = self.cleaned_data["service"].name
+        if commit:
+            request.save()
+            self.save_m2m()
+        return request
 
     def clean_status(self):
         status = self.cleaned_data.get("status")

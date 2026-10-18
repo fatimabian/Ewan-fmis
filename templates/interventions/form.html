@@ -63,6 +63,9 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
   const scope=document.querySelector('[name="scope"]');
+  const serviceRequest=document.querySelector('[name="service_request"]');
+  const interventionType=document.querySelector('[name="intervention_type"]');
+  const farmer=document.querySelector('[name="farmer"]');
   if(!scope)return;
   const sync=()=>{
     document.querySelectorAll("[data-recipient-field]").forEach(el=>{
@@ -72,7 +75,20 @@ document.addEventListener("DOMContentLoaded",()=>{
     const request=document.querySelector('[name="service_request"]')?.closest('.intervention-field');
     if(request)request.hidden=scope.value!=="INDIVIDUAL";
   };
-  scope.addEventListener("change",sync);sync();
+  const syncRequest=()=>{
+    const option=serviceRequest?.selectedOptions?.[0];
+    if(!option?.value)return;
+    scope.value="INDIVIDUAL";
+    if(farmer&&option.dataset.farmerId)farmer.value=option.dataset.farmerId;
+    if(interventionType&&option.dataset.interventionType){
+      interventionType.value=option.dataset.interventionType;
+      interventionType.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+    sync();
+  };
+  scope.addEventListener("change",sync);
+  serviceRequest?.addEventListener("change",syncRequest);
+  sync();syncRequest();
 });
 </script>
 {% endblock %}

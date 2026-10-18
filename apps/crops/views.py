@@ -1,5 +1,5 @@
 from django.contrib import messages
-from django.db.models import Prefetch, Q
+from django.db.models import Max, Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.db import transaction
@@ -60,20 +60,26 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
         elif status != "all":
             crops = crops.filter(is_active=True)
 
-        parcel_queryset = FarmParcel.objects.order_by("pk").prefetch_related(
+        parcel_queryset = FarmParcel.objects.order_by("-created_at", "-pk").prefetch_related(
             Prefetch(
                 "crops",
-                queryset=crops.order_by("crop_type", "pk"),
+                queryset=crops.order_by("-created_at", "-pk"),
                 to_attr="listed_crops",
             )
         )
         return (
             Farmer.objects.filter(is_active=True, pk__in=crops.values("parcel__farmer_id"))
+            .annotate(
+                latest_crop_id=Max(
+                    "parcels__crops__pk",
+                    filter=Q(parcels__crops__in=crops),
+                )
+            )
             .prefetch_related(
                 Prefetch("parcels", queryset=parcel_queryset, to_attr="listed_parcels")
             )
             .distinct()
-            .order_by("pk")
+            .order_by("-latest_crop_id", "-pk")
         )
 
     def get_context_data(self, **kwargs):
@@ -122,18 +128,18 @@ class FarmerCropDetailView(
     template_name = "crops/farmer_detail.html"
 
     def get_queryset(self):
-        parcels = FarmParcel.objects.order_by("pk").prefetch_related(
+        parcels = FarmParcel.objects.order_by("-created_at", "-pk").prefetch_related(
             Prefetch(
                 "crops",
                 queryset=CropRecord.objects.filter(is_active=True).order_by(
-                    "-planting_date", "pk"
+                    "-created_at", "-pk"
                 ),
                 to_attr="current_crop_records",
             ),
             Prefetch(
                 "crops",
                 queryset=CropRecord.objects.filter(is_active=False).order_by(
-                    "-planting_date", "pk"
+                    "-created_at", "-pk"
                 ),
                 to_attr="archived_crop_records",
             ),

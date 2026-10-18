@@ -17,8 +17,8 @@
         <div class="record-avatar square"><i class="bi bi-chat-square-text"></i></div>
         <div class="record-hero-copy">
           <small>{{ object.request_id }} · {{ object.get_status_display }}</small>
-          <h2>{{ object.subject }}</h2>
-          <p>{{ object.service.name }} · {{ object.farmer.list_name }}</p>
+          <h2>{{ object.service.name }}</h2>
+          <p>{{ object.farmer.list_name }}</p>
         </div>
         <span class="request-status {{ object.status|lower }} record-hero-status">{{ object.get_status_display }}</span>
       </header>
