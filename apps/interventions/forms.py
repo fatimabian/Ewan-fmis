@@ -1,4 +1,5 @@
 from django import forms
+from django.urls import reverse
 
 from apps.common.constants import ROSARIO_BARANGAY_CHOICES
 from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
@@ -71,17 +72,36 @@ class InterventionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         active_farmers = active_farmer_queryset()
+        farmer_search_url = reverse("interventions:farmer_search")
+        self.fields["farmer"].widget.attrs["data-search-url"] = farmer_search_url
         self.fields["scope"].required = False
         self.fields["status"].required = True
         self.fields["status"].choices = [("", "---------"), *Intervention.STATUS_CHOICES]
         self.fields["scope"].initial = self.instance.scope or "INDIVIDUAL"
         if not self.instance.pk and not self.is_bound:
             self.initial["status"] = ""
-        self.fields["selected_farmers"].queryset = active_farmers
+        selected_ids = []
+        if self.is_bound:
+            selected_ids = self.data.getlist(self.add_prefix("selected_farmers"))
+            farmer_id = self.data.get(self.add_prefix("farmer"))
+        else:
+            farmer_id = self.initial.get("farmer")
+            farmer_id = getattr(farmer_id, "pk", farmer_id)
         if self.instance and self.instance.pk:
-            self.fields["selected_farmers"].initial = self.instance.recipients.filter(
+            selected_ids = list(self.instance.recipients.filter(
                 is_active=True
-            ).values_list("farmer_id", flat=True)
+            ).values_list("farmer_id", flat=True))
+            self.fields["selected_farmers"].initial = selected_ids
+            farmer_id = farmer_id or self.instance.farmer_id
+        valid_selected_ids = [value for value in selected_ids if str(value).isdigit()]
+        self.fields["selected_farmers"].queryset = active_farmers.filter(
+            pk__in=valid_selected_ids
+        )
+        self.fields["selected_farmers"].widget.attrs["data-search-url"] = farmer_search_url
+        if farmer_id and str(farmer_id).isdigit():
+            self.fields["farmer"].queryset = active_farmers.filter(pk=farmer_id)
+        else:
+            self.fields["farmer"].queryset = Farmer.objects.none()
         request_ids = ServiceRequest.objects.filter(
             status__in=("PENDING", "IN_PROGRESS")
         ).values_list("pk", flat=True)

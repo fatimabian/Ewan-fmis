@@ -43,7 +43,7 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
       <div class="intervention-form-grid">
         <div class="intervention-field"><label>{{ form.scope.label }}</label>{{ form.scope }}<span class="intervention-errors">{{ form.scope.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="individual"><label>{{ form.farmer.label }}</label>{{ form.farmer }}<span class="intervention-errors">{{ form.farmer.errors }}</span></div>
-        <div class="intervention-field full" data-recipient-field="selected"><label>{{ form.selected_farmers.label }}</label><input class="intervention-farmer-search" type="search" placeholder="Search by Farmer ID, RSBSA number, name, or barangay" autocomplete="off" data-selected-farmer-search>{{ form.selected_farmers }}<small class="intervention-search-result" data-selected-farmer-result aria-live="polite"></small><small class="text-muted">{{ form.selected_farmers.help_text }}</small><span class="intervention-errors">{{ form.selected_farmers.errors }}</span></div>
+        <div class="intervention-field full" data-recipient-field="selected"><label>{{ form.selected_farmers.label }}</label><input class="intervention-farmer-search" type="search" placeholder="Search by Farmer ID, RSBSA number, name, or barangay" autocomplete="off" data-selected-farmer-search data-search-url="{% url 'interventions:farmer_search' %}">{{ form.selected_farmers }}<small class="intervention-search-result" data-selected-farmer-result aria-live="polite"></small><small class="text-muted">{{ form.selected_farmers.help_text }}</small><span class="intervention-errors">{{ form.selected_farmers.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="barangay"><label>{{ form.target_barangay.label }}</label>{{ form.target_barangay }}<span class="intervention-errors">{{ form.target_barangay.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.service_request.label }}</label>{{ form.service_request }}<small class="text-muted">{{ form.service_request.help_text }}</small><span class="intervention-errors">{{ form.service_request.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.status.label }}</label>{{ form.status }}<span class="intervention-errors">{{ form.status.errors }}</span></div>
@@ -51,8 +51,8 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
         <div class="intervention-field"><label>{{ form.intervention_date.label }}</label>{{ form.intervention_date }}<span class="intervention-errors">{{ form.intervention_date.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.quantity.label }}</label>{{ form.quantity }}<span class="intervention-errors">{{ form.quantity.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.unit.label }}</label>{{ form.unit }}<span class="intervention-errors">{{ form.unit.errors }}</span></div>
-        <div class="intervention-field full"><label>{{ form.description.label }}</label>{{ form.description }}<span class="intervention-errors">{{ form.description.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.provider.label }}</label>{{ form.provider }}<span class="intervention-errors">{{ form.provider.errors }}</span></div>
+        <div class="intervention-field full"><label>{{ form.description.label }}</label>{{ form.description }}<span class="intervention-errors">{{ form.description.errors }}</span></div>
       </div>
       <div class="intervention-form-actions">
         <a class="btn btn-outline-secondary btn-cancel" href="{% if object %}{% url 'interventions:detail' object.pk %}{% else %}{% url 'interventions:list' %}{% endif %}">Cancel</a>
@@ -69,6 +69,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   const farmer=document.querySelector('[name="farmer"]');
   const farmerSearch=document.querySelector('[data-selected-farmer-search]');
   const farmerResult=document.querySelector('[data-selected-farmer-result]');
+  const farmerList=document.querySelector('.intervention-checkbox-list');
   if(!scope)return;
   const sync=()=>{
     document.querySelectorAll("[data-recipient-field]").forEach(el=>{
@@ -97,19 +98,43 @@ document.addEventListener("DOMContentLoaded",()=>{
   };
   scope.addEventListener("change",sync);
   serviceRequest?.addEventListener("change",syncRequest);
-  const filterSelectedFarmers=()=>{
-    if(!farmerSearch)return;
-    const query=farmerSearch.value.trim().toLowerCase();
-    const rows=[...document.querySelectorAll('.intervention-checkbox-list>div')];
-    let matches=0;
-    rows.forEach(row=>{
-      const visible=!query||row.textContent.toLowerCase().includes(query);
-      row.hidden=!visible;
-      if(visible)matches+=1;
+  let searchTimer;
+  const selectedFarmers=new Map([...document.querySelectorAll('.intervention-checkbox-list input:checked')].map(input=>[input.value,input.closest('label')?.textContent.trim()||input.value]));
+  const renderSelectedFarmers=(results=[])=>{
+    if(!farmerList)return;
+    results.forEach(item=>{if(!selectedFarmers.has(String(item.id)))selectedFarmers.set(`result:${item.id}`,item.label)});
+    farmerList.replaceChildren();
+    const display=[];
+    selectedFarmers.forEach((label,key)=>{
+      const isResult=key.startsWith('result:');
+      const value=isResult?key.slice(7):key;
+      if(isResult&&selectedFarmers.has(value))return;
+      display.push({value,label,checked:selectedFarmers.has(value)});
     });
-    if(farmerResult)farmerResult.textContent=query?`${matches} matching farmer${matches===1?'':'s'}`:"";
+    display.forEach(item=>{
+      const row=document.createElement('div');
+      const label=document.createElement('label');
+      const input=document.createElement('input');
+      input.type='checkbox';input.name='selected_farmers';input.value=item.value;input.checked=item.checked;
+      input.addEventListener('change',()=>{
+        if(input.checked){selectedFarmers.set(item.value,item.label);selectedFarmers.delete(`result:${item.value}`)}
+        else selectedFarmers.delete(item.value);
+      });
+      label.append(input,document.createTextNode(item.label));row.append(label);farmerList.append(row);
+    });
   };
-  farmerSearch?.addEventListener("input",filterSelectedFarmers);
+  const searchSelectedFarmers=async()=>{
+    if(!farmerSearch||!farmerList)return;
+    const query=farmerSearch.value.trim();
+    if(query.length<2){renderSelectedFarmers();if(farmerResult)farmerResult.textContent=query?'Type at least 2 characters.':'';return}
+    const response=await fetch(`${farmerSearch.dataset.searchUrl}?q=${encodeURIComponent(query)}`,{headers:{'X-Requested-With':'XMLHttpRequest'}});
+    const payload=await response.json();
+    [...selectedFarmers.keys()].filter(key=>key.startsWith('result:')).forEach(key=>selectedFarmers.delete(key));
+    renderSelectedFarmers(payload.results||[]);
+    if(farmerResult)farmerResult.textContent=`${(payload.results||[]).length} matching farmer${(payload.results||[]).length===1?'':'s'}`;
+  };
+  farmerSearch?.addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(searchSelectedFarmers,250)});
+  renderSelectedFarmers();
   sync();syncRequest();
 });
 </script>

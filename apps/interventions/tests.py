@@ -97,6 +97,9 @@ class InterventionModuleTests(TestCase):
         self.assertTrue(form.fields["status"].required)
 
     def test_create_form_has_searchable_farmer_selection_without_snapshot_notice(self):
+        Farmer.objects.create(
+            first_name="Unloaded", last_name="Farmer", barangay="Alupay", consent_given=True
+        )
         self.client.force_login(self.staff)
         response = self.client.get(reverse("interventions:create"))
         self.assertContains(
@@ -107,6 +110,12 @@ class InterventionModuleTests(TestCase):
             response,
             "The recipient list is saved as a fixed snapshot",
         )
+        self.assertNotContains(response, "Unloaded, Farmer")
+
+        search = self.client.get(reverse("interventions:farmer_search"), {"q": "Unloaded"})
+        self.assertEqual(search.status_code, 200)
+        self.assertEqual(len(search.json()["results"]), 1)
+        self.assertIn("Farmer, Unloaded", search.json()["results"][0]["label"])
 
     def test_selected_farmer_intervention_saves_a_fixed_recipient_snapshot(self):
         second_farmer = Farmer.objects.create(
@@ -139,6 +148,15 @@ class InterventionModuleTests(TestCase):
         self.assertEqual(response.url, reverse("dashboard:home"))
 
     def test_demo_farmer_commands_are_repeatable_and_safely_removable(self):
+        Farmer.objects.create(
+            first_name="Demo0001",
+            middle_name="Sample",
+            last_name="Farmer0001",
+            barangay="Alupay",
+            rsbsa_number="DEMO-RSBSA-000001",
+            registration_status="COMPLETED",
+            consent_given=True,
+        )
         call_command("seed_demo_farmers", count=12, stdout=StringIO())
         call_command("seed_demo_farmers", count=12, stdout=StringIO())
         demo_farmers = Farmer.objects.filter(remarks__startswith="FMIS-DEMO-DATA:")

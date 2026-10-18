@@ -5,6 +5,7 @@ from .views import (
     InterventionCreateView,
     InterventionDetailView,
     InterventionHistoryView,
+    InterventionFarmerSearchView,
     InterventionListView,
     InterventionUpdateView,
 )
@@ -12,6 +13,7 @@ from .views import (
 app_name = "interventions"
 urlpatterns = [
     path("", InterventionListView.as_view(), name="list"),
+    path("farmer-search/", InterventionFarmerSearchView.as_view(), name="farmer_search"),
     path("new/", InterventionCreateView.as_view(), name="create"),
     path("<int:pk>/", InterventionDetailView.as_view(), name="detail"),
     path("<int:pk>/history/", InterventionHistoryView.as_view(), name="history"),

@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll('select[data-farmer-picker]').forEach((select) => {
     if (select.dataset.enhanced === "true") return;
     select.dataset.enhanced = "true";
-    const options = [...select.options].filter((option) => option.value);
+    let options = [...select.options].filter((option) => option.value);
     const wasRequired = select.required;
     select.required = false;
     select.classList.add("farmer-picker-source");
@@ -155,8 +155,27 @@ document.addEventListener("DOMContentLoaded", () => {
     input.required = wasRequired;
     const selected = options.find((option) => option.value === select.value);
     if (selected) input.value = selected.textContent.trim();
-    const renderOptions = (queryOverride = null) => {
+    let requestSequence = 0;
+    const renderOptions = async (queryOverride = null) => {
       const query = (queryOverride === null ? input.value : queryOverride).trim().toLowerCase();
+      if (select.dataset.searchUrl) {
+        const sequence = ++requestSequence;
+        const response = await fetch(`${select.dataset.searchUrl}?q=${encodeURIComponent(query)}`, {headers: {"X-Requested-With": "XMLHttpRequest"}});
+        const payload = await response.json();
+        if (sequence !== requestSequence) return;
+        const selectedValue = select.value;
+        const selectedOption = options.find((option) => option.value === select.value);
+        select.replaceChildren(new Option("---------", ""));
+        options = (payload.results || []).map((item) => {
+          const option = new Option(item.label, String(item.id), false, String(item.id) === selectedValue);
+          select.add(option);
+          return option;
+        });
+        if (selectedOption && !options.some((option) => option.value === selectedOption.value)) {
+          select.add(selectedOption);
+          options.push(selectedOption);
+        }
+      }
       const matches = options.filter((option) => option.textContent.toLowerCase().includes(query)).slice(0, 100);
       list.replaceChildren();
       matches.forEach((option) => {

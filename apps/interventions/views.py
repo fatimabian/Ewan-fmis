@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
@@ -68,6 +69,40 @@ class InterventionAccessMixin(FMISLoginRequiredMixin, StaffRequiredMixin):
             "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
         )
         return context
+
+
+class InterventionFarmerSearchView(InterventionAccessMixin, View):
+    def get(self, request):
+        query = request.GET.get("q", "").strip()
+        farmers = Farmer.objects.filter(is_active=True)
+        if query:
+            filters = (
+                Q(first_name__icontains=query)
+                | Q(middle_name__icontains=query)
+                | Q(last_name__icontains=query)
+                | Q(rsbsa_number__icontains=query)
+                | Q(barangay__icontains=query)
+            )
+            record_number = query.upper().removeprefix("F-")
+            if record_number.isdigit():
+                filters |= Q(pk=int(record_number))
+            farmers = farmers.filter(filters)
+        farmers = farmers.order_by("last_name", "first_name", "pk")[:30]
+        return JsonResponse(
+            {
+                "results": [
+                    {
+                        "id": farmer.pk,
+                        "label": (
+                            f"{farmer.record_id}"
+                            f"{' / RSBSA ' + farmer.rsbsa_number if farmer.rsbsa_number else ''}"
+                            f" - {farmer.list_name} ({farmer.barangay})"
+                        ),
+                    }
+                    for farmer in farmers
+                ]
+            }
+        )
 
 
 class InterventionListView(InterventionAccessMixin, ListView):

@@ -1,3 +1,5 @@
+from django.db.models import Q
+
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention, InterventionRecipient
 from apps.service_requests.models import ServiceRequest
@@ -5,10 +7,15 @@ from apps.service_requests.models import ServiceRequest
 
 SYNTHETIC_REMARKS_PREFIX = "FMIS-DEMO-DATA:"
 SYNTHETIC_RSBSA_PREFIX = "SYNTH-RSBSA-"
+LEGACY_SYNTHETIC_RSBSA_PREFIX = "DEMO-RSBSA-"
 
 
 def synthetic_farmers():
-    return Farmer.objects.filter(remarks__startswith=SYNTHETIC_REMARKS_PREFIX)
+    return Farmer.objects.filter(
+        Q(remarks__startswith=SYNTHETIC_REMARKS_PREFIX)
+        | Q(rsbsa_number__startswith=SYNTHETIC_RSBSA_PREFIX)
+        | Q(rsbsa_number__startswith=LEGACY_SYNTHETIC_RSBSA_PREFIX)
+    ).distinct()
 
 
 def delete_synthetic_data():
