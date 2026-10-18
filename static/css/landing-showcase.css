@@ -61,13 +61,14 @@ a{
 }
 
 .showcase-nav{
-    width:min(1380px,calc(100% - 40px));
+    width:100%;
     min-height:62px;
     display:flex;
     align-items:center;
     justify-content:space-between;
     gap:28px;
     margin:auto;
+    padding:0 16px;
 }
 
 .showcase-brand{
@@ -1249,16 +1250,16 @@ a{
 
 @media(max-width:780px){
     .showcase-nav{
-        width:calc(100% - 28px);
+        width:100%;
         flex-wrap:wrap;
         gap:8px;
-        padding:10px 0;
+        padding:10px 12px;
     }
 
     .showcase-brand{
         width:100%;
         min-width:0;
-        justify-content:center;
+        justify-content:flex-start;
     }
 
     .showcase-brand .showcase-brand-name{
