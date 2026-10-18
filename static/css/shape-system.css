@@ -1,15 +1,15 @@
 /*
  * FMIS global shape language
  *
- * The interface deliberately uses two related silhouettes:
- *   1. rounded-rectangle surfaces and controls (8px radius), and
- *   2. truly circular identity/icon elements (90px radius).
+ * Containers and fields use square corners. Rounded rectangles are reserved
+ * for actionable buttons and compact status labels; identity imagery and
+ * native radio controls retain their circular meaning.
  *
  * This file is loaded after page-level styles so older component rules cannot
  * reintroduce a mixture of unrelated corner radii.
  */
 :root{
-    --fmis-radius-surface:8px;
+    --fmis-radius-surface:0;
     --fmis-radius-square:var(--fmis-radius-surface);
     --fmis-radius-button:8px;
     --fmis-radius-round:90px;
@@ -30,8 +30,7 @@ html body [hidden]:not(#fmis-shape-specificity){
     display:none!important
 }
 
-/* Keep table headings as one clean rectangular band. The global surface
- * radius belongs to cards and controls, not to individual header cells. */
+/* Keep table headings as one clean rectangular band. */
 html body table thead:not(#fmis-shape-specificity),
 html body table thead tr:not(#fmis-shape-specificity),
 html body table thead th:not(#fmis-shape-specificity){
@@ -73,9 +72,7 @@ html body :is(
     .notification-btn,
     .notification-menu summary,
     .table-export-control>summary,
-    .showcase-links a,
     .showcase-login-button,
-    .hero-location,
     .hero-secondary,
     .landing-signin-submit,
     .catalog-add,
@@ -177,6 +174,22 @@ html body :is(
     color:#111!important;
     box-shadow:0 5px 14px rgba(20,36,54,.18),0 0 0 2px color-mix(in srgb,var(--fmis-button-outline) 18%,transparent)!important;
     transform:translateY(-1px)
+}
+
+/* The compact public-menu trigger stays legible on the dark header. */
+html body .showcase-menu-toggle:not(#fmis-shape-specificity),
+html body .showcase-menu-toggle:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    --fmis-button-outline:rgba(255,255,255,.55);
+    border-color:rgba(255,255,255,.55)!important;
+    background:transparent!important;
+    color:#fff!important;
+    box-shadow:none!important;
+    transform:none!important
+}
+
+html body .showcase-menu-toggle span:not(#fmis-shape-specificity){
+    border-radius:0!important;
+    background:#fff!important
 }
 
 /* The password-recovery trigger is a quiet text link, not an outlined button. */
@@ -319,7 +332,7 @@ html body select:not([multiple]):not(#fmis-shape-specificity){
     -webkit-appearance:none;
     padding-right:38px!important;
     border:1px solid #c7d5cd!important;
-    border-radius:var(--fmis-radius-button)!important;
+    border-radius:0!important;
     background-color:var(--surface,#fff)!important;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23334155' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.8' d='m4 6 4 4 4-4'/%3E%3C/svg%3E")!important;
     background-repeat:no-repeat!important;
@@ -352,7 +365,7 @@ html body .farmer-picker-control:not(#fmis-shape-specificity),
 html body .farmer-picker:focus-within .farmer-picker-control:not(#fmis-shape-specificity){
     grid-template-columns:minmax(0,1fr)!important;
     border:1px solid #c7d5cd!important;
-    border-radius:var(--fmis-radius-button)!important;
+    border-radius:0!important;
     outline:0!important;
     box-shadow:none!important
 }
@@ -364,7 +377,7 @@ html body .farmer-picker:focus-within .farmer-picker-control:not(#fmis-shape-spe
 
 html body .farmer-picker-list:not(#fmis-shape-specificity){
     border:1px solid #c7d5cd!important;
-    border-radius:var(--fmis-radius-button)!important
+    border-radius:0!important
 }
 
 html body .farmer-picker-option:not(#fmis-shape-specificity),
@@ -404,7 +417,7 @@ html body[data-theme="dark"] .farmer-picker-list:not(#fmis-shape-specificity){
 html body .app-shell .farmer-picker-list:not(#fmis-shape-specificity){
     padding:0!important;
     border:1px solid #c7d5cd!important;
-    border-radius:var(--fmis-radius-button)!important;
+    border-radius:0!important;
     background:var(--surface,#fff)!important;
     box-shadow:0 8px 18px rgba(15,23,42,.12)!important
 }
@@ -489,9 +502,9 @@ html body .farmer-pin i:not(#fmis-shape-specificity){
     transform:none!important
 }
 
-/* Preserve the native distinction between a square checkbox and round radio. */
+/* Checkboxes follow the square field language; native radios remain round. */
 html body input[type="checkbox"]:not(#fmis-shape-specificity){
-    border-radius:5px!important
+    border-radius:0!important
 }
 
 /* Status and priority labels use color on the outline, never as a fill. */
