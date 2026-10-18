@@ -2,13 +2,9 @@
 
 ## Staff authentication readiness
 
-- [ ] Keep `FMIS_REQUIRE_MFA=True` in the production environment.
-- [ ] Keep `FMIS_TRUSTED_DEVICE_DAYS=30`; staff should trust only private, office-controlled browser profiles—not shared or public browsers.
-- [ ] Ask every administrator and staff member to install a compatible authenticator app on their own phone before first production sign-in.
-- [ ] Have each staff member privately store the ten one-time recovery codes shown after enrollment.
-- [ ] Enroll at least two administrator accounts so one administrator can reset the other's MFA after identity confirmation.
+- [ ] Keep `FMIS_REQUIRE_MFA=False` in the production environment unless the municipality formally re-enables authenticator-based MFA.
 
-Existing active accounts are guided through authenticator enrollment after their next successful password login. Newly created accounts complete email activation first, then authenticator enrollment.
+Existing active accounts sign in with their passwords. Newly created accounts complete email activation before their first authenticated session.
 
 - [ ] Run `scripts/Prepare-FMISProductionEnv.ps1`, replace every `CHANGE_ME` value in `.env.production`, install it as a protected server-only `.env`, and confirm Git ignores both files.
 - [ ] Generate a unique secret key of at least 50 characters.

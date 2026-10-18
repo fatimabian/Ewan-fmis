@@ -1,14 +1,8 @@
 # FMIS Security Guide
 
-## Staff multi-factor authentication
+## Staff authentication
 
-Production requires `FMIS_REQUIRE_MFA=True`. A new staff account first verifies its registered email address, then enrolls an authenticator app by scanning the QR code shown by FMIS. Set `FMIS_TRUSTED_DEVICE_DAYS=30` to let staff explicitly trust a private office browser for 30 days.
-
-A valid trusted-browser cookie skips only the authenticator step after the password has been accepted. The cookie is signed, HTTP-only, Secure in production, limited to the configured lifetime, and bound to the account's MFA security version. Manual logout removes browser trust. Password changes, account suspension or restoration, and administrator MFA reset invalidate it. Inactivity still closes the authenticated session after the configured timeout, and another browser still requires an authenticator or recovery code.
-
-The ten recovery codes displayed after enrollment are single-use secrets. The staff member must store them privately and must not email or chat them. If the phone and recovery codes are unavailable, a different administrator can use **Edit User Account → Reset MFA** after confirming the staff member's identity. Resetting MFA revokes that account's existing sessions and requires enrollment at the next sign-in.
-
-Authenticator secrets are encrypted in the database using key material derived from `DJANGO_SECRET_KEY`. Changing the production Django secret makes existing authenticator enrollments unreadable, so plan a supervised MFA reset for every account if that secret must be rotated.
+FMIS uses passwords plus first-time email verification for staff accounts. Mandatory authenticator enrollment is disabled with `FMIS_REQUIRE_MFA=False`. Inactivity still closes authenticated sessions after the configured timeout, and HTTPS, secure cookies, login throttling, and account roles remain required production controls.
 
 This is the maintenance map for FMIS security controls. It explains where to review a control when requirements or deployment conditions change. It is not a promise that attacks are impossible; security also depends on the server, database, network, staff practices, backups, and timely dependency updates.
 

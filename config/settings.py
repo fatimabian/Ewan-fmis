@@ -166,12 +166,10 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 REMEMBER_LOGIN_DAYS = max(1, int(os.getenv("REMEMBER_LOGIN_DAYS", "7")))
 REMEMBER_LOGIN_SECONDS = REMEMBER_LOGIN_DAYS * 24 * 60 * 60
-FMIS_REQUIRE_MFA = os.getenv("FMIS_REQUIRE_MFA", "True").lower() == "true"
+FMIS_REQUIRE_MFA = os.getenv("FMIS_REQUIRE_MFA", "False").lower() == "true"
 FMIS_TRUSTED_DEVICE_DAYS = max(
     1, min(90, int(os.getenv("FMIS_TRUSTED_DEVICE_DAYS", "30")))
 )
-if not DEBUG and not FMIS_REQUIRE_MFA:
-    raise ImproperlyConfigured("Production FMIS requires FMIS_REQUIRE_MFA=True.")
 CSRF_COOKIE_SAMESITE = "Lax"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"

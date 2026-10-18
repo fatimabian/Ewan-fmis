@@ -34,10 +34,6 @@ class Command(BaseCommand):
             failures.append("Django production mode: DJANGO_DEBUG must be False")
         else:
             passed.append("Django production mode")
-        if not getattr(settings, "FMIS_REQUIRE_MFA", False):
-            failures.append("Multi-factor authentication: FMIS_REQUIRE_MFA must be True")
-        else:
-            passed.append("Multi-factor authentication")
         if "mysql" not in settings.DATABASES["default"]["ENGINE"]:
             failures.append("Database engine: production requires MySQL/MariaDB")
         else:

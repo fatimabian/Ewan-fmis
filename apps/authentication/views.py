@@ -373,6 +373,9 @@ class AccountActivationView(FormView):
 class PendingMFAViewMixin:
     @method_decorator(never_cache)
     def dispatch(self, request, *args, **kwargs):
+        if not settings.FMIS_REQUIRE_MFA:
+            clear_mfa_challenge(request)
+            return redirect("authentication:login")
         if request.user.is_authenticated:
             return redirect(dashboard_for(request.user))
         self.mfa_challenge = get_mfa_challenge(request)

@@ -10,11 +10,53 @@ from django.urls import reverse
 
 from apps.authentication.activation import ACTIVATION_SESSION_KEY
 from apps.authentication.mfa import (
+    MFA_SESSION_KEY,
     TRUSTED_DEVICE_COOKIE,
     encrypt_secret,
     hash_recovery_codes,
     totp_at,
 )
+
+
+@override_settings(FMIS_REQUIRE_MFA=False)
+class DisabledMultiFactorAuthenticationTests(TestCase):
+    password = "Ready4Field!Secure"
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="passwordonlystaff",
+            email="passwordonly@example.com",
+            password=self.password,
+            role="STAFF",
+            is_active=True,
+            mfa_enabled=True,
+            mfa_secret=encrypt_secret("JBSWY3DPEHPK3PXP"),
+        )
+
+    def test_password_login_bypasses_dormant_mfa_enrollment(self):
+        response = self.client.post(
+            reverse("authentication:login"),
+            {"username": self.user.username, "password": self.password},
+        )
+        self.assertRedirects(response, reverse("dashboard:staff_home"))
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_stale_mfa_setup_session_returns_to_login(self):
+        session = self.client.session
+        session[MFA_SESSION_KEY] = {
+            "user_id": self.user.pk,
+            "remember_me": False,
+            "next_url": "",
+            "started_at": int(time.time()),
+        }
+        session["fmis_mfa_setup_secret"] = "EXPOSEDSECRET"
+        session.save()
+
+        response = self.client.get(reverse("authentication:mfa_setup"))
+
+        self.assertRedirects(response, reverse("authentication:login"))
+        self.assertNotIn(MFA_SESSION_KEY, self.client.session)
+        self.assertNotIn("fmis_mfa_setup_secret", self.client.session)
 
 
 class AccountActivationDeliveryTests(TestCase):
