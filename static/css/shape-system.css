@@ -38,12 +38,13 @@ html body table thead th:not(#fmis-shape-specificity){
     border-radius:0!important
 }
 
-/* The application shell and permanent side navigation meet the viewport at
- * true 90-degree corners. Rounded corners remain reserved for the controls
- * inside the navigation. */
+/* Structural shells meet the viewport at true 90-degree corners. Rounded
+ * corners remain reserved for the controls inside the navigation. */
 html body .app-shell>.sidebar:not(#fmis-shape-specificity),
 html body .app-shell>.sidebar:not(#fmis-shape-specificity)::before,
-html body .app-shell>main:not(#fmis-shape-specificity){
+html body .app-shell>main:not(#fmis-shape-specificity),
+html body .showcase-header:not(#fmis-shape-specificity),
+html body .showcase-nav:not(#fmis-shape-specificity){
     border-radius:0!important
 }
 
