@@ -11,7 +11,7 @@
     </title>
     <link rel="icon" type="image/webp" href="{% static 'images/brand/fmis-logo-display.webp' %}">
     <link rel="preload" href="{% static 'vendor/bootstrap-icons/fonts/bootstrap-icons.woff2' %}" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="{% static 'css/fmis-core.min.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'css/fmis-core.min.css' %}?v=2">
     {% block extra_css %}{% endblock %}
     <style>
     :root{
@@ -125,7 +125,7 @@
     /* Let every authenticated workspace page use the full width beside the sidebar.
        This intentionally overrides older page-specific desktop width caps while
        preserving each page's shared responsive padding and mobile layout. */
-    .app-shell .page-scroll > .content{
+    .app-shell .workspace-scroll-region > .content{
         width:100%!important;
         max-width:none!important;
         margin-inline:0!important
@@ -492,7 +492,9 @@
             {% endfor %}
           </div>
         {% endif %}
-        {% block content %}{% endblock %}
+        <div class="workspace-scroll-region">
+          {% block content %}{% endblock %}
+        </div>
       </main>
     </div>
     <div class="fmis-feedback-modal" id="fmisFeedbackModal" hidden aria-hidden="true">

@@ -2260,12 +2260,12 @@ body[data-theme="dark"] .history-audit-item strong{
 }
 
 /* Keep module content close to the shared header on every authenticated page. */
-.app-shell .page-scroll > .content{
+.app-shell .workspace-scroll-region > .content{
     padding-top:12px!important;
 }
 
 @media(max-width:700px){
-    .app-shell .page-scroll > .content{
+    .app-shell .workspace-scroll-region > .content{
         padding-top:10px!important;
     }
 }
