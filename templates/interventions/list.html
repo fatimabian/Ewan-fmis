@@ -29,7 +29,7 @@ body[data-theme="dark"] .intervention-table th{background:#253244!important;colo
   <form class="intervention-toolbar" method="get">
     <label>Search Intervention<input name="q" value="{{ request.GET.q }}" placeholder="Reference, farmer, RSBSA or description"></label>
     <label>Intervention Type<select name="type" onchange="this.form.submit()"><option value="">All types</option>{% for value,label in type_choices %}<option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-    <label>Record Status<select name="status" onchange="this.form.submit()"><option value="active" {% if request.GET.status != 'archived' and request.GET.status != 'all' %}selected{% endif %}>Delivered</option><option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived</option><option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All records</option></select></label>
+    <label>Status<select name="status" onchange="this.form.submit()"><option value="">All statuses</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}<option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived records</option></select></label>
     <a class="btn btn-success btn-add-outline" href="{% url 'interventions:create' %}"><i class="bi bi-plus-lg"></i> New Intervention</a>
   </form>
   <div class="intervention-table-wrap universal-table-wrap">

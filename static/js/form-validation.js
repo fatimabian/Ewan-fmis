@@ -74,6 +74,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (submitButton) {
         submitButton.disabled = true;
         submitButton.setAttribute("aria-busy", "true");
+        window.setTimeout(() => {
+          if (!event.defaultPrevented) return;
+          submitButton.disabled = false;
+          submitButton.removeAttribute("aria-busy");
+        }, 0);
       }
     });
     form.querySelectorAll(controls).forEach((field) => {
@@ -219,5 +224,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const container = errors.closest("label, .registration-field, .request-field, .account-field, .form-group, p") || errors.parentElement;
     container?.classList.add("has-error");
     container?.querySelectorAll(controls).forEach(mark);
+  });
+
+  window.addEventListener("pageshow", () => {
+    if (loadingOverlay) loadingOverlay.hidden = true;
+    document.querySelectorAll('button[aria-busy="true"], input[aria-busy="true"]').forEach((button) => {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+    });
   });
 });

@@ -83,7 +83,7 @@ class InterventionListView(InterventionAccessMixin, ListView):
         )
         query = self.request.GET.get("q", "").strip()
         kind = self.request.GET.get("type", "").strip()
-        status = self.request.GET.get("status", "active")
+        status = self.request.GET.get("status", "")
         if query:
             filters = Q(description__icontains=query) | Q(farmer__first_name__icontains=query) | Q(farmer__last_name__icontains=query) | Q(farmer__rsbsa_number__icontains=query) | Q(recipients__farmer__first_name__icontains=query) | Q(recipients__farmer__last_name__icontains=query) | Q(recipients__farmer__rsbsa_number__icontains=query) | Q(target_barangay__icontains=query)
             reference = query.upper().removeprefix("INT-")
@@ -92,13 +92,19 @@ class InterventionListView(InterventionAccessMixin, ListView):
             queryset = queryset.filter(filters).distinct()
         if kind:
             queryset = queryset.filter(intervention_type=kind)
-        if status != "all":
-            queryset = queryset.filter(is_active=status != "archived")
+        if status == "archived":
+            queryset = queryset.filter(is_active=False)
+        else:
+            queryset = queryset.filter(is_active=True)
+            valid_statuses = {value for value, _label in Intervention.STATUS_CHOICES}
+            if status in valid_statuses:
+                queryset = queryset.filter(status=status)
         return queryset.order_by("-intervention_date", "-created_at", "-pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["type_choices"] = Intervention.TYPE_CHOICES
+        context["status_choices"] = Intervention.STATUS_CHOICES
         return context
 
 

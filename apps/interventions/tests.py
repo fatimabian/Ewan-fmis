@@ -1,5 +1,8 @@
 from datetime import date
+from io import StringIO
 
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 from django.urls import reverse
 
@@ -54,6 +57,33 @@ class InterventionModuleTests(TestCase):
         archived = self.client.get(reverse("interventions:list"), {"status": "archived"})
         self.assertContains(archived, intervention.reference_id)
 
+    def test_list_filters_by_workflow_status(self):
+        self.client.force_login(self.staff)
+        scheduled = Intervention.objects.create(
+            farmer=self.farmer,
+            status="SCHEDULED",
+            intervention_type="TRAINING",
+            intervention_date=date.today(),
+            description="Scheduled seminar",
+        )
+        completed = Intervention.objects.create(
+            farmer=self.farmer,
+            status="COMPLETED",
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Completed distribution",
+        )
+
+        response = self.client.get(reverse("interventions:list"), {"status": "SCHEDULED"})
+
+        self.assertContains(response, scheduled.reference_id)
+        self.assertNotContains(response, completed.reference_id)
+        self.assertContains(response, "Draft")
+        self.assertContains(response, "Scheduled")
+        self.assertContains(response, "Ongoing")
+        self.assertContains(response, "Completed")
+        self.assertContains(response, "Cancelled")
+
     def test_active_status_is_managed_only_by_archive_actions(self):
         from .forms import InterventionForm
 
@@ -88,3 +118,23 @@ class InterventionModuleTests(TestCase):
         response = self.client.get(reverse("interventions:list"))
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("dashboard:home"))
+
+    def test_demo_farmer_commands_are_repeatable_and_safely_removable(self):
+        call_command("seed_demo_farmers", count=7, stdout=StringIO())
+        call_command("seed_demo_farmers", count=7, stdout=StringIO())
+        demo_farmers = Farmer.objects.filter(rsbsa_number__startswith="DEMO-RSBSA-")
+        self.assertEqual(demo_farmers.count(), 7)
+        self.assertTrue(
+            demo_farmers.filter(remarks__startswith="FMIS-DEMO-DATA:").exists()
+        )
+        with self.assertRaises(CommandError):
+            call_command("delete_demo_farmers", stdout=StringIO())
+
+        call_command(
+            "delete_demo_farmers",
+            confirm="DELETE-DEMO-FARMERS",
+            stdout=StringIO(),
+        )
+
+        self.assertFalse(Farmer.objects.filter(rsbsa_number__startswith="DEMO-RSBSA-").exists())
+        self.assertTrue(Farmer.objects.filter(pk=self.farmer.pk).exists())
