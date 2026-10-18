@@ -5,13 +5,6 @@ server {
 
     client_max_body_size 25m;
 
-    location /static/ {
-        alias /srv/fmis/app/staticfiles/;
-        access_log off;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-
     # Uploaded farmer records are delivered only by authenticated Django views.
     location /media/ {
         return 404;

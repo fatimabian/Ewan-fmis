@@ -27,7 +27,9 @@ only on `127.0.0.1:8080`; it must never be exposed directly to the internet.
 
 Copy `deployment/linux/nginx-fmis.conf.example` to the Nginx sites directory,
 replace the example hostname, test the Nginx configuration, and enable it. The
-configuration deliberately blocks direct `/media/` access.
+configuration deliberately blocks direct `/media/` access. Static assets are
+served by WhiteNoise through the application, so Nginx does not need permission
+to traverse the application directory or read its protected configuration.
 
 ## 4. Add the domain and HTTPS
 
