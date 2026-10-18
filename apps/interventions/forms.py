@@ -98,10 +98,16 @@ class InterventionForm(forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         request = cleaned.get("service_request")
-        farmer = cleaned.get("farmer")
         scope = cleaned.get("scope") or "INDIVIDUAL"
+        if request:
+            scope = "INDIVIDUAL"
+            cleaned["farmer"] = request.farmer
+            cleaned["intervention_type"] = INTERVENTION_TYPE_BY_SERVICE_CODE.get(
+                request.service.code, "OTHER"
+            )
         cleaned["scope"] = scope
         cleaned["status"] = cleaned.get("status") or "COMPLETED"
+        farmer = cleaned.get("farmer")
         selected = cleaned.get("selected_farmers")
         barangay = cleaned.get("target_barangay")
         if scope == "INDIVIDUAL" and not farmer:
@@ -110,12 +116,6 @@ class InterventionForm(forms.ModelForm):
             self.add_error("selected_farmers", "Choose at least one farmer.")
         if scope == "BARANGAY" and not barangay:
             self.add_error("target_barangay", "Choose the barangay covered by this intervention.")
-        if request and scope != "INDIVIDUAL":
-            self.add_error(
-                "service_request", "A service request can only be linked to a one-farmer intervention."
-            )
-        if request and farmer and request.farmer_id != farmer.pk:
-            self.add_error("service_request", "Choose a request belonging to the selected farmer.")
         if request and request.status not in {"PENDING", "IN_PROGRESS"} and not (
             self.instance.pk and self.instance.service_request_id == request.pk
         ):

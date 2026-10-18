@@ -39,6 +39,7 @@ from apps.farmers.forms import (
     ParcelRegistrationFormSet,
 )
 from apps.farmers.models import Farmer, FarmerDocument, FarmerUpdateHistory
+from apps.interventions.forms import InterventionForm
 from apps.interventions.models import Intervention
 from apps.reports.export import build_report, build_system_report
 from apps.service_catalog.models import ServiceCatalog
@@ -1287,6 +1288,38 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(linked.context["form"].initial["service_request"], request_item)
         self.assertEqual(linked.context["form"].initial["intervention_type"], "SEEDS")
         self.assertContains(linked, 'data-intervention-type="SEEDS"')
+        self.assertContains(linked, f'data-farmer-id="{self.farmer.pk}"')
+
+    def test_linked_request_controls_farmer_and_intervention_type(self):
+        request_item = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject=self.service.name,
+            priority="MEDIUM",
+            status="PENDING",
+            assigned_to=self.staff,
+        )
+        another_farmer = Farmer.objects.create(
+            first_name="Other",
+            last_name="Farmer",
+            barangay="Balibago",
+        )
+        form = InterventionForm(
+            data={
+                "scope": "SELECTED",
+                "farmer": another_farmer.pk,
+                "service_request": request_item.pk,
+                "status": "SCHEDULED",
+                "intervention_type": "TRAINING",
+                "intervention_date": "2026-10-18",
+                "description": "Linked assistance",
+                "provider": "Office for Agricultural Services",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["scope"], "INDIVIDUAL")
+        self.assertEqual(form.cleaned_data["farmer"], self.farmer)
+        self.assertEqual(form.cleaned_data["intervention_type"], "SEEDS")
 
     def test_slip_b_is_separate_and_contains_official_parcel_workflow(self):
         self.client.force_login(self.staff)

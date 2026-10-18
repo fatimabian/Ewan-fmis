@@ -79,7 +79,13 @@ document.addEventListener("DOMContentLoaded",()=>{
     const option=serviceRequest?.selectedOptions?.[0];
     if(!option?.value)return;
     scope.value="INDIVIDUAL";
-    if(farmer&&option.dataset.farmerId)farmer.value=option.dataset.farmerId;
+    if(farmer&&option.dataset.farmerId){
+      farmer.value=option.dataset.farmerId;
+      const selectedFarmer=farmer.selectedOptions?.[0];
+      const pickerInput=farmer.parentElement?.querySelector('.farmer-picker input');
+      if(pickerInput&&selectedFarmer)pickerInput.value=selectedFarmer.textContent.trim();
+      farmer.dispatchEvent(new Event("change",{bubbles:true}));
+    }
     if(interventionType&&option.dataset.interventionType){
       interventionType.value=option.dataset.interventionType;
       interventionType.dispatchEvent(new Event("change",{bubbles:true}));
