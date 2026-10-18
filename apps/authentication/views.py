@@ -630,6 +630,27 @@ class PasswordRecoveryView(TemplateView):
             )
         _record_attempt(limit_key, timeout=15 * 60)
         user = next((item for item in form.matching_users() if item.email), None)
+
+        # Repeated submits from the same browser must keep using the active
+        # challenge. This prevents impatient taps or a retried POST from
+        # generating several valid codes and several email messages.
+        _nonce, active_challenge = get_recovery_challenge(request)
+        if active_challenge and active_challenge.get("user_id") == (
+            user.pk if user else None
+        ):
+            return self.render_to_response(
+                self._context(
+                    recovery_step="verify",
+                    recovery_otp_form=PasswordRecoveryOTPForm(),
+                    recovery_destination=recovery_destination(user),
+                    recovery_attempts=max(
+                        0,
+                        RECOVERY_MAX_ATTEMPTS
+                        - int(active_challenge.get("attempts", 0)),
+                    ),
+                )
+            )
+
         clear_recovery_challenge(request)
         try:
             start_recovery_challenge(request, user)

@@ -149,6 +149,17 @@ class PasswordRecoveryOTPTests(TestCase):
         self.assertContains(response, "the registered email address")
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_repeated_request_reuses_active_code_and_sends_one_email(self):
+        payload = {"recovery_action": "request", "identifier": self.user.email}
+
+        first = self.client.post(self.url, payload)
+        second = self.client.post(self.url, payload)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(second.status_code, 200)
+        self.assertContains(second, "Enter your email OTP")
+        self.assertEqual(len(mail.outbox), 1)
+
 
 @override_settings(FMIS_REQUIRE_MFA=True)
 class MultiFactorAuthenticationTests(TestCase):

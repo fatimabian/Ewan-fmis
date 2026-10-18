@@ -114,19 +114,31 @@ class IdentifierPasswordResetForm(InlineValidationMixin, forms.Form):
 
     def matching_users(self):
         identifier = self.cleaned_data["identifier"].strip()
-        users = get_user_model().objects.filter(is_active=True)
+        users = get_user_model().objects.filter(is_active=True).order_by("pk")
         if "@" in identifier:
-            users = users.filter(email__iexact=identifier)
-            return [user for user in users if user.has_usable_password()]
+            user = next(
+                (
+                    item
+                    for item in users.filter(email__iexact=identifier)
+                    if item.has_usable_password()
+                ),
+                None,
+            )
+            return [user] if user else []
 
         phone = normalized_phone(identifier)
         if len(phone) < 10:
             return []
-        return [
-            user
-            for user in users.exclude(phone_number="")
-            if user.has_usable_password() and normalized_phone(user.phone_number) == phone
-        ]
+        user = next(
+            (
+                item
+                for item in users.exclude(phone_number="")
+                if item.has_usable_password()
+                and normalized_phone(item.phone_number) == phone
+            ),
+            None,
+        )
+        return [user] if user else []
 
 
 class PasswordRecoveryOTPForm(ActivationOTPForm):

@@ -2825,7 +2825,11 @@ body[data-theme="dark"] .season-reference{border-color:#365443;background:#1d2d2
 @media(max-width:700px){
     .staff-dashboard-heading{align-items:flex-start;flex-direction:column;gap:10px}
     .staff-dashboard-heading-meta{justify-items:start}
-    .staff-kpi-grid{grid-template-columns:1fr}
+    .staff-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .staff-kpi{min-height:64px;gap:8px;padding:9px 10px}
+    .staff-kpi-icon{width:30px;height:30px;flex-basis:30px;font-size:13px}
+    .staff-kpi b{font-size:16px}
+    .staff-kpi b em,.staff-kpi small{font-size:8px}
     .staff-card{padding:17px}
     .staff-production-card .production-analytics-grid{gap:22px}
     .staff-attention-card .completeness-hero{grid-template-columns:auto minmax(0,1fr);justify-items:stretch}
