@@ -2029,14 +2029,41 @@ class FMISRequirementTests(TestCase):
         self.parcel.province = "Batangas "
         self.parcel.save(update_fields=["municipality", "province"])
 
+        inactive_parcel = FarmParcel.objects.create(
+            farmer=self.farmer,
+            barangay="Bulihan",
+            municipality="Rosario",
+            province="Batangas",
+            area_hectares=Decimal("0.75"),
+            ownership_type="OWNED",
+            land_type="UPLAND",
+            farm_type="Rainfed",
+            is_active=False,
+        )
+        CropRecord.objects.create(
+            parcel=inactive_parcel,
+            crop_type="Coffee",
+            area_hectares=Decimal("0.50"),
+            is_active=True,
+        )
+
         self.client.force_login(self.staff)
         response = self.client.get(reverse("dashboard:staff_home"))
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["farmers"], 1)
-        self.assertEqual(response.context["parcels"], 1)
-        self.assertEqual(response.context["crops"], 1)
-        self.assertEqual(response.context["managed_land_area"], Decimal("2.50"))
+        self.assertEqual(response.context["parcels"], 2)
+        self.assertEqual(response.context["crops"], 2)
+        self.assertEqual(response.context["managed_land_area"], Decimal("3.25"))
+        self.assertEqual(
+            {item["label"] for item in response.context["commodity_breakdown"]},
+            {"Rice", "Coffee"},
+        )
+
+        parcel_list = self.client.get(reverse("farm_parcels:list"))
+        listed_parcels = list(parcel_list.context["object_list"])
+        self.assertEqual([parcel.pk for parcel in listed_parcels], sorted(parcel.pk for parcel in listed_parcels))
+        self.assertIn(inactive_parcel, listed_parcels)
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
     def test_farmer_qr_uses_configured_authenticated_field_address(self):

@@ -198,9 +198,9 @@
       </label>
       <label>
         Record Status<select name="status" onchange="this.form.submit()">
-        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
+        <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
         <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
-        <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All</option>
+        <option value="all" {% if not request.GET.status or request.GET.status == 'all' %}selected{% endif %}>All</option>
         </select>
       </label>
       <div class="parcel-toolbar-actions">

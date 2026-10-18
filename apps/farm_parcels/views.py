@@ -70,7 +70,7 @@ class FarmParcelListView(
         barangay = self.request.GET.get("barangay", "").strip()
         ownership = self.request.GET.get("ownership", "").strip()
         area = self.request.GET.get("area", "").strip()
-        status = self.request.GET.get("status", "active").strip()
+        status = self.request.GET.get("status", "all").strip()
         if query:
             farmer_id = query.upper().removeprefix("F-")
             filters = (
@@ -97,10 +97,9 @@ class FarmParcelListView(
             queryset = queryset.filter(is_active=False)
         elif status != "all":
             queryset = queryset.filter(is_active=True)
-        # Registration saves parcels and commodities in one transaction. Show
-        # the newest parcel first so a successful registration cannot appear
-        # missing merely because it landed on a later alphabetical/page view.
-        return queryset.order_by("-created_at", "-pk")
+        # Show every saved parcel by default, including inactive records, and
+        # keep the register in true chronological order (oldest to newest).
+        return queryset.order_by("created_at", "pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

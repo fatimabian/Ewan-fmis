@@ -293,11 +293,17 @@ def staff_dashboard_metrics():
     # location fields caused otherwise valid saved records (for example legacy
     # values with trailing spaces) to disappear from every dashboard metric.
     rosario_farmers = Farmer.objects.filter(is_active=True)
-    rosario_parcels = FarmParcel.objects.filter(
+    # Summary cards reflect every saved parcel belonging to an active farmer.
+    # Operational attention checks remain limited to active parcels, while the
+    # commodity mix follows the commodity record's own active/inactive status.
+    # This keeps the dashboard consistent with the parcel and commodity lists
+    # when a saved parcel is inactive but its commodity record is still active.
+    rosario_parcels = FarmParcel.objects.filter(farmer__is_active=True)
+    active_rosario_parcels = rosario_parcels.filter(is_active=True)
+    rosario_crops = CropRecord.objects.filter(
         is_active=True,
-        farmer__is_active=True,
+        parcel__farmer__is_active=True,
     )
-    rosario_crops = CropRecord.objects.filter(is_active=True, parcel__in=rosario_parcels)
     recommendation_rows = list(
         rosario_crops.values("crop_type")
         .annotate(
@@ -329,7 +335,7 @@ def staff_dashboard_metrics():
             "key": "mapping",
             "label": "Parcels without map pins",
             "help": "Active parcels without saved coordinates",
-            "count": rosario_parcels.filter(
+            "count": active_rosario_parcels.filter(
                 Q(coordinates="") | Q(coordinates__isnull=True)
             ).count(),
         },
@@ -337,7 +343,7 @@ def staff_dashboard_metrics():
             "key": "crop",
             "label": "Parcels without commodities",
             "help": "Active parcels with no active commodity record",
-            "count": rosario_parcels.annotate(
+            "count": active_rosario_parcels.annotate(
                 active_crops=Count("crops", filter=Q(crops__is_active=True))
             ).filter(active_crops=0).count(),
         },
@@ -452,9 +458,10 @@ def staff_dashboard_metrics():
         or Decimal("0")
     )
     registration_complete = total_farmers - attention_chart[0]["count"]
-    mapped_parcels = total_parcels - attention_chart[2]["count"]
-    parcels_with_commodities = total_parcels - attention_chart[3]["count"]
-    completeness_denominator = total_farmers + (total_parcels * 2)
+    active_parcel_count = active_rosario_parcels.count()
+    mapped_parcels = active_parcel_count - attention_chart[2]["count"]
+    parcels_with_commodities = active_parcel_count - attention_chart[3]["count"]
+    completeness_denominator = total_farmers + (active_parcel_count * 2)
     completeness_total = registration_complete + mapped_parcels + parcels_with_commodities
     data_completeness_score = (
         round((completeness_total / completeness_denominator) * 100)
