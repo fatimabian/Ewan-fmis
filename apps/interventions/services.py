@@ -20,29 +20,37 @@ INTERVENTION_TYPE_BY_SERVICE_CODE = {
 
 
 def ensure_completed_request_intervention(service_request, actor=None):
-    """Create exactly one operational intervention when a request is completed."""
-    existing = service_request.interventions.order_by("pk").first()
-    if existing:
-        return existing, False
-
-    intervention = Intervention.objects.create(
-        farmer=service_request.farmer,
-        service_request=service_request,
-        intervention_type=INTERVENTION_TYPE_BY_SERVICE_CODE.get(
-            service_request.service.code,
-            "OTHER",
-        ),
-        intervention_date=timezone.localdate(),
-        description=service_request.subject[:240],
-        remarks=service_request.notes[:1000],
-        recorded_by=actor or service_request.assigned_to,
+    """Create or complete one operational intervention for a completed request."""
+    intervention = service_request.interventions.order_by("pk").first()
+    created = intervention is None
+    if created:
+        intervention = Intervention(
+            service_request=service_request,
+            intervention_date=timezone.localdate(),
+            provider="Office for Agricultural Services",
+        )
+    intervention.farmer = service_request.farmer
+    intervention.scope = "INDIVIDUAL"
+    intervention.status = "COMPLETED"
+    intervention.intervention_type = INTERVENTION_TYPE_BY_SERVICE_CODE.get(
+        service_request.service.code,
+        "OTHER",
     )
-    InterventionRecipient.objects.get_or_create(
+    intervention.description = (
+        service_request.notes.strip() or service_request.subject
+    )[:240]
+    intervention.remarks = service_request.notes[:1000]
+    intervention.recorded_by = actor or service_request.assigned_to
+    intervention.is_active = True
+    intervention.save()
+    intervention.recipients.exclude(farmer=service_request.farmer).update(is_active=False)
+    InterventionRecipient.objects.update_or_create(
         intervention=intervention,
         farmer=service_request.farmer,
         defaults={
             "status": "RECEIVED",
             "received_at": intervention.intervention_date,
+            "is_active": True,
         },
     )
-    return intervention, True
+    return intervention, created

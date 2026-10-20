@@ -1284,6 +1284,46 @@ class FMISRequirementTests(TestCase):
         )
         self.assertRedirects(blocked, reverse("service_requests:detail", args=[request_item.pk]))
 
+    def test_completing_service_request_creates_completed_intervention_once(self):
+        self.client.force_login(self.staff)
+        request_item = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject=self.service.name,
+            priority="LOW",
+            status="IN_PROGRESS",
+            notes="Training and farm advisory delivered.",
+            assigned_to=self.staff,
+        )
+        payload = {
+            "farmer": self.farmer.pk,
+            "service": self.service.pk,
+            "priority": "LOW",
+            "status": "COMPLETED",
+            "notes": request_item.notes,
+            "assigned_to": self.staff.pk,
+        }
+
+        response = self.client.post(
+            reverse("service_requests:edit", args=[request_item.pk]), payload
+        )
+
+        self.assertRedirects(response, reverse("service_requests:list"))
+        request_item.refresh_from_db()
+        self.assertEqual(request_item.status, "COMPLETED")
+        intervention = Intervention.objects.get(service_request=request_item)
+        self.assertEqual(intervention.status, "COMPLETED")
+        self.assertEqual(intervention.farmer, self.farmer)
+        self.assertEqual(intervention.recorded_by, self.staff)
+        recipient = intervention.recipients.get(farmer=self.farmer)
+        self.assertEqual(recipient.status, "RECEIVED")
+        self.assertEqual(recipient.received_at, intervention.intervention_date)
+
+        self.client.post(reverse("service_requests:edit", args=[request_item.pk]), payload)
+        self.assertEqual(
+            Intervention.objects.filter(service_request=request_item).count(), 1
+        )
+
     def test_pending_request_is_available_and_prefills_intervention_type(self):
         self.client.force_login(self.staff)
         request_item = ServiceRequest.objects.create(

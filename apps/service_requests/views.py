@@ -11,6 +11,7 @@ from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
 from apps.activity_logs.services import record_request_event
 from apps.common.record_history import service_request_rows
+from apps.interventions.services import ensure_completed_request_intervention
 from apps.service_catalog.models import ServiceCatalog
 from .forms import ServiceRequestForm
 from .models import ServiceRequest, ServiceRequestHistory
@@ -130,6 +131,11 @@ class ServiceRequestCreateView(
     def form_valid(self, form):
         with transaction.atomic():
             response = super().form_valid(form)
+            completed_intervention = None
+            if self.object.status == "COMPLETED":
+                completed_intervention, _created = ensure_completed_request_intervention(
+                    self.object, self.request.user
+                )
             ServiceRequestHistory.objects.create(
                 service_request=self.object,
                 actor=self.request.user,
@@ -143,7 +149,24 @@ class ServiceRequestCreateView(
                     }
                 ],
             )
-        messages.success(self.request, f"{self.object.request_id} was created and added to the history log.")
+        if completed_intervention:
+            record_request_event(
+                self.request,
+                title="Completed Intervention Created",
+                module="Interventions",
+                description=f"{self.request.user.display_name} completed a service request and recorded its intervention.",
+                target_label=completed_intervention.reference_id,
+            )
+        if completed_intervention:
+            messages.success(
+                self.request,
+                f"{self.object.request_id} and {completed_intervention.reference_id} were created as Completed.",
+            )
+        else:
+            messages.success(
+                self.request,
+                f"{self.object.request_id} was created and added to the history log.",
+            )
         record_request_event(
             self.request,
             title="Service Request Created",
@@ -194,8 +217,13 @@ class ServiceRequestUpdateView(
             "farmer", "service", "assigned_to"
         ).get(pk=form.instance.pk)
         changed_fields = list(form.changed_data)
+        completed_intervention = None
         with transaction.atomic():
             response = super().form_valid(form)
+            if self.object.status == "COMPLETED":
+                completed_intervention, _created = ensure_completed_request_intervention(
+                    self.object, self.request.user
+                )
             action = (
                 "REOPENED"
                 if before.status == "CANCELLED" and self.object.status != "CANCELLED"
@@ -209,7 +237,20 @@ class ServiceRequestUpdateView(
                 to_status=self.object.status,
                 changes=_request_changes(before, self.object, changed_fields),
             )
-        messages.success(self.request, f"{self.object.request_id} was updated and the change was recorded.")
+        if completed_intervention:
+            record_request_event(
+                self.request,
+                title="Completed Intervention Recorded",
+                module="Interventions",
+                description=f"{self.request.user.display_name} completed a service request and recorded its intervention.",
+                target_label=completed_intervention.reference_id,
+            )
+            messages.success(
+                self.request,
+                f"{self.object.request_id} and {completed_intervention.reference_id} were marked Completed.",
+            )
+        else:
+            messages.success(self.request, f"{self.object.request_id} was updated and the change was recorded.")
         record_request_event(
             self.request,
             title="Service Request Updated",

@@ -58,14 +58,3 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
             request.save()
             self.save_m2m()
         return request
-
-    def clean_status(self):
-        status = self.cleaned_data.get("status")
-        if status == "COMPLETED" and not (
-            self.instance.pk and self.instance.interventions.filter(is_active=True).exists()
-        ):
-            raise forms.ValidationError(
-                "Record the delivered intervention while this request is In Progress; "
-                "the request will then be completed automatically."
-            )
-        return status
