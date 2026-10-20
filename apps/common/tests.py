@@ -1283,7 +1283,7 @@ class FMISRequirementTests(TestCase):
         )
         self.assertRedirects(blocked, reverse("service_requests:detail", args=[request_item.pk]))
 
-    def test_completing_service_request_creates_completed_intervention_once(self):
+    def test_service_request_requires_registered_intervention_before_completion(self):
         self.client.force_login(self.staff)
         request_item = ServiceRequest.objects.create(
             farmer=self.farmer,
@@ -1307,10 +1307,31 @@ class FMISRequirementTests(TestCase):
             reverse("service_requests:edit", args=[request_item.pk]), payload
         )
 
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Register this service request in Interventions before marking it Completed.",
+        )
+        request_item.refresh_from_db()
+        self.assertEqual(request_item.status, "IN_PROGRESS")
+        self.assertFalse(Intervention.objects.filter(service_request=request_item).exists())
+
+        intervention = Intervention.objects.create(
+            farmer=self.farmer,
+            service_request=request_item,
+            status="SCHEDULED",
+            intervention_type="TRAINING",
+            intervention_date=date.today(),
+            description="Scheduled training and farm advisory",
+            recorded_by=self.staff,
+        )
+        response = self.client.post(
+            reverse("service_requests:edit", args=[request_item.pk]), payload
+        )
         self.assertRedirects(response, reverse("service_requests:list"))
         request_item.refresh_from_db()
         self.assertEqual(request_item.status, "COMPLETED")
-        intervention = Intervention.objects.get(service_request=request_item)
+        intervention.refresh_from_db()
         self.assertEqual(intervention.status, "COMPLETED")
         self.assertEqual(intervention.farmer, self.farmer)
         self.assertEqual(intervention.recorded_by, self.staff)
@@ -1318,7 +1339,6 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(recipient.status, "RECEIVED")
         self.assertEqual(recipient.received_at, intervention.intervention_date)
 
-        self.client.post(reverse("service_requests:edit", args=[request_item.pk]), payload)
         self.assertEqual(
             Intervention.objects.filter(service_request=request_item).count(), 1
         )

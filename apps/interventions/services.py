@@ -1,5 +1,3 @@
-from django.utils import timezone
-
 from .models import Intervention, InterventionRecipient
 
 
@@ -19,16 +17,11 @@ INTERVENTION_TYPE_BY_SERVICE_CODE = {
 }
 
 
-def ensure_completed_request_intervention(service_request, actor=None):
-    """Create or complete one operational intervention for a completed request."""
-    intervention = service_request.interventions.order_by("pk").first()
-    created = intervention is None
-    if created:
-        intervention = Intervention(
-            service_request=service_request,
-            intervention_date=timezone.localdate(),
-            provider="Office for Agricultural Services",
-        )
+def complete_registered_request_intervention(service_request, actor=None):
+    """Complete the request's existing active intervention without creating one."""
+    intervention = service_request.interventions.filter(is_active=True).order_by("pk").first()
+    if not intervention:
+        return None
     intervention.farmer = service_request.farmer
     intervention.scope = "INDIVIDUAL"
     intervention.status = "COMPLETED"
@@ -53,4 +46,4 @@ def ensure_completed_request_intervention(service_request, actor=None):
             "is_active": True,
         },
     )
-    return intervention, created
+    return intervention

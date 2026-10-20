@@ -11,7 +11,7 @@ from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
 from apps.activity_logs.services import record_request_event
 from apps.common.record_history import service_request_rows
-from apps.interventions.services import ensure_completed_request_intervention
+from apps.interventions.services import complete_registered_request_intervention
 from apps.service_catalog.models import ServiceCatalog
 from .forms import ServiceRequestForm
 from .models import ServiceRequest, ServiceRequestHistory
@@ -133,7 +133,7 @@ class ServiceRequestCreateView(
             response = super().form_valid(form)
             completed_intervention = None
             if self.object.status == "COMPLETED":
-                completed_intervention, _created = ensure_completed_request_intervention(
+                completed_intervention = complete_registered_request_intervention(
                     self.object, self.request.user
                 )
             ServiceRequestHistory.objects.create(
@@ -221,7 +221,7 @@ class ServiceRequestUpdateView(
         with transaction.atomic():
             response = super().form_valid(form)
             if self.object.status == "COMPLETED":
-                completed_intervention, _created = ensure_completed_request_intervention(
+                completed_intervention = complete_registered_request_intervention(
                     self.object, self.request.user
                 )
             action = (
