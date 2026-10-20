@@ -966,12 +966,11 @@ class FMISRequirementTests(TestCase):
         )
         self.assertRedirects(response, reverse("service_requests:list"))
         request_record = ServiceRequest.objects.get()
-        self.assertEqual(
-            self.client.get(
-                reverse("service_requests:detail", args=[request_record.pk])
-            ).status_code,
-            200,
+        detail = self.client.get(
+            reverse("service_requests:detail", args=[request_record.pk])
         )
+        self.assertEqual(detail.status_code, 200)
+        self.assertNotContains(detail, "Record Delivered Intervention")
 
     def test_record_details_are_separated_by_management_context(self):
         self.client.force_login(self.staff)
