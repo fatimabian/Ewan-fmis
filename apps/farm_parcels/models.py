@@ -93,7 +93,7 @@ class FarmParcel(models.Model):
 
     @property
     def display_name(self):
-        return self.parcel_name or f"Parcel {self.pk:03d}"
+        return f"P-{self.pk:04d}" if self.pk else "New Parcel"
 
     def __str__(self):
         return f"{self.display_name} - {self.farmer}"

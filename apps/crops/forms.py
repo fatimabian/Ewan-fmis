@@ -15,7 +15,10 @@ from .models import CropRecord
 
 class ParcelChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, parcel):
-        return f"{parcel.farmer.record_id} - {parcel.farmer.list_name} / Parcel {parcel.pk:03d} ({parcel.barangay})"
+        return (
+            f"{parcel.farmer.record_id} - {parcel.farmer.list_name} / "
+            f"{parcel.display_name} ({parcel.barangay})"
+        )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -1573,7 +1573,8 @@ class FMISRequirementTests(TestCase):
         response = self.client.get(reverse("farm_parcels:list"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["object_list"][0], newest)
-        self.assertContains(response, "Newest Registered Field")
+        self.assertContains(response, newest.display_name)
+        self.assertEqual(newest.display_name, f"P-{newest.pk:04d}")
 
     def test_parcel_map_rejects_pins_outside_rosario_batangas(self):
         self.client.force_login(self.staff)
