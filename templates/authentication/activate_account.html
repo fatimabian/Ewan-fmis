@@ -2,7 +2,7 @@
 {% block title %}Activate Account | FMIS{% endblock %}
 {% block auth_content %}
   <section class="auth-standalone-card auth-workflow-card" aria-labelledby="accountActivationTitle">
-    <form method="post" action="{% url 'authentication:activate_account' %}" class="landing-recovery-form landing-activation-form">
+    <form method="post" action="{% url 'authentication:activate_account' %}" class="landing-recovery-form landing-activation-form" novalidate>
       {% csrf_token %}
       <span class="landing-dialog-icon"><i class="bi bi-envelope-check"></i></span>
       <span class="landing-dialog-kicker">FIRST-TIME ACCOUNT ACTIVATION</span>

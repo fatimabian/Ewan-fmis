@@ -119,11 +119,12 @@
         <h3><i class="bi bi-images"></i> Field Photo Gallery</h3>
         {% if object.is_active %}
           <form class="parcel-photo-upload" method="post" enctype="multipart/form-data"
-                action="{% url 'farm_parcels:photo_upload' object.pk %}">
+                action="{% url 'farm_parcels:photo_upload' object.pk %}" novalidate>
             {% csrf_token %}
             <div class="parcel-photo-upload-field">
               <label for="{{ photo_upload_form.field_photo.id_for_label }}">Office field documentation</label>
               {{ photo_upload_form.field_photo }}
+              {{ photo_upload_form.field_photo.errors }}
               <small>Keep one current field photo for parcel review. Uploading another photo replaces the visible one.</small>
             </div>
             <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> {% if parcel_photos %}Replace Photo{% else %}Upload Photo{% endif %}</button>

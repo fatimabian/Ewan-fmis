@@ -11,7 +11,7 @@
         </i>
         <span>The previous information will be preserved automatically. Only save verified changes to the farmer record.</span>
       </div>
-      <form method="post" enctype="multipart/form-data">
+      <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         <section class="form-section">
           <h3><i class="bi bi-person-vcard"></i> Registrant and personal information</h3>

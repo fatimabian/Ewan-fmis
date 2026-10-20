@@ -37,7 +37,7 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
     {% if request.GET.service_request %}
       <div class="linked-request-note"><i class="bi bi-link-45deg"></i><span>The farmer and related service request were filled from the selected request. Confirm the details before saving.</span></div>
     {% endif %}
-    <form method="post">
+    <form method="post" novalidate>
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="form-validation-alert">{{ form.non_field_errors }}</div>{% endif %}
       <div class="intervention-form-grid">

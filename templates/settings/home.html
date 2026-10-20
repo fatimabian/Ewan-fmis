@@ -467,22 +467,10 @@
   }
   </style>
   <div class="content settings-page{% if not request.user.is_admin %} staff-profile-only{% endif %}">
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" novalidate>
       {% csrf_token %}
       {% if form.non_field_errors %}
         <div class="form-validation-alert" data-inline-validation>{{ form.non_field_errors }}</div>
-      {% endif %}
-      {% if form.errors %}
-        <div class="form-validation-alert settings-error-summary" data-inline-validation>
-          <strong>These settings need attention:</strong>
-          <ul>
-            {% for field in form %}
-              {% for error in field.errors %}
-                <li>{{ field.label }}: {{ error }}</li>
-              {% endfor %}
-            {% endfor %}
-          </ul>
-        </div>
       {% endif %}
       {% if request.user.is_admin %}
         <div class="settings-tabs">
@@ -584,7 +572,7 @@
                 </i> Security &amp; Accounts
               </h3>
               <p class="text-muted">Protect your account with a strong, unique password and secure first-time email activation.</p>
-              <button class="btn btn-outline-success" type="button" data-password-modal>Change Password</button>
+              <a class="btn btn-outline-success" href="{% url 'settings_page:change_password' %}">Change Password</a>
             </article>
           </div>
         </div>

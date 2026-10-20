@@ -461,3 +461,10 @@ td{
         font-size:22px
     }
 }
+/* Server-rendered validation: the error list and its field stay visually linked. */
+:is(.registration-field, .request-field, .intervention-field, .account-field, .form-group, p):has(.errorlist) :is(input, select, textarea),
+select.is-invalid + .farmer-picker input {
+    border: 2px solid #dc2626 !important;
+    outline: 0;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, .12) !important;
+}

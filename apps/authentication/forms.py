@@ -145,7 +145,7 @@ class PasswordRecoveryOTPForm(ActivationOTPForm):
     pass
 
 
-class RecoverySetPasswordForm(SetPasswordForm):
+class RecoverySetPasswordForm(InlineValidationMixin, SetPasswordForm):
     """Django's password validators with landing-modal friendly widgets."""
 
     def __init__(self, user, *args, **kwargs):

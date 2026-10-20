@@ -2,7 +2,7 @@
 {% block title %}Secure Your Account | FMIS{% endblock %}
 {% block auth_content %}
   <section class="auth-standalone-card auth-workflow-card mfa-workflow-card" aria-labelledby="mfaSetupTitle">
-    <form method="post" class="landing-recovery-form landing-activation-form">
+    <form method="post" class="landing-recovery-form landing-activation-form" novalidate>
       {% csrf_token %}
       <span class="landing-dialog-icon"><i class="bi bi-shield-lock"></i></span>
       <span class="landing-dialog-kicker">ACCOUNT SECURITY</span>

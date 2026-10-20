@@ -164,6 +164,11 @@ def normalize_phone_digits(value):
 class InlineValidationMixin:
     """Shared normalization and accessible inline validation for every FMIS form."""
 
+    # Validation feedback is rendered by Django below each field after a normal
+    # form submission.  Disabling browser-required attributes prevents native
+    # popup bubbles from replacing those consistent, accessible messages.
+    use_required_attribute = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
@@ -208,6 +213,17 @@ class InlineValidationMixin:
         if form_field:
             self._add_class(form_field.widget, "is-invalid")
             form_field.widget.attrs["aria-invalid"] = "true"
+            self._describe_error(field, form_field)
+
+    def _describe_error(self, name, field):
+        field_id = field.widget.attrs.get("id") or self[name].auto_id
+        if not field_id:
+            return
+        error_id = f"{field_id}_error"
+        described_by = field.widget.attrs.get("aria-describedby", "").split()
+        if error_id not in described_by:
+            described_by.append(error_id)
+        field.widget.attrs["aria-describedby"] = " ".join(described_by)
 
     def full_clean(self):
         super().full_clean()
@@ -224,6 +240,7 @@ class InlineValidationMixin:
                 continue
             self._add_class(field.widget, "is-invalid")
             field.widget.attrs["aria-invalid"] = "true"
+            self._describe_error(name, field)
 
     def clean(self):
         cleaned = super().clean()

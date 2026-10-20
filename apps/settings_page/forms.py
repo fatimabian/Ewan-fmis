@@ -1,6 +1,7 @@
 import re
 
 from django import forms
+from django.contrib.auth.forms import PasswordChangeForm
 
 from apps.authentication.models import CustomUser
 from apps.common.forms import InlineValidationMixin, normalize_phone_digits
@@ -58,3 +59,7 @@ class ProfileForm(InlineValidationMixin, forms.Form):
         if not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
             raise forms.ValidationError("Choose a valid interface color.")
         return color.lower()
+
+
+class SettingsPasswordChangeForm(InlineValidationMixin, PasswordChangeForm):
+    """Server-rendered password validation with the shared inline treatment."""

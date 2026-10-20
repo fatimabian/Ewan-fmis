@@ -740,7 +740,7 @@
                 document.body.classList.remove('map-pin-active')
             };
             const setPinButton = (mapped) => {
-                startPin.disabled = mapped;
+                startPin.disabled = !farmerSelect.value || mapped;
                 startPin.innerHTML = mapped ? '<i class="bi bi-geo-alt-fill"></i> Parcel Already Pinned' : '<i class="bi bi-pin-map"></i> Pin Farm Parcel'
             };
             const showSelectedFarmer = () => {
@@ -764,7 +764,6 @@
             farmerSelect.addEventListener('change', showSelectedFarmer);
             startPin.addEventListener('click', () => {
                 if (!farmerSelect.value) {
-                    farmerSelect.reportValidity();
                     return
                 }
                 if (markerByFarmer.has(String(farmerSelect.value))) {

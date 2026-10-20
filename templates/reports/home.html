@@ -929,17 +929,20 @@
             Choose Rosario-specific filters, then generate the report.
           {% endif %}
         </p>
-        <form class="generate-form" id="reportGenerator" method="post">
+        <form class="generate-form" id="reportGenerator" method="post" novalidate>
           {% csrf_token %}
           <div class="report-filter-row" data-filter-row="category">
             <label>{% if request.user.is_admin %}System Report{% else %}Category{% endif %}</label>
-            <select name="report_type" id="reportType" required>
+            <select name="report_type" id="reportType"{% if report_error %} class="is-invalid" aria-invalid="true" aria-describedby="reportType_error"{% endif %}>
               <option value="">{% if request.user.is_admin %}Choose a system report{% else %}Choose a report{% endif %}</option>
               {% for template in report_templates %}
                 <option value="{{ template.key }}"
                         {% if selected_report_type == template.key %}selected{% endif %}>{{ template.title }}</option>
               {% endfor %}
             </select>
+            {% if report_error %}
+              <span class="inline-form-error" id="reportType_error">{{ report_error }}</span>
+            {% endif %}
           </div>
           {% if not request.user.is_admin %}
           <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
@@ -972,9 +975,6 @@
               {% endfor %}
             </select>
           </div>
-          {% endif %}
-          {% if report_error %}
-            <span class="inline-form-error">{{ report_error }}</span>
           {% endif %}
           <div class="report-filter-row"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
             <label>Period</label>
@@ -1323,23 +1323,6 @@
               });
           }
 
-          function requireReport() {
-              if (type.value) return true;
-              type.classList.add('is-invalid');
-              let error = form.querySelector('.inline-form-error');
-              if (!error) {
-                  error = document.createElement('span');
-                  error.className = 'inline-form-error';
-                  type.insertAdjacentElement('afterend', error)
-              }
-              error.textContent = 'Choose a report before downloading.';
-              type.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'center'
-              });
-              return false
-          }
-
           async function refreshPreview() {
               if (!type.value) return;
               const params = new URLSearchParams(new FormData(form));
@@ -1377,13 +1360,7 @@
               const el = event.target;
               if (el.tagName !== 'SELECT' || el.name === 'format') return;
               if (el === type) updateRelevantFilters();
-              type.classList.remove('is-invalid');
-              form.querySelector('.inline-form-error')?.remove();
               refreshPreview();
-          });
-
-          form.addEventListener('submit', event => {
-              if (!requireReport()) event.preventDefault()
           });
           updateRelevantFilters();
       })();

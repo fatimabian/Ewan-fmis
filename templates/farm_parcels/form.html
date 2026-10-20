@@ -8,7 +8,7 @@
         <i class="bi bi-info-circle"></i>
         <span>{% if object %}Use Update Record for verified parcel and land changes. Previous values and the responsible staff member are preserved automatically.{% else %}This page records parcel and land information only. Add commodities separately in Commodity Management.{% endif %}</span>
       </div>
-      <form method="post" enctype="multipart/form-data" id="parcelForm">
+      <form method="post" enctype="multipart/form-data" id="parcelForm" novalidate>
         {% csrf_token %}
         <section class="form-section">
           <h3><i class="bi bi-map"></i> Parcel &amp; Land Information</h3>

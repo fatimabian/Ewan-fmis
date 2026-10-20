@@ -299,21 +299,6 @@
           const loading = document.getElementById('registrationLoading');
           let current = 1;
 
-          function showStepError(step, field, message = 'Please complete all required fields before continuing.') {
-              let alert = step.querySelector('.step-validation-message');
-              if (!alert) {
-                  alert = document.createElement('div');
-                  alert.className = 'step-validation-message';
-                  alert.setAttribute('role', 'alert');
-                  step.querySelector('.step-heading')?.insertAdjacentElement('afterend', alert)
-              }
-              alert.innerHTML = `<i class="bi bi-exclamation-circle"></i><span>${message}</span>`;
-              field?.closest('.registration-field, .checkbox-options, .formset-row')?.classList.add('field-needs-attention');
-              field?.focus({preventScroll: true});
-              field?.scrollIntoView({behavior: 'smooth', block: 'center'});
-              field?.reportValidity()
-          }
-
           function showStep(number) {
               current = number;
               steps.forEach(el => el.classList.toggle('active', Number(el.dataset.step) === number));
@@ -329,23 +314,8 @@
               if (number === 5) buildReview()
           }
 
-          function validateStep() {
-              const step = steps.find(el => Number(el.dataset.step) === current);
-              step.querySelector('.step-validation-message')?.remove();
-              step.querySelectorAll('.field-needs-attention').forEach(el => el.classList.remove('field-needs-attention'));
-              const fields = [...step.querySelectorAll('input:not([type=hidden]),select,textarea')].filter(el => !el.closest('.formset-row')?.classList.contains('deleted'));
-              for (const field of fields) {
-                  field.setCustomValidity('');
-                  if (field.dataset.stepRequired && !String(field.value).trim()) field.setCustomValidity('Complete this required field.');
-                  if (!field.checkValidity()) {
-                      showStepError(step, field);
-                      return false
-                  }
-              }
-              return true
-          }
           document.querySelectorAll('.next-step').forEach(btn => btn.addEventListener('click', () => {
-              if (validateStep()) showStep(Math.min(5, current + 1))
+              showStep(Math.min(5, current + 1))
           }));
           document.querySelectorAll('.prev-step').forEach(btn => btn.addEventListener('click', () => showStep(Math.max(1, current - 1))));
 
@@ -376,9 +346,6 @@
           }
           document.querySelectorAll('.add-form-row').forEach(btn => btn.addEventListener('click', () => addRow(btn.dataset.prefix)));
           ['parcels', 'crops', 'documents'].forEach(updateRemoveButtons);
-          document.addEventListener('change', event => {
-              if (event.target.matches('#documents-rows select[name$="-document_type"]')) document.querySelectorAll('#documents-rows select[name$="-document_type"]').forEach(select => select.setCustomValidity(''))
-          });
           document.addEventListener('click', event => {
               const button = event.target.closest('.remove-form-row');
               if (!button || button.disabled) return;
@@ -438,7 +405,6 @@
               if (!type || !number) return;
               const rule = type.value ? (idRules[type.value] || genericIdRule) : null;
               const help = number.closest('.registration-field')?.querySelector('small');
-              number.setCustomValidity('');
               number.required = type.required || Boolean(type.value);
               if (!rule) {
                   number.removeAttribute('pattern');
@@ -542,19 +508,7 @@
               review.innerHTML = `<article><div><h3><i class="bi bi-person"></i> Farmer Profile</h3><dl><dt>Name</dt><dd>${esc(name)}</dd><dt>Address</dt><dd>${esc(address)}</dd><dt>Contact</dt><dd>${esc(valueOf('phone_number'))}</dd><dt>Livelihood</dt><dd>${esc(valueOf('livelihood'))}</dd></dl></div><button type="button" data-edit-step="1">Edit profile</button></article><article><div><h3><i class="bi bi-map"></i> Farm Parcels</h3><p><strong>${activeRows('parcels').length}</strong> parcel(s) declared</p></div><button type="button" data-edit-step="2">Edit parcels</button></article><article><div><h3><i class="bi bi-flower1"></i> Commodity &amp; Livelihood</h3><p><strong>${activeRows('crops').length}</strong> commodity record(s)</p></div><button type="button" data-edit-step="3">Edit commodities</button></article><article><div><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><p><strong>${activeRows('documents').length}</strong> supporting document(s)</p></div><button type="button" data-edit-step="4">Edit documents</button></article>`;
               review.querySelectorAll('[data-edit-step]').forEach(btn => btn.addEventListener('click', () => showStep(Number(btn.dataset.editStep))))
           }
-          form.addEventListener('submit', event => {
-              if (!form.checkValidity()) {
-                  event.preventDefault();
-                  for (let n = 1; n <= 5; n++) {
-                      const bad = steps[n - 1].querySelector(':invalid');
-                      if (bad) {
-                          showStep(n);
-                          bad.reportValidity();
-                          break
-                      }
-                  }
-                  return
-              }
+          form.addEventListener('submit', () => {
               const submit = document.querySelector('.submit-registration');
               submit.disabled = true;
               submit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving…';

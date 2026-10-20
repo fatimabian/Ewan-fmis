@@ -187,7 +187,7 @@
             <div class="form-validation-alert">{{ message }}</div>
           {% endfor %}
         {% endif %}
-        <form method="post" class="auth-form activation-actions">
+        <form method="post" class="auth-form activation-actions" novalidate>
           {% csrf_token %}
           <label class="activation-code">
             Verification code
@@ -202,6 +202,5 @@
         </form>
       </section>
     </main>
-    <script defer src="{% static 'js/form-validation.min.js' %}?v=1"></script>
   </body>
 </html>

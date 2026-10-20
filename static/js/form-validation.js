@@ -1,17 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const controls = "input:not([type=hidden]):not([type=submit]):not([type=button]), select, textarea";
   const loadingOverlay = document.getElementById("fmisSubmitLoading");
   const loadingTitle = document.getElementById("fmisSubmitLoadingTitle");
-  const mark = (field) => {
-    field.classList.add("is-invalid");
-    field.setAttribute("aria-invalid", "true");
-  };
-  const clear = (field) => {
-    if (!field.validity || field.validity.valid) {
-      field.classList.remove("is-invalid");
-      field.removeAttribute("aria-invalid");
-    }
-  };
   const capitalizeFirst = (value) => {
     const index = value.search(/\p{L}/u);
     return index < 0 ? value : value.slice(0, index) + value[index].toUpperCase() + value.slice(index + 1);
@@ -36,11 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.querySelectorAll("form").forEach((form) => {
     form.addEventListener("submit", (event) => {
-      form.classList.add("fmis-form-submitted");
-      form.querySelectorAll(controls).forEach((field) => {
-        if (field.validity && !field.validity.valid) mark(field);
-      });
-
       const method = (form.getAttribute("method") || "get").toLowerCase();
       const hasOwnLoadingState = form.id === "rsbsaRegistration";
       const isDownload = form.id === "reportGenerator" || form.hasAttribute("data-download-form");
@@ -48,8 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
         event.defaultPrevented ||
         method !== "post" ||
         hasOwnLoadingState ||
-        isDownload ||
-        !form.checkValidity()
+        isDownload
       ) {
         return;
       }
@@ -81,11 +64,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 0);
       }
     });
-    form.querySelectorAll(controls).forEach((field) => {
-      field.addEventListener("invalid", () => mark(field));
-      field.addEventListener("input", () => clear(field));
-      field.addEventListener("change", () => clear(field));
-    });
   });
 
   document.querySelectorAll('input[name="phone_number"]').forEach((field) => {
@@ -97,43 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       field.value = digits;
     };
-    const getInlineError = () => {
-      const next = field.nextElementSibling;
-      return next && next.classList.contains("inline-form-error") ? next : null;
-    };
-    const clearPhoneError = () => {
-      field.classList.remove("is-invalid");
-      field.removeAttribute("aria-invalid");
-      getInlineError()?.remove();
-    };
-    const showPhoneError = (message) => {
-      mark(field);
-      let error = getInlineError();
-      if (!error) {
-        error = document.createElement("span");
-        error.className = "inline-form-error";
-        field.insertAdjacentElement("afterend", error);
-      }
-      error.textContent = message;
-    };
-    const validatePhone = () => {
-      const digits = field.value.replace(/\D/g, "");
-      if (!digits || digits === "09") {
-        clearPhoneError();
-        return;
-      }
-      if (digits.length !== 11 || !digits.startsWith("09")) {
-        showPhoneError("Phone number must be 11 digits.");
-      } else {
-        clearPhoneError();
-      }
-    };
     if (!field.value) field.value = "09";
-    field.addEventListener("input", () => {
-      enforcePrefix();
-      clearPhoneError();
-    });
-    field.addEventListener("blur", validatePhone);
+    field.addEventListener("input", enforcePrefix);
     field.addEventListener("keydown", (e) => {
       const atLockedZone = field.selectionStart <= 2 && field.selectionEnd <= 2;
       if ((e.key === "Backspace" || e.key === "Delete") && atLockedZone) e.preventDefault();
@@ -161,10 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const required = civilStatus.value === "MARRIED";
       spouse.required = required;
       spouse.toggleAttribute("aria-required", required);
-      if (!required) {
-        spouse.setCustomValidity("");
-        clear(spouse);
-      }
 
       const container = spouse.closest(".registration-field, .form-group");
       if (!container) return;
@@ -198,8 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
     detail.toggleAttribute("aria-required", isOther);
     detail.disabled = !isOther;
     if (!isOther) {
-      detail.setCustomValidity("");
-      clear(detail);
+      detail.value = "";
     }
   };
 
@@ -219,12 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   }).observe(document.body, {childList: true, subtree: true});
-
-  document.querySelectorAll(".errorlist").forEach((errors) => {
-    const container = errors.closest("label, .registration-field, .request-field, .account-field, .form-group, p") || errors.parentElement;
-    container?.classList.add("has-error");
-    container?.querySelectorAll(controls).forEach(mark);
-  });
 
   window.addEventListener("pageshow", () => {
     if (loadingOverlay) loadingOverlay.hidden = true;

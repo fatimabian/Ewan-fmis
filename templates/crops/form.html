@@ -23,7 +23,7 @@
           {% endif %}
         </span>
       </div>
-      <form method="post" enctype="multipart/form-data">
+      <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         <div class="registration-grid three">
           {% for field in form %}

@@ -211,7 +211,7 @@
   </style>
   <div class="content account-form-wrap">
     <section class="panel account-form-card">
-      <form class="account-form-body" method="post">
+      <form class="account-form-body" method="post" novalidate>
         {% csrf_token %}
         {% if form.non_field_errors %}
           <div class="form-validation-alert" data-inline-validation>{{ form.non_field_errors }}</div>

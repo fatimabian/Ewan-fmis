@@ -184,6 +184,29 @@ class FMISRequirementTests(TestCase):
             405,
         )
 
+    def test_form_errors_are_server_rendered_below_red_highlighted_fields(self):
+        form = InterventionForm(data={})
+
+        self.assertFalse(form.is_valid())
+        status_html = str(form["status"])
+        status_errors = str(form["status"].errors)
+        self.assertIn('class="form-control is-invalid"', status_html)
+        self.assertIn('aria-invalid="true"', status_html)
+        self.assertIn('aria-describedby="id_status_error"', status_html)
+        self.assertIn('id="id_status_error"', status_errors)
+        self.assertNotIn(" required", status_html)
+
+    def test_password_change_uses_normal_server_rendered_validation(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(reverse("settings_page:change_password"), {})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "novalidate")
+        self.assertContains(response, 'name="old_password"')
+        self.assertContains(response, "is-invalid", count=3)
+        self.assertContains(response, "This field is required.", count=3)
+
     def test_new_account_is_staff_and_waits_for_email_activation(self):
         form = AccountForm(
             data={

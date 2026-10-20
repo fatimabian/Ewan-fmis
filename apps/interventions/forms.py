@@ -1,6 +1,7 @@
 from django import forms
 from django.urls import reverse
 
+from apps.common.forms import InlineValidationMixin
 from apps.common.constants import ROSARIO_BARANGAY_CHOICES
 from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
 from apps.farmers.models import Farmer
@@ -37,7 +38,7 @@ class ServiceRequestChoiceField(forms.ModelChoiceField):
         )
 
 
-class InterventionForm(forms.ModelForm):
+class InterventionForm(InlineValidationMixin, forms.ModelForm):
     farmer = FarmerChoiceField(queryset=active_farmer_queryset(), required=False)
     selected_farmers = FarmerMultipleChoiceField(
         queryset=Farmer.objects.none(),

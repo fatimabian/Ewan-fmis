@@ -143,7 +143,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (select.dataset.enhanced === "true") return;
     select.dataset.enhanced = "true";
     let options = [...select.options].filter((option) => option.value);
-    const wasRequired = select.required;
     select.required = false;
     select.classList.add("farmer-picker-source");
     const picker = document.createElement("div");
@@ -152,7 +151,6 @@ document.addEventListener("DOMContentLoaded", () => {
     select.insertAdjacentElement("afterend", picker);
     const input = picker.querySelector("input");
     const list = picker.querySelector(".farmer-picker-list");
-    input.required = wasRequired;
     const selected = options.find((option) => option.value === select.value);
     if (selected) input.value = selected.textContent.trim();
     let requestSequence = 0;
@@ -189,7 +187,6 @@ document.addEventListener("DOMContentLoaded", () => {
         choice.addEventListener("click", () => {
           select.value = option.value;
           input.value = option.textContent.trim();
-          input.setCustomValidity("");
           select.dispatchEvent(new Event("change", {
             bubbles: true
           }));
@@ -209,16 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
     input.addEventListener("input", () => {
       const selectedOption = options.find((option) => option.value === select.value);
       if (!selectedOption || input.value !== selectedOption.textContent.trim()) select.value = "";
-      input.setCustomValidity("");
       renderOptions();
-    });
-    select.form?.addEventListener("submit", (event) => {
-      if (wasRequired && !select.value) {
-        event.preventDefault();
-        input.setCustomValidity("Choose a farmer from the database list.");
-        input.reportValidity();
-        renderOptions();
-      }
     });
     document.addEventListener("click", (event) => {
       if (!picker.contains(event.target)) list.hidden = true;
@@ -249,51 +237,6 @@ document.addEventListener("DOMContentLoaded", () => {
       row.classList.add("selected");
     });
   });
-  const passwordLink = document.querySelector('[data-password-modal], a[href*="password_change"]');
-  if (passwordLink) {
-    passwordLink.addEventListener("click", (event) => {
-      event.preventDefault();
-      if (document.getElementById("fmis-password-modal")) return;
-      const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value || "";
-      const modal = document.createElement("div");
-      modal.id = "fmis-password-modal";
-      modal.innerHTML = `<div class="fmis-modal-backdrop" data-close-password-modal></div><section class="fmis-password-dialog" role="dialog" aria-modal="true" aria-labelledby="password-modal-title"><button type="button" class="fmis-modal-close" aria-label="Close" data-close-password-modal>×</button><h2 id="password-modal-title">Change Password</h2><p>Choose a new secure password for your FMIS account.</p><form method="post" action="/settings/change-password/"><input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}"><label>Current password<input required type="password" name="old_password" autocomplete="current-password"></label><label>New password<input required type="password" name="new_password1" autocomplete="new-password"></label><label>Confirm new password<input required type="password" name="new_password2" autocomplete="new-password"></label><div class="fmis-modal-actions"><button type="button" class="btn btn-outline-secondary btn-cancel" data-close-password-modal>Cancel</button><button class="btn btn-success">Save New Password</button></div></form></section>`;
-      const modalStyles = document.createElement("style");
-      modalStyles.textContent = ".fmis-modal-backdrop{position:fixed;inset:0;background:#09152199;z-index:1000}.fmis-password-dialog{position:fixed;z-index:1001;top:50%;left:50%;transform:translate(-50%,-50%);width:min(460px,92vw);background:#fff;color:#16233b;border-radius:15px;padding:28px;box-shadow:0 20px 60px #0005}.fmis-password-dialog h2{font-size:23px;margin:0 0 7px}.fmis-password-dialog p{color:#64728a;margin:0 0 20px}.fmis-password-dialog form{display:grid;gap:14px}.fmis-password-dialog label{display:grid;gap:7px;font-weight:700;font-size:13px}.fmis-password-dialog input{border:1px solid #dce5ec;border-radius:8px;padding:11px;font:inherit}.fmis-modal-close{position:absolute;right:16px;top:12px;border:0;background:transparent;font-size:28px;color:#56657b}.fmis-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:7px}";
-      document.head.appendChild(modalStyles);
-      document.body.appendChild(modal);
-      modal.querySelectorAll("[data-close-password-modal]").forEach((button) => button.addEventListener("click", () => modal.remove()));
-      const passwordForm = modal.querySelector("form");
-      passwordForm.addEventListener("submit", async (submitEvent) => {
-        submitEvent.preventDefault();
-        passwordForm.querySelectorAll(".inline-form-error").forEach((error) => error.remove());
-        passwordForm.querySelectorAll(".is-invalid").forEach((input) => input.classList.remove("is-invalid"));
-        const response = await fetch(passwordForm.action, {
-          method: "POST",
-          body: new FormData(passwordForm),
-          headers: {
-            "X-Requested-With": "XMLHttpRequest"
-          },
-        });
-        const result = await response.json();
-        if (result.ok) {
-          modal.remove();
-          openFeedbackModal(result.message, "success");
-          return;
-        }
-        Object.entries(result.errors || {}).forEach(([name, errors]) => {
-          const input = passwordForm.querySelector(`[name="${name}"]`);
-          const target = input?.closest("label") || passwordForm;
-          input?.classList.add("is-invalid");
-          const message = document.createElement("span");
-          message.className = "inline-form-error";
-          message.textContent = errors.join(" ");
-          target.appendChild(message);
-        });
-      });
-      modal.querySelector('input[name="old_password"]').focus();
-    });
-  }
   document.querySelectorAll("[data-card-url]").forEach((card) => {
     const openCard = () => {
       if (card.dataset.cardUrl) window.location.href = card.dataset.cardUrl;
