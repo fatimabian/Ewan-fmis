@@ -46,9 +46,6 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
                 pk__in=[*services.values_list("pk", flat=True), self.instance.service_id]
             )
         self.fields["service"].queryset = services.order_by("category", "name")
-        self.fields["service"].help_text = (
-            "Choose the closest match. Use “Other Agricultural Concern” only when none applies."
-        )
         self.fields["assigned_to"].queryset = CustomUser.objects.filter(
             role="STAFF", is_active=True
         ).order_by("first_name", "last_name", "username")
