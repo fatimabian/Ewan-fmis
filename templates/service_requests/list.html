@@ -301,12 +301,17 @@
                 </td>
                 <td>
                   <div class="request-actions">
-                    {% if item.status != 'CANCELLED' %}
-                      <a href="{% url 'service_requests:edit' item.pk %}"
-                         title="Edit {{ item.request_id }}">
-                        <i class="bi bi-pencil-square">
-                        </i>
+                    <a href="{% url 'service_requests:edit' item.pk %}"
+                       title="Edit {{ item.request_id }}">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+                    {% if item.status == 'PENDING' or item.status == 'IN_PROGRESS' %}
+                      <a href="{% url 'interventions:create' %}?service_request={{ item.pk }}"
+                         title="Record intervention for {{ item.request_id }}">
+                        <i class="bi bi-box2-heart"></i>
                       </a>
+                    {% endif %}
+                    {% if item.status != 'CANCELLED' %}
                       <form method="post"
                             action="{% url 'service_requests:delete' item.pk %}"
                             data-confirm="Cancel service request {{ item.request_id }}? The record and its history will be preserved.">
@@ -314,6 +319,16 @@
                         <button title="Cancel and archive {{ item.request_id }}">
                           <i class="bi bi-archive">
                           </i>
+                        </button>
+                      </form>
+                    {% else %}
+                      <form method="post"
+                            action="{% url 'service_requests:delete' item.pk %}"
+                            data-confirm="Restore service request {{ item.request_id }} as Pending?">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="restore">
+                        <button title="Restore {{ item.request_id }}">
+                          <i class="bi bi-arrow-counterclockwise"></i>
                         </button>
                       </form>
                     {% endif %}

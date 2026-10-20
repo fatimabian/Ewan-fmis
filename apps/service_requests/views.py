@@ -177,7 +177,7 @@ class ServiceRequestHistoryView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context.update({"history_title": "Service Request History", "record_label": f"{self.object.request_id} · {self.object.service.name}", "back_url": reverse_lazy("service_requests:detail", args=[self.object.pk]), "edit_url": reverse_lazy("service_requests:edit", args=[self.object.pk]) if self.object.status != "CANCELLED" else "", "edit_label": "Edit Request", "history_entries": service_request_rows(self.object.history.all())})
+        context.update({"history_title": "Service Request History", "record_label": f"{self.object.request_id} · {self.object.service.name}", "back_url": reverse_lazy("service_requests:detail", args=[self.object.pk]), "edit_url": reverse_lazy("service_requests:edit", args=[self.object.pk]), "edit_label": "Edit Request", "history_entries": service_request_rows(self.object.history.all())})
         return context
 
 
@@ -188,16 +188,6 @@ class ServiceRequestUpdateView(
     form_class = ServiceRequestForm
     template_name = "service_requests/form.html"
     success_url = reverse_lazy("service_requests:list")
-
-    def dispatch(self, request, *args, **kwargs):
-        service_request = get_object_or_404(ServiceRequest, pk=kwargs["pk"])
-        if service_request.status == "CANCELLED":
-            messages.info(
-                request,
-                f"{service_request.request_id} is cancelled and can no longer be changed.",
-            )
-            return redirect("service_requests:detail", pk=service_request.pk)
-        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         before = ServiceRequest.objects.select_related(
@@ -236,7 +226,29 @@ class ServiceRequestDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View)
     def post(self, request, pk):
         service_request = get_object_or_404(ServiceRequest, pk=pk)
         if service_request.status == "CANCELLED":
-            messages.info(request, f"{service_request.request_id} is already cancelled.")
+            if request.POST.get("action") != "restore":
+                messages.info(request, f"{service_request.request_id} is already cancelled.")
+                return redirect("service_requests:list")
+            with transaction.atomic():
+                service_request.status = "PENDING"
+                service_request.updated_at = timezone.now()
+                service_request.save(update_fields=["status", "updated_at"])
+                ServiceRequestHistory.objects.create(
+                    service_request=service_request,
+                    actor=request.user,
+                    action="REOPENED",
+                    from_status="CANCELLED",
+                    to_status="PENDING",
+                    changes=[{"field": "Status", "before": "Cancelled", "after": "Pending"}],
+                )
+            record_request_event(
+                request,
+                title="Service Request Reopened",
+                module="Service Requests",
+                description=f"{request.user.display_name} reopened a cancelled service request.",
+                target_label=service_request.request_id,
+            )
+            messages.success(request, f"{service_request.request_id} was restored as Pending.")
             return redirect("service_requests:list")
         previous_status = service_request.status
         with transaction.atomic():

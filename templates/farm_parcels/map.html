@@ -227,10 +227,24 @@
   }
   .farmer-popup a{
       display:inline-flex;
-      margin-top:13px;
       color:#0e7f3b;
       font-weight:700;
       text-decoration:none
+  }
+  .farmer-popup-actions{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:13px
+  }
+  .farmer-popup-actions button{
+      border:0;
+      background:transparent;
+      color:#b42318;
+      font:inherit;
+      font-weight:700;
+      cursor:pointer
   }
   .unmapped-panel{
       margin-top:16px;
@@ -434,7 +448,7 @@
       </div>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
-        Map labels identify roads and places. Right-click a green parcel pin to move it.
+        Map labels identify roads and places. Right-click a green parcel pin to move it, or open it to remove the pin.
       </p>
       <div class="pin-edit-panel" id="pinEditPanel" role="status" aria-live="polite">
         <div>
@@ -596,9 +610,31 @@
                 }
                 crops.appendChild(gallery);
                 popup.appendChild(crops);
+                const actions = make('div', 'farmer-popup-actions');
                 const edit = make('a', '', 'Open farm parcel');
                 edit.href = item.edit_url;
-                popup.appendChild(edit);
+                actions.appendChild(edit);
+                const unpin = make('button', '', 'Remove pin');
+                unpin.type = 'button';
+                unpin.addEventListener('click', () => {
+                    window.fmisFeedback?.(
+                        `Remove the saved map pin for ${item.parcel}? The parcel record will remain available and can be pinned again later.`,
+                        'confirm',
+                        async () => {
+                            unpin.disabled = true;
+                            try {
+                                const result = await removeFarmerPoint(item.id);
+                                window.fmisFeedback?.(result.message, 'success');
+                                setTimeout(() => window.location.reload(), 700)
+                            } catch (error) {
+                                unpin.disabled = false;
+                                window.fmisFeedback?.(error.message, 'error')
+                            }
+                        }
+                    )
+                });
+                actions.appendChild(unpin);
+                popup.appendChild(actions);
                 const mobilePopup = window.matchMedia('(max-width:560px)').matches;
                 const popupWidth = Math.max(190, Math.min(mobilePopup ? 244 : 300, map.getSize().x - 54));
                 const farmerMarker = L.marker([item.lat, item.lng], {
@@ -754,6 +790,21 @@
                 const result = await response.json();
                 if (!response.ok || !result.ok) {
                     throw new Error(result.message || 'The pin could not be saved.')
+                }
+                return result
+            };
+            const removeFarmerPoint = async parcelId => {
+                const form = new FormData(document.getElementById('pinForm'));
+                form.set('parcel_id', parcelId);
+                form.set('operation', 'remove');
+                const response = await fetch('{% url "farm_parcels:pin_farmer" %}', {
+                    method: 'POST',
+                    body: form,
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                });
+                const result = await response.json();
+                if (!response.ok || !result.ok) {
+                    throw new Error(result.message || 'The pin could not be removed.')
                 }
                 return result
             };

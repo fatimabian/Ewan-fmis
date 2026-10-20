@@ -1203,7 +1203,7 @@ class FMISRequirementTests(TestCase):
         phone_tail = self.farmer.phone_number[2:] if self.farmer.phone_number.startswith("09") else self.farmer.phone_number
         self.assertIn(phone_tail, exported_compact)
 
-    def test_in_progress_service_request_proceeds_to_intervention_and_completes(self):
+    def test_in_progress_service_request_tracks_intervention_through_completion(self):
         self.client.force_login(self.staff)
         request_item = ServiceRequest.objects.create(
             farmer=self.farmer,
@@ -1232,7 +1232,7 @@ class FMISRequirementTests(TestCase):
             {
                 "farmer": self.farmer.pk,
                 "service_request": request_item.pk,
-                "status": "COMPLETED",
+                "status": "SCHEDULED",
                 "intervention_type": "SEEDS",
                 "intervention_date": date.today().isoformat(),
                 "description": "Certified rice seed delivered",
@@ -1247,6 +1247,25 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(intervention.farmer, self.farmer)
         self.assertEqual(intervention.intervention_type, "SEEDS")
         self.assertEqual(intervention.recorded_by, self.staff)
+        request_item.refresh_from_db()
+        self.assertEqual(request_item.status, "IN_PROGRESS")
+
+        response = self.client.post(
+            reverse("interventions:edit", args=[intervention.pk]),
+            {
+                "scope": "INDIVIDUAL",
+                "farmer": self.farmer.pk,
+                "service_request": request_item.pk,
+                "status": "COMPLETED",
+                "intervention_type": "SEEDS",
+                "intervention_date": date.today().isoformat(),
+                "description": "Certified rice seed delivered",
+                "quantity": "2",
+                "unit": "bags",
+                "provider": "Office for Agricultural Services",
+            },
+        )
+        self.assertRedirects(response, reverse("interventions:list"))
         request_item.refresh_from_db()
         self.assertEqual(request_item.status, "COMPLETED")
 
@@ -1433,7 +1452,7 @@ class FMISRequirementTests(TestCase):
             ActivityLog.objects.filter(title="Farm Parcel Photo Replaced").exists()
         )
 
-    def test_cancelled_service_request_is_locked_and_cannot_start_intervention(self):
+    def test_cancelled_service_request_has_actions_and_can_be_restored(self):
         self.client.force_login(self.staff)
         request_item = ServiceRequest.objects.create(
             farmer=self.farmer,
@@ -1444,18 +1463,30 @@ class FMISRequirementTests(TestCase):
         edit_response = self.client.get(
             reverse("service_requests:edit", args=[request_item.pk])
         )
-        self.assertRedirects(
-            edit_response,
-            reverse("service_requests:detail", args=[request_item.pk]),
-        )
+        self.assertEqual(edit_response.status_code, 200)
         detail = self.client.get(reverse("service_requests:detail", args=[request_item.pk]))
-        self.assertNotContains(detail, "Update Service Request")
+        self.assertContains(detail, "Update Service Request")
+        listing = self.client.get(reverse("service_requests:list"), {"status": "CANCELLED"})
+        self.assertContains(listing, f'Edit {request_item.request_id}')
+        self.assertContains(listing, f'Restore {request_item.request_id}')
         intervention = self.client.get(
             reverse("interventions:create"), {"service_request": request_item.pk}
         )
         self.assertRedirects(
             intervention,
             reverse("service_requests:detail", args=[request_item.pk]),
+        )
+        restored = self.client.post(
+            reverse("service_requests:delete", args=[request_item.pk]),
+            {"action": "restore"},
+        )
+        self.assertRedirects(restored, reverse("service_requests:list"))
+        request_item.refresh_from_db()
+        self.assertEqual(request_item.status, "PENDING")
+        self.assertTrue(
+            request_item.history.filter(
+                action="REOPENED", from_status="CANCELLED", to_status="PENDING"
+            ).exists()
         )
 
     def test_parcel_table_hides_rsbsa_column_and_map_can_focus_saved_parcel(self):
@@ -1545,14 +1576,32 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(activity.details[0]["after"], "13.8501000, 121.2102000")
 
         map_response = self.client.get(reverse("farm_parcels:map"))
-        self.assertContains(map_response, "Right-click a green parcel pin to move it")
+        self.assertContains(map_response, "Remove pin")
         self.assertContains(map_response, "Save New Location")
+
+    def test_staff_can_remove_parcel_pin_and_change_is_audited(self):
+        self.parcel.coordinates = "13.8467000, 121.2060000"
+        self.parcel.save(update_fields=["coordinates"])
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("farm_parcels:pin_farmer"),
+            {"parcel_id": self.parcel.pk, "operation": "remove"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, "")
+        activity = ActivityLog.objects.get(
+            title="Farm Parcel Map Pin Removed",
+            target_label=f"{self.farmer.record_id} - {self.parcel.display_name}",
+        )
+        self.assertEqual(activity.details[0]["after"], "Not pinned")
 
     def test_parcel_form_is_land_only_and_crops_are_managed_separately(self):
         self.client.force_login(self.staff)
         create_url = reverse("farm_parcels:create")
         response = self.client.get(create_url)
         self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["form"].fields["georef_id"].required)
         self.assertNotIn("crop_formset", response.context)
         self.assertNotContains(response, "Add Crop")
         self.assertContains(response, "Add commodities separately in Commodity Management")

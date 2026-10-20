@@ -249,6 +249,30 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             is_active=True,
             farmer__is_active=True,
         )
+        operation = request.POST.get("operation", "create")
+        if operation == "remove":
+            previous_coordinates = parcel.coordinates.strip()
+            parcel.coordinates = ""
+            parcel.save(update_fields=["coordinates"])
+            record_request_event(
+                request,
+                title="Farm Parcel Map Pin Removed",
+                module="Farm Parcels",
+                description=f"{request.user.display_name} removed an incorrect farm parcel map pin.",
+                target_label=f"{parcel.farmer.record_id} - {parcel.display_name}",
+                reason="Cleared an incorrect or no longer applicable parcel location.",
+                details=[{
+                    "field": "Farm parcel coordinates",
+                    "before": previous_coordinates or "Not previously pinned",
+                    "after": "Not pinned",
+                }],
+            )
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "message": f"{parcel.display_name}'s map pin was removed.",
+                }
+            )
         try:
             latitude = float(request.POST.get("latitude", ""))
             longitude = float(request.POST.get("longitude", ""))
@@ -275,7 +299,6 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         new_coordinates = f"{latitude:.7f}, {longitude:.7f}"
         parcel.coordinates = new_coordinates
         parcel.save(update_fields=["coordinates"])
-        operation = request.POST.get("operation", "create")
         record_request_event(
             request,
             title="Farm Parcel Map Pin Moved" if operation == "move" else "Farm Parcel Map Pin Saved",

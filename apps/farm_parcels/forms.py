@@ -149,6 +149,7 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["area_hectares"].min_value = 0.01
         self.fields["gpx_status"].required = False
+        self.fields["georef_id"].required = False
         for name, fixed_value in (
             ("municipality", ROSARIO_MUNICIPALITY),
             ("province", ROSARIO_PROVINCE),
@@ -181,8 +182,6 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
                 "land_owner_rsbsa_number",
                 "Enter the land owner's RSBSA number.",
             )
-        if cleaned.get("gpx_status") == "KNOWN" and not cleaned.get("georef_id"):
-            self.add_error("georef_id", "Enter the GPX / Georeference ID.")
         return cleaned
 
 

@@ -62,6 +62,42 @@ def _sync_recipients(intervention, farmer_ids):
     )
 
 
+def _sync_linked_request_status(intervention, actor):
+    """Keep an open service request aligned with its delivered intervention."""
+    linked_request = intervention.service_request
+    if not linked_request:
+        return
+    previous_status = linked_request.status
+    if intervention.status == "COMPLETED":
+        next_status = "COMPLETED"
+        status_note = "Completed after the linked intervention was completed"
+    elif intervention.status in {"DRAFT", "SCHEDULED", "ONGOING"} and previous_status == "PENDING":
+        next_status = "IN_PROGRESS"
+        status_note = "In Progress after an intervention was linked"
+    else:
+        return
+    if previous_status == next_status:
+        return
+    linked_request.status = next_status
+    linked_request.save(update_fields=["status", "updated_at"])
+    ServiceRequestHistory.objects.create(
+        service_request=linked_request,
+        actor=actor,
+        action="UPDATED",
+        from_status=previous_status,
+        to_status=next_status,
+        changes=[
+            {
+                "field": "Status",
+                "before": dict(ServiceRequest.STATUS_CHOICES).get(
+                    previous_status, previous_status
+                ),
+                "after": status_note,
+            }
+        ],
+    )
+
+
 class InterventionAccessMixin(FMISLoginRequiredMixin, StaffRequiredMixin):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -190,39 +226,11 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
         form.instance.target_barangay = (
             form.cleaned_data.get("target_barangay", "") if scope == "BARANGAY" else ""
         )
-        linked_request = form.cleaned_data.get("service_request")
         with transaction.atomic():
             response = super().form_valid(form)
             recipient_ids = _resolved_recipient_ids(form)
             _sync_recipients(self.object, recipient_ids)
-            if linked_request:
-                previous_status = linked_request.status
-                next_status = (
-                    "COMPLETED" if self.object.status == "COMPLETED" else "IN_PROGRESS"
-                )
-                if previous_status != next_status:
-                    linked_request.status = next_status
-                    linked_request.save(update_fields=["status", "updated_at"])
-                    ServiceRequestHistory.objects.create(
-                        service_request=linked_request,
-                        actor=self.request.user,
-                        action="UPDATED",
-                        from_status=previous_status,
-                        to_status=next_status,
-                        changes=[
-                            {
-                                "field": "Status",
-                                "before": dict(ServiceRequest.STATUS_CHOICES).get(
-                                    previous_status, previous_status
-                                ),
-                                "after": (
-                                    "Completed after intervention was recorded"
-                                    if next_status == "COMPLETED"
-                                    else "In Progress after intervention was linked"
-                                ),
-                            }
-                        ],
-                    )
+            _sync_linked_request_status(self.object, self.request.user)
             record_request_event(self.request, title="Intervention Recorded", module="Interventions", description=f"{self.request.user.display_name} recorded assistance for {len(recipient_ids)} farmer(s).", target_label=self.object.reference_id)
         if self.object.service_request:
             messages.success(
@@ -272,6 +280,7 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
             response = super().form_valid(form)
             recipient_ids = _resolved_recipient_ids(form)
             _sync_recipients(self.object, recipient_ids)
+            _sync_linked_request_status(self.object, self.request.user)
             record_request_event(self.request, title="Intervention Updated", module="Interventions", description=f"{self.request.user.display_name} updated an intervention for {len(recipient_ids)} farmer(s).", target_label=self.object.reference_id)
         messages.success(self.request, f"{self.object.reference_id} was updated.")
         return response

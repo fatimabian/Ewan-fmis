@@ -7,8 +7,9 @@
       <a href="{% url 'service_requests:list' %}"><i class="bi bi-arrow-left"></i> Back to Service Requests</a>
       <div class="record-detail-actions">
         <a class="btn btn-outline-success" href="{% url 'service_requests:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
-        {% if object.status != 'CANCELLED' %}
-          <a class="btn btn-outline-success" href="{% url 'service_requests:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Update Service Request</a>
+        <a class="btn btn-outline-success" href="{% url 'service_requests:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Update Service Request</a>
+        {% if object.status == 'PENDING' or object.status == 'IN_PROGRESS' %}
+          <a class="btn btn-success" href="{% url 'interventions:create' %}?service_request={{ object.pk }}"><i class="bi bi-box2-heart"></i> Record Delivered Intervention</a>
         {% endif %}
       </div>
     </div>

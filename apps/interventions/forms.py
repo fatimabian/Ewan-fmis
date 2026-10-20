@@ -82,7 +82,13 @@ class InterventionForm(forms.ModelForm):
             self.initial["status"] = ""
         selected_ids = []
         if self.is_bound:
-            selected_ids = self.data.getlist(self.add_prefix("selected_farmers"))
+            selected_key = self.add_prefix("selected_farmers")
+            if hasattr(self.data, "getlist"):
+                selected_ids = self.data.getlist(selected_key)
+            else:
+                selected_ids = self.data.get(selected_key, [])
+                if not isinstance(selected_ids, (list, tuple)):
+                    selected_ids = [selected_ids]
             farmer_id = self.data.get(self.add_prefix("farmer"))
         else:
             farmer_id = self.initial.get("farmer")
