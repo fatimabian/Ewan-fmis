@@ -141,21 +141,29 @@
       color:#d32626
   }
   .request-actions{
-      display:flex;
-      gap:9px;
+      display:grid;
+      grid-template-columns:24px 24px;
+      gap:10px;
       align-items:center;
-      justify-content:center;
-      flex-wrap:nowrap
+      justify-content:start
+  }
+  .request-actions form{
+      margin:0
   }
   .request-actions a,.request-actions button{
+      display:grid;
+      width:24px;
+      height:24px;
+      place-items:center;
       border:0;
       background:transparent;
       color:#086cff;
       font-size:18px;
-      padding:2px
+      line-height:1;
+      padding:0
   }
   .request-actions button{
-      color:#e22323
+      color:#111827
   }
   .request-table th:last-child,.request-table td:last-child{
       padding-right:24px
@@ -305,12 +313,6 @@
                        title="Edit {{ item.request_id }}">
                       <i class="bi bi-pencil-square"></i>
                     </a>
-                    {% if item.status == 'PENDING' or item.status == 'IN_PROGRESS' %}
-                      <a href="{% url 'interventions:create' %}?service_request={{ item.pk }}"
-                         title="Record intervention for {{ item.request_id }}">
-                        <i class="bi bi-box2-heart"></i>
-                      </a>
-                    {% endif %}
                     {% if item.status != 'CANCELLED' %}
                       <form method="post"
                             action="{% url 'service_requests:delete' item.pk %}"
