@@ -17,6 +17,15 @@
     .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
     .rsbsa-scan-file{display:flex;align-items:center;gap:8px;margin-top:15px;color:#41574b;font-size:.9rem}
     .rsbsa-scan-file i{color:var(--fmis-accent)}
+    .rsbsa-scan-selection{display:flex;align-items:center;gap:12px;margin-top:15px}
+    .rsbsa-scan-selection[hidden]{display:none}
+    .rsbsa-scan-preview{position:relative;display:grid;flex:0 0 76px;width:76px;height:76px;place-items:center;overflow:visible;border:1px solid #92bca4;border-radius:6px;background:#fff}
+    .rsbsa-scan-preview img{width:100%;height:100%;object-fit:cover;border-radius:5px}
+    .rsbsa-scan-preview>i{font-size:1.75rem;color:var(--fmis-accent)}
+    .rsbsa-scan-remove{position:absolute;top:-9px;right:-9px;display:grid;width:25px;height:25px;padding:0;place-items:center;border:1px solid #ad1d2b;border-radius:50%;background:#fff;color:#ad1d2b;font-size:1.2rem;line-height:1;cursor:pointer;box-shadow:0 2px 5px rgb(0 0 0/.16)}
+    .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#ad1d2b;color:#fff}
+    .rsbsa-scan-meta{display:grid;gap:3px;min-width:0;color:#41574b;font-size:.85rem}
+    .rsbsa-scan-meta strong{overflow:hidden;color:#173526;text-overflow:ellipsis;white-space:nowrap}
     .rsbsa-scan-privacy{margin-top:12px!important;font-size:.82rem}
     .rsbsa-scan-status{margin-top:15px;padding:12px 14px;border:1px solid #bed7c8;background:#fff;color:#244535}
     .rsbsa-scan-status.is-error{border-color:#dc8c94;background:#fff5f5;color:#a20d1d}
@@ -31,6 +40,8 @@
     .scan-reviewed .scan-field-note{color:#176b3a!important}
     body[data-theme="dark"] .rsbsa-scan-card{border-color:#426c53;background:#1f3027}
     body[data-theme="dark"] .rsbsa-scan-card p,body[data-theme="dark"] .rsbsa-scan-file{color:#bed0c5}
+    body[data-theme="dark"] .rsbsa-scan-preview,body[data-theme="dark"] .rsbsa-scan-remove{background:#1b2720}
+    body[data-theme="dark"] .rsbsa-scan-meta,body[data-theme="dark"] .rsbsa-scan-meta strong{color:#e3f4e9}
     body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
     body[data-theme="dark"] .registration-field.scan-filled{border-color:#b48a26;background:#332d1c}
     body[data-theme="dark"] .registration-field.scan-needs-review{border-color:#ce5b64;background:#362124}
@@ -75,6 +86,22 @@
           <div class="rsbsa-scan-file" id="rsbsaScanFile">
             <i class="bi bi-file-earmark-image" aria-hidden="true"></i>
             <span>No RSBSA image selected.</span>
+          </div>
+          <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
+            <div class="rsbsa-scan-preview">
+              <img id="rsbsaScanPreviewImage" alt="Selected RSBSA form preview" hidden>
+              <i class="bi bi-file-earmark-pdf" id="rsbsaScanPreviewIcon" aria-hidden="true" hidden></i>
+              <button type="button"
+                      class="rsbsa-scan-remove"
+                      id="rsbsaScanRemove"
+                      aria-label="Remove selected RSBSA form"
+                      title="Remove and choose another file">&times;</button>
+            </div>
+            <div class="rsbsa-scan-meta">
+              <strong id="rsbsaScanFileName"></strong>
+              <span id="rsbsaScanFileSize"></span>
+              <span>Attached. Use × to remove it and choose another copy.</span>
+            </div>
           </div>
           {% if rsbsa_scan_configured %}
             <p class="rsbsa-scan-privacy">The image is sent to the configured OpenAI form reader for one-time extraction. It is attached to FMIS only after staff reviews and submits the registration.</p>
@@ -362,9 +389,17 @@
           const scanCard = document.getElementById('rsbsaScanCard');
           const scanInput = form.querySelector('[data-rsbsa-scan-source]');
           const scanFile = document.getElementById('rsbsaScanFile');
+          const scanSelection = document.getElementById('rsbsaScanSelection');
+          const scanPreviewImage = document.getElementById('rsbsaScanPreviewImage');
+          const scanPreviewIcon = document.getElementById('rsbsaScanPreviewIcon');
+          const scanFileName = document.getElementById('rsbsaScanFileName');
+          const scanFileSize = document.getElementById('rsbsaScanFileSize');
+          const scanRemove = document.getElementById('rsbsaScanRemove');
           const scanStatus = document.getElementById('rsbsaScanStatus');
           const scanTrigger = scanCard?.querySelector('.rsbsa-scan-trigger');
           let current = 1;
+          let scanPreviewUrl = '';
+          let scanRequestToken = 0;
 
           function showScanStatus(message, type = '', warnings = []) {
               if (!scanStatus) return;
@@ -383,6 +418,54 @@
                   });
                   scanStatus.appendChild(list)
               }
+          }
+
+          function clearScannedValues() {
+              form.querySelectorAll('[data-scan-filled="true"]').forEach(field => {
+                  field.value = field.dataset.scanPreviousValue || '';
+                  field.dispatchEvent(new Event('input', {bubbles: true}));
+                  field.dispatchEvent(new Event('change', {bubbles: true}));
+                  delete field.dataset.scanFilled;
+                  delete field.dataset.scanPreviousValue;
+                  const wrapper = field.closest('.registration-field');
+                  wrapper?.classList.remove('scan-filled', 'scan-needs-review', 'scan-reviewed');
+                  wrapper?.querySelector('.scan-field-note')?.remove()
+              })
+          }
+
+          function clearPreviewUrl() {
+              if (scanPreviewUrl) URL.revokeObjectURL(scanPreviewUrl);
+              scanPreviewUrl = ''
+          }
+
+          function showSelectedFile(file) {
+              clearPreviewUrl();
+              scanFile.hidden = true;
+              scanSelection.hidden = false;
+              scanFileName.textContent = file.name;
+              scanFileSize.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
+              const isImage = file.type.startsWith('image/');
+              scanPreviewImage.hidden = !isImage;
+              scanPreviewIcon.hidden = isImage;
+              if (isImage) {
+                  scanPreviewUrl = URL.createObjectURL(file);
+                  scanPreviewImage.src = scanPreviewUrl
+              } else {
+                  scanPreviewImage.removeAttribute('src')
+              }
+          }
+
+          function removeSelectedFile() {
+              scanRequestToken += 1;
+              scanInput.value = '';
+              clearPreviewUrl();
+              clearScannedValues();
+              scanSelection.hidden = true;
+              scanFile.hidden = false;
+              scanStatus.hidden = true;
+              scanStatus.replaceChildren();
+              scanTrigger?.classList.remove('is-loading');
+              scanFile.querySelector('span').textContent = 'No RSBSA image selected.'
           }
 
           async function compressCameraImage(file) {
@@ -430,6 +513,7 @@
                       return
                   }
                   if (field.options && ![...field.options].some(option => option.value === value)) return;
+                  field.dataset.scanPreviousValue = existing;
                   field.value = value;
                   field.dispatchEvent(new Event('input', {bubbles: true}));
                   field.dispatchEvent(new Event('change', {bubbles: true}));
@@ -445,7 +529,7 @@
               )
           }
 
-          async function scanRSBSA(file) {
+          async function scanRSBSA(file, requestToken) {
               if (!scanCard || scanCard.dataset.scanConfigured !== 'true') {
                   showScanStatus('The RSBSA copy is attached. Automatic reading is not configured, so enter the profile manually.');
                   return
@@ -466,21 +550,26 @@
                       credentials: 'same-origin'
                   });
                   const payload = await response.json().catch(() => ({}));
+                  if (requestToken !== scanRequestToken) return;
                   if (!response.ok) throw new Error(payload.error || 'The form could not be read automatically.');
                   applyScannedFields(payload)
               } catch (error) {
+                  if (requestToken !== scanRequestToken) return;
                   showScanStatus(`${error.message} The uploaded copy is still attached; you can enter the details manually.`, 'error')
               } finally {
-                  scanTrigger?.classList.remove('is-loading')
+                  if (requestToken === scanRequestToken) scanTrigger?.classList.remove('is-loading')
               }
           }
 
           scanInput?.addEventListener('change', async () => {
               const original = scanInput.files?.[0];
               if (!original) {
-                  scanFile.querySelector('span').textContent = 'No RSBSA image selected.';
+                  removeSelectedFile();
                   return
               }
+              const requestToken = ++scanRequestToken;
+              clearScannedValues();
+              scanStatus.hidden = true;
               let selected = original;
               try {
                   selected = await compressCameraImage(original);
@@ -492,9 +581,20 @@
               } catch (error) {
                   selected = original
               }
-              scanFile.querySelector('span').textContent = `${selected.name} (${(selected.size / 1024 / 1024).toFixed(1)} MB)`;
-              scanRSBSA(selected)
+              if (requestToken !== scanRequestToken) return;
+              showSelectedFile(selected);
+              if (selected.size > 5 * 1024 * 1024) {
+                  showScanStatus('This file is larger than 5 MB. Remove it with × and choose a smaller JPG, PNG, or PDF.', 'error');
+                  return
+              }
+              if (!['image/jpeg', 'image/png', 'application/pdf'].includes(selected.type)) {
+                  showScanStatus('This file type is not supported. Remove it with × and choose a JPG, PNG, or PDF.', 'error');
+                  return
+              }
+              scanRSBSA(selected, requestToken)
           });
+
+          scanRemove?.addEventListener('click', removeSelectedFile);
 
           form.addEventListener('input', event => {
               const field = event.target;

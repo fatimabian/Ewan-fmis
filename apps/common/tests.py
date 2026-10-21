@@ -804,6 +804,10 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, reverse("farmers:scan_rsbsa"))
         self.assertContains(response, 'capture="environment"')
         self.assertContains(response, "Review every highlighted value")
+        self.assertContains(response, 'id="rsbsaScanSelection"')
+        self.assertContains(response, 'id="rsbsaScanPreviewImage"')
+        self.assertContains(response, 'id="rsbsaScanRemove"')
+        self.assertContains(response, "Remove selected RSBSA form")
 
     @override_settings(OPENAI_API_KEY="")
     def test_rsbsa_scanner_reports_when_server_configuration_is_missing(self):
