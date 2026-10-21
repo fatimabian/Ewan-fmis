@@ -79,6 +79,12 @@ def _friendly_activity(method, path):
             "Service Requests",
             "created or updated a farmer service request.",
         ),
+        (
+            "/interventions/",
+            "Intervention",
+            "Interventions",
+            "recorded or updated an intervention.",
+        ),
         ("/accounts/", "User Account", "User Accounts", "created or updated a user account."),
         (
             "/settings/",

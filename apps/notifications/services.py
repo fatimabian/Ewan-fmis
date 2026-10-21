@@ -9,14 +9,29 @@ from .models import Notification
 
 logger = logging.getLogger(__name__)
 
-STAFF_MODULES = {"Farmers", "Farm Parcels", "Crops", "Service Requests"}
+STAFF_MODULES = {
+    "Farmers",
+    "Farm Parcels",
+    "Crops",
+    "Service Requests",
+    "Interventions",
+}
 ADMIN_MODULES = {"User Accounts"}
+
+STAFF_MODULE_ROUTES = {
+    "Farmers": "farmers:list",
+    "Farm Parcels": "farm_parcels:list",
+    "Crops": "crops:list",
+    "Service Requests": "service_requests:list",
+    "Interventions": "interventions:list",
+}
 
 RECORD_LABELS = {
     "Farmers": "farmer record",
     "Farm Parcels": "farm parcel",
     "Crops": "commodity record",
     "Service Requests": "service request",
+    "Interventions": "intervention",
     "User Accounts": "user account",
 }
 
@@ -69,6 +84,26 @@ def _notification_copy(activity):
     return activity.title or f"{record_label.title()} updated", message
 
 
+def _activity_target(activity, user):
+    if user.is_admin:
+        return (
+            f'{reverse("activity_logs:list")}?highlight={activity.pk}'
+            f"#activity-{activity.pk}"
+        )
+    route_name = STAFF_MODULE_ROUTES.get(activity.module)
+    if route_name and activity.status.casefold() == "success":
+        return reverse(route_name)
+    return reverse("notifications:list")
+
+
+def notification_target(notification, user):
+    """Return a destination that the notification recipient's role may open."""
+    activity = notification.source_activity
+    if activity is None:
+        return notification.url or reverse("notifications:list")
+    return _activity_target(activity, user)
+
+
 def create_activity_notifications(activity):
     """Create privacy-safe notices for meaningful, successful audited changes."""
     if activity.status.casefold() != "success":
@@ -93,8 +128,6 @@ def create_activity_notifications(activity):
         recipients = recipients.exclude(pk=activity.actor_id)
 
     title, message = _notification_copy(activity)
-    secure_url = f'{reverse("activity_logs:list")}?highlight={activity.pk}#activity-{activity.pk}'
-
     notifications = [
         Notification(
             recipient=recipient,
@@ -102,7 +135,7 @@ def create_activity_notifications(activity):
             title=title,
             message=message[:255],
             category=category,
-            url=secure_url,
+            url=_activity_target(activity, recipient),
         )
         for recipient in recipients.distinct()
     ]

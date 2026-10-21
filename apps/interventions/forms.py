@@ -55,7 +55,7 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
     service_request = ServiceRequestChoiceField(
         queryset=ServiceRequest.objects.none(),
         required=False,
-        label="Related service request (optional)",
+        label="Related service request",
         widget=RelatedServiceRequestSelect,
     )
 
@@ -70,7 +70,7 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
             "intervention_date": forms.DateInput(attrs={"type": "date"}),
             "description": forms.TextInput(attrs={"placeholder": "Describe what was provided"}),
         }
-        labels = {"service_request": "Related service request (optional)"}
+        labels = {"service_request": "Related service request"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

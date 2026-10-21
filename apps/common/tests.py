@@ -195,6 +195,9 @@ class FMISRequirementTests(TestCase):
         self.assertIn('aria-describedby="id_status_error"', status_html)
         self.assertIn('id="id_status_error"', status_errors)
         self.assertNotIn(" required", status_html)
+        self.assertEqual(
+            form.fields["service_request"].label, "Related service request"
+        )
 
     def test_password_change_uses_normal_server_rendered_validation(self):
         self.client.force_login(self.staff)
@@ -3122,7 +3125,7 @@ class FMISRequirementTests(TestCase):
         self.assertNotIn("reason", notification.message.casefold())
         self.assertEqual(
             notification.url,
-            f"{reverse('activity_logs:list')}?highlight={activity.pk}#activity-{activity.pk}",
+            reverse("farmers:list"),
         )
 
         self.client.force_login(recipient)
@@ -3131,8 +3134,20 @@ class FMISRequirementTests(TestCase):
         self.assertContains(dashboard, notification.title)
         self.assertEqual(dashboard.context["notification_unread_count"], 1)
 
-        opened = self.client.post(reverse("notifications:open", args=[notification.pk]))
-        self.assertRedirects(opened, notification.url, fetch_redirect_response=False)
+        notification.url = (
+            f"{reverse('activity_logs:list')}?highlight={activity.pk}#activity-{activity.pk}"
+        )
+        notification.save(update_fields=("url",))
+        notification_page = self.client.get(reverse("notifications:list"))
+        self.assertEqual(notification_page.status_code, 200)
+        self.assertContains(notification_page, notification.title)
+
+        opened = self.client.post(
+            reverse("notifications:open", args=[notification.pk]), follow=True
+        )
+        self.assertEqual(opened.status_code, 200)
+        self.assertEqual(opened.redirect_chain[-1][0], reverse("farmers:list"))
+        self.assertNotContains(opened, "available to administrators only")
         notification.refresh_from_db()
         self.assertTrue(notification.is_read)
         self.assertIsNotNone(notification.read_at)
@@ -3147,6 +3162,53 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(settings_page, "Email Notifications")
         self.assertNotContains(settings_page, "Weekly Summary")
         self.assertContains(settings_page, "In-App Notifications")
+
+    def test_notifications_are_separated_by_admin_and_staff_audience(self):
+        from apps.activity_logs.services import record_event
+        from apps.notifications.models import Notification
+
+        intervention_activity = record_event(
+            actor=self.admin,
+            title="Intervention Recorded",
+            module="Interventions",
+            description="An intervention was recorded.",
+            path="/interventions/new/",
+            target_label="INT-TEST",
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                source_activity=intervention_activity,
+                recipient=self.staff,
+                url=reverse("interventions:list"),
+            ).exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                source_activity=intervention_activity,
+                recipient=self.admin,
+            ).exists()
+        )
+
+        account_activity = record_event(
+            actor=self.staff,
+            title="User Account Updated",
+            module="User Accounts",
+            description="A user account was updated.",
+            path="/accounts/1/edit/",
+            target_label="Account test",
+        )
+        self.assertTrue(
+            Notification.objects.filter(
+                source_activity=account_activity,
+                recipient=self.admin,
+            ).exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(
+                source_activity=account_activity,
+                recipient=self.staff,
+            ).exists()
+        )
 
     def test_security_notifications_use_plain_language(self):
         from apps.activity_logs.services import record_event
@@ -3166,6 +3228,17 @@ class FMISRequirementTests(TestCase):
         self.assertIn("not available for their account", notification.message)
         self.assertIn("No changes were made", notification.message)
         self.assertNotIn("/dashboard/admin/", notification.message)
+        self.assertTrue(notification.url.startswith(reverse("activity_logs:list")))
+
+        self.client.force_login(self.admin)
+        notification_page = self.client.get(reverse("notifications:list"))
+        self.assertEqual(notification_page.status_code, 200)
+        self.assertContains(notification_page, notification.title)
+        opened = self.client.post(
+            reverse("notifications:open", args=[notification.pk]), follow=True
+        )
+        self.assertEqual(opened.status_code, 200)
+        self.assertEqual(opened.redirect_chain[-1][0], notification.url)
 
     def test_activity_failure_does_not_replace_successful_response(self):
         request = RequestFactory().post("/farmers/new/")

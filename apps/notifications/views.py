@@ -8,6 +8,7 @@ from django.views.generic import ListView
 from apps.common.mixins import FMISLoginRequiredMixin
 
 from .models import Notification
+from .services import notification_target
 
 
 class NotificationListView(FMISLoginRequiredMixin, ListView):
@@ -29,7 +30,7 @@ class NotificationOpenView(FMISLoginRequiredMixin, View):
             notification.is_read = True
             notification.read_at = timezone.now()
             notification.save(update_fields=("is_read", "read_at"))
-        target = notification.url or reverse("notifications:list")
+        target = notification_target(notification, request.user)
         if not url_has_allowed_host_and_scheme(
             target,
             allowed_hosts={request.get_host()},
