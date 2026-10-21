@@ -853,11 +853,11 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "No partial farmer record was created.")
         self.assertEqual(Farmer.objects.count(), farmer_count)
 
-    def _rsbsa_scan_image(self):
+    def _rsbsa_scan_image(self, size=(1200, 1600)):
         from PIL import Image
 
         output = BytesIO()
-        Image.new("RGB", (1200, 1600), "white").save(output, format="JPEG")
+        Image.new("RGB", size, "white").save(output, format="JPEG")
         return SimpleUploadedFile(
             "rsbsa-page-1.jpg", output.getvalue(), content_type="image/jpeg"
         )
@@ -868,9 +868,13 @@ class FMISRequirementTests(TestCase):
             response = self.client.get(reverse("farmers:create"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Capture / Upload")
+        self.assertContains(response, "Upload RSBSA")
+        self.assertContains(response, "Use camera")
         self.assertContains(response, reverse("farmers:scan_rsbsa"))
-        self.assertContains(response, 'capture="environment"')
+        self.assertNotContains(response, 'capture="environment"')
+        self.assertContains(response, 'id="rsbsaCameraModal"')
+        self.assertContains(response, 'id="rsbsaCameraCapture"')
+        self.assertContains(response, "rsbsa-camera.js")
         self.assertContains(response, "Review every highlighted value")
         self.assertContains(response, 'id="rsbsaScanSelection"')
         self.assertContains(response, "RSBSA form")
@@ -885,6 +889,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "registration-draft.js")
         self.assertNotContains(response, "No RSBSA image selected.")
         self.assertNotContains(response, "This workflow follows the RSBSA Enrollment Form")
+        self.assertContains(response, 'id="fmisNetworkLoading"')
 
         with override_settings(OPENAI_API_KEY=""):
             unconfigured_response = self.client.get(reverse("farmers:create"))
@@ -894,6 +899,17 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(
             unconfigured_response, "Automatic reading is not configured"
         )
+
+    def test_rsbsa_scanner_accepts_standard_laptop_camera_resolution(self):
+        from apps.farmers.rsbsa_scan import _validated_upload
+
+        raw, content_type, input_kind = _validated_upload(
+            self._rsbsa_scan_image(size=(1280, 720))
+        )
+
+        self.assertTrue(raw)
+        self.assertEqual(content_type, "image/jpeg")
+        self.assertEqual(input_kind, "image")
 
     @override_settings(OPENAI_API_KEY="")
     def test_rsbsa_scanner_reports_when_server_configuration_is_missing(self):

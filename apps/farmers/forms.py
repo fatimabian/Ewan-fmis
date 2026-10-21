@@ -204,7 +204,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         widget=forms.ClearableFileInput(
             attrs={
                 "accept": "image/jpeg,image/png,.pdf",
-                "capture": "environment",
                 "data-rsbsa-scan-source": "true",
             }
         ),

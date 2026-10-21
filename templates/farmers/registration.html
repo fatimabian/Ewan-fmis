@@ -30,6 +30,16 @@
     .rsbsa-scan-status.is-success{border-color:#73bd91;background:#eefaf3;color:#075c30}
     .rsbsa-scan-status ul{margin:7px 0 0;padding-left:20px}
     .rsbsa-scan-trigger.is-loading{pointer-events:none;opacity:.65}
+    .rsbsa-camera-modal{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px}
+    .rsbsa-camera-modal[hidden]{display:none!important}
+    .rsbsa-camera-backdrop{position:absolute;inset:0;border:0;background:rgba(10,22,17,.74)}
+    .rsbsa-camera-dialog{position:relative;width:min(680px,100%);padding:18px;border:1px solid #7b9185;background:#fff;box-shadow:0 22px 60px rgba(0,0,0,.32)}
+    .rsbsa-camera-dialog h2{margin:0 0 5px;font-size:1.1rem}
+    .rsbsa-camera-dialog p{margin:0 0 12px;color:#52675b;font-size:.82rem}
+    .rsbsa-camera-video{display:block;width:100%;max-height:64vh;background:#111;object-fit:contain}
+    .rsbsa-camera-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}
+    body[data-theme="dark"] .rsbsa-camera-dialog{border-color:#607267;background:#1f2923;color:#edf6f0}
+    body[data-theme="dark"] .rsbsa-camera-dialog p{color:#c7d8ce}
     .registration-field.scan-filled{padding:10px;border:1px solid #c7d5cd;background:#fff}
     .registration-field.scan-needs-review{border-color:#d92d20;background:#fff4f3}
     .scan-field-note{display:block;margin-top:5px;color:#42534a!important;font-weight:700}
@@ -43,7 +53,7 @@
     body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
     body[data-theme="dark"] .registration-field.scan-filled{border-color:#526177;background:#202823}
     body[data-theme="dark"] .registration-field.scan-needs-review{border-color:#ce5b64;background:#362124}
-    @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-actions,.rsbsa-scan-trigger,.rsbsa-scan-selection{width:100%}.rsbsa-scan-trigger{justify-content:center}.rsbsa-scan-actions{justify-content:flex-start}}
+    @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-actions,.rsbsa-scan-selection{width:100%}.rsbsa-scan-trigger{flex:1;justify-content:center}.rsbsa-scan-actions{justify-content:flex-start;flex-wrap:wrap}.rsbsa-camera-dialog{padding:14px}.rsbsa-camera-actions .btn{flex:1}}
   </style>
 {% endblock %}
 {% block content %}
@@ -65,9 +75,13 @@
             </div>
             <div class="rsbsa-scan-actions">
               <label class="btn btn-success rsbsa-scan-trigger" for="{{ profile_form.rsbsa_form.id_for_label }}">
-                <i class="bi bi-camera-fill" aria-hidden="true"></i>
-                {% if rsbsa_scan_configured %}Capture / Upload{% else %}Upload RSBSA{% endif %}
+                <i class="bi bi-upload" aria-hidden="true"></i>
+                Upload RSBSA
               </label>
+              <button type="button" class="btn btn-add-outline rsbsa-scan-trigger" id="rsbsaCameraOpen">
+                <i class="bi bi-camera-fill" aria-hidden="true"></i>
+                Use camera
+              </button>
               <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
                 <div class="rsbsa-scan-meta">
                   <strong id="rsbsaScanFileName"></strong>
@@ -354,6 +368,21 @@
           <p>Please wait. Do not close or refresh this page.</p>
         </div>
       </div>
+      <div class="rsbsa-camera-modal" id="rsbsaCameraModal" hidden aria-hidden="true">
+        <button type="button" class="rsbsa-camera-backdrop" id="rsbsaCameraBackdrop" aria-label="Close camera"></button>
+        <section class="rsbsa-camera-dialog" role="dialog" aria-modal="true" aria-labelledby="rsbsaCameraTitle" aria-describedby="rsbsaCameraStatus">
+          <h2 id="rsbsaCameraTitle">Capture RSBSA page 1</h2>
+          <p id="rsbsaCameraStatus" role="status" aria-live="polite">Position the whole form inside the frame and keep the handwriting clear.</p>
+          <video class="rsbsa-camera-video" id="rsbsaCameraVideo" autoplay playsinline muted></video>
+          <canvas id="rsbsaCameraCanvas" hidden></canvas>
+          <div class="rsbsa-camera-actions">
+            <button type="button" class="btn btn-outline-secondary" id="rsbsaCameraCancel">Cancel</button>
+            <button type="button" class="btn btn-success" id="rsbsaCameraCapture" disabled>
+              <i class="bi bi-camera" aria-hidden="true"></i> Capture photo
+            </button>
+          </div>
+        </section>
+      </div>
     </section>
   </div>
   <script src="{% static 'js/compact-file-upload.js' %}"></script>
@@ -372,7 +401,8 @@
           const scanRemove = document.getElementById('rsbsaScanRemove');
           const scanStatus = document.getElementById('rsbsaScanStatus');
           const scanTokenInput = form.elements.rsbsa_scan_token;
-          const scanTrigger = scanCard?.querySelector('.rsbsa-scan-trigger');
+          const scanTriggers = [...(scanCard?.querySelectorAll('.rsbsa-scan-trigger') || [])];
+          const scanTrigger = scanTriggers[0];
           let current = 1;
           let scanRequestToken = 0;
 
@@ -409,7 +439,7 @@
           }
 
           function showSelectedFile(file) {
-              scanTrigger.hidden = true;
+              scanTriggers.forEach(trigger => trigger.hidden = true);
               scanSelection.hidden = false;
               scanFileName.textContent = file.name;
               scanFileSize.textContent = file.size >= 1024 * 1024
@@ -424,7 +454,7 @@
               clearScannedValues();
               if (scanTokenInput) scanTokenInput.value = '';
               scanSelection.hidden = true;
-              scanTrigger.hidden = false;
+              scanTriggers.forEach(trigger => trigger.hidden = false);
               scanStatus.hidden = true;
               scanStatus.replaceChildren();
               scanTrigger?.classList.remove('is-loading')
@@ -437,7 +467,7 @@
               clearScannedValues();
               if (scanTokenInput) scanTokenInput.value = '';
               scanSelection.hidden = true;
-              scanTrigger.hidden = false;
+              scanTriggers.forEach(trigger => trigger.hidden = false);
               scanTrigger?.classList.remove('is-loading');
               showScanStatus(message, 'error')
           }
@@ -809,4 +839,7 @@
           }
       })();
   </script>
+{% endblock %}
+{% block extra_js %}
+  <script defer src="{% static 'js/rsbsa-camera.js' %}?v=1"></script>
 {% endblock %}

@@ -168,8 +168,10 @@ def _validated_upload(upload):
         raise RSBSAScanError("The selected file is not a readable JPG, PNG, or PDF.")
     if image_format not in {"JPEG", "PNG"}:
         raise RSBSAScanError("Automatic reading supports JPG, PNG, and PDF files only.")
-    if width < 900 or height < 900:
-        raise RSBSAScanError("Capture a clearer image with at least 900 pixels on each side.")
+    if min(width, height) < 700 or max(width, height) < 1000:
+        raise RSBSAScanError(
+            "Capture a clearer image with at least 700 pixels on the short side."
+        )
     return raw, SUPPORTED_IMAGE_TYPES[image_format], "image"
 
 
