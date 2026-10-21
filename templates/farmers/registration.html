@@ -13,16 +13,18 @@
     .rsbsa-scan-card-title>i{display:grid;flex:0 0 44px;width:44px;height:44px;place-items:center;border-radius:50%;background:#e0f3e8;color:#08763e;font-size:1.25rem}
     .rsbsa-scan-card h2{margin:0 0 5px;font-size:1.08rem}
     .rsbsa-scan-card p{margin:0;color:#52675b}
-    .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;gap:10px}
+    .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:10px}
+    .rsbsa-scan-trigger{padding:9px 13px;font-size:.86rem}
+    .rsbsa-scan-trigger[hidden]{display:none}
     .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
-    .rsbsa-scan-selection{display:flex;align-items:center;gap:12px;margin-top:15px}
+    .rsbsa-scan-selection{display:flex;align-items:center;gap:10px;max-width:320px}
     .rsbsa-scan-selection[hidden]{display:none}
-    .rsbsa-scan-preview{position:relative;display:grid;flex:0 0 76px;width:76px;height:76px;place-items:center;overflow:visible;border:1px solid #92bca4;border-radius:6px;background:#fff}
+    .rsbsa-scan-preview{position:relative;display:grid;flex:0 0 54px;width:54px;height:54px;place-items:center;overflow:visible;border:1px solid #92bca4;border-radius:5px;background:#fff}
     .rsbsa-scan-preview img{width:100%;height:100%;object-fit:cover;border-radius:5px}
-    .rsbsa-scan-preview>i{font-size:1.75rem;color:var(--fmis-accent)}
-    .rsbsa-scan-remove{position:absolute;top:-9px;right:-9px;display:grid;width:25px;height:25px;padding:0;place-items:center;border:1px solid #ad1d2b;border-radius:50%;background:#fff;color:#ad1d2b;font-size:1.2rem;line-height:1;cursor:pointer;box-shadow:0 2px 5px rgb(0 0 0/.16)}
+    .rsbsa-scan-preview>i{font-size:1.4rem;color:var(--fmis-accent)}
+    .rsbsa-scan-remove{position:absolute;top:-7px;right:-7px;display:grid;width:21px;height:21px;padding:0;place-items:center;border:1px solid #ad1d2b;border-radius:50%;background:#fff;color:#ad1d2b;font-size:1rem;line-height:1;cursor:pointer;box-shadow:0 2px 5px rgb(0 0 0/.16)}
     .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#ad1d2b;color:#fff}
-    .rsbsa-scan-meta{display:grid;gap:3px;min-width:0;color:#41574b;font-size:.85rem}
+    .rsbsa-scan-meta{display:grid;gap:2px;min-width:0;color:#41574b;font-size:.78rem}
     .rsbsa-scan-meta strong{overflow:hidden;color:#173526;text-overflow:ellipsis;white-space:nowrap}
     .rsbsa-scan-status{margin-top:15px;padding:12px 14px;border:1px solid #bed7c8;background:#fff;color:#244535}
     .rsbsa-scan-status.is-error{border-color:#dc8c94;background:#fff5f5;color:#a20d1d}
@@ -42,7 +44,7 @@
     body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
     body[data-theme="dark"] .registration-field.scan-filled{border-color:#b48a26;background:#332d1c}
     body[data-theme="dark"] .registration-field.scan-needs-review{border-color:#ce5b64;background:#362124}
-    @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-actions,.rsbsa-scan-trigger{width:100%}.rsbsa-scan-trigger{justify-content:center}}
+    @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-actions,.rsbsa-scan-trigger,.rsbsa-scan-selection{width:100%}.rsbsa-scan-trigger{justify-content:center}.rsbsa-scan-actions{justify-content:flex-start}}
   </style>
 {% endblock %}
 {% block content %}
@@ -59,7 +61,11 @@
               <i class="bi bi-camera" aria-hidden="true"></i>
               <div>
                 <h2>Start with the RSBSA form</h2>
-                <p>Capture or upload a clear image of page 1. FMIS will fill readable Farmer Profile fields as a draft for staff review.</p>
+                {% if rsbsa_scan_configured %}
+                  <p>Capture or upload a clear image of page 1. FMIS will fill readable Farmer Profile fields as a draft for staff review.</p>
+                {% else %}
+                  <p>Capture or upload a clear copy of page 1 for this farmer's record.</p>
+                {% endif %}
               </div>
             </div>
             <div class="rsbsa-scan-actions">
@@ -67,26 +73,25 @@
                 <i class="bi bi-camera-fill" aria-hidden="true"></i>
                 {% if rsbsa_scan_configured %}Capture or upload RSBSA{% else %}Upload RSBSA copy{% endif %}
               </label>
+              <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
+                <div class="rsbsa-scan-preview">
+                  <img id="rsbsaScanPreviewImage" alt="Selected RSBSA form preview" hidden>
+                  <i class="bi bi-file-earmark-pdf" id="rsbsaScanPreviewIcon" aria-hidden="true" hidden></i>
+                  <button type="button"
+                          class="rsbsa-scan-remove"
+                          id="rsbsaScanRemove"
+                          aria-label="Remove selected RSBSA form"
+                          title="Remove and choose another file">&times;</button>
+                </div>
+                <div class="rsbsa-scan-meta">
+                  <strong id="rsbsaScanFileName"></strong>
+                  <span id="rsbsaScanFileSize"></span>
+                </div>
+              </div>
             </div>
           </div>
           <div class="rsbsa-scan-input">{{ profile_form.rsbsa_form }}</div>
           {{ profile_form.rsbsa_form.errors }}
-          <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
-            <div class="rsbsa-scan-preview">
-              <img id="rsbsaScanPreviewImage" alt="Selected RSBSA form preview" hidden>
-              <i class="bi bi-file-earmark-pdf" id="rsbsaScanPreviewIcon" aria-hidden="true" hidden></i>
-              <button type="button"
-                      class="rsbsa-scan-remove"
-                      id="rsbsaScanRemove"
-                      aria-label="Remove selected RSBSA form"
-                      title="Remove and choose another file">&times;</button>
-            </div>
-            <div class="rsbsa-scan-meta">
-              <strong id="rsbsaScanFileName"></strong>
-              <span id="rsbsaScanFileSize"></span>
-              <span>Attached. Use × to remove it and choose another copy.</span>
-            </div>
-          </div>
           <div class="rsbsa-scan-status" id="rsbsaScanStatus" role="status" aria-live="polite" hidden></div>
         </section>
       <ol class="registration-stepper" aria-label="Registration progress">
@@ -418,6 +423,7 @@
 
           function showSelectedFile(file) {
               clearPreviewUrl();
+              scanTrigger.hidden = true;
               scanSelection.hidden = false;
               scanFileName.textContent = file.name;
               scanFileSize.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
@@ -438,6 +444,7 @@
               clearPreviewUrl();
               clearScannedValues();
               scanSelection.hidden = true;
+              scanTrigger.hidden = false;
               scanStatus.hidden = true;
               scanStatus.replaceChildren();
               scanTrigger?.classList.remove('is-loading')
@@ -506,7 +513,6 @@
 
           async function scanRSBSA(file, requestToken) {
               if (!scanCard || scanCard.dataset.scanConfigured !== 'true') {
-                  showScanStatus('The RSBSA copy is attached. Automatic reading is not configured, so enter the profile manually.');
                   return
               }
               if (!file.type.startsWith('image/')) {

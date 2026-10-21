@@ -816,6 +816,9 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(
             unconfigured_response, "Automatic reading needs server configuration."
         )
+        self.assertNotContains(
+            unconfigured_response, "Automatic reading is not configured"
+        )
 
     @override_settings(OPENAI_API_KEY="")
     def test_rsbsa_scanner_reports_when_server_configuration_is_missing(self):
@@ -1110,7 +1113,9 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(masterlist, "farmer-workflow-input")
 
         create_page = self.client.get(reverse("farmers:create"))
-        self.assertContains(create_page, "<strong>Encoded</strong>", html=True)
+        self.assertEqual(create_page.status_code, 200)
+        self.assertContains(create_page, 'id="rsbsaRegistration"')
+        self.assertNotContains(create_page, 'name="registration_status"')
 
         edit_page = self.client.get(reverse("farmers:edit", args=[self.farmer.pk]))
         self.assertEqual(edit_page.status_code, 200)
