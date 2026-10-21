@@ -785,6 +785,126 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "No partial farmer record was created.")
         self.assertEqual(Farmer.objects.count(), farmer_count)
 
+    def _rsbsa_scan_image(self):
+        from PIL import Image
+
+        output = BytesIO()
+        Image.new("RGB", (1200, 1600), "white").save(output, format="JPEG")
+        return SimpleUploadedFile(
+            "rsbsa-page-1.jpg", output.getvalue(), content_type="image/jpeg"
+        )
+
+    def test_registration_page_offers_review_first_rsbsa_capture(self):
+        self.client.force_login(self.staff)
+        with override_settings(OPENAI_API_KEY="configured-for-test"):
+            response = self.client.get(reverse("farmers:create"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Capture or upload RSBSA")
+        self.assertContains(response, reverse("farmers:scan_rsbsa"))
+        self.assertContains(response, 'capture="environment"')
+        self.assertContains(response, "Review every highlighted value")
+
+    @override_settings(OPENAI_API_KEY="")
+    def test_rsbsa_scanner_reports_when_server_configuration_is_missing(self):
+        self.client.force_login(self.staff)
+        farmer_count = Farmer.objects.count()
+
+        response = self.client.post(
+            reverse("farmers:scan_rsbsa"),
+            {"rsbsa_scan": self._rsbsa_scan_image()},
+        )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("not configured", response.json()["error"])
+        self.assertEqual(Farmer.objects.count(), farmer_count)
+
+    @override_settings(
+        OPENAI_API_KEY="test-project-key",
+        OPENAI_API_BASE="https://api.openai.com/v1",
+        RSBSA_OCR_MODEL="gpt-5.4-mini",
+        RSBSA_OCR_TIMEOUT_SECONDS=60,
+    )
+    @patch("apps.farmers.rsbsa_scan.requests.post")
+    def test_rsbsa_scanner_returns_sanitized_profile_without_saving(self, post):
+        from apps.farmers.rsbsa_scan import PROFILE_FIELDS
+
+        fields = {name: "" for name in PROFILE_FIELDS}
+        fields.update(
+            {
+                "last_name": "Dela Cruz",
+                "first_name": "Maria",
+                "sex": "FEMALE",
+                "birth_date": "1992-04-08",
+                "barangay": "alupay",
+                "phone_number": "+63 918 123 4567",
+                "civil_status": "SINGLE",
+                "livelihood": "FARMER",
+                "is_pwd": "False",
+                "valid_id_type": "National ID",
+                "valid_id_number": "9999888877776666",
+            }
+        )
+        post.return_value.status_code = 200
+        post.return_value.json.return_value = {
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": json.dumps(
+                                {
+                                    "is_rsbsa_form": True,
+                                    "fields": fields,
+                                    "needs_review": ["last_name"],
+                                    "warnings": ["Check the handwritten surname."],
+                                }
+                            ),
+                        }
+                    ],
+                }
+            ]
+        }
+        self.client.force_login(self.staff)
+        farmer_count = Farmer.objects.count()
+
+        response = self.client.post(
+            reverse("farmers:scan_rsbsa"),
+            {"rsbsa_scan": self._rsbsa_scan_image()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["fields"]["barangay"], "Alupay")
+        self.assertEqual(payload["fields"]["phone_number"], "09181234567")
+        self.assertIn("last_name", payload["needs_review"])
+        self.assertEqual(Farmer.objects.count(), farmer_count)
+        api_request = post.call_args.kwargs
+        self.assertFalse(api_request["json"]["store"])
+        self.assertEqual(api_request["json"]["model"], "gpt-5.4-mini")
+        image_input = api_request["json"]["input"][0]["content"][1]
+        self.assertTrue(image_input["image_url"].startswith("data:image/jpeg;base64,"))
+        self.assertEqual(image_input["detail"], "original")
+
+    def test_rsbsa_scanner_rejects_non_image_without_calling_provider(self):
+        self.client.force_login(self.staff)
+        with override_settings(OPENAI_API_KEY="test-project-key"), patch(
+            "apps.farmers.rsbsa_scan.requests.post"
+        ) as post:
+            response = self.client.post(
+                reverse("farmers:scan_rsbsa"),
+                {
+                    "rsbsa_scan": SimpleUploadedFile(
+                        "not-a-form.jpg", b"not an image", content_type="image/jpeg"
+                    )
+                },
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("not a readable", response.json()["error"])
+        post.assert_not_called()
+
     def _valid_registration_payload(self):
         return {
             "last_name": "Dela Cruz",

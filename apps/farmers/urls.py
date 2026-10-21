@@ -9,6 +9,7 @@ from .views import (
     FarmerPhotoView,
     FarmerQRPrintView,
     FarmerRSBSAExportView,
+    FarmerRSBSAScanView,
     FarmerRegistrationCompleteView,
     FarmerRegistrationStatusUpdateView,
     FarmerRegistrationView,
@@ -22,6 +23,7 @@ app_name = "farmers"
 urlpatterns = [
     path("", FarmerListView.as_view(), name="list"),
     path("new/", FarmerRegistrationView.as_view(), name="create"),
+    path("new/scan-rsbsa/", FarmerRSBSAScanView.as_view(), name="scan_rsbsa"),
     path("field/<str:token>/", FarmerSecureQRDetailView.as_view(), name="qr_access"),
     path("<int:pk>/qr/", FarmerQRPrintView.as_view(), name="qr_print"),
     path("<int:pk>/photo/", FarmerPhotoView.as_view(), name="photo"),

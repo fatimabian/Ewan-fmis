@@ -5,6 +5,38 @@
 {% block page_subtitle %}
   Complete the official RSBSA enrollment information for a new farmer
 {% endblock %}
+{% block extra_css %}
+  <style>
+    .rsbsa-scan-card{margin:26px 0 22px;padding:22px;border:1px solid #a9d4bc;border-left:4px solid var(--fmis-accent);background:#f4fbf7}
+    .rsbsa-scan-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:22px}
+    .rsbsa-scan-card-title{display:flex;align-items:flex-start;gap:14px;min-width:0}
+    .rsbsa-scan-card-title>i{display:grid;flex:0 0 44px;width:44px;height:44px;place-items:center;border-radius:50%;background:#e0f3e8;color:#08763e;font-size:1.25rem}
+    .rsbsa-scan-card h2{margin:0 0 5px;font-size:1.08rem}
+    .rsbsa-scan-card p{margin:0;color:#52675b}
+    .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;gap:10px}
+    .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
+    .rsbsa-scan-file{display:flex;align-items:center;gap:8px;margin-top:15px;color:#41574b;font-size:.9rem}
+    .rsbsa-scan-file i{color:var(--fmis-accent)}
+    .rsbsa-scan-privacy{margin-top:12px!important;font-size:.82rem}
+    .rsbsa-scan-status{margin-top:15px;padding:12px 14px;border:1px solid #bed7c8;background:#fff;color:#244535}
+    .rsbsa-scan-status.is-error{border-color:#dc8c94;background:#fff5f5;color:#a20d1d}
+    .rsbsa-scan-status.is-success{border-color:#73bd91;background:#eefaf3;color:#075c30}
+    .rsbsa-scan-status ul{margin:7px 0 0;padding-left:20px}
+    .rsbsa-scan-trigger.is-loading{pointer-events:none;opacity:.65}
+    .registration-field.scan-filled{padding:10px;border:1px solid #dfa900;background:#fffbed}
+    .registration-field.scan-needs-review{border-color:#d92d20;background:#fff4f3}
+    .scan-field-note{display:block;margin-top:5px;color:#8a5d00!important;font-weight:700}
+    .scan-needs-review .scan-field-note{color:#b42318!important}
+    .registration-field.scan-reviewed{border-color:#58a878;background:#f3fbf6}
+    .scan-reviewed .scan-field-note{color:#176b3a!important}
+    body[data-theme="dark"] .rsbsa-scan-card{border-color:#426c53;background:#1f3027}
+    body[data-theme="dark"] .rsbsa-scan-card p,body[data-theme="dark"] .rsbsa-scan-file{color:#bed0c5}
+    body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
+    body[data-theme="dark"] .registration-field.scan-filled{border-color:#b48a26;background:#332d1c}
+    body[data-theme="dark"] .registration-field.scan-needs-review{border-color:#ce5b64;background:#362124}
+    @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-actions,.rsbsa-scan-trigger{width:100%}.rsbsa-scan-trigger{justify-content:center}}
+  </style>
+{% endblock %}
 {% block content %}
   <div class="content registration-page">
     <section class="panel registration-shell">
@@ -17,6 +49,40 @@
           the official ID later from Update Record after marking the registration Completed.
         </span>
       </div>
+      <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
+        {% csrf_token %}
+        <section class="rsbsa-scan-card"
+                 id="rsbsaScanCard"
+                 data-scan-url="{% url 'farmers:scan_rsbsa' %}"
+                 data-scan-configured="{{ rsbsa_scan_configured|yesno:'true,false' }}">
+          <div class="rsbsa-scan-card-head">
+            <div class="rsbsa-scan-card-title">
+              <i class="bi bi-camera" aria-hidden="true"></i>
+              <div>
+                <h2>Start with the RSBSA form</h2>
+                <p>Capture or upload a clear image of page 1. FMIS will fill readable Farmer Profile fields as a draft for staff review.</p>
+              </div>
+            </div>
+            <div class="rsbsa-scan-actions">
+              <label class="btn btn-success rsbsa-scan-trigger" for="{{ profile_form.rsbsa_form.id_for_label }}">
+                <i class="bi bi-camera-fill" aria-hidden="true"></i>
+                {% if rsbsa_scan_configured %}Capture or upload RSBSA{% else %}Upload RSBSA copy{% endif %}
+              </label>
+            </div>
+          </div>
+          <div class="rsbsa-scan-input">{{ profile_form.rsbsa_form }}</div>
+          {{ profile_form.rsbsa_form.errors }}
+          <div class="rsbsa-scan-file" id="rsbsaScanFile">
+            <i class="bi bi-file-earmark-image" aria-hidden="true"></i>
+            <span>No RSBSA image selected.</span>
+          </div>
+          {% if rsbsa_scan_configured %}
+            <p class="rsbsa-scan-privacy">The image is sent to the configured OpenAI form reader for one-time extraction. It is attached to FMIS only after staff reviews and submits the registration.</p>
+          {% else %}
+            <p class="rsbsa-scan-privacy">Automatic reading needs server configuration. Staff can still upload the RSBSA copy and encode the fields manually.</p>
+          {% endif %}
+          <div class="rsbsa-scan-status" id="rsbsaScanStatus" role="status" aria-live="polite" hidden></div>
+        </section>
       <ol class="registration-stepper" aria-label="Registration progress">
         <li class="active" data-step-link="1">
           <span>1</span>
@@ -43,8 +109,6 @@
           <small>Complete</small>
         </li>
       </ol>
-      <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
-        {% csrf_token %}
         {% if registration_has_errors %}
           <div class="form-validation-alert registration-error-summary" role="alert" tabindex="-1">
             <strong>Registration was not saved.</strong>
@@ -228,9 +292,7 @@
           </div>
           <div class="form-section">
             <h3><i class="bi bi-file-earmark-arrow-up"></i> Required RSBSA form copy</h3>
-            <div class="registration-grid one">
-              {% include "farmers/registration_field.html" with field=profile_form.rsbsa_form %}
-            </div>
+            <p>The image selected in <strong>Start with the RSBSA form</strong> is already attached here. Return to Step 1 to replace it.</p>
           </div>
           {{ document_formset.management_form }}
           {% if document_formset.non_form_errors %}
@@ -297,7 +359,152 @@
           const steps = [...document.querySelectorAll('.registration-step')];
           const links = [...document.querySelectorAll('[data-step-link]')];
           const loading = document.getElementById('registrationLoading');
+          const scanCard = document.getElementById('rsbsaScanCard');
+          const scanInput = form.querySelector('[data-rsbsa-scan-source]');
+          const scanFile = document.getElementById('rsbsaScanFile');
+          const scanStatus = document.getElementById('rsbsaScanStatus');
+          const scanTrigger = scanCard?.querySelector('.rsbsa-scan-trigger');
           let current = 1;
+
+          function showScanStatus(message, type = '', warnings = []) {
+              if (!scanStatus) return;
+              scanStatus.hidden = false;
+              scanStatus.className = `rsbsa-scan-status${type ? ` is-${type}` : ''}`;
+              scanStatus.replaceChildren();
+              const text = document.createElement('strong');
+              text.textContent = message;
+              scanStatus.appendChild(text);
+              if (warnings.length) {
+                  const list = document.createElement('ul');
+                  warnings.forEach(warning => {
+                      const item = document.createElement('li');
+                      item.textContent = warning;
+                      list.appendChild(item)
+                  });
+                  scanStatus.appendChild(list)
+              }
+          }
+
+          async function compressCameraImage(file) {
+              if (!file.type.startsWith('image/') || file.size <= 4.8 * 1024 * 1024) return file;
+              if (!window.createImageBitmap || !window.DataTransfer) return file;
+              const bitmap = await createImageBitmap(file);
+              const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.round(bitmap.width * scale);
+              canvas.height = Math.round(bitmap.height * scale);
+              canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+              bitmap.close();
+              const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .88));
+              if (!blob) return file;
+              return new File([blob], `rsbsa-page-1-${Date.now()}.jpg`, {type: 'image/jpeg'})
+          }
+
+          function markScannedField(field, needsReview) {
+              const wrapper = field.closest('.registration-field');
+              if (!wrapper) return;
+              wrapper.classList.remove('scan-reviewed');
+              wrapper.classList.add('scan-filled');
+              wrapper.classList.toggle('scan-needs-review', needsReview);
+              let note = wrapper.querySelector('.scan-field-note');
+              if (!note) {
+                  note = document.createElement('small');
+                  note.className = 'scan-field-note';
+                  wrapper.appendChild(note)
+              }
+              note.textContent = needsReview ? 'Unclear scan — verify this value carefully.' : 'Scanned value — check before submitting.';
+              field.dataset.scanFilled = 'true'
+          }
+
+          function applyScannedFields(payload) {
+              const review = new Set(payload.needs_review || []);
+              let filled = 0;
+              let preserved = 0;
+              Object.entries(payload.fields || {}).forEach(([name, value]) => {
+                  if (!value) return;
+                  const field = form.elements[name];
+                  if (!field || field.disabled) return;
+                  const existing = String(field.value || '').trim();
+                  if (existing && !(name === 'phone_number' && existing === '09')) {
+                      preserved += 1;
+                      return
+                  }
+                  if (field.options && ![...field.options].some(option => option.value === value)) return;
+                  field.value = value;
+                  field.dispatchEvent(new Event('input', {bubbles: true}));
+                  field.dispatchEvent(new Event('change', {bubbles: true}));
+                  markScannedField(field, review.has(name));
+                  filled += 1
+              });
+              const notes = [...(payload.warnings || [])];
+              if (preserved) notes.push(`${preserved} field(s) already contained information and were not overwritten.`);
+              showScanStatus(
+                  `${filled} profile field(s) were filled. Review every highlighted value before continuing.`,
+                  'success',
+                  notes
+              )
+          }
+
+          async function scanRSBSA(file) {
+              if (!scanCard || scanCard.dataset.scanConfigured !== 'true') {
+                  showScanStatus('The RSBSA copy is attached. Automatic reading is not configured, so enter the profile manually.');
+                  return
+              }
+              if (!file.type.startsWith('image/')) {
+                  showScanStatus('The RSBSA copy is attached. For automatic filling, use a clear JPG or PNG image of page 1.');
+                  return
+              }
+              scanTrigger?.classList.add('is-loading');
+              showScanStatus('Reading the RSBSA form… Keep this page open.');
+              const data = new FormData();
+              data.append('rsbsa_scan', file, file.name);
+              try {
+                  const response = await fetch(scanCard.dataset.scanUrl, {
+                      method: 'POST',
+                      headers: {'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value},
+                      body: data,
+                      credentials: 'same-origin'
+                  });
+                  const payload = await response.json().catch(() => ({}));
+                  if (!response.ok) throw new Error(payload.error || 'The form could not be read automatically.');
+                  applyScannedFields(payload)
+              } catch (error) {
+                  showScanStatus(`${error.message} The uploaded copy is still attached; you can enter the details manually.`, 'error')
+              } finally {
+                  scanTrigger?.classList.remove('is-loading')
+              }
+          }
+
+          scanInput?.addEventListener('change', async () => {
+              const original = scanInput.files?.[0];
+              if (!original) {
+                  scanFile.querySelector('span').textContent = 'No RSBSA image selected.';
+                  return
+              }
+              let selected = original;
+              try {
+                  selected = await compressCameraImage(original);
+                  if (selected !== original && window.DataTransfer) {
+                      const transfer = new DataTransfer();
+                      transfer.items.add(selected);
+                      scanInput.files = transfer.files
+                  }
+              } catch (error) {
+                  selected = original
+              }
+              scanFile.querySelector('span').textContent = `${selected.name} (${(selected.size / 1024 / 1024).toFixed(1)} MB)`;
+              scanRSBSA(selected)
+          });
+
+          form.addEventListener('input', event => {
+              const field = event.target;
+              if (!event.isTrusted || field.dataset?.scanFilled !== 'true') return;
+              const wrapper = field.closest('.registration-field');
+              wrapper?.classList.remove('scan-needs-review');
+              wrapper?.classList.add('scan-reviewed');
+              const note = wrapper?.querySelector('.scan-field-note');
+              if (note) note.textContent = 'Scanned value checked or edited by staff.'
+          });
 
           function showStep(number) {
               current = number;

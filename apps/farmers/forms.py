@@ -200,7 +200,13 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         required=True,
         label="Scanned RSBSA enrollment form",
         help_text="Required. Upload a readable JPG, PNG, or PDF; maximum 5 MB.",
-        widget=forms.ClearableFileInput(attrs={"accept": ".jpg,.jpeg,.png,.pdf"}),
+        widget=forms.ClearableFileInput(
+            attrs={
+                "accept": "image/jpeg,image/png,.pdf",
+                "capture": "environment",
+                "data-rsbsa-scan-source": "true",
+            }
+        ),
     )
     is_indigenous = YesNoNAField(label="Member of an Indigenous People / ICC")
     is_pwd = YesNoNAField(label="Person with Disability (PWD)")

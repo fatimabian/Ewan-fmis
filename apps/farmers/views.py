@@ -6,9 +6,10 @@ from io import BytesIO
 from django.contrib import messages
 from django.conf import settings
 from django.core import signing
+from django.core.cache import cache
 from django.db import DatabaseError, transaction
 from django.db.models import Q
-from django.http import FileResponse
+from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -32,6 +33,7 @@ from .forms import (
 from .models import Farmer, FarmerDocument
 from .history import farmer_snapshot, record_farmer_update
 from .rsbsa_pdf import rsbsa_pdf_response
+from .rsbsa_scan import RSBSAScanError, scan_rsbsa_profile
 from apps.activity_logs.services import record_request_event
 
 FARMER_QR_SALT = "fmis.farmers.field-record.v1"
@@ -235,6 +237,7 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             "crop_formset": crop_formset,
             "document_formset": document_formset,
             "registration_has_errors": registration_has_errors,
+            "rsbsa_scan_configured": bool(settings.OPENAI_API_KEY),
         }
 
     def get(self, request):
@@ -405,6 +408,33 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             )
 
         return redirect("farmers:registration_complete", pk=farmer.pk)
+
+
+class FarmerRSBSAScanView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Read an RSBSA profile image without creating or changing a farmer record."""
+
+    def post(self, request):
+        cache_key = f"fmis:rsbsa-scan:{request.user.pk}"
+        try:
+            attempts = cache.incr(cache_key)
+        except ValueError:
+            cache.set(cache_key, 1, 60 * 60)
+            attempts = 1
+        if attempts > 20:
+            return JsonResponse(
+                {"error": "Too many scan attempts. Try again in one hour."}, status=429
+            )
+
+        upload = request.FILES.get("rsbsa_scan")
+        if upload is None:
+            return JsonResponse(
+                {"error": "Capture or choose an RSBSA form image first."}, status=400
+            )
+        try:
+            result = scan_rsbsa_profile(upload)
+        except RSBSAScanError as error:
+            return JsonResponse({"error": str(error)}, status=error.status)
+        return JsonResponse(result)
 
 
 class FarmerRegistrationCompleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):

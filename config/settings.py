@@ -166,6 +166,12 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 REMEMBER_LOGIN_DAYS = max(1, int(os.getenv("REMEMBER_LOGIN_DAYS", "7")))
 REMEMBER_LOGIN_SECONDS = REMEMBER_LOGIN_DAYS * 24 * 60 * 60
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+RSBSA_OCR_MODEL = os.getenv("RSBSA_OCR_MODEL", "gpt-5.4-mini")
+RSBSA_OCR_TIMEOUT_SECONDS = max(
+    15, min(120, int(os.getenv("RSBSA_OCR_TIMEOUT_SECONDS", "60")))
+)
 FMIS_REQUIRE_MFA = os.getenv("FMIS_REQUIRE_MFA", "False").lower() == "true"
 FMIS_TRUSTED_DEVICE_DAYS = max(
     1, min(90, int(os.getenv("FMIS_TRUSTED_DEVICE_DAYS", "30")))
