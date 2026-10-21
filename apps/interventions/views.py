@@ -20,6 +20,65 @@ from .models import Intervention, InterventionRecipient
 from .services import INTERVENTION_TYPE_BY_SERVICE_CODE
 
 
+def _recipient_summary(intervention):
+    recipients = (
+        intervention.recipients.filter(is_active=True)
+        .select_related("farmer")
+        .order_by("farmer__last_name", "farmer__first_name", "farmer_id")
+    )
+    recipient_count = recipients.count()
+    if not recipient_count:
+        return "No farmers"
+    visible_recipients = list(recipients[:10])
+    visible = ", ".join(
+        f"{recipient.farmer.record_id} {recipient.farmer.list_name}"
+        for recipient in visible_recipients
+    )
+    remaining = recipient_count - len(visible_recipients)
+    return f"{recipient_count} farmer(s): {visible}" + (
+        f" (+{remaining} more)" if remaining else ""
+    )
+
+
+def _intervention_snapshot(intervention):
+    not_set = "Not set"
+    return {
+        "Coverage": dict(Intervention.SCOPE_CHOICES).get(
+            intervention.scope, intervention.scope
+        ),
+        "Barangay": intervention.target_barangay or not_set,
+        "Recipients": _recipient_summary(intervention),
+        "Related service request": (
+            intervention.service_request.request_id
+            if intervention.service_request_id
+            else "Not linked"
+        ),
+        "Status": dict(Intervention.STATUS_CHOICES).get(
+            intervention.status, intervention.status
+        ),
+        "Intervention type": dict(Intervention.TYPE_CHOICES).get(
+            intervention.intervention_type, intervention.intervention_type
+        ),
+        "Intervention date": (
+            intervention.intervention_date.strftime("%b %d, %Y")
+            if intervention.intervention_date
+            else not_set
+        ),
+        "Quantity": str(intervention.quantity) if intervention.quantity is not None else not_set,
+        "Unit": intervention.unit or not_set,
+        "Description": intervention.description or not_set,
+        "Provider": intervention.provider or not_set,
+    }
+
+
+def _intervention_changes(before, after):
+    return [
+        {"field": field, "before": before.get(field, "Not set"), "after": value}
+        for field, value in after.items()
+        if before.get(field, "Not set") != value
+    ]
+
+
 def _resolved_recipient_ids(form):
     scope = form.cleaned_data["scope"]
     if scope == "INDIVIDUAL":
@@ -232,7 +291,15 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
             recipient_ids = _resolved_recipient_ids(form)
             _sync_recipients(self.object, recipient_ids)
             _sync_linked_request_status(self.object, self.request.user)
-            record_request_event(self.request, title="Intervention Recorded", module="Interventions", description=f"{self.request.user.display_name} recorded assistance for {len(recipient_ids)} farmer(s).", target_label=self.object.reference_id)
+            created_values = _intervention_snapshot(self.object)
+            record_request_event(
+                self.request,
+                title="Intervention Recorded",
+                module="Interventions",
+                description=f"{self.request.user.display_name} recorded assistance for {len(recipient_ids)} farmer(s).",
+                target_label=self.object.reference_id,
+                details=_intervention_changes({}, created_values),
+            )
         if self.object.service_request:
             messages.success(
                 self.request,
@@ -273,6 +340,10 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
     success_url = reverse_lazy("interventions:list")
 
     def form_valid(self, form):
+        before = Intervention.objects.select_related("service_request").get(
+            pk=form.instance.pk
+        )
+        before_values = _intervention_snapshot(before)
         form.instance.recorded_by = self.request.user
         scope = form.cleaned_data["scope"]
         form.instance.farmer = form.cleaned_data.get("farmer") if scope == "INDIVIDUAL" else None
@@ -282,7 +353,15 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
             recipient_ids = _resolved_recipient_ids(form)
             _sync_recipients(self.object, recipient_ids)
             _sync_linked_request_status(self.object, self.request.user)
-            record_request_event(self.request, title="Intervention Updated", module="Interventions", description=f"{self.request.user.display_name} updated an intervention for {len(recipient_ids)} farmer(s).", target_label=self.object.reference_id)
+            after_values = _intervention_snapshot(self.object)
+            record_request_event(
+                self.request,
+                title="Intervention Updated",
+                module="Interventions",
+                description=f"{self.request.user.display_name} updated an intervention for {len(recipient_ids)} farmer(s).",
+                target_label=self.object.reference_id,
+                details=_intervention_changes(before_values, after_values),
+            )
         messages.success(self.request, f"{self.object.reference_id} was updated.")
         return response
 
@@ -290,11 +369,25 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
 class InterventionArchiveView(InterventionAccessMixin, View):
     def post(self, request, pk):
         intervention = get_object_or_404(Intervention, pk=pk)
+        previous_state = "Active" if intervention.is_active else "Archived"
         restoring = request.POST.get("action") == "restore"
         intervention.is_active = restoring
         intervention.recorded_by = request.user
         intervention.save(update_fields=["is_active", "recorded_by", "updated_at"])
         action = "restored" if restoring else "archived"
-        record_request_event(request, title=f"Intervention {action.title()}", module="Interventions", description=f"{request.user.display_name} {action} an intervention record.", target_label=intervention.reference_id)
+        record_request_event(
+            request,
+            title=f"Intervention {action.title()}",
+            module="Interventions",
+            description=f"{request.user.display_name} {action} an intervention record.",
+            target_label=intervention.reference_id,
+            details=[
+                {
+                    "field": "Record status",
+                    "before": previous_state,
+                    "after": "Active" if restoring else "Archived",
+                }
+            ],
+        )
         messages.success(request, f"{intervention.reference_id} was {action}.")
         return redirect("interventions:list")

@@ -1437,7 +1437,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(linked, 'data-intervention-type="SEEDS"')
         self.assertContains(linked, f'data-farmer-id="{self.farmer.pk}"')
 
-    def test_linked_request_controls_farmer_and_intervention_type(self):
+    def test_linked_request_rejects_mismatched_farmer_and_intervention_type(self):
         request_item = ServiceRequest.objects.create(
             farmer=self.farmer,
             service=self.service,
@@ -1463,10 +1463,13 @@ class FMISRequirementTests(TestCase):
                 "provider": "Office for Agricultural Services",
             }
         )
-        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.is_valid())
         self.assertEqual(form.cleaned_data["scope"], "INDIVIDUAL")
         self.assertEqual(form.cleaned_data["farmer"], self.farmer)
         self.assertEqual(form.cleaned_data["intervention_type"], "SEEDS")
+        self.assertIn("scope", form.errors)
+        self.assertIn("farmer", form.errors)
+        self.assertIn("intervention_type", form.errors)
 
     def test_barangay_request_controls_intervention_scope_and_recipients(self):
         second_farmer = Farmer.objects.create(
@@ -1525,6 +1528,168 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(recipient_ids, {self.farmer.pk, second_farmer.pk})
         self.assertNotIn(other_farmer.pk, recipient_ids)
+
+    def test_barangay_intervention_lists_every_active_farmer_in_recipient_snapshot(self):
+        second_farmer = Farmer.objects.create(
+            first_name="Lorna",
+            last_name="Reyes",
+            barangay=self.farmer.barangay,
+            consent_given=True,
+        )
+        other_farmer = Farmer.objects.create(
+            first_name="Mario",
+            last_name="Cruz",
+            barangay="Balibago",
+            consent_given=True,
+        )
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("interventions:create"),
+            {
+                "scope": "BARANGAY",
+                "target_barangay": self.farmer.barangay,
+                "status": "SCHEDULED",
+                "intervention_type": "SEEDS",
+                "intervention_date": "2026-10-21",
+                "description": "Barangay-wide seed distribution",
+                "provider": "Office for Agricultural Services",
+            },
+        )
+
+        self.assertRedirects(response, reverse("interventions:list"))
+        intervention = Intervention.objects.latest("pk")
+        recipient_ids = set(
+            intervention.recipients.filter(is_active=True).values_list(
+                "farmer_id", flat=True
+            )
+        )
+        self.assertEqual(recipient_ids, {self.farmer.pk, second_farmer.pk})
+        self.assertNotIn(other_farmer.pk, recipient_ids)
+
+        detail = self.client.get(
+            reverse("interventions:detail", args=[intervention.pk])
+        )
+        self.assertContains(detail, self.farmer.record_id)
+        self.assertContains(detail, self.farmer.list_name)
+        self.assertContains(detail, second_farmer.record_id)
+        self.assertContains(detail, second_farmer.list_name)
+        self.assertNotContains(detail, other_farmer.list_name)
+        self.assertNotContains(detail, "No recipients recorded.")
+        history = ActivityLog.objects.get(
+            module="Interventions",
+            target_label=intervention.reference_id,
+            title="Intervention Recorded",
+        )
+        changed_fields = {change["field"] for change in history.details}
+        self.assertIn("Recipients", changed_fields)
+        self.assertIn("Intervention type", changed_fields)
+        recipient_change = next(
+            change for change in history.details if change["field"] == "Recipients"
+        )
+        self.assertIn(second_farmer.list_name, recipient_change["after"])
+
+    def test_linked_barangay_intervention_rejects_a_different_barangay(self):
+        request_item = ServiceRequest.objects.create(
+            scope="BARANGAY",
+            farmer=None,
+            target_barangay="Alupay",
+            service=self.service,
+            subject=self.service.name,
+            priority="MEDIUM",
+            status="IN_PROGRESS",
+            assigned_to=self.staff,
+        )
+        intervention = Intervention.objects.create(
+            service_request=request_item,
+            scope="BARANGAY",
+            target_barangay="Alupay",
+            status="SCHEDULED",
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Barangay-wide seed distribution",
+            provider="Office for Agricultural Services",
+            recorded_by=self.staff,
+        )
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("interventions:edit", args=[intervention.pk]),
+            {
+                "scope": "BARANGAY",
+                "target_barangay": "Bagong Pook",
+                "service_request": request_item.pk,
+                "status": "SCHEDULED",
+                "intervention_type": "SEEDS",
+                "intervention_date": intervention.intervention_date.isoformat(),
+                "description": intervention.description,
+                "provider": intervention.provider,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Barangay must remain Alupay because it is set by the related service request.",
+        )
+        self.assertNotContains(response, f"{intervention.reference_id} was updated.")
+        intervention.refresh_from_db()
+        self.assertEqual(intervention.target_barangay, "Alupay")
+        self.assertFalse(
+            ActivityLog.objects.filter(
+                module="Interventions",
+                target_label=intervention.reference_id,
+                title="Intervention Updated",
+            ).exists()
+        )
+
+    def test_intervention_update_history_records_before_and_after_values(self):
+        intervention = Intervention.objects.create(
+            farmer=self.farmer,
+            scope="INDIVIDUAL",
+            status="SCHEDULED",
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Seed distribution scheduled",
+            provider="Office for Agricultural Services",
+            recorded_by=self.staff,
+        )
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("interventions:edit", args=[intervention.pk]),
+            {
+                "scope": "INDIVIDUAL",
+                "farmer": self.farmer.pk,
+                "status": "ONGOING",
+                "intervention_type": "SEEDS",
+                "intervention_date": intervention.intervention_date.isoformat(),
+                "description": "Seed distribution is ongoing",
+                "provider": intervention.provider,
+            },
+        )
+
+        self.assertRedirects(response, reverse("interventions:list"))
+        history = ActivityLog.objects.get(
+            module="Interventions",
+            target_label=intervention.reference_id,
+            title="Intervention Updated",
+        )
+        changes = {change["field"]: change for change in history.details}
+        self.assertEqual(changes["Status"]["before"], "Scheduled")
+        self.assertEqual(changes["Status"]["after"], "Ongoing")
+        self.assertEqual(
+            changes["Description"]["before"], "Seed distribution scheduled"
+        )
+        self.assertEqual(
+            changes["Description"]["after"], "Seed distribution is ongoing"
+        )
+
+        history_page = self.client.get(
+            reverse("interventions:history", args=[intervention.pk])
+        )
+        self.assertContains(history_page, "Seed distribution scheduled")
+        self.assertContains(history_page, "Seed distribution is ongoing")
 
     def test_slip_b_is_separate_and_contains_official_parcel_workflow(self):
         self.client.force_login(self.staff)

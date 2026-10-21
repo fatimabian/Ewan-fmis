@@ -129,16 +129,44 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         request = cleaned.get("service_request")
-        scope = cleaned.get("scope") or "INDIVIDUAL"
+        submitted_scope = cleaned.get("scope") or "INDIVIDUAL"
+        scope = submitted_scope
         if request:
+            expected_type = INTERVENTION_TYPE_BY_SERVICE_CODE.get(
+                request.service.code, "OTHER"
+            )
+            if submitted_scope != request.scope:
+                self.add_error(
+                    "scope",
+                    "Coverage must match the related service request.",
+                )
+            if (
+                request.scope == "INDIVIDUAL"
+                and cleaned.get("farmer") != request.farmer
+            ):
+                self.add_error(
+                    "farmer",
+                    "Farmer must match the related service request.",
+                )
+            if (
+                request.scope == "BARANGAY"
+                and cleaned.get("target_barangay") != request.target_barangay
+            ):
+                self.add_error(
+                    "target_barangay",
+                    f"Barangay must remain {request.target_barangay} because it is set by the related service request.",
+                )
+            if cleaned.get("intervention_type") != expected_type:
+                self.add_error(
+                    "intervention_type",
+                    "Intervention type must match the related service request.",
+                )
             scope = request.scope
             cleaned["farmer"] = request.farmer if scope == "INDIVIDUAL" else None
             cleaned["target_barangay"] = (
                 request.target_barangay if scope == "BARANGAY" else ""
             )
-            cleaned["intervention_type"] = INTERVENTION_TYPE_BY_SERVICE_CODE.get(
-                request.service.code, "OTHER"
-            )
+            cleaned["intervention_type"] = expected_type
         cleaned["scope"] = scope
         farmer = cleaned.get("farmer")
         selected = cleaned.get("selected_farmers")
