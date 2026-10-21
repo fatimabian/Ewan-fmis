@@ -41,9 +41,9 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
         if commodity:
             queryset = queryset.filter(crops__crop_type=commodity, crops__is_active=True).distinct()
     elif model_name == "crop":
-        queryset = _filter_period(queryset, "planting_date", date_range, date_only=True)
+        queryset = _filter_period(queryset, "created_at", date_range)
         if year:
-            queryset = queryset.filter(planting_date__year=int(year))
+            queryset = queryset.filter(created_at__year=int(year))
         if barangay:
             queryset = queryset.filter(parcel__barangay=barangay)
         if commodity:
@@ -86,7 +86,10 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
 def report_preview(report_type, date_range, filters, system_report=False):
     """Turn the selected generated report into a readable on-screen chart and table."""
     builder = build_system_report if system_report else build_report
-    title, headers, rows = builder(report_type, date_range, filters)
+    if not system_report and report_type == "farmer_master":
+        title, headers, rows = builder(report_type, date_range, filters, compact=True)
+    else:
+        title, headers, rows = builder(report_type, date_range, filters)
     chart_values = defaultdict(float)
     value_label = "Records"
     show_chart = report_type != "farmer_master"
@@ -122,11 +125,11 @@ def report_preview(report_type, date_range, filters, system_report=False):
         value_label = "Interventions"
     elif report_type == "farm_area_by_barangay":
         for row in rows:
-            chart_values[row[0] or "Not recorded"] += float(row[4] or 0)
+            chart_values[row[0] or "Not recorded"] += float(row[5] or 0)
         value_label = "Hectares"
     elif report_type == "farmers_by_ownership":
         for row in rows:
-            chart_values[row[0] or "Not recorded"] += float(row[5] or 0)
+            chart_values[row[0] or "Not recorded"] += float(row[6] or 0)
         value_label = "Hectares"
     elif report_type == "crop_summary":
         for row in rows:
@@ -156,37 +159,10 @@ def report_preview(report_type, date_range, filters, system_report=False):
                 "width": max(2, round(float(value) / peak * 100)) if value else 0,
             }
         )
-    preview_headers = headers
-    preview_rows = rows
-    if report_type == "farmer_master":
-        preview_headers = [
-            "Farmer ID",
-            "Farmer Name",
-            "RSBSA ID",
-            "Registration Status",
-            "Barangay",
-            "Phone",
-            "Livelihood",
-            "Farm Records",
-        ]
-        preview_rows = [
-            [
-                row[0],
-                row[8],
-                row[2],
-                row[3],
-                row[15],
-                row[20],
-                row[32],
-                f"{row[47]} parcel(s) · {row[50]} crop(s)",
-            ]
-            for row in rows
-        ]
-
     return {
         "title": title,
-        "headers": preview_headers,
-        "rows": preview_rows[:50],
+        "headers": headers,
+        "rows": rows[:50],
         "total_rows": len(rows),
         "truncated": len(rows) > 50,
         "chart": chart,

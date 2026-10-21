@@ -626,6 +626,27 @@
       font-size:22px;
       color:var(--fmis-accent)
   }
+  .applied-report-filters{
+      display:flex;
+      flex-wrap:wrap;
+      gap:7px;
+      margin:12px 0
+  }
+  .applied-report-filter{
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      padding:5px 9px;
+      border:1px solid #c8ddce;
+      border-radius:999px;
+      background:#f0f7f2;
+      color:#315c45;
+      font-size:11px
+  }
+  .applied-report-filter b{
+      color:#153c2a;
+      font-size:11px
+  }
   .preview-chart{
       display:grid;
       gap:10px;
@@ -965,7 +986,7 @@
               {% endfor %}
             </select>
           </div>
-          <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+          <div class="report-filter-row" data-filter-row="commodity"{% if not selected_report_type or selected_report_type not in commodity_report_types %} hidden{% endif %}>
             <label>Commodity</label>
             <select name="commodity">
               <option value="">All commodities</option>
@@ -1056,11 +1077,11 @@
               <h3>{{ report_preview.title|upper }}</h3>
               <p>
                 {% if report_preview.is_farmer_master %}
-                  Farmer records shown below follow the selected year, barangay, commodity, and period filters.
+                  Farmer records show the commodities that matched the selected farm filters.
                 {% elif request.user.is_admin %}
                   The graph and table use the selected system report, period, role, account status, and module filters.
                 {% else %}
-                  The graph and table use the selected year, barangay, commodity, period, and any category-specific filter shown above.
+                  The graph and table use only the filters relevant to this report.
                 {% endif %}
               </p>
             </div>
@@ -1069,6 +1090,13 @@
               <p>matching row{{ report_preview.total_rows|pluralize }}</p>
             </div>
           </div>
+          {% if active_report_filters %}
+            <div class="applied-report-filters" aria-label="Applied report filters">
+              {% for filter in active_report_filters %}
+                <span class="applied-report-filter"><b>{{ filter.label }}:</b> {{ filter.value }}</span>
+              {% endfor %}
+            </div>
+          {% endif %}
           {% if report_preview.show_chart %}
             {% if report_preview.chart %}
               <div class="preview-chart"
@@ -1314,7 +1342,19 @@
               const hasSelection = Boolean(selected);
               const isService = selected === 'service_status';
               const isIntervention = ['intervention_summary', 'intervention_registry'].includes(selected);
-              const rules = {common: hasSelection, status: isService, intervention: isIntervention};
+              const supportsCommodity = [
+                  'farmer_master',
+                  'farm_area_by_barangay',
+                  'farmers_by_ownership',
+                  'crop_summary',
+                  'commodity_per_parcel'
+              ].includes(selected);
+              const rules = {
+                  common: hasSelection,
+                  commodity: supportsCommodity,
+                  status: isService,
+                  intervention: isIntervention
+              };
               Object.entries(rules).forEach(([name, visible]) => {
                   form.querySelectorAll(`[data-filter-row="${name}"]`).forEach(row => {
                       row.hidden = !visible;

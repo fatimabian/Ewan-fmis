@@ -17,6 +17,7 @@ from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
 from .analytics import report_metrics, report_preview
 from .export import (
+    COMMODITY_REPORT_KEYS,
     DATE_RANGES,
     REPORT_TEMPLATES,
     SYSTEM_REPORT_TEMPLATES,
@@ -26,6 +27,7 @@ from .export import (
     generate_report,
     generate_system_report,
     generate_table_export,
+    normalize_report_filters,
 )
 
 
@@ -33,8 +35,8 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
     template_name = "reports/home.html"
 
     @staticmethod
-    def _filters(source):
-        return {
+    def _filters(source, report_type=""):
+        return normalize_report_filters(report_type, {
             "year": source.get("year", ""),
             "barangay": source.get("barangay", ""),
             "commodity": source.get("commodity", ""),
@@ -44,16 +46,48 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             "account_status": source.get("account_status", ""),
             "module": source.get("module", ""),
             "staff": source.get("staff", ""),
-        }
+        })
+
+    @staticmethod
+    def _active_filters(report_type, date_range, filters):
+        active = [{"label": "Period", "value": DATE_RANGES[date_range]}]
+        for key, label in (
+            ("year", "Year"),
+            ("barangay", "Barangay"),
+            ("commodity", "Commodity"),
+        ):
+            if filters.get(key):
+                active.append({"label": label, "value": filters[key]})
+        if report_type == "service_status" and filters.get("status"):
+            active.append(
+                {
+                    "label": "Status",
+                    "value": dict(ServiceRequest.STATUS_CHOICES).get(
+                        filters["status"], filters["status"]
+                    ),
+                }
+            )
+        if report_type in {"intervention_summary", "intervention_registry"} and filters.get(
+            "intervention_type"
+        ):
+            active.append(
+                {
+                    "label": "Intervention Type",
+                    "value": dict(Intervention.TYPE_CHOICES).get(
+                        filters["intervention_type"], filters["intervention_type"]
+                    ),
+                }
+            )
+        return active
 
     def get_context_data(self, **kwargs):
         current_year = date.today().year
         source = kwargs.pop("form_data", self.request.GET)
-        filters = self._filters(source)
+        selected_report_type = source.get("report_type", "")
+        filters = self._filters(source, selected_report_type)
         date_range = source.get("date_range", "all")
         if date_range not in DATE_RANGES:
             date_range = "all"
-        selected_report_type = source.get("report_type", "")
         system_report = self.request.user.is_admin
         preview = None
         report_error = ""
@@ -114,6 +148,10 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             "selected_report_type": selected_report_type,
             "selected_date_range": date_range,
             "selected_filters": filters,
+            "active_report_filters": self._active_filters(
+                selected_report_type, date_range, filters
+            ) if selected_report_type else [],
+            "commodity_report_types": COMMODITY_REPORT_KEYS,
             "report_preview": preview,
             "report_error": report_error,
         }

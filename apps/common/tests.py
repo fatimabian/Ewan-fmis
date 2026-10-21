@@ -439,7 +439,6 @@ class FMISRequirementTests(TestCase):
             description="Whole-system smoke test intervention",
             recorded_by=self.staff,
         )
-
         public_pages = (
             "authentication:landing",
             "authentication:privacy",
@@ -2044,6 +2043,21 @@ class FMISRequirementTests(TestCase):
         self.assertNotIn("Funding Source", headers)
         self.assertEqual(rows[0][9], service_request.request_id)
 
+        other_farmer = Farmer.objects.create(
+            first_name="Mario",
+            last_name="Reyes",
+            barangay="Balibago",
+            consent_given=True,
+        )
+        intervention.recipients.create(farmer=other_farmer, status="RECEIVED")
+        _title, _headers, barangay_rows = build_report(
+            "intervention_registry",
+            "all",
+            {"barangay": self.farmer.barangay},
+        )
+        self.assertEqual(len(barangay_rows), 1)
+        self.assertEqual(barangay_rows[0][4], self.farmer.barangay)
+
         self.client.force_login(self.staff)
         reports = self.client.get(
             reverse("reports:home"),
@@ -2169,11 +2183,17 @@ class FMISRequirementTests(TestCase):
 
         service_report = self.client.get(
             reverse("reports:home"),
-            {"report_type": "service_status", "date_range": "all"},
+            {
+                "report_type": "service_status",
+                "date_range": "all",
+                "commodity": "Coffee",
+            },
         )
         self.assertContains(service_report, 'data-filter-row="status"')
         self.assertNotContains(service_report, 'data-filter-row="status" hidden')
         self.assertContains(service_report, 'data-filter-row="intervention" hidden')
+        self.assertContains(service_report, 'data-filter-row="commodity" hidden')
+        self.assertEqual(service_report.context["selected_filters"]["commodity"], "")
 
         intervention_report = self.client.get(
             reverse("reports:home"),
@@ -2182,6 +2202,14 @@ class FMISRequirementTests(TestCase):
         self.assertContains(intervention_report, 'data-filter-row="intervention"')
         self.assertNotContains(intervention_report, 'data-filter-row="intervention" hidden')
         self.assertContains(intervention_report, 'data-filter-row="status" hidden')
+        self.assertContains(intervention_report, 'data-filter-row="commodity" hidden')
+
+        farmer_report = self.client.get(
+            reverse("reports:home"),
+            {"report_type": "farmer_master", "date_range": "all"},
+        )
+        self.assertContains(farmer_report, 'data-filter-row="commodity"')
+        self.assertNotContains(farmer_report, 'data-filter-row="commodity" hidden')
 
     def test_reports_export_csv_and_validate_filters(self):
         self.client.force_login(self.staff)
@@ -2266,6 +2294,8 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "Download Report")
         self.assertContains(response, "refreshPreview")
         self.assertContains(response, "Commodity Production Summary")
+        self.assertContains(response, "Applied report filters")
+        self.assertContains(response, "Commodity:</b> Rice", html=False)
 
         empty = self.client.get(
             reverse("reports:home"),
@@ -2301,12 +2331,42 @@ class FMISRequirementTests(TestCase):
                 "Phone",
                 "Livelihood",
                 "Farm Records",
+                "Commodities",
             ],
         )
         self.assertEqual(preview["rows"][0][0], self.farmer.record_id)
         self.assertEqual(preview["rows"][0][1], self.farmer.full_name)
+        self.assertEqual(preview["rows"][0][8], "Rice")
         self.assertContains(response, "farmer-master-preview")
         self.assertNotContains(response, "Farmer Master List chart")
+
+    def test_farm_reports_show_the_commodity_used_to_filter_each_row(self):
+        for report_type in ("farm_area_by_barangay", "farmers_by_ownership"):
+            _title, headers, rows = build_report(
+                report_type,
+                "all",
+                {"commodity": "Rice"},
+            )
+            commodity_index = headers.index("Commodities")
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0][commodity_index], "Rice")
+
+    def test_irrelevant_commodity_filter_does_not_change_service_request_report(self):
+        request_item = ServiceRequest.objects.create(
+            farmer=self.farmer,
+            service=self.service,
+            subject=self.service.name,
+            status="PENDING",
+        )
+
+        _title, headers, rows = build_report(
+            "service_status",
+            "all",
+            {"commodity": "Coffee", "status": "PENDING"},
+        )
+
+        self.assertNotIn("Commodity", headers)
+        self.assertIn(request_item.request_id, {row[0] for row in rows})
 
     def test_staff_dashboard_shows_scoped_analytics_and_fixed_weather_location(self):
         ServiceRequest.objects.create(

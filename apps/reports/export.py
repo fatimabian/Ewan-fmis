@@ -3,7 +3,7 @@ import re
 from calendar import monthrange
 from datetime import datetime, time, timedelta
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 
@@ -67,6 +67,15 @@ REPORT_TEMPLATES = [
     },
 ]
 REPORT_KEYS = {item["key"] for item in REPORT_TEMPLATES}
+COMMODITY_REPORT_KEYS = frozenset(
+    {
+        "farmer_master",
+        "farm_area_by_barangay",
+        "farmers_by_ownership",
+        "crop_summary",
+        "commodity_per_parcel",
+    }
+)
 SYSTEM_REPORT_TEMPLATES = [
     {
         "key": "staff_accomplishment",
@@ -163,10 +172,31 @@ def _local_datetime(value):
     return timezone.localtime(value).strftime("%b %d, %Y %I:%M %p") if value else "-"
 
 
+def normalize_report_filters(report_type, filters=None):
+    """Remove filters that have no direct meaning for the selected report."""
+    normalized = dict(filters or {})
+    if report_type not in COMMODITY_REPORT_KEYS:
+        normalized["commodity"] = ""
+    if report_type != "service_status":
+        normalized["status"] = ""
+    if report_type not in {"intervention_summary", "intervention_registry"}:
+        normalized["intervention_type"] = ""
+    return normalized
+
+
+def _commodity_names(crops, selected=""):
+    names = dict.fromkeys(
+        crop.crop_type
+        for crop in crops
+        if crop.is_active and crop.crop_type and (not selected or crop.crop_type == selected)
+    )
+    return ", ".join(names) or "Not recorded"
+
+
 def build_report(report_type, date_range, filters=None, compact=False):
     if report_type not in REPORT_KEYS or date_range not in DATE_RANGES:
         raise ValueError("Choose a valid report template and date range.")
-    filters = filters or {}
+    filters = normalize_report_filters(report_type, filters)
     year = str(filters.get("year", "")).strip()
     barangay = str(filters.get("barangay", "")).strip()
     commodity = str(filters.get("commodity", "")).strip()
@@ -239,6 +269,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
                     farmer.phone_number or "-",
                     farmer.get_livelihood_display(),
                     f"{len(parcels)} parcel(s) · {len(crops)} crop(s)",
+                    _commodity_names(crops, commodity),
                 ])
                 continue
             document_details = [
@@ -274,8 +305,8 @@ def build_report(report_type, date_range, filters=None, compact=False):
             return (
                 "Farmer Master List",
                 [
-                    "Farmer ID", "Farmer Name", "RSBSA ID", "Status", "Barangay",
-                    "Phone", "Livelihood", "Farm Records",
+                    "Farmer ID", "Farmer Name", "RSBSA ID", "Registration Status", "Barangay",
+                    "Phone", "Livelihood", "Farm Records", "Commodities",
                 ],
                 rows,
             )
@@ -300,7 +331,15 @@ def build_report(report_type, date_range, filters=None, compact=False):
 
     if report_type == "farm_area_by_barangay":
         queryset = _filter_period(
-            FarmParcel.objects.filter(is_active=True, farmer__is_active=True).select_related("farmer"),
+            FarmParcel.objects.filter(is_active=True, farmer__is_active=True)
+            .select_related("farmer")
+            .prefetch_related(
+                Prefetch(
+                    "crops",
+                    queryset=CropRecord.objects.filter(is_active=True).order_by("crop_type", "pk"),
+                    to_attr="active_report_crops",
+                )
+            ),
             "created_at",
             date_range,
         )
@@ -312,13 +351,14 @@ def build_report(report_type, date_range, filters=None, compact=False):
             queryset = queryset.filter(crops__crop_type=commodity, crops__is_active=True).distinct()
         return (
             "Total Farm Area per Barangay",
-            ["Barangay", "Farmer ID", "Farmer", "Parcel", "Area (ha)", "Ownership", "Date Added"],
+            ["Barangay", "Farmer ID", "Farmer", "Parcel", "Commodities", "Area (ha)", "Ownership", "Date Added"],
             [
                 [
                     parcel.barangay,
                     parcel.farmer.record_id,
                     parcel.farmer.full_name,
                     parcel.display_name,
+                    _commodity_names(parcel.active_report_crops, commodity),
                     parcel.area_hectares,
                     parcel.get_ownership_type_display(),
                     timezone.localtime(parcel.created_at).date(),
@@ -329,7 +369,15 @@ def build_report(report_type, date_range, filters=None, compact=False):
 
     if report_type == "farmers_by_ownership":
         queryset = _filter_period(
-            FarmParcel.objects.filter(is_active=True, farmer__is_active=True).select_related("farmer"),
+            FarmParcel.objects.filter(is_active=True, farmer__is_active=True)
+            .select_related("farmer")
+            .prefetch_related(
+                Prefetch(
+                    "crops",
+                    queryset=CropRecord.objects.filter(is_active=True).order_by("crop_type", "pk"),
+                    to_attr="active_report_crops",
+                )
+            ),
             "created_at",
             date_range,
         )
@@ -341,7 +389,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
             queryset = queryset.filter(crops__crop_type=commodity, crops__is_active=True).distinct()
         return (
             "Farmers by Land Ownership",
-            ["Ownership / Tenure", "Farmer ID", "Farmer", "Barangay", "Parcel", "Area (ha)", "Land Owner"],
+            ["Ownership / Tenure", "Farmer ID", "Farmer", "Barangay", "Parcel", "Commodities", "Area (ha)", "Land Owner"],
             [
                 [
                     parcel.get_ownership_type_display(),
@@ -349,6 +397,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
                     parcel.farmer.full_name,
                     parcel.barangay,
                     parcel.display_name,
+                    _commodity_names(parcel.active_report_crops, commodity),
                     parcel.area_hectares,
                     parcel.land_owner_name or "-",
                 ]
@@ -494,6 +543,8 @@ def build_report(report_type, date_range, filters=None, compact=False):
         for item in queryset.order_by("pk"):
             for recipient in item.recipients.all():
                 if not recipient.is_active or not recipient.farmer.is_active:
+                    continue
+                if barangay and recipient.farmer.barangay != barangay:
                     continue
                 rows.append([
                     item.reference_id,
@@ -1165,6 +1216,7 @@ def _farmer_master_pdf_response(title, headers, rows, date_range, filters=None):
 def generate_report(report_type, output_format, date_range, filters=None):
     if output_format not in FORMATS:
         raise ValueError("Choose CSV or PDF format.")
+    filters = normalize_report_filters(report_type, filters)
     title, headers, rows = build_report(
         report_type,
         date_range,
