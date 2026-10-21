@@ -15,8 +15,6 @@
     .rsbsa-scan-card p{margin:0;color:#52675b}
     .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;gap:10px}
     .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
-    .rsbsa-scan-file{display:flex;align-items:center;gap:8px;margin-top:15px;color:#41574b;font-size:.9rem}
-    .rsbsa-scan-file i{color:var(--fmis-accent)}
     .rsbsa-scan-selection{display:flex;align-items:center;gap:12px;margin-top:15px}
     .rsbsa-scan-selection[hidden]{display:none}
     .rsbsa-scan-preview{position:relative;display:grid;flex:0 0 76px;width:76px;height:76px;place-items:center;overflow:visible;border:1px solid #92bca4;border-radius:6px;background:#fff}
@@ -26,7 +24,6 @@
     .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#ad1d2b;color:#fff}
     .rsbsa-scan-meta{display:grid;gap:3px;min-width:0;color:#41574b;font-size:.85rem}
     .rsbsa-scan-meta strong{overflow:hidden;color:#173526;text-overflow:ellipsis;white-space:nowrap}
-    .rsbsa-scan-privacy{margin-top:12px!important;font-size:.82rem}
     .rsbsa-scan-status{margin-top:15px;padding:12px 14px;border:1px solid #bed7c8;background:#fff;color:#244535}
     .rsbsa-scan-status.is-error{border-color:#dc8c94;background:#fff5f5;color:#a20d1d}
     .rsbsa-scan-status.is-success{border-color:#73bd91;background:#eefaf3;color:#075c30}
@@ -39,7 +36,7 @@
     .registration-field.scan-reviewed{border-color:#58a878;background:#f3fbf6}
     .scan-reviewed .scan-field-note{color:#176b3a!important}
     body[data-theme="dark"] .rsbsa-scan-card{border-color:#426c53;background:#1f3027}
-    body[data-theme="dark"] .rsbsa-scan-card p,body[data-theme="dark"] .rsbsa-scan-file{color:#bed0c5}
+    body[data-theme="dark"] .rsbsa-scan-card p{color:#bed0c5}
     body[data-theme="dark"] .rsbsa-scan-preview,body[data-theme="dark"] .rsbsa-scan-remove{background:#1b2720}
     body[data-theme="dark"] .rsbsa-scan-meta,body[data-theme="dark"] .rsbsa-scan-meta strong{color:#e3f4e9}
     body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
@@ -51,15 +48,6 @@
 {% block content %}
   <div class="content registration-page">
     <section class="panel registration-shell">
-      <div class="registration-note">
-        <i class="bi bi-shield-check">
-        </i>
-        <span>
-          This workflow follows the RSBSA Enrollment Form 01-2024. Fields marked <b>*</b> are required.
-          The new record will be saved as <strong>Encoded</strong> without an RSBSA ID; staff can assign
-          the official ID later from Update Record after marking the registration Completed.
-        </span>
-      </div>
       <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
         {% csrf_token %}
         <section class="rsbsa-scan-card"
@@ -83,10 +71,6 @@
           </div>
           <div class="rsbsa-scan-input">{{ profile_form.rsbsa_form }}</div>
           {{ profile_form.rsbsa_form.errors }}
-          <div class="rsbsa-scan-file" id="rsbsaScanFile">
-            <i class="bi bi-file-earmark-image" aria-hidden="true"></i>
-            <span>No RSBSA image selected.</span>
-          </div>
           <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
             <div class="rsbsa-scan-preview">
               <img id="rsbsaScanPreviewImage" alt="Selected RSBSA form preview" hidden>
@@ -103,11 +87,6 @@
               <span>Attached. Use × to remove it and choose another copy.</span>
             </div>
           </div>
-          {% if rsbsa_scan_configured %}
-            <p class="rsbsa-scan-privacy">The image is sent to the configured OpenAI form reader for one-time extraction. It is attached to FMIS only after staff reviews and submits the registration.</p>
-          {% else %}
-            <p class="rsbsa-scan-privacy">Automatic reading needs server configuration. Staff can still upload the RSBSA copy and encode the fields manually.</p>
-          {% endif %}
           <div class="rsbsa-scan-status" id="rsbsaScanStatus" role="status" aria-live="polite" hidden></div>
         </section>
       <ol class="registration-stepper" aria-label="Registration progress">
@@ -388,7 +367,6 @@
           const loading = document.getElementById('registrationLoading');
           const scanCard = document.getElementById('rsbsaScanCard');
           const scanInput = form.querySelector('[data-rsbsa-scan-source]');
-          const scanFile = document.getElementById('rsbsaScanFile');
           const scanSelection = document.getElementById('rsbsaScanSelection');
           const scanPreviewImage = document.getElementById('rsbsaScanPreviewImage');
           const scanPreviewIcon = document.getElementById('rsbsaScanPreviewIcon');
@@ -440,7 +418,6 @@
 
           function showSelectedFile(file) {
               clearPreviewUrl();
-              scanFile.hidden = true;
               scanSelection.hidden = false;
               scanFileName.textContent = file.name;
               scanFileSize.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
@@ -461,11 +438,9 @@
               clearPreviewUrl();
               clearScannedValues();
               scanSelection.hidden = true;
-              scanFile.hidden = false;
               scanStatus.hidden = true;
               scanStatus.replaceChildren();
-              scanTrigger?.classList.remove('is-loading');
-              scanFile.querySelector('span').textContent = 'No RSBSA image selected.'
+              scanTrigger?.classList.remove('is-loading')
           }
 
           async function compressCameraImage(file) {

@@ -808,6 +808,14 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, 'id="rsbsaScanPreviewImage"')
         self.assertContains(response, 'id="rsbsaScanRemove"')
         self.assertContains(response, "Remove selected RSBSA form")
+        self.assertNotContains(response, "No RSBSA image selected.")
+        self.assertNotContains(response, "This workflow follows the RSBSA Enrollment Form")
+
+        with override_settings(OPENAI_API_KEY=""):
+            unconfigured_response = self.client.get(reverse("farmers:create"))
+        self.assertNotContains(
+            unconfigured_response, "Automatic reading needs server configuration."
+        )
 
     @override_settings(OPENAI_API_KEY="")
     def test_rsbsa_scanner_reports_when_server_configuration_is_missing(self):
