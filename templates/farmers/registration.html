@@ -19,7 +19,7 @@
     .rsbsa-scan-trigger{padding:7px 10px;font-size:.78rem}
     .rsbsa-scan-trigger[hidden]{display:none!important}
     .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
-    .rsbsa-scan-selection{display:flex;align-items:center;gap:8px;width:min(350px,100%);min-height:36px;padding:7px 9px;background:#edf0ee}
+    .rsbsa-scan-selection{display:flex;align-items:center;gap:8px;width:min(350px,100%);min-height:36px;padding:7px 9px;border:1px solid #8b9490;background:#fff}
     .rsbsa-scan-selection[hidden]{display:none!important}
     .rsbsa-scan-remove{display:grid;flex:0 0 24px;width:24px;height:24px;margin-left:auto;padding:0;place-items:center;border:0;background:transparent;color:#4d5550;font-size:1.1rem;line-height:1;cursor:pointer}
     .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#dde3df;color:#ad1d2b;outline:2px solid #87aa96}
@@ -30,18 +30,18 @@
     .rsbsa-scan-status.is-success{border-color:#73bd91;background:#eefaf3;color:#075c30}
     .rsbsa-scan-status ul{margin:7px 0 0;padding-left:20px}
     .rsbsa-scan-trigger.is-loading{pointer-events:none;opacity:.65}
-    .registration-field.scan-filled{padding:10px;border:1px solid #dfa900;background:#fffbed}
+    .registration-field.scan-filled{padding:10px;border:1px solid #c7d5cd;background:#fff}
     .registration-field.scan-needs-review{border-color:#d92d20;background:#fff4f3}
-    .scan-field-note{display:block;margin-top:5px;color:#8a5d00!important;font-weight:700}
+    .scan-field-note{display:block;margin-top:5px;color:#42534a!important;font-weight:700}
     .scan-needs-review .scan-field-note{color:#b42318!important}
     .registration-field.scan-reviewed{border-color:#58a878;background:#f3fbf6}
     .scan-reviewed .scan-field-note{color:#176b3a!important}
     body[data-theme="dark"] .rsbsa-scan-card{border-color:#426c53;background:#1f3027}
     body[data-theme="dark"] .rsbsa-scan-card p{color:#bed0c5}
-    body[data-theme="dark"] .rsbsa-scan-selection{background:#29342e}
+    body[data-theme="dark"] .rsbsa-scan-selection{border-color:#69736e;background:#202823}
     body[data-theme="dark"] .rsbsa-scan-meta,body[data-theme="dark"] .rsbsa-scan-meta strong{color:#e3f4e9}
     body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
-    body[data-theme="dark"] .registration-field.scan-filled{border-color:#b48a26;background:#332d1c}
+    body[data-theme="dark"] .registration-field.scan-filled{border-color:#526177;background:#202823}
     body[data-theme="dark"] .registration-field.scan-needs-review{border-color:#ce5b64;background:#362124}
     @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-actions,.rsbsa-scan-trigger,.rsbsa-scan-selection{width:100%}.rsbsa-scan-trigger{justify-content:center}.rsbsa-scan-actions{justify-content:flex-start}}
   </style>
@@ -82,6 +82,7 @@
             </div>
           </div>
           <div class="rsbsa-scan-input">{{ profile_form.rsbsa_form }}</div>
+          {{ profile_form.rsbsa_scan_token }}
           {{ profile_form.rsbsa_form.errors }}
           <div class="rsbsa-scan-status" id="rsbsaScanStatus" role="status" aria-live="polite" hidden></div>
         </section>
@@ -370,6 +371,7 @@
           const scanFileSize = document.getElementById('rsbsaScanFileSize');
           const scanRemove = document.getElementById('rsbsaScanRemove');
           const scanStatus = document.getElementById('rsbsaScanStatus');
+          const scanTokenInput = form.elements.rsbsa_scan_token;
           const scanTrigger = scanCard?.querySelector('.rsbsa-scan-trigger');
           let current = 1;
           let scanRequestToken = 0;
@@ -420,11 +422,24 @@
               scanInput.value = '';
               scanInput.dispatchEvent(new Event('fmis:draft-file-cleared', {bubbles: true}));
               clearScannedValues();
+              if (scanTokenInput) scanTokenInput.value = '';
               scanSelection.hidden = true;
               scanTrigger.hidden = false;
               scanStatus.hidden = true;
               scanStatus.replaceChildren();
               scanTrigger?.classList.remove('is-loading')
+          }
+
+          function rejectSelectedFile(message) {
+              scanRequestToken += 1;
+              scanInput.value = '';
+              scanInput.dispatchEvent(new Event('fmis:draft-file-cleared', {bubbles: true}));
+              clearScannedValues();
+              if (scanTokenInput) scanTokenInput.value = '';
+              scanSelection.hidden = true;
+              scanTrigger.hidden = false;
+              scanTrigger?.classList.remove('is-loading');
+              showScanStatus(message, 'error')
           }
 
           async function compressCameraImage(file) {
@@ -490,10 +505,7 @@
 
           async function scanRSBSA(file, requestToken) {
               if (!scanCard || scanCard.dataset.scanConfigured !== 'true') {
-                  return
-              }
-              if (!file.type.startsWith('image/')) {
-                  showScanStatus('The RSBSA copy is attached. For automatic filling, use a clear JPG or PNG image of page 1.');
+                  rejectSelectedFile('Automatic RSBSA reading is not configured. Remove the upload and enter the registration details manually.');
                   return
               }
               scanTrigger?.classList.add('is-loading');
@@ -510,10 +522,11 @@
                   const payload = await response.json().catch(() => ({}));
                   if (requestToken !== scanRequestToken) return;
                   if (!response.ok) throw new Error(payload.error || 'The form could not be read automatically.');
+                  if (scanTokenInput) scanTokenInput.value = payload.scan_token || '';
                   applyScannedFields(payload)
               } catch (error) {
                   if (requestToken !== scanRequestToken) return;
-                  showScanStatus(`${error.message} The uploaded copy is still attached; you can enter the details manually.`, 'error')
+                  rejectSelectedFile(`${error.message} Choose the correct RSBSA page 1, or continue with manual entry.`)
               } finally {
                   if (requestToken === scanRequestToken) scanTrigger?.classList.remove('is-loading')
               }
@@ -542,11 +555,11 @@
               if (requestToken !== scanRequestToken) return;
               showSelectedFile(selected);
               if (selected.size > 5 * 1024 * 1024) {
-                  showScanStatus('This file is larger than 5 MB. Remove it with × and choose a smaller JPG, PNG, or PDF.', 'error');
+                  rejectSelectedFile('This file is larger than 5 MB. Choose a smaller JPG, PNG, or PDF.');
                   return
               }
               if (!['image/jpeg', 'image/png', 'application/pdf'].includes(selected.type)) {
-                  showScanStatus('This file type is not supported. Remove it with × and choose a JPG, PNG, or PDF.', 'error');
+                  rejectSelectedFile('This file type is not supported. Choose a JPG, PNG, or PDF.');
                   return
               }
               scanRSBSA(selected, requestToken)

@@ -16,6 +16,7 @@ from apps.common.forms import (
     RequiredYesNoField,
     YesNoNAField,
     add_other_crop_field,
+    normalize_person_name,
     resolve_other_crop,
 )
 from apps.crops.models import CropRecord
@@ -168,6 +169,12 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
+        for name in ("land_owner_name", "agriculturist_name"):
+            if cleaned.get(name):
+                try:
+                    cleaned[name] = normalize_person_name(cleaned[name])
+                except forms.ValidationError as error:
+                    self.add_error(name, error)
         if cleaned.get("ownership_document") == "OTHER" and not cleaned.get(
             "ownership_document_other"
         ):

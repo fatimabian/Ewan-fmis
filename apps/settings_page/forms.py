@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth.forms import PasswordChangeForm
 
 from apps.authentication.models import CustomUser
-from apps.common.forms import InlineValidationMixin, normalize_phone_digits
+from apps.common.forms import InlineValidationMixin, normalize_person_name, normalize_phone_digits
 
 
 class ProfileForm(InlineValidationMixin, forms.Form):
@@ -41,8 +41,18 @@ class ProfileForm(InlineValidationMixin, forms.Form):
             raise forms.ValidationError("This email address is already linked to another account.")
         return email
 
+    def clean_first_name(self):
+        return normalize_person_name(self.cleaned_data.get("first_name", ""))
+
+    def clean_last_name(self):
+        return normalize_person_name(self.cleaned_data.get("last_name", ""))
+
     def clean_phone_number(self):
         phone_number = self.cleaned_data.get("phone_number", "").strip()
+        if phone_number and not re.fullmatch(r"09\d{9}", phone_number):
+            raise forms.ValidationError(
+                "Use numbers only and enter 11 digits starting with 09."
+            )
         normalized = normalize_phone_digits(phone_number)
         queryset = CustomUser.objects.exclude(phone_number="")
         if self.user:

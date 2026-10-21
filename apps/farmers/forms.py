@@ -25,6 +25,7 @@ from apps.common.forms import (
     YesNoNAField,
     add_other_crop_field,
     resolve_other_crop,
+    normalize_person_name,
 )
 from apps.farm_parcels.models import FarmParcel
 
@@ -81,11 +82,11 @@ def validate_registration_inputs(form, cleaned, *, letters=(), digits=(), mixed=
 
     for name in letters:
         value = cleaned.get(name)
-        if value and not LETTERS_ONLY_PATTERN.fullmatch(value):
-            form.add_error(
-                name,
-                "Use letters only. Spaces, apostrophes, periods, commas, and hyphens are allowed.",
-            )
+        if value:
+            try:
+                cleaned[name] = normalize_person_name(value)
+            except ValidationError as error:
+                form.add_error(name, error)
     for name in digits:
         value = cleaned.get(name)
         if value and not value.isdecimal():
@@ -208,6 +209,7 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             }
         ),
     )
+    rsbsa_scan_token = forms.CharField(required=False, widget=forms.HiddenInput)
     is_indigenous = YesNoNAField(label="Member of an Indigenous People / ICC")
     is_pwd = YesNoNAField(label="Person with Disability (PWD)")
     is_four_ps = YesNoNAField(label="4Ps beneficiary")
@@ -394,7 +396,15 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         upload = self.cleaned_data.get("rsbsa_form")
         if not upload:
             return upload
-        return validate_farmer_document_upload(upload)
+        upload = validate_farmer_document_upload(upload)
+        if not (self.instance and self.instance.pk):
+            from .rsbsa_scan import verify_scan_token
+
+            if not verify_scan_token(upload, self.data.get("rsbsa_scan_token", "")):
+                raise ValidationError(
+                    "Wait for FMIS to recognize this as an RSBSA enrollment form, or remove it and continue with manual entry."
+                )
+        return upload
 
     def clean(self):
         cleaned = super().clean()
@@ -507,6 +517,7 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields.pop("rsbsa_form", None)
+        self.fields.pop("rsbsa_scan_token", None)
         # Older clients and saved drafts may omit the new tri-state fields.
         # Preserve the stored value on updates instead of silently replacing it.
         for name in ("is_indigenous", "is_pwd", "is_four_ps"):

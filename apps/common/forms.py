@@ -141,6 +141,8 @@ CAPITALIZATION_EXCLUSIONS = {
     "valid_id_number",
     "rsbsa_number",
 }
+INVISIBLE_CONTROL_PATTERN = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u200b\u200c\u200d\ufeff]")
+PERSON_NAME_PATTERN = re.compile(r"^[^\W\d_]+(?:[ .,'’\-]+[^\W\d_]+)*\.?$", re.UNICODE)
 
 
 def capitalize_first_letter(value):
@@ -148,6 +150,33 @@ def capitalize_first_letter(value):
     for index, character in enumerate(value):
         if character.isalpha():
             return value[:index] + character.upper() + value[index + 1 :]
+    return value
+
+
+def normalize_text_whitespace(value, *, multiline=False):
+    """Trim pasted input and collapse meaningless whitespace without losing paragraphs."""
+    value = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    if not multiline:
+        return re.sub(r"\s+", " ", value).strip()
+    lines = [re.sub(r"[^\S\n]+", " ", line).strip() for line in value.split("\n")]
+    return "\n".join(lines).strip()
+
+
+def normalize_person_name(value):
+    """Validate a human name and store fully-uppercase entries in readable title case."""
+    value = normalize_text_whitespace(value)
+    if value and not PERSON_NAME_PATTERN.fullmatch(value):
+        raise forms.ValidationError(
+            "Use letters only. Spaces, apostrophes, periods, commas, and hyphens are allowed."
+        )
+    letters = "".join(character for character in value if character.isalpha())
+    if letters and letters == letters.upper():
+        value = value.title()
+        value = re.sub(
+            r"\b(Ii|Iii|Iv|Vi|Vii|Viii|Ix|Xi|Xii)\b",
+            lambda match: match.group(0).upper(),
+            value,
+        )
     return value
 
 
@@ -189,6 +218,8 @@ class InlineValidationMixin:
             if name == "phone_number":
                 widget.attrs.setdefault("inputmode", "tel")
                 widget.attrs.setdefault("autocomplete", "tel")
+            if isinstance(field, (forms.IntegerField, forms.DecimalField, forms.FloatField)):
+                widget.attrs.setdefault("inputmode", "decimal")
 
     @staticmethod
     def _should_capitalize(name, field):
@@ -248,7 +279,17 @@ class InlineValidationMixin:
             field = self.fields.get(name)
             if not field or not isinstance(value, str):
                 continue
-            value = value.strip()
+            if isinstance(field.widget, forms.PasswordInput):
+                continue
+            if INVISIBLE_CONTROL_PATTERN.search(value):
+                self.add_error(name, "Remove hidden or unsupported control characters.")
+                continue
+            value = normalize_text_whitespace(
+                value, multiline=isinstance(field.widget, forms.Textarea)
+            )
+            if field.required and not value:
+                self.add_error(name, "This field cannot contain only spaces.")
+                continue
             if self._should_capitalize(name, field):
                 value = capitalize_first_letter(value)
             cleaned[name] = value

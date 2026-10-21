@@ -28,6 +28,7 @@ from apps.activity_logs.services import log_activity
 from apps.accounts.forms import AccountForm
 from apps.crops.forms import CropRecordForm
 from apps.crops.models import CropRecord
+from apps.common.forms import InlineValidationMixin
 from apps.dashboard.services import _crop_recommendation
 from apps.farm_parcels.models import FarmParcel, FarmParcelPhoto
 from apps.farmers.forms import (
@@ -559,14 +560,55 @@ class FMISRequirementTests(TestCase):
                 "activities": "FARMER_CROPS",
                 "consent_given": "on",
             },
-            files={
-                "rsbsa_form": SimpleUploadedFile(
-                    "rsbsa.pdf", b"%PDF-1.4\nRSBSA test\n%%EOF", content_type="application/pdf"
-                )
-            },
         )
         self.assertFalse(form.is_valid())
         self.assertIn("already linked", form.errors["valid_id_number"][0])
+
+    def test_shared_validation_rejects_blank_and_non_numeric_input_and_normalizes_spacing(self):
+        class AuditForm(InlineValidationMixin, django_forms.Form):
+            name = django_forms.CharField()
+            quantity = django_forms.IntegerField()
+            notes = django_forms.CharField(required=False)
+
+        invalid = AuditForm(data={"name": "   ", "quantity": "12bags"})
+        self.assertFalse(invalid.is_valid())
+        self.assertIn("name", invalid.errors)
+        self.assertIn("quantity", invalid.errors)
+
+        valid = AuditForm(
+            data={"name": "  Seed   Distribution  ", "quantity": "12", "notes": "  Ready   for release  "}
+        )
+        self.assertTrue(valid.is_valid(), valid.errors)
+        self.assertEqual(valid.cleaned_data["name"], "Seed Distribution")
+        self.assertEqual(valid.cleaned_data["notes"], "Ready for release")
+
+    def test_farmer_names_reject_digits_and_normalize_all_caps(self):
+        base = {
+            "last_name": "DELA CRUZ",
+            "first_name": "MARIA",
+            "sex": "FEMALE",
+            "birth_date": "1992-04-08",
+            "place_of_birth": "ROSARIO",
+            "mother_maiden_name": "SANTOS",
+            "barangay": "Alupay",
+            "phone_number": "09181234567",
+            "civil_status": "SINGLE",
+            "valid_id_type": "National ID",
+            "valid_id_number": "9999888877776666",
+            "livelihood": "FARMER",
+            "is_indigenous": "False",
+            "is_pwd": "False",
+            "is_four_ps": "False",
+            "consent_given": "on",
+        }
+        form = FarmerRegistrationForm(data=base)
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["first_name"], "Maria")
+        self.assertEqual(form.cleaned_data["last_name"], "Dela Cruz")
+
+        invalid = FarmerRegistrationForm(data={**base, "first_name": "Maria2"})
+        self.assertFalse(invalid.is_valid())
+        self.assertIn("first_name", invalid.errors)
 
     def test_service_request_subject_is_generated_from_request_type(self):
         form = ServiceRequestForm(
@@ -790,11 +832,6 @@ class FMISRequirementTests(TestCase):
                 "is_four_ps": "False",
                 "consent_given": "on",
             },
-            files={
-                "rsbsa_form": SimpleUploadedFile(
-                    "rsbsa.pdf", b"%PDF-1.4\nRSBSA test\n%%EOF", content_type="application/pdf"
-                )
-            },
         )
         self.assertTrue(form.is_valid(), form.errors)
         for name in ("is_indigenous", "is_pwd", "is_four_ps"):
@@ -909,6 +946,14 @@ class FMISRequirementTests(TestCase):
                             "text": json.dumps(
                                 {
                                     "is_rsbsa_form": True,
+                                    "form_version": "01-2024",
+                                    "detected_anchors": [
+                                        "da_logo",
+                                        "registry_title",
+                                        "enrollment_form_title",
+                                        "part_1_personal_information",
+                                        "part_2_livelihood_profile",
+                                    ],
                                     "fields": fields,
                                     "needs_review": ["last_name"],
                                     "warnings": ["Check the handwritten surname."],
@@ -932,6 +977,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(payload["fields"]["barangay"], "Alupay")
         self.assertEqual(payload["fields"]["phone_number"], "09181234567")
         self.assertIn("last_name", payload["needs_review"])
+        self.assertTrue(payload["scan_token"])
         self.assertEqual(Farmer.objects.count(), farmer_count)
         api_request = post.call_args.kwargs
         self.assertFalse(api_request["json"]["store"])
@@ -958,7 +1004,77 @@ class FMISRequirementTests(TestCase):
         self.assertIn("not a readable", response.json()["error"])
         post.assert_not_called()
 
+    @override_settings(
+        OPENAI_API_KEY="test-project-key",
+        OPENAI_API_BASE="https://api.openai.com/v1",
+        RSBSA_OCR_MODEL="gpt-5.4-mini",
+    )
+    @patch("apps.farmers.rsbsa_scan.requests.post")
+    def test_rsbsa_scanner_reads_pdf_and_requires_official_form_anchors(self, post):
+        from apps.farmers.rsbsa_scan import PROFILE_FIELDS
+
+        fields = {name: "" for name in PROFILE_FIELDS}
+        fields.update({"last_name": "Santos", "first_name": "Ana"})
+        post.return_value.status_code = 200
+        post.return_value.json.return_value = {
+            "output": [{
+                "type": "message",
+                "content": [{
+                    "type": "output_text",
+                    "text": json.dumps({
+                        "is_rsbsa_form": True,
+                        "form_version": "01-2024",
+                        "detected_anchors": [
+                            "da_logo",
+                            "registry_title",
+                            "enrollment_form_title",
+                            "part_1_personal_information",
+                            "part_2_livelihood_profile",
+                        ],
+                        "fields": fields,
+                        "needs_review": [],
+                        "warnings": [],
+                    }),
+                }],
+            }]
+        }
+        self.client.force_login(self.staff)
+        pdf_bytes = b"%PDF-1.4\nscanned page\n%%EOF"
+
+        response = self.client.post(
+            reverse("farmers:scan_rsbsa"),
+            {"rsbsa_scan": SimpleUploadedFile(
+                "rsbsa.pdf", pdf_bytes, content_type="application/pdf"
+            )},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        file_input = post.call_args.kwargs["json"]["input"][0]["content"][1]
+        self.assertEqual(file_input["type"], "input_file")
+        self.assertTrue(file_input["file_data"].startswith("data:application/pdf;base64,"))
+        self.assertTrue(response.json()["scan_token"])
+
+        post.return_value.json.return_value["output"][0]["content"][0]["text"] = json.dumps({
+            "is_rsbsa_form": True,
+            "form_version": "",
+            "detected_anchors": ["registry_title"],
+            "fields": fields,
+            "needs_review": [],
+            "warnings": [],
+        })
+        rejected = self.client.post(
+            reverse("farmers:scan_rsbsa"),
+            {"rsbsa_scan": SimpleUploadedFile(
+                "unrelated.pdf", pdf_bytes, content_type="application/pdf"
+            )},
+        )
+        self.assertEqual(rejected.status_code, 422)
+        self.assertIn("does not match", rejected.json()["error"])
+
     def _valid_registration_payload(self):
+        from apps.farmers.rsbsa_scan import build_scan_token
+
+        rsbsa_bytes = b"%PDF-1.4\nRequired RSBSA form\n%%EOF"
         return {
             "last_name": "Dela Cruz",
             "first_name": "Maria",
@@ -978,9 +1094,10 @@ class FMISRequirementTests(TestCase):
             "consent_given": "on",
             "rsbsa_form": SimpleUploadedFile(
                 "rsbsa-form.pdf",
-                b"%PDF-1.4\nRequired RSBSA form\n%%EOF",
+                rsbsa_bytes,
                 content_type="application/pdf",
             ),
+            "rsbsa_scan_token": build_scan_token(rsbsa_bytes),
             "parcels-TOTAL_FORMS": "1",
             "parcels-INITIAL_FORMS": "0",
             "parcels-MIN_NUM_FORMS": "1",
@@ -1033,10 +1150,22 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(saved.documents.count(), 2)
         self.assertTrue(saved.documents.filter(document_type="RSBSA_FORM").exists())
 
+    def test_registration_rejects_an_unverified_rsbsa_upload(self):
+        self.client.force_login(self.staff)
+        payload = self._valid_registration_payload()
+        payload.pop("rsbsa_scan_token")
+
+        response = self.client.post(reverse("farmers:create"), payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("rsbsa_form", response.context["profile_form"].errors)
+        self.assertFalse(Farmer.objects.filter(valid_id_number="9999888877776666").exists())
+
     def test_registration_can_be_encoded_without_an_rsbsa_upload(self):
         self.client.force_login(self.staff)
         payload = self._valid_registration_payload()
         payload.pop("rsbsa_form")
+        payload.pop("rsbsa_scan_token")
 
         response = self.client.post(reverse("farmers:create"), payload)
 
