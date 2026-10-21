@@ -9,23 +9,23 @@
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/compact-file-upload.css' %}">
   <style>
-    .rsbsa-scan-card{margin:26px 0 22px;padding:22px;border:1px solid #a9d4bc;border-left:4px solid var(--fmis-accent);background:#f4fbf7}
-    .rsbsa-scan-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:22px}
-    .rsbsa-scan-card-title{display:flex;align-items:flex-start;gap:14px;min-width:0}
-    .rsbsa-scan-card-title>i{display:grid;flex:0 0 44px;width:44px;height:44px;place-items:center;border-radius:50%;background:#e0f3e8;color:#08763e;font-size:1.25rem}
-    .rsbsa-scan-card h2{margin:0 0 5px;font-size:1.08rem}
-    .rsbsa-scan-card p{margin:0;color:#52675b}
-    .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:10px;min-width:260px}
-    .rsbsa-scan-trigger{padding:9px 13px;font-size:.86rem}
-    .rsbsa-scan-trigger[hidden]{display:none}
+    .rsbsa-scan-card{margin:18px 0;padding:14px 16px;border:1px solid #a9d4bc;border-left:3px solid var(--fmis-accent);background:#f4fbf7}
+    .rsbsa-scan-card-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .rsbsa-scan-card-title{display:flex;align-items:center;gap:10px;min-width:0}
+    .rsbsa-scan-card-title>i{display:grid;flex:0 0 34px;width:34px;height:34px;place-items:center;border-radius:4px;background:#e0f3e8;color:#08763e;font-size:1rem}
+    .rsbsa-scan-card h2{margin:0 0 2px;font-size:.95rem}
+    .rsbsa-scan-card p{margin:0;color:#52675b;font-size:.8rem;line-height:1.35}
+    .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:8px;min-width:210px}
+    .rsbsa-scan-trigger{padding:7px 10px;font-size:.78rem}
+    .rsbsa-scan-trigger[hidden]{display:none!important}
     .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
-    .rsbsa-scan-selection{display:flex;align-items:center;gap:12px;width:min(420px,100%);min-height:48px;padding:11px 13px;background:#edf0ee}
-    .rsbsa-scan-selection[hidden]{display:none}
-    .rsbsa-scan-remove{display:grid;flex:0 0 28px;width:28px;height:28px;margin-left:auto;padding:0;place-items:center;border:0;background:transparent;color:#4d5550;font-size:1.35rem;line-height:1;cursor:pointer}
+    .rsbsa-scan-selection{display:flex;align-items:center;gap:8px;width:min(350px,100%);min-height:36px;padding:7px 9px;background:#edf0ee}
+    .rsbsa-scan-selection[hidden]{display:none!important}
+    .rsbsa-scan-remove{display:grid;flex:0 0 24px;width:24px;height:24px;margin-left:auto;padding:0;place-items:center;border:0;background:transparent;color:#4d5550;font-size:1.1rem;line-height:1;cursor:pointer}
     .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#dde3df;color:#ad1d2b;outline:2px solid #87aa96}
-    .rsbsa-scan-meta{display:flex;align-items:baseline;gap:6px;min-width:0;color:#5b655f;font-size:.82rem}
+    .rsbsa-scan-meta{display:flex;align-items:baseline;gap:5px;min-width:0;color:#5b655f;font-size:.75rem}
     .rsbsa-scan-meta strong{overflow:hidden;color:#1766b1;text-overflow:ellipsis;white-space:nowrap}
-    .rsbsa-scan-status{margin-top:15px;padding:12px 14px;border:1px solid #bed7c8;background:#fff;color:#244535}
+    .rsbsa-scan-status{margin-top:9px;padding:8px 10px;border:1px solid #bed7c8;background:#fff;color:#244535;font-size:.78rem}
     .rsbsa-scan-status.is-error{border-color:#dc8c94;background:#fff5f5;color:#a20d1d}
     .rsbsa-scan-status.is-success{border-color:#73bd91;background:#eefaf3;color:#075c30}
     .rsbsa-scan-status ul{margin:7px 0 0;padding-left:20px}
@@ -59,14 +59,14 @@
             <div class="rsbsa-scan-card-title">
               <i class="bi bi-camera" aria-hidden="true"></i>
               <div>
-                <h2>Optional RSBSA form upload</h2>
+                <h2>RSBSA form <span style="font-weight:400">(optional)</span></h2>
                 <p>Upload or capture page 1 to prefill readable fields for review, or continue below and enter the details manually.</p>
               </div>
             </div>
             <div class="rsbsa-scan-actions">
               <label class="btn btn-success rsbsa-scan-trigger" for="{{ profile_form.rsbsa_form.id_for_label }}">
                 <i class="bi bi-camera-fill" aria-hidden="true"></i>
-                {% if rsbsa_scan_configured %}Capture or upload RSBSA{% else %}Upload RSBSA copy{% endif %}
+                {% if rsbsa_scan_configured %}Capture / Upload{% else %}Upload RSBSA{% endif %}
               </label>
               <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
                 <div class="rsbsa-scan-meta">
@@ -410,7 +410,9 @@
               scanTrigger.hidden = true;
               scanSelection.hidden = false;
               scanFileName.textContent = file.name;
-              scanFileSize.textContent = `${Math.max(1, Math.round(file.size / 1024)).toLocaleString()}K`;
+              scanFileSize.textContent = file.size >= 1024 * 1024
+                  ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+                  : `${Math.max(1, Math.round(file.size / 1024)).toLocaleString()} KB`;
           }
 
           function removeSelectedFile() {

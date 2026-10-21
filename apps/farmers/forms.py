@@ -249,12 +249,12 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "philsys_pcn",
             "philsys_trn",
             "religion",
+            "photo",
             "is_indigenous",
             "indigenous_group",
             "is_pwd",
             "is_four_ps",
             "fca_membership",
-            "photo",
             "livelihood",
             "consent_given",
         ]

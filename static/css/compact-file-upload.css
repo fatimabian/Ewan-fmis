@@ -1,10 +1,6 @@
-.compact-photo-field {
-    grid-column: 1 / -1;
-}
-
 .compact-file-upload {
-    width: min(100%, 620px);
-    padding: 12px;
+    width: 100%;
+    padding: 7px 9px;
     border: 2px solid #e0ad00;
     background: #fff;
 }
@@ -20,23 +16,24 @@
 
 .compact-file-row {
     display: flex;
-    min-height: 42px;
+    min-height: 34px;
     align-items: center;
-    gap: 14px;
+    gap: 9px;
 }
 
 .compact-file-select {
     display: inline-flex !important;
     flex: 0 0 auto;
-    min-height: 40px;
+    min-height: 34px;
     margin: 0 !important;
-    padding: 8px 16px;
+    padding: 6px 11px;
     align-items: center;
     justify-content: center;
     border: 1px solid #ccd5dc;
     border-radius: 4px;
     background: #f8fafb;
     color: #26364d;
+    font-size: .82rem;
     font-weight: 700;
     cursor: pointer;
     box-shadow: 0 1px 3px rgb(21 35 47 / 10%);
@@ -52,6 +49,7 @@
     min-width: 0;
     overflow: hidden;
     color: #25364f;
+    font-size: .8rem;
     font-weight: 700;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -65,9 +63,9 @@
 .compact-file-download,
 .compact-file-remove {
     display: inline-grid;
-    flex: 0 0 30px;
-    width: 30px;
-    height: 30px;
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
     padding: 0;
     place-items: center;
     border: 0;
@@ -98,7 +96,8 @@
 
 .compact-photo-field > small {
     display: block;
-    margin-top: 8px;
+    margin-top: 5px;
+    font-size: .72rem;
 }
 
 .compact-photo-field.has-error .compact-file-upload {

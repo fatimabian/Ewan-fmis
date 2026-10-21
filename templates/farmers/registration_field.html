@@ -1,6 +1,6 @@
 {% if field.name == "photo" %}
   <div class="registration-field compact-photo-field{% if field.errors %} has-error{% endif %}" data-field-name="{{ field.name }}">
-    <label for="{{ field.id_for_label }}">Picture{% if field.field.required %} <b>*</b>{% endif %}</label>
+    <label for="{{ field.id_for_label }}">Photo{% if field.field.required %} <b>*</b>{% endif %}</label>
     <div class="compact-file-upload" data-compact-file-upload>
       <div class="compact-file-native">{{ field }}</div>
       <div class="compact-file-row">
