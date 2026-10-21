@@ -177,6 +177,18 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
             self.add_error("selected_farmers", "Choose at least one farmer.")
         if scope == "BARANGAY" and not barangay:
             self.add_error("target_barangay", "Choose the barangay covered by this intervention.")
+        elif scope == "BARANGAY" and not active_farmer_queryset().filter(
+            barangay=barangay
+        ).exists():
+            self.add_error(
+                "target_barangay",
+                "This barangay has no active farmers. Choose a barangay with at least one active farmer.",
+            )
+        if scope == "ALL" and not active_farmer_queryset().exists():
+            self.add_error(
+                "scope",
+                "There are no active farmers to receive this intervention.",
+            )
         if request and request.status not in {"PENDING", "IN_PROGRESS"} and not (
             self.instance.pk and self.instance.service_request_id == request.pk
         ):

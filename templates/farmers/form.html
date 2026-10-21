@@ -1,7 +1,14 @@
 {% extends base_template %}
+{% load static %}
+{% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/compact-file-upload.css' %}">
+{% endblock %}
 {% block page_title %}Update Farmer Record{% endblock %}
 {% block page_subtitle %}
   Change of Personal Information
+{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/compact-file-upload.js' %}"></script>
 {% endblock %}
 {% block content %}
   <div class="content">

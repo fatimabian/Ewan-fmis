@@ -1,4 +1,5 @@
 {% extends base_template %}
+{% load static %}
 {% block page_title %}
   Farmer Registration
 {% endblock %}
@@ -6,6 +7,7 @@
   Complete the official RSBSA enrollment information for a new farmer
 {% endblock %}
 {% block extra_css %}
+  <link rel="stylesheet" href="{% static 'css/compact-file-upload.css' %}">
   <style>
     .rsbsa-scan-card{margin:26px 0 22px;padding:22px;border:1px solid #a9d4bc;border-left:4px solid var(--fmis-accent);background:#f4fbf7}
     .rsbsa-scan-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:22px}
@@ -13,19 +15,16 @@
     .rsbsa-scan-card-title>i{display:grid;flex:0 0 44px;width:44px;height:44px;place-items:center;border-radius:50%;background:#e0f3e8;color:#08763e;font-size:1.25rem}
     .rsbsa-scan-card h2{margin:0 0 5px;font-size:1.08rem}
     .rsbsa-scan-card p{margin:0;color:#52675b}
-    .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:10px}
+    .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:10px;min-width:260px}
     .rsbsa-scan-trigger{padding:9px 13px;font-size:.86rem}
     .rsbsa-scan-trigger[hidden]{display:none}
     .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
-    .rsbsa-scan-selection{display:flex;align-items:center;gap:10px;max-width:320px}
+    .rsbsa-scan-selection{display:flex;align-items:center;gap:12px;width:min(420px,100%);min-height:48px;padding:11px 13px;background:#edf0ee}
     .rsbsa-scan-selection[hidden]{display:none}
-    .rsbsa-scan-preview{position:relative;display:grid;flex:0 0 54px;width:54px;height:54px;place-items:center;overflow:visible;border:1px solid #92bca4;border-radius:5px;background:#fff}
-    .rsbsa-scan-preview img{width:100%;height:100%;object-fit:cover;border-radius:5px}
-    .rsbsa-scan-preview>i{font-size:1.4rem;color:var(--fmis-accent)}
-    .rsbsa-scan-remove{position:absolute;top:-7px;right:-7px;display:grid;width:21px;height:21px;padding:0;place-items:center;border:1px solid #ad1d2b;border-radius:50%;background:#fff;color:#ad1d2b;font-size:1rem;line-height:1;cursor:pointer;box-shadow:0 2px 5px rgb(0 0 0/.16)}
-    .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#ad1d2b;color:#fff}
-    .rsbsa-scan-meta{display:grid;gap:2px;min-width:0;color:#41574b;font-size:.78rem}
-    .rsbsa-scan-meta strong{overflow:hidden;color:#173526;text-overflow:ellipsis;white-space:nowrap}
+    .rsbsa-scan-remove{display:grid;flex:0 0 28px;width:28px;height:28px;margin-left:auto;padding:0;place-items:center;border:0;background:transparent;color:#4d5550;font-size:1.35rem;line-height:1;cursor:pointer}
+    .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#dde3df;color:#ad1d2b;outline:2px solid #87aa96}
+    .rsbsa-scan-meta{display:flex;align-items:baseline;gap:6px;min-width:0;color:#5b655f;font-size:.82rem}
+    .rsbsa-scan-meta strong{overflow:hidden;color:#1766b1;text-overflow:ellipsis;white-space:nowrap}
     .rsbsa-scan-status{margin-top:15px;padding:12px 14px;border:1px solid #bed7c8;background:#fff;color:#244535}
     .rsbsa-scan-status.is-error{border-color:#dc8c94;background:#fff5f5;color:#a20d1d}
     .rsbsa-scan-status.is-success{border-color:#73bd91;background:#eefaf3;color:#075c30}
@@ -39,7 +38,7 @@
     .scan-reviewed .scan-field-note{color:#176b3a!important}
     body[data-theme="dark"] .rsbsa-scan-card{border-color:#426c53;background:#1f3027}
     body[data-theme="dark"] .rsbsa-scan-card p{color:#bed0c5}
-    body[data-theme="dark"] .rsbsa-scan-preview,body[data-theme="dark"] .rsbsa-scan-remove{background:#1b2720}
+    body[data-theme="dark"] .rsbsa-scan-selection{background:#29342e}
     body[data-theme="dark"] .rsbsa-scan-meta,body[data-theme="dark"] .rsbsa-scan-meta strong{color:#e3f4e9}
     body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
     body[data-theme="dark"] .registration-field.scan-filled{border-color:#b48a26;background:#332d1c}
@@ -60,12 +59,8 @@
             <div class="rsbsa-scan-card-title">
               <i class="bi bi-camera" aria-hidden="true"></i>
               <div>
-                <h2>Start with the RSBSA form</h2>
-                {% if rsbsa_scan_configured %}
-                  <p>Capture or upload a clear image of page 1. FMIS will fill readable Farmer Profile fields as a draft for staff review.</p>
-                {% else %}
-                  <p>Capture or upload a clear copy of page 1 for this farmer's record.</p>
-                {% endif %}
+                <h2>Optional RSBSA form upload</h2>
+                <p>Upload or capture page 1 to prefill readable fields for review, or continue below and enter the details manually.</p>
               </div>
             </div>
             <div class="rsbsa-scan-actions">
@@ -74,19 +69,15 @@
                 {% if rsbsa_scan_configured %}Capture or upload RSBSA{% else %}Upload RSBSA copy{% endif %}
               </label>
               <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
-                <div class="rsbsa-scan-preview">
-                  <img id="rsbsaScanPreviewImage" alt="Selected RSBSA form preview" hidden>
-                  <i class="bi bi-file-earmark-pdf" id="rsbsaScanPreviewIcon" aria-hidden="true" hidden></i>
-                  <button type="button"
-                          class="rsbsa-scan-remove"
-                          id="rsbsaScanRemove"
-                          aria-label="Remove selected RSBSA form"
-                          title="Remove and choose another file">&times;</button>
-                </div>
                 <div class="rsbsa-scan-meta">
                   <strong id="rsbsaScanFileName"></strong>
-                  <span id="rsbsaScanFileSize"></span>
+                  <span>(<span id="rsbsaScanFileSize"></span>)</span>
                 </div>
+                <button type="button"
+                        class="rsbsa-scan-remove"
+                        id="rsbsaScanRemove"
+                        aria-label="Remove selected RSBSA form"
+                        title="Remove and choose another file">&times;</button>
               </div>
             </div>
           </div>
@@ -302,8 +293,8 @@
             </button>
           </div>
           <div class="form-section">
-            <h3><i class="bi bi-file-earmark-arrow-up"></i> Required RSBSA form copy</h3>
-            <p>The image selected in <strong>Start with the RSBSA form</strong> is already attached here. Return to Step 1 to replace it.</p>
+            <h3><i class="bi bi-file-earmark-arrow-up"></i> Optional RSBSA form copy</h3>
+            <p>If a copy was selected in Step 1, it will be attached to the farmer record. You may return to Step 1 to replace or remove it.</p>
           </div>
           {{ document_formset.management_form }}
           {% if document_formset.non_form_errors %}
@@ -364,6 +355,8 @@
       </div>
     </section>
   </div>
+  <script src="{% static 'js/compact-file-upload.js' %}"></script>
+  <script src="{% static 'js/registration-draft.js' %}"></script>
   <script>
       (function() {
           const form = document.getElementById('rsbsaRegistration');
@@ -373,15 +366,12 @@
           const scanCard = document.getElementById('rsbsaScanCard');
           const scanInput = form.querySelector('[data-rsbsa-scan-source]');
           const scanSelection = document.getElementById('rsbsaScanSelection');
-          const scanPreviewImage = document.getElementById('rsbsaScanPreviewImage');
-          const scanPreviewIcon = document.getElementById('rsbsaScanPreviewIcon');
           const scanFileName = document.getElementById('rsbsaScanFileName');
           const scanFileSize = document.getElementById('rsbsaScanFileSize');
           const scanRemove = document.getElementById('rsbsaScanRemove');
           const scanStatus = document.getElementById('rsbsaScanStatus');
           const scanTrigger = scanCard?.querySelector('.rsbsa-scan-trigger');
           let current = 1;
-          let scanPreviewUrl = '';
           let scanRequestToken = 0;
 
           function showScanStatus(message, type = '', warnings = []) {
@@ -416,32 +406,17 @@
               })
           }
 
-          function clearPreviewUrl() {
-              if (scanPreviewUrl) URL.revokeObjectURL(scanPreviewUrl);
-              scanPreviewUrl = ''
-          }
-
           function showSelectedFile(file) {
-              clearPreviewUrl();
               scanTrigger.hidden = true;
               scanSelection.hidden = false;
               scanFileName.textContent = file.name;
-              scanFileSize.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
-              const isImage = file.type.startsWith('image/');
-              scanPreviewImage.hidden = !isImage;
-              scanPreviewIcon.hidden = isImage;
-              if (isImage) {
-                  scanPreviewUrl = URL.createObjectURL(file);
-                  scanPreviewImage.src = scanPreviewUrl
-              } else {
-                  scanPreviewImage.removeAttribute('src')
-              }
+              scanFileSize.textContent = `${Math.max(1, Math.round(file.size / 1024)).toLocaleString()}K`;
           }
 
           function removeSelectedFile() {
               scanRequestToken += 1;
               scanInput.value = '';
-              clearPreviewUrl();
+              scanInput.dispatchEvent(new Event('fmis:draft-file-cleared', {bubbles: true}));
               clearScannedValues();
               scanSelection.hidden = true;
               scanTrigger.hidden = false;
@@ -810,7 +785,12 @@
           const serverError = document.querySelector('.registration-step .errorlist');
           if (serverError) {
               const errorStep = serverError.closest('.registration-step');
-              if (errorStep) showStep(Number(errorStep.dataset.step))
+              if (errorStep) showStep(Number(errorStep.dataset.step));
+              const errorField = serverError.closest('.registration-field, .formset-row, .form-section')?.querySelector('input:not([type="hidden"]), select, textarea');
+              requestAnimationFrame(() => {
+                  (errorField || serverError).scrollIntoView({behavior: 'smooth', block: 'center'});
+                  errorField?.focus({preventScroll: true})
+              })
           }
       })();
   </script>

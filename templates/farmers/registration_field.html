@@ -1,4 +1,29 @@
-{% if field.field.widget.input_type == "checkbox" %}
+{% if field.name == "photo" %}
+  <div class="registration-field compact-photo-field{% if field.errors %} has-error{% endif %}" data-field-name="{{ field.name }}">
+    <label for="{{ field.id_for_label }}">Picture{% if field.field.required %} <b>*</b>{% endif %}</label>
+    <div class="compact-file-upload" data-compact-file-upload>
+      <div class="compact-file-native">{{ field }}</div>
+      <div class="compact-file-row">
+        <label class="compact-file-select" for="{{ field.id_for_label }}">Select File</label>
+        <span class="compact-file-name is-empty" data-compact-file-name>No file selected</span>
+        <a class="compact-file-download"
+           data-compact-file-download
+           href="#"
+           aria-label="Open current picture"
+           title="Open current picture"
+           hidden><i class="bi bi-download" aria-hidden="true"></i></a>
+        <button class="compact-file-remove"
+                data-compact-file-remove
+                type="button"
+                aria-label="Remove selected picture"
+                title="Remove selected picture"
+                hidden>&times;</button>
+      </div>
+    </div>
+    {{ field.errors }}
+    <small>Upload a JPG, PNG, or WEBP image no larger than 8 MB.</small>
+  </div>
+{% elif field.field.widget.input_type == "checkbox" %}
   {% if field.field.widget.allow_multiple_selected %}
     <div class="registration-field checkbox-options{% if field.errors %} has-error{% endif %}" data-field-name="{{ field.name }}">
       <label>{{ field.label }}{% if field.field.required %} <b>*</b>{% endif %}</label>

@@ -629,6 +629,34 @@ class FMISRequirementTests(TestCase):
         self.assertFalse(barangay.is_valid())
         self.assertIn("target_barangay", barangay.errors)
 
+    def test_barangay_requests_and_interventions_reject_zero_active_farmers(self):
+        Farmer.objects.filter(barangay="Mabato").update(is_active=False)
+        request_form = ServiceRequestForm(
+            data={
+                "scope": "BARANGAY",
+                "target_barangay": "Mabato",
+                "service": self.service.pk,
+                "priority": "MEDIUM",
+                "status": "PENDING",
+            }
+        )
+        intervention_form = InterventionForm(
+            data={
+                "scope": "BARANGAY",
+                "target_barangay": "Mabato",
+                "status": "SCHEDULED",
+                "intervention_type": "TRAINING",
+                "intervention_date": date.today().isoformat(),
+                "description": "Barangay training",
+                "provider": "Office for Agricultural Services",
+            }
+        )
+
+        self.assertFalse(request_form.is_valid())
+        self.assertIn("no active farmers", request_form.errors["target_barangay"][0])
+        self.assertFalse(intervention_form.is_valid())
+        self.assertIn("no active farmers", intervention_form.errors["target_barangay"][0])
+
     def test_service_requests_use_protected_standard_dropdown(self):
         self.assertTrue(ServiceCatalog.objects.filter(code="OTHER", is_active=True).exists())
         self.assertGreaterEqual(ServiceCatalog.objects.filter(is_active=True).count(), 23)
@@ -808,9 +836,15 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, 'capture="environment"')
         self.assertContains(response, "Review every highlighted value")
         self.assertContains(response, 'id="rsbsaScanSelection"')
-        self.assertContains(response, 'id="rsbsaScanPreviewImage"')
+        self.assertContains(response, "Optional RSBSA form upload")
+        self.assertContains(response, "or continue below and enter the details manually")
+        self.assertNotContains(response, 'id="rsbsaScanPreviewImage"')
         self.assertContains(response, 'id="rsbsaScanRemove"')
         self.assertContains(response, "Remove selected RSBSA form")
+        self.assertContains(response, 'data-compact-file-upload')
+        self.assertContains(response, "Select File")
+        self.assertContains(response, "Upload a JPG, PNG, or WEBP image no larger than 8 MB.")
+        self.assertContains(response, "registration-draft.js")
         self.assertNotContains(response, "No RSBSA image selected.")
         self.assertNotContains(response, "This workflow follows the RSBSA Enrollment Form")
 
@@ -997,6 +1031,18 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(saved.parcels.get().crops.count(), 1)
         self.assertEqual(saved.documents.count(), 2)
         self.assertTrue(saved.documents.filter(document_type="RSBSA_FORM").exists())
+
+    def test_registration_can_be_encoded_without_an_rsbsa_upload(self):
+        self.client.force_login(self.staff)
+        payload = self._valid_registration_payload()
+        payload.pop("rsbsa_form")
+
+        response = self.client.post(reverse("farmers:create"), payload)
+
+        self.assertEqual(response.status_code, 302, response.context)
+        saved = Farmer.objects.get(valid_id_number="9999888877776666")
+        self.assertFalse(saved.documents.filter(document_type="RSBSA_FORM").exists())
+        self.assertTrue(saved.documents.filter(document_type="VALID_ID").exists())
 
     def test_registration_requires_valid_id_type_and_number(self):
         self.client.force_login(self.staff)

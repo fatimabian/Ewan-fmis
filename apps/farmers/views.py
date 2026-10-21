@@ -336,12 +336,14 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 farmer.created_by = request.user
                 farmer.save()
 
-                FarmerDocument.objects.create(
-                    farmer=farmer,
-                    document_type="RSBSA_FORM",
-                    description="Required registration copy",
-                    file=profile_form.cleaned_data["rsbsa_form"],
-                )
+                rsbsa_form = profile_form.cleaned_data.get("rsbsa_form")
+                if rsbsa_form:
+                    FarmerDocument.objects.create(
+                        farmer=farmer,
+                        document_type="RSBSA_FORM",
+                        description="Registration copy",
+                        file=rsbsa_form,
+                    )
 
                 saved_parcels = {}
                 for row_number, parcel_form in parcel_rows.items():

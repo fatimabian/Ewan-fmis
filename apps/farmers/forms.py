@@ -197,9 +197,9 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         label="Valid ID type",
     )
     rsbsa_form = forms.FileField(
-        required=True,
-        label="Scanned RSBSA enrollment form",
-        help_text="Required. Upload a readable JPG, PNG, or PDF; maximum 5 MB.",
+        required=False,
+        label="RSBSA enrollment form",
+        help_text="Optional. Upload a readable JPG, PNG, or PDF; maximum 5 MB.",
         widget=forms.ClearableFileInput(
             attrs={
                 "accept": "image/jpeg,image/png,.pdf",
@@ -391,7 +391,10 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         return value
 
     def clean_rsbsa_form(self):
-        return validate_farmer_document_upload(self.cleaned_data["rsbsa_form"])
+        upload = self.cleaned_data.get("rsbsa_form")
+        if not upload:
+            return upload
+        return validate_farmer_document_upload(upload)
 
     def clean(self):
         cleaned = super().clean()

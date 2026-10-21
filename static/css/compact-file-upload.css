@@ -1,0 +1,130 @@
+.compact-photo-field {
+    grid-column: 1 / -1;
+}
+
+.compact-file-upload {
+    width: min(100%, 620px);
+    padding: 12px;
+    border: 2px solid #e0ad00;
+    background: #fff;
+}
+
+.compact-file-native {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+}
+
+.compact-file-row {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    gap: 14px;
+}
+
+.compact-file-select {
+    display: inline-flex !important;
+    flex: 0 0 auto;
+    min-height: 40px;
+    margin: 0 !important;
+    padding: 8px 16px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ccd5dc;
+    border-radius: 4px;
+    background: #f8fafb;
+    color: #26364d;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgb(21 35 47 / 10%);
+}
+
+.compact-file-select:hover,
+.compact-file-select:focus-visible {
+    border-color: var(--fmis-accent, #2f7d5c);
+    outline: 2px solid color-mix(in srgb, var(--fmis-accent, #2f7d5c) 22%, transparent);
+}
+
+.compact-file-name {
+    min-width: 0;
+    overflow: hidden;
+    color: #25364f;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.compact-file-name.is-empty {
+    color: #6d7783;
+    font-weight: 400;
+}
+
+.compact-file-download,
+.compact-file-remove {
+    display: inline-grid;
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: #26364d;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.compact-file-remove {
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.compact-file-download:hover,
+.compact-file-download:focus-visible,
+.compact-file-remove:hover,
+.compact-file-remove:focus-visible {
+    background: #edf2ef;
+    color: var(--fmis-accent, #2f7d5c);
+    outline: 2px solid #97b7a5;
+}
+
+.compact-file-upload + .errorlist,
+.compact-photo-field > .errorlist {
+    margin-top: 7px;
+}
+
+.compact-photo-field > small {
+    display: block;
+    margin-top: 8px;
+}
+
+.compact-photo-field.has-error .compact-file-upload {
+    border-color: #dc2626;
+    box-shadow: 0 0 0 3px rgb(220 38 38 / 12%);
+}
+
+body[data-theme="dark"] .compact-file-upload,
+body[data-theme="dark"] .compact-file-select {
+    background: #202823;
+    color: #eef5f0;
+}
+
+body[data-theme="dark"] .compact-file-name,
+body[data-theme="dark"] .compact-file-download,
+body[data-theme="dark"] .compact-file-remove {
+    color: #e2ede6;
+}
+
+@media (max-width: 560px) {
+    .compact-file-row {
+        flex-wrap: wrap;
+        gap: 9px;
+    }
+
+    .compact-file-name {
+        flex: 1 1 150px;
+    }
+}

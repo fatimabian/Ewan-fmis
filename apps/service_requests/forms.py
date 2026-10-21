@@ -77,6 +77,11 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
             cleaned["farmer"] = None
             if not barangay:
                 self.add_error("target_barangay", "Choose the barangay requesting this service.")
+            elif not active_farmer_queryset().filter(barangay=barangay).exists():
+                self.add_error(
+                    "target_barangay",
+                    "This barangay has no active farmers. Choose a barangay with at least one active farmer.",
+                )
         return cleaned
 
     def save(self, commit=True):

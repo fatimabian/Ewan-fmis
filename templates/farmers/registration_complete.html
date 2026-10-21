@@ -1,6 +1,10 @@
 {% extends base_template %}
+{% load static %}
 {% block page_title %}
   Farmer Registration
+{% endblock %}
+{% block extra_js %}
+  <script src="{% static 'js/registration-draft.js' %}" data-clear-registration-draft></script>
 {% endblock %}
 {% block page_subtitle %}
   Farmer record saved and ready for processing
