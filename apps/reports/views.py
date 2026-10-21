@@ -299,9 +299,9 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                 [
                     item.request_id,
                     item.service.name,
-                    item.farmer.record_id,
-                    item.farmer.list_name,
-                    item.farmer.barangay,
+                    item.beneficiary_reference,
+                    item.beneficiary_label,
+                    item.target_barangay if item.scope == "BARANGAY" else item.farmer.barangay,
                     item.subject,
                     item.get_priority_display(),
                     item.get_status_display(),

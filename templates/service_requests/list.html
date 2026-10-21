@@ -279,8 +279,8 @@
             <tr>
               <th>ID</th>
               <th>Request Type</th>
-              <th>Farmer ID</th>
-              <th>Farmer Name</th>
+              <th>Coverage</th>
+              <th>Beneficiary</th>
               <th>Priority</th>
               <th>Status</th>
               <th>Date Requested</th>
@@ -296,8 +296,8 @@
                   <a class="record-cell-link" href="{% url 'service_requests:detail' item.pk %}">{{ item.request_id }}</a>
                 </td>
                 <td class="request-type-cell" title="{{ item.service.name }}">{{ item.service.name }}</td>
-                <td>{{ item.farmer.record_id }}</td>
-                <td>{{ item.farmer.list_name }}</td>
+                <td>{{ item.beneficiary_reference }}</td>
+                <td>{{ item.beneficiary_label }}</td>
                 <td>
                   <span class="priority-badge {{ item.priority|lower }}">{{ item.get_priority_display }}</span>
                 </td>

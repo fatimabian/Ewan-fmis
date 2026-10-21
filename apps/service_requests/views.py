@@ -23,19 +23,23 @@ def _history_value(field, value):
     if field == "service":
         return value.name
     if field == "farmer":
-        return value.list_name
+        return value.list_name if value else "Not applicable"
     if field == "assigned_to":
         return value.display_name
     if field == "status":
         return dict(ServiceRequest.STATUS_CHOICES).get(value, value)
     if field == "priority":
         return dict(ServiceRequest.PRIORITY_CHOICES).get(value, value)
+    if field == "scope":
+        return dict(ServiceRequest.SCOPE_CHOICES).get(value, value)
     return str(value)
 
 
 def _request_changes(before, after, changed_fields):
     labels = {
         "farmer": "Farmer",
+        "scope": "Scope",
+        "target_barangay": "Barangay",
         "service": "Request type",
         "subject": "Subject",
         "priority": "Priority",
@@ -88,6 +92,7 @@ class ServiceRequestListView(
                 | Q(service__name__icontains=query)
                 | Q(farmer__first_name__icontains=query)
                 | Q(farmer__last_name__icontains=query)
+                | Q(target_barangay__icontains=query)
             )
             if request_id.isdigit():
                 filters |= Q(pk=int(request_id))

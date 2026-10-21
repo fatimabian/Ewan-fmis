@@ -64,12 +64,15 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
             ).distinct()
         if intervention_type:
             queryset = queryset.filter(intervention_type=intervention_type)
-    else:
+    elif model_name == "request":
         queryset = _filter_period(queryset, "created_at", date_range)
         if year:
             queryset = queryset.filter(created_at__year=int(year))
         if barangay:
-            queryset = queryset.filter(farmer__barangay=barangay)
+            queryset = queryset.filter(
+                Q(scope="BARANGAY", target_barangay=barangay)
+                | Q(scope="INDIVIDUAL", farmer__barangay=barangay)
+            )
         if commodity:
             queryset = queryset.filter(
                 farmer__parcels__crops__crop_type=commodity,
@@ -213,7 +216,12 @@ def report_metrics(date_range="all", filters=None):
         filters,
     )
     requests = _apply_report_filters(
-        ServiceRequest.objects.filter(farmer__is_active=True), "request", date_range, filters
+        ServiceRequest.objects.filter(
+            Q(farmer__is_active=True) | Q(scope="BARANGAY")
+        ),
+        "request",
+        date_range,
+        filters,
     )
     interventions = _apply_report_filters(
         Intervention.objects.filter(
@@ -278,7 +286,7 @@ def report_metrics(date_range="all", filters=None):
 
     recent_requests = [
         {
-            "farmer": req.farmer.full_name,
+            "farmer": req.beneficiary_label,
             "service": req.service.name,
             "label": dict(ServiceRequest.STATUS_CHOICES).get(req.status, req.status),
             "color": status_colors.get(req.status, "#61718a"),

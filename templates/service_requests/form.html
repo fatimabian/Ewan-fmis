@@ -27,6 +27,9 @@
   .request-field.full{
       grid-column:1/-1
   }
+  .request-field[hidden]{
+      display:none
+  }
   .request-field label{
       font-weight:700
   }
@@ -79,7 +82,13 @@
         {{ form.non_field_errors }}
         <div class="request-form-grid">
           <div class="request-field">
+            <label>{{ form.scope.label }}</label>{{ form.scope }}<span class="request-errors">{{ form.scope.errors }}</span>
+          </div>
+          <div class="request-field" data-request-recipient="individual">
             <label>{{ form.farmer.label }}</label>{{ form.farmer }}<span class="request-errors">{{ form.farmer.errors }}</span>
+          </div>
+          <div class="request-field" data-request-recipient="barangay">
+            <label>{{ form.target_barangay.label }}</label>{{ form.target_barangay }}<span class="request-errors">{{ form.target_barangay.errors }}</span>
           </div>
           <div class="request-field">
             <label>{{ form.service.label }}</label>{{ form.service }}
@@ -114,4 +123,19 @@
       </form>
     </section>
   </div>
+  <script>
+  document.addEventListener("DOMContentLoaded",()=>{
+    const scope=document.querySelector('[name="scope"]');
+    if(!scope)return;
+    const syncRecipientFields=()=>{
+      document.querySelectorAll("[data-request-recipient]").forEach(container=>{
+        const visible=container.dataset.requestRecipient===(scope.value==="BARANGAY"?"barangay":"individual");
+        container.hidden=!visible;
+        container.querySelectorAll("input,select,textarea").forEach(field=>field.disabled=!visible);
+      });
+    };
+    scope.addEventListener("change",syncRecipientFields);
+    syncRecipientFields();
+  });
+  </script>
 {% endblock %}

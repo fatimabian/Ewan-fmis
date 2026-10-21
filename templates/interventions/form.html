@@ -67,6 +67,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   const serviceRequest=document.querySelector('[name="service_request"]');
   const interventionType=document.querySelector('[name="intervention_type"]');
   const farmer=document.querySelector('[name="farmer"]');
+  const targetBarangay=document.querySelector('[name="target_barangay"]');
   const farmerSearch=document.querySelector('[data-selected-farmer-search]');
   const farmerResult=document.querySelector('[data-selected-farmer-result]');
   const farmerList=document.querySelector('.intervention-checkbox-list');
@@ -82,13 +83,17 @@ document.addEventListener("DOMContentLoaded",()=>{
   const syncRequest=()=>{
     const option=serviceRequest?.selectedOptions?.[0];
     if(!option?.value)return;
-    scope.value="INDIVIDUAL";
-    if(farmer&&option.dataset.farmerId){
+    scope.value=option.dataset.scope||"INDIVIDUAL";
+    if(scope.value==="INDIVIDUAL"&&farmer&&option.dataset.farmerId){
       farmer.value=option.dataset.farmerId;
       const selectedFarmer=farmer.selectedOptions?.[0];
       const pickerInput=farmer.parentElement?.querySelector('.farmer-picker input');
       if(pickerInput&&selectedFarmer)pickerInput.value=selectedFarmer.textContent.trim();
       farmer.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+    if(scope.value==="BARANGAY"&&targetBarangay&&option.dataset.targetBarangay){
+      targetBarangay.value=option.dataset.targetBarangay;
+      targetBarangay.dispatchEvent(new Event("change",{bubbles:true}));
     }
     if(interventionType&&option.dataset.interventionType){
       interventionType.value=option.dataset.interventionType;

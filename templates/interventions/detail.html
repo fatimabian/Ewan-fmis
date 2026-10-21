@@ -1,6 +1,6 @@
 {% extends base_template %}
 {% block page_title %}Intervention {{ object.reference_id }}{% endblock %}
-{% block page_subtitle %}Review assistance delivered to the registered farmer{% endblock %}
+{% block page_subtitle %}Review the beneficiary and delivered assistance{% endblock %}
 {% block content %}
   <style>
   .intervention-status{display:inline-flex;align-items:center;justify-content:center;border:1px solid currentColor!important;border-radius:999px!important;padding:5px 11px;font-size:12px!important;font-weight:700;white-space:nowrap;background:#fff!important}
@@ -20,8 +20,8 @@
         <div class="record-avatar square"><i class="bi bi-box2-heart"></i></div>
         <div class="record-hero-copy">
           <small>{{ object.reference_id }} · {{ object.get_status_display }}{% if not object.is_active %} · Archived{% endif %}</small>
-          <h2>{{ object.get_intervention_type_display }}</h2>
-          <p>{{ object.beneficiary_label }} · {{ object.intervention_date|date:"F d, Y" }}</p>
+          <h2>{{ object.beneficiary_label }}</h2>
+          <p>{{ object.get_intervention_type_display }} · {{ object.intervention_date|date:"F d, Y" }}</p>
         </div>
         <span class="intervention-status {% if object.is_active %}status-{{ object.status|lower }}{% else %}archived{% endif %} record-hero-status">{% if object.is_active %}{{ object.get_status_display }}{% else %}Archived{% endif %}</span>
       </header>

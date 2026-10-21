@@ -26,14 +26,16 @@ class RelatedServiceRequestSelect(forms.Select):
             option["attrs"]["data-intervention-type"] = (
                 INTERVENTION_TYPE_BY_SERVICE_CODE.get(request.service.code, "OTHER")
             )
-            option["attrs"]["data-farmer-id"] = str(request.farmer_id)
+            option["attrs"]["data-scope"] = request.scope
+            option["attrs"]["data-farmer-id"] = str(request.farmer_id or "")
+            option["attrs"]["data-target-barangay"] = request.target_barangay
         return option
 
 
 class ServiceRequestChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, request):
         return (
-            f"{request.request_id} — {request.farmer.list_name} — "
+            f"{request.request_id} — {request.beneficiary_label} — "
             f"{request.service.name} ({request.get_status_display()})"
         )
 
@@ -129,8 +131,11 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
         request = cleaned.get("service_request")
         scope = cleaned.get("scope") or "INDIVIDUAL"
         if request:
-            scope = "INDIVIDUAL"
-            cleaned["farmer"] = request.farmer
+            scope = request.scope
+            cleaned["farmer"] = request.farmer if scope == "INDIVIDUAL" else None
+            cleaned["target_barangay"] = (
+                request.target_barangay if scope == "BARANGAY" else ""
+            )
             cleaned["intervention_type"] = INTERVENTION_TYPE_BY_SERVICE_CODE.get(
                 request.service.code, "OTHER"
             )

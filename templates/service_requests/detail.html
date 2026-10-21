@@ -16,15 +16,16 @@
         <div class="record-hero-copy">
           <small>{{ object.request_id }} · {{ object.get_status_display }}</small>
           <h2>{{ object.service.name }}</h2>
-          <p>{{ object.farmer.list_name }}</p>
+          <p>{{ object.beneficiary_label }}</p>
         </div>
         <span class="request-status {{ object.status|lower }} record-hero-status">{{ object.get_status_display }}</span>
       </header>
       <section class="record-single-section">
         <h3><i class="bi bi-card-checklist"></i> Request Information</h3>
         <dl class="record-data">
-          <div><dt>Farmer</dt><dd>{{ object.farmer.list_name }}</dd></div>
-          <div><dt>Barangay</dt><dd>{{ object.farmer.barangay }}</dd></div>
+          <div><dt>Scope</dt><dd>{{ object.get_scope_display }}</dd></div>
+          <div><dt>Beneficiary</dt><dd>{{ object.beneficiary_label }}</dd></div>
+          <div><dt>Barangay</dt><dd>{% if object.scope == 'BARANGAY' %}{{ object.target_barangay }}{% else %}{{ object.farmer.barangay }}{% endif %}</dd></div>
           <div><dt>Priority</dt><dd>{{ object.get_priority_display }}</dd></div>
           <div><dt>Assigned Staff</dt><dd>{{ object.assigned_to.display_name|default:"Unassigned" }}</dd></div>
           <div><dt>Date Requested</dt><dd>{{ object.created_at|date:"M d, Y h:i A" }}</dd></div>

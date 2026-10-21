@@ -3,7 +3,7 @@ import re
 from calendar import monthrange
 from datetime import datetime, time, timedelta
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 
@@ -518,7 +518,9 @@ def build_report(report_type, date_range, filters=None, compact=False):
         )
 
     queryset = _filter_period(
-        ServiceRequest.objects.filter(farmer__is_active=True).select_related(
+        ServiceRequest.objects.filter(
+            Q(farmer__is_active=True) | Q(scope="BARANGAY")
+        ).select_related(
             "farmer", "service", "assigned_to"
         ),
         "created_at",
@@ -527,7 +529,10 @@ def build_report(report_type, date_range, filters=None, compact=False):
     if year:
         queryset = queryset.filter(created_at__year=int(year))
     if barangay:
-        queryset = queryset.filter(farmer__barangay=barangay)
+        queryset = queryset.filter(
+            Q(scope="BARANGAY", target_barangay=barangay)
+            | Q(scope="INDIVIDUAL", farmer__barangay=barangay)
+        )
     if commodity:
         queryset = queryset.filter(
             farmer__parcels__crops__crop_type=commodity,
@@ -538,15 +543,15 @@ def build_report(report_type, date_range, filters=None, compact=False):
     return (
         "Service Request Status",
         [
-            "Request ID", "Farmer ID", "Farmer", "Barangay", "Request Type",
+            "Request ID", "Coverage", "Beneficiary", "Barangay", "Request Type",
             "Request", "Status", "Priority", "Date Requested", "Assigned Staff",
         ],
         [
             [
                 item.request_id,
-                item.farmer.record_id,
-                item.farmer.full_name,
-                item.farmer.barangay,
+                item.beneficiary_reference,
+                item.beneficiary_label,
+                item.target_barangay if item.scope == "BARANGAY" else item.farmer.barangay,
                 item.service.name,
                 item.subject,
                 item.get_status_display(),

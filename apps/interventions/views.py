@@ -208,9 +208,10 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
             if service_request:
                 initial.update(
                     {
-                        "scope": "INDIVIDUAL",
+                        "scope": service_request.scope,
                         "service_request": service_request,
                         "farmer": service_request.farmer,
+                        "target_barangay": service_request.target_barangay,
                         "intervention_type": INTERVENTION_TYPE_BY_SERVICE_CODE.get(
                             service_request.service.code,
                             "OTHER",

@@ -1,6 +1,7 @@
 from django import forms
 from apps.authentication.models import CustomUser
 from apps.common.constants import CANONICAL_AGRICULTURAL_SERVICES
+from apps.common.constants import ROSARIO_BARANGAY_CHOICES
 from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
 from apps.service_catalog.models import ServiceCatalog
 from apps.common.forms import InlineValidationMixin
@@ -13,7 +14,12 @@ class ServiceCatalogChoiceField(forms.ModelChoiceField):
 
 
 class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
-    farmer = FarmerChoiceField(queryset=active_farmer_queryset())
+    farmer = FarmerChoiceField(queryset=active_farmer_queryset(), required=False)
+    target_barangay = forms.ChoiceField(
+        choices=ROSARIO_BARANGAY_CHOICES,
+        required=False,
+        label="Barangay",
+    )
     service = ServiceCatalogChoiceField(
         queryset=ServiceCatalog.objects.none(),
         empty_label="Select an agricultural request type",
@@ -22,7 +28,10 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
 
     class Meta:
         model = ServiceRequest
-        fields = ["farmer", "service", "priority", "status", "notes", "assigned_to"]
+        fields = [
+            "scope", "farmer", "target_barangay", "service",
+            "priority", "status", "notes", "assigned_to",
+        ]
         labels = {
             "service": "Request Type",
             "assigned_to": "Assign to Staff",
@@ -30,7 +39,7 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         }
         widgets = {
             "notes": forms.Textarea(
-                attrs={"rows": 5, "placeholder": "Add useful details about the farmer's request..."}
+                attrs={"rows": 5, "placeholder": "Add useful details about the service request..."}
             ),
         }
 
@@ -50,6 +59,25 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
             role="STAFF", is_active=True
         ).order_by("first_name", "last_name", "username")
         self.fields["assigned_to"].required = False
+        # Preserve the original one-farmer behavior for older submissions that
+        # predate the scope field. New browser submissions always include it.
+        self.fields["scope"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        scope = cleaned.get("scope") or "INDIVIDUAL"
+        cleaned["scope"] = scope
+        farmer = cleaned.get("farmer")
+        barangay = cleaned.get("target_barangay")
+        if scope == "INDIVIDUAL":
+            cleaned["target_barangay"] = ""
+            if not farmer:
+                self.add_error("farmer", "Choose the farmer requesting this service.")
+        elif scope == "BARANGAY":
+            cleaned["farmer"] = None
+            if not barangay:
+                self.add_error("target_barangay", "Choose the barangay requesting this service.")
+        return cleaned
 
     def save(self, commit=True):
         request = super().save(commit=False)

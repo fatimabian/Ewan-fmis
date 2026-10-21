@@ -581,6 +581,52 @@ class FMISRequirementTests(TestCase):
         self.assertNotIn("subject", form.fields)
         self.assertEqual(form.save().subject, self.service.name)
 
+    def test_service_request_accepts_a_barangay_scope_without_one_farmer(self):
+        form = ServiceRequestForm(
+            data={
+                "scope": "BARANGAY",
+                "target_barangay": "Bulihan",
+                "service": self.service.pk,
+                "priority": "MEDIUM",
+                "status": "PENDING",
+                "notes": "Barangay-wide seed assistance request.",
+                "assigned_to": self.staff.pk,
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        request_item = form.save()
+        self.assertEqual(request_item.scope, "BARANGAY")
+        self.assertEqual(request_item.target_barangay, "Bulihan")
+        self.assertIsNone(request_item.farmer)
+        self.assertEqual(
+            request_item.beneficiary_label,
+            "All active farmers in Brgy. Bulihan",
+        )
+
+    def test_service_request_scope_requires_its_matching_beneficiary(self):
+        individual = ServiceRequestForm(
+            data={
+                "scope": "INDIVIDUAL",
+                "service": self.service.pk,
+                "priority": "MEDIUM",
+                "status": "PENDING",
+            }
+        )
+        barangay = ServiceRequestForm(
+            data={
+                "scope": "BARANGAY",
+                "service": self.service.pk,
+                "priority": "MEDIUM",
+                "status": "PENDING",
+            }
+        )
+
+        self.assertFalse(individual.is_valid())
+        self.assertIn("farmer", individual.errors)
+        self.assertFalse(barangay.is_valid())
+        self.assertIn("target_barangay", barangay.errors)
+
     def test_service_requests_use_protected_standard_dropdown(self):
         self.assertTrue(ServiceCatalog.objects.filter(code="OTHER", is_active=True).exists())
         self.assertGreaterEqual(ServiceCatalog.objects.filter(is_active=True).count(), 23)
@@ -1423,6 +1469,64 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(form.cleaned_data["farmer"], self.farmer)
         self.assertEqual(form.cleaned_data["intervention_type"], "SEEDS")
 
+    def test_barangay_request_controls_intervention_scope_and_recipients(self):
+        second_farmer = Farmer.objects.create(
+            first_name="Lorna",
+            last_name="Reyes",
+            barangay=self.farmer.barangay,
+            consent_given=True,
+        )
+        other_farmer = Farmer.objects.create(
+            first_name="Mario",
+            last_name="Cruz",
+            barangay="Balibago",
+            consent_given=True,
+        )
+        request_item = ServiceRequest.objects.create(
+            scope="BARANGAY",
+            farmer=None,
+            target_barangay=self.farmer.barangay,
+            service=self.service,
+            subject=self.service.name,
+            priority="MEDIUM",
+            status="IN_PROGRESS",
+            assigned_to=self.staff,
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            reverse("interventions:create"),
+            {"service_request": request_item.pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"].initial["scope"], "BARANGAY")
+        self.assertEqual(
+            response.context["form"].initial["target_barangay"],
+            self.farmer.barangay,
+        )
+        intervention = Intervention.objects.create(
+            service_request=request_item,
+            scope="BARANGAY",
+            target_barangay=self.farmer.barangay,
+            status="SCHEDULED",
+            intervention_type="SEEDS",
+            intervention_date=date.today(),
+            description="Barangay-wide seed distribution",
+            recorded_by=self.staff,
+        )
+
+        from apps.interventions.services import complete_registered_request_intervention
+
+        completed = complete_registered_request_intervention(request_item, self.staff)
+        completed.refresh_from_db()
+        self.assertEqual(completed.scope, "BARANGAY")
+        self.assertEqual(completed.target_barangay, self.farmer.barangay)
+        self.assertIsNone(completed.farmer)
+        recipient_ids = set(
+            completed.recipients.filter(is_active=True).values_list("farmer_id", flat=True)
+        )
+        self.assertEqual(recipient_ids, {self.farmer.pk, second_farmer.pk})
+        self.assertNotIn(other_farmer.pk, recipient_ids)
+
     def test_slip_b_is_separate_and_contains_official_parcel_workflow(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("farmers:slip_b", args=[self.farmer.pk]))
@@ -1962,10 +2066,10 @@ class FMISRequirementTests(TestCase):
         )
         title, headers, rows = build_report("service_status", "all", {"status": "PENDING"})
         self.assertEqual(title, "Service Request Status")
-        for header in ("Farmer", "Barangay", "Request Type", "Request", "Date Requested"):
+        for header in ("Beneficiary", "Barangay", "Request Type", "Request", "Date Requested"):
             self.assertIn(header, headers)
         row = next(item for item in rows if item[0] == request_item.request_id)
-        self.assertEqual(row[2], self.farmer.full_name)
+        self.assertEqual(row[2], self.farmer.list_name)
         self.assertEqual(row[3], self.farmer.barangay)
         self.assertEqual(row[5], request_item.subject)
 
