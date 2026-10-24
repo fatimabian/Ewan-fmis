@@ -2293,7 +2293,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, reverse("farm_parcels:map_data"))
         self.assertContains(map_response, "applyMapFilters")
         self.assertContains(map_response, "markerByFarmer")
-        self.assertContains(map_response, "L.canvas")
+        self.assertContains(map_response, "L.svg")
         self.assertContains(map_response, "Preparing map pins")
         self.assertContains(map_response, "Parcel Already Pinned")
         self.assertContains(map_response, "farmerMarker.fire('click')")
@@ -2301,11 +2301,11 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(map_response, 'name="map_layer"')
         self.assertNotContains(map_response, "Terrain with place names")
         self.assertNotContains(map_response, "Street map with place names")
-        self.assertContains(map_response, "World_Imagery")
+        self.assertContains(map_response, "World_Street_Map")
         self.assertContains(map_response, "maxBounds: rosarioBounds")
         self.assertContains(map_response, "bounds: rosarioBounds")
         self.assertContains(map_response, "noWrap: true")
-        self.assertContains(map_response, "rosarioCutoutMask")
+        self.assertContains(map_response, "Green dots are saved farm parcel pins")
         self.assertContains(map_response, "keepInView: true")
 
     def test_newest_parcel_is_first_and_named_in_the_farm_parcel_table(self):

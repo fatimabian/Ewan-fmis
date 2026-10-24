@@ -101,8 +101,10 @@
       cursor:crosshair
   }
   #farmerMap{
+      width:min(100%,980px);
       height:min(68vh,720px);
       min-height:440px;
+      margin-inline:auto;
       border:1px solid var(--ag-border,#dce7e0);
       border-radius:14px;
       background:#eaf4ed;
@@ -457,7 +459,7 @@
       </div>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
-        Map labels identify roads and places. Right-click a green parcel pin to move it, or open it to remove the pin.
+        Green dots are saved farm parcel pins. The map is limited to the Rosario operational extent. Zoom in, then click a dot for details or right-click it to move the pin.
       </p>
       <p class="map-loading-status" id="mapLoadingStatus" role="status" aria-live="polite">
         <i class="bi bi-arrow-repeat"></i>
@@ -520,13 +522,13 @@
                 markerByFarmer = new Map();
             const map = L.map(mapNode, {
                 scrollWheelZoom: false,
-                preferCanvas: true,
+                preferCanvas: false,
                 maxBounds: rosarioBounds,
                 maxBoundsViscosity: 1,
                 minZoom: 11
             });
-            const satelliteImagery = L.tileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            const rosarioStreetMap = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
                 {
                     maxNativeZoom: 18,
                     maxZoom: 19,
@@ -534,42 +536,13 @@
                     noWrap: true,
                     keepBuffer: 1,
                     updateWhenIdle: true,
-                    attribution: 'Tiles &copy; Esri and imagery providers'
+                    attribution: 'Map &copy; Esri and contributors'
                 }
             );
-            const placeLabels = L.tileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-                {
-                    maxNativeZoom: 18,
-                    maxZoom: 19,
-                    bounds: rosarioBounds,
-                    noWrap: true,
-                    keepBuffer: 1,
-                    updateWhenIdle: true,
-                    pane: 'overlayPane',
-                    attribution: 'Place labels &copy; Esri'
-                }
-            );
-            L.layerGroup([satelliteImagery, placeLabels]).addTo(map);
+            rosarioStreetMap.addTo(map);
             map.fitBounds(rosarioBounds, {
                 padding: [18, 18]
             });
-            const rosarioCutoutMask = L.polygon([
-                [[-90, -180], [-90, 180], [90, 180], [90, -180]],
-                [
-                    [scope.south, scope.west],
-                    [scope.north, scope.west],
-                    [scope.north, scope.east],
-                    [scope.south, scope.east]
-                ]
-            ], {
-                stroke: false,
-                fill: true,
-                fillColor: '#eef3f0',
-                fillOpacity: .96,
-                fillRule: 'evenodd',
-                interactive: false
-            }).addTo(map);
             L.rectangle(rosarioBounds, {
                 color: '#f1d34f',
                 weight: 2,
@@ -582,7 +555,7 @@
                 direction: 'center'
             });
             const bounds = [];
-            const parcelRenderer = L.canvas({padding: .35});
+            const parcelRenderer = L.svg({padding: .35});
             const farmerIcon = L.divIcon({
                 className: 'farmer-pin-shell',
                 html: '<span class="farmer-pin"><i class="bi bi-person-fill"></i></span>',
@@ -662,11 +635,11 @@
             const addMarker = item => {
                 const farmerMarker = L.circleMarker([item.lat, item.lng], {
                     renderer: parcelRenderer,
-                    radius: 6,
+                    radius: 8,
                     color: '#fff',
                     weight: 2,
-                    fillColor: '#168148',
-                    fillOpacity: .92,
+                    fillColor: '#087a3d',
+                    fillOpacity: 1,
                     title: `${item.parcel} — ${item.farmer}`
                 }).addTo(map).bindTooltip(item.parcel, {
                     permanent: false,
@@ -674,6 +647,14 @@
                     className: 'farmer-map-label'
                 });
                 farmerMarker.fmisFarmer = item;
+                farmerMarker.on('mouseover', () => {
+                    farmerMarker.setRadius(10);
+                    farmerMarker.setStyle({fillColor: '#0aa653'});
+                });
+                farmerMarker.on('mouseout', () => {
+                    farmerMarker.setRadius(8);
+                    farmerMarker.setStyle({fillColor: '#087a3d'});
+                });
                 farmerMarker.on('click', () => {
                     if (!farmerMarker.getPopup()) {
                         const mobilePopup = window.matchMedia('(max-width:560px)').matches;
