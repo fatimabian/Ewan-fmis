@@ -87,13 +87,13 @@ SYSTEM_REPORT_TEMPLATES = [
         "key": "system_overview",
         "title": "System Overview",
         "description": "Accounts, activation status, and recorded system activity",
-        "icon": "bi-speedometer2",
+        "icon": "bi-bar-chart-line",
     },
     {
         "key": "user_accounts",
         "title": "User Account Registry",
         "description": "System users, roles, activation status, and last access",
-        "icon": "bi-person-lock",
+        "icon": "bi-people",
     },
     {
         "key": "activity_audit",

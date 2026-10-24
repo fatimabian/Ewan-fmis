@@ -111,8 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
       closeMobileNavigation();
     }
   });
-  window.addEventListener("scroll", closeNotifications, { passive: true });
-  document.addEventListener("scroll", closeNotifications, { passive: true, capture: true });
   window.addEventListener("resize", () => {
     closeMobileNavigation();
     closeNotifications();

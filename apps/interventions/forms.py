@@ -55,6 +55,7 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
     service_request = ServiceRequestChoiceField(
         queryset=ServiceRequest.objects.none(),
         required=False,
+        empty_label="N/A — no related service request",
         label="Related service request",
         widget=RelatedServiceRequestSelect,
     )
@@ -123,7 +124,7 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
         ).select_related("farmer", "service").order_by("-created_at", "-pk")
         self.fields["service_request"].required = False
         self.fields["service_request"].help_text = (
-            "Link the assistance to the request it fulfills, when applicable."
+            "Choose the request being fulfilled, or select N/A when the intervention was not requested."
         )
 
     def clean(self):

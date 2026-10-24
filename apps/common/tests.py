@@ -719,6 +719,43 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "Select an agricultural request type")
         self.assertNotContains(response, "Legacy Sample Service")
 
+    def test_service_request_farmer_picker_is_lazy_and_group_services_require_barangay(self):
+        training = ServiceCatalog.objects.get(code="TRAINING")
+        blank_form = ServiceRequestForm()
+        self.assertEqual(blank_form.fields["farmer"].queryset.count(), 0)
+        self.assertEqual(
+            blank_form.fields["farmer"].widget.attrs["data-search-url"],
+            reverse("interventions:farmer_search"),
+        )
+        self.assertIn(
+            str(training.pk),
+            blank_form.fields["service"].widget.attrs["data-barangay-only-values"].split(","),
+        )
+
+        individual = ServiceRequestForm(
+            data={
+                "scope": "INDIVIDUAL",
+                "farmer": self.farmer.pk,
+                "service": training.pk,
+                "priority": "MEDIUM",
+                "status": "PENDING",
+            }
+        )
+        self.assertFalse(individual.is_valid())
+        self.assertIn("barangay recipients", individual.errors["service"][0])
+        self.assertEqual(individual.fields["farmer"].queryset.get(), self.farmer)
+
+        barangay = ServiceRequestForm(
+            data={
+                "scope": "BARANGAY",
+                "target_barangay": self.farmer.barangay,
+                "service": training.pk,
+                "priority": "MEDIUM",
+                "status": "PENDING",
+            }
+        )
+        self.assertTrue(barangay.is_valid(), barangay.errors)
+
     def test_farmer_type_is_a_single_dropdown(self):
         form = FarmerRegistrationForm()
         self.assertIsInstance(form.fields["livelihood"].widget, django_forms.Select)
@@ -727,6 +764,24 @@ class FMISRequirementTests(TestCase):
             [value for value, _label in form.fields["livelihood"].choices if value],
             [value for value, _label in Farmer.LIVELIHOOD_CHOICES],
         )
+
+    def test_farmer_list_filters_registration_status_instead_of_sex(self):
+        encoded = Farmer.objects.create(
+            first_name="Encoded",
+            last_name="Farmer",
+            barangay="Alupay",
+            registration_status="ENCODED",
+            consent_given=True,
+        )
+        self.client.force_login(self.staff)
+        page = self.client.get(
+            reverse("farmers:list"), {"registration_status": "ENCODED"}
+        )
+        self.assertContains(page, encoded.record_id)
+        self.assertNotContains(page, self.farmer.record_id)
+        self.assertContains(page, "Registration Status")
+        self.assertContains(page, "Record Availability")
+        self.assertNotContains(page, 'name="sex"')
 
     def test_valid_id_format_depends_on_selected_id_type(self):
         base_data = {
@@ -2990,6 +3045,36 @@ class FMISRequirementTests(TestCase):
             sorted((parcel.pk for parcel in listed_parcels), reverse=True),
         )
         self.assertIn(inactive_parcel, listed_parcels)
+
+    def test_staff_dashboard_lists_every_commodity_and_barangay_without_other_bucket(self):
+        commodity_names = ["Coffee", "Banana", "Corn", "Coconut", "Cacao"]
+        for name in commodity_names:
+            CropRecord.objects.create(
+                parcel=self.parcel,
+                crop_type=name,
+                area_hectares=Decimal("0.10"),
+            )
+        barangays = ["Alupay", "Antipolo", "Bagong Pook", "Balibago", "Bayawang"]
+        for index, barangay in enumerate(barangays):
+            Farmer.objects.create(
+                first_name=f"Farmer{index}",
+                last_name="Coverage",
+                barangay=barangay,
+                consent_given=True,
+            )
+
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard:staff_home"))
+
+        labels = {item["label"] for item in response.context["commodity_breakdown"]}
+        self.assertEqual(labels, {"Rice", *commodity_names})
+        self.assertNotIn("Other commodities", labels)
+        shown_barangays = {
+            item["barangay"] for item in response.context["barangay_distribution"]
+        }
+        self.assertEqual(shown_barangays, {"Bulihan", *barangays})
+        self.assertContains(response, "All barangays")
+        self.assertContains(response, "Coffee")
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
     def test_farmer_qr_uses_configured_authenticated_field_address(self):

@@ -111,6 +111,9 @@ class InterventionModuleTests(TestCase):
             "The recipient list is saved as a fixed snapshot",
         )
         self.assertNotContains(response, "Unloaded, Farmer")
+        self.assertContains(response, "N/A — no related service request")
+        page = response.content.decode()
+        self.assertLess(page.index('name="service_request"'), page.index('name="scope"'))
 
         search = self.client.get(reverse("interventions:farmer_search"), {"q": "Unloaded"})
         self.assertEqual(search.status_code, 200)

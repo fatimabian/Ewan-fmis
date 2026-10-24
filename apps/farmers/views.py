@@ -103,7 +103,7 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
         queryset = Farmer.objects.prefetch_related("parcels__crops")
         query = self.request.GET.get("q", "").strip()
         barangay = self.request.GET.get("barangay", "").strip()
-        sex = self.request.GET.get("sex", "").strip()
+        registration_status = self.request.GET.get("registration_status", "").strip()
         status = self.request.GET.get("status", "active").strip()
         if query:
             farmer_id = query.upper().removeprefix("F-")
@@ -117,8 +117,11 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
             queryset = queryset.filter(filters)
         if barangay:
             queryset = queryset.filter(barangay=barangay)
-        if sex in {"MALE", "FEMALE"}:
-            queryset = queryset.filter(sex=sex)
+        valid_registration_statuses = {
+            value for value, _label in Farmer.REGISTRATION_STATUS_CHOICES
+        }
+        if registration_status in valid_registration_statuses:
+            queryset = queryset.filter(registration_status=registration_status)
         if status in {"inactive", "archived"}:
             queryset = queryset.filter(is_active=False)
         elif status != "all":
@@ -130,6 +133,7 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
         context["barangays"] = (
             Farmer.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
         )
+        context["registration_status_choices"] = Farmer.REGISTRATION_STATUS_CHOICES
         return context
 
 

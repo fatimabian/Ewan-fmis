@@ -1,6 +1,38 @@
 document.addEventListener("DOMContentLoaded", () => {
   const loadingOverlay = document.getElementById("fmisSubmitLoading");
   const loadingTitle = document.getElementById("fmisSubmitLoadingTitle");
+  const networkLoading = document.getElementById("fmisNetworkLoading");
+  let blockingLoadingTimer = null;
+  let activeRequests = 0;
+  let requestLoadingTimer = null;
+  const showBlockingLoading = (message, delay = 250) => {
+    if (loadingTitle) loadingTitle.textContent = message;
+    window.clearTimeout(blockingLoadingTimer);
+    blockingLoadingTimer = window.setTimeout(() => {
+      if (loadingOverlay) loadingOverlay.hidden = false;
+    }, delay);
+  };
+  const beginNetworkLoading = () => {
+    activeRequests += 1;
+    if (activeRequests !== 1) return;
+    window.clearTimeout(requestLoadingTimer);
+    requestLoadingTimer = window.setTimeout(() => {
+      if (activeRequests > 0 && networkLoading) networkLoading.hidden = false;
+    }, 650);
+  };
+  const endNetworkLoading = () => {
+    activeRequests = Math.max(0, activeRequests - 1);
+    if (activeRequests) return;
+    window.clearTimeout(requestLoadingTimer);
+    if (networkLoading) networkLoading.hidden = true;
+  };
+  if (window.fetch) {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (...args) => {
+      beginNetworkLoading();
+      return nativeFetch(...args).finally(endNetworkLoading);
+    };
+  }
   const capitalizeFirst = (value) => {
     const index = value.search(/\p{L}/u);
     return index < 0 ? value : value.slice(0, index) + value[index].toUpperCase() + value.slice(index + 1);
@@ -30,7 +62,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const isDownload = form.id === "reportGenerator" || form.hasAttribute("data-download-form");
       if (
         event.defaultPrevented ||
-        method !== "post" ||
         hasOwnLoadingState ||
         isDownload
       ) {
@@ -39,19 +70,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const action = (form.getAttribute("action") || window.location.pathname).toLowerCase();
       const requestedMessage = form.dataset.loadingMessage;
-      let message = requestedMessage || "Saving changes…";
+      let message = requestedMessage || (method === "get" ? "Loading results…" : "Saving changes…");
       if (!requestedMessage && action.includes("logout")) message = "Signing out…";
       if (!requestedMessage && (action.includes("delete") || action.includes("deactivate"))) {
         message = "Updating record status…";
       }
-      if (loadingTitle) loadingTitle.textContent = message;
-      // Avoid flashing a full-screen blocker for ordinary sub-second saves.
-      // Navigation cancels this timer automatically when the response is fast.
-      if (loadingOverlay) {
-        window.setTimeout(() => {
-          if (!event.defaultPrevented) loadingOverlay.hidden = false;
-        }, 250);
-      }
+      showBlockingLoading(message);
 
       const submitButton = event.submitter;
       if (submitButton) {
@@ -64,6 +88,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 0);
       }
     });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const link = event.target.closest?.("a[href]");
+    if (!link || link.target === "_blank" || link.hasAttribute("download") || link.dataset.noLoading !== undefined) return;
+    const href = link.getAttribute("href") || "";
+    if (!href || href.startsWith("#") || href.startsWith("javascript:") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+    const destination = new URL(link.href, window.location.href);
+    if (destination.origin !== window.location.origin) return;
+    if (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.hash) return;
+    showBlockingLoading("Loading page…", 400);
   });
 
   document.querySelectorAll('input[name="phone_number"]').forEach((field) => {
@@ -159,7 +195,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }).observe(document.body, {childList: true, subtree: true});
 
   window.addEventListener("pageshow", () => {
+    window.clearTimeout(blockingLoadingTimer);
     if (loadingOverlay) loadingOverlay.hidden = true;
+    activeRequests = 0;
+    window.clearTimeout(requestLoadingTimer);
+    if (networkLoading) networkLoading.hidden = true;
     document.querySelectorAll('button[aria-busy="true"], input[aria-busy="true"]').forEach((button) => {
       button.disabled = false;
       button.removeAttribute("aria-busy");

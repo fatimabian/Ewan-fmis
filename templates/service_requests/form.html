@@ -126,13 +126,25 @@
   <script>
   document.addEventListener("DOMContentLoaded",()=>{
     const scope=document.querySelector('[name="scope"]');
+    const service=document.querySelector('[name="service"]');
     if(!scope)return;
+    const barangayOnlyValues=new Set((service?.dataset.barangayOnlyValues||"").split(",").filter(Boolean));
+    const syncServiceOptions=()=>{
+      const barangayScope=scope.value==="BARANGAY";
+      service?.querySelectorAll("option").forEach(option=>{
+        const barangayOnly=barangayOnlyValues.has(option.value);
+        option.hidden=barangayOnly&&!barangayScope;
+        option.disabled=barangayOnly&&!barangayScope;
+      });
+      if(!barangayScope&&barangayOnlyValues.has(service?.value||""))service.value="";
+    };
     const syncRecipientFields=()=>{
       document.querySelectorAll("[data-request-recipient]").forEach(container=>{
         const visible=container.dataset.requestRecipient===(scope.value==="BARANGAY"?"barangay":"individual");
         container.hidden=!visible;
         container.querySelectorAll("input,select,textarea").forEach(field=>field.disabled=!visible);
       });
+      syncServiceOptions();
     };
     scope.addEventListener("change",syncRecipientFields);
     syncRecipientFields();

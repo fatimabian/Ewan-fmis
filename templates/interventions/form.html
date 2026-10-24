@@ -41,11 +41,11 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
       {% csrf_token %}
       {% if form.non_field_errors %}<div class="form-validation-alert">{{ form.non_field_errors }}</div>{% endif %}
       <div class="intervention-form-grid">
+        <div class="intervention-field full intervention-request-first"><label>{{ form.service_request.label }}</label>{{ form.service_request }}<small class="text-muted">{{ form.service_request.help_text }}</small><span class="intervention-errors">{{ form.service_request.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.scope.label }}</label>{{ form.scope }}<span class="intervention-errors">{{ form.scope.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="individual"><label>{{ form.farmer.label }}</label>{{ form.farmer }}<span class="intervention-errors">{{ form.farmer.errors }}</span></div>
         <div class="intervention-field full" data-recipient-field="selected"><label>{{ form.selected_farmers.label }}</label><input class="intervention-farmer-search" type="search" placeholder="Search by Farmer ID, RSBSA number, name, or barangay" autocomplete="off" data-selected-farmer-search data-search-url="{% url 'interventions:farmer_search' %}">{{ form.selected_farmers }}<small class="intervention-search-result" data-selected-farmer-result aria-live="polite"></small><small class="text-muted">{{ form.selected_farmers.help_text }}</small><span class="intervention-errors">{{ form.selected_farmers.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="barangay"><label>{{ form.target_barangay.label }}</label>{{ form.target_barangay }}<span class="intervention-errors">{{ form.target_barangay.errors }}</span></div>
-        <div class="intervention-field"><label>{{ form.service_request.label }}</label>{{ form.service_request }}<small class="text-muted">{{ form.service_request.help_text }}</small><span class="intervention-errors">{{ form.service_request.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.status.label }}</label>{{ form.status }}<span class="intervention-errors">{{ form.status.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.intervention_type.label }}</label>{{ form.intervention_type }}<span class="intervention-errors">{{ form.intervention_type.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.intervention_date.label }}</label>{{ form.intervention_date }}<span class="intervention-errors">{{ form.intervention_date.errors }}</span></div>
@@ -77,8 +77,6 @@ document.addEventListener("DOMContentLoaded",()=>{
       const visible=(scope.value==="INDIVIDUAL"&&el.dataset.recipientField==="individual")||(scope.value==="SELECTED"&&el.dataset.recipientField==="selected")||(scope.value==="BARANGAY"&&el.dataset.recipientField==="barangay");
       el.hidden=!visible;
     });
-    const request=document.querySelector('[name="service_request"]')?.closest('.intervention-field');
-    if(request)request.hidden=scope.value!=="INDIVIDUAL";
   };
   const syncRequest=()=>{
     const option=serviceRequest?.selectedOptions?.[0];

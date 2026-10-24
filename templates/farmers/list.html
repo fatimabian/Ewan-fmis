@@ -239,14 +239,15 @@
         </select>
       </label>
       <label>
-        Sex<select name="sex" onchange="this.form.submit()">
+        Registration Status<select name="registration_status" onchange="this.form.submit()">
         <option value="">All</option>
-        <option value="MALE" {% if request.GET.sex == 'MALE' %}selected{% endif %}>Male</option>
-        <option value="FEMALE" {% if request.GET.sex == 'FEMALE' %}selected{% endif %}>Female</option>
+        {% for value,label in registration_status_choices %}
+          <option value="{{ value }}" {% if request.GET.registration_status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
         </select>
       </label>
       <label>
-        Record Status<select name="status" onchange="this.form.submit()">
+        Record Availability<select name="status" onchange="this.form.submit()">
         <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
         <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
         <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All</option>
@@ -266,8 +267,8 @@
               <th>Contact Number</th>
               <th>Livelihood</th>
               <th>RSBSA ID</th>
-              <th>Status</th>
-              <th>Record Status</th>
+              <th>Registration Status</th>
+              <th>Availability</th>
               <th>Actions</th>
             </tr>
           </thead>

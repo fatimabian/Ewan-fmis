@@ -10,6 +10,16 @@
 {% endblock %}
 
 {% block content %}
+  <style>
+  .commodity-legend,.barangay-coverage-list{
+      max-height:235px;
+      overflow-y:auto;
+      padding-right:6px;
+      scrollbar-color:#9ab8a7 transparent;
+      scrollbar-width:thin;
+      overscroll-behavior:contain
+  }
+  </style>
   <div class="content rosario-dashboard staff-overview-v2">
     <section class="staff-kpi-grid" aria-label="Rosario agricultural record summary">
       <a class="staff-kpi kpi-farmers" href="{% url 'farmers:list' %}">
@@ -97,7 +107,7 @@
           <section class="barangay-coverage-section" aria-labelledby="barangaySummaryTitle">
             <div class="ranked-summary-heading">
               <h3 id="barangaySummaryTitle">Where Farmers Are Registered</h3>
-              <span>Top barangays</span>
+              <span>All barangays</span>
             </div>
             {% if barangay_distribution %}
               <ol class="barangay-coverage-list">

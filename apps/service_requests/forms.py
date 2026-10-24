@@ -1,4 +1,5 @@
 from django import forms
+from django.urls import reverse
 from apps.authentication.models import CustomUser
 from apps.common.constants import CANONICAL_AGRICULTURAL_SERVICES
 from apps.common.constants import ROSARIO_BARANGAY_CHOICES
@@ -14,6 +15,7 @@ class ServiceCatalogChoiceField(forms.ModelChoiceField):
 
 
 class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
+    BARANGAY_ONLY_SERVICE_CODES = frozenset({"TRAINING", "FCA"})
     farmer = FarmerChoiceField(queryset=active_farmer_queryset(), required=False)
     target_barangay = forms.ChoiceField(
         choices=ROSARIO_BARANGAY_CHOICES,
@@ -45,8 +47,18 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["farmer"].queryset = active_farmer_queryset(
-            self.instance.farmer_id if self.instance and self.instance.pk else None
+        farmer_id = None
+        if self.is_bound:
+            farmer_id = self.data.get(self.add_prefix("farmer"))
+        elif self.instance and self.instance.pk:
+            farmer_id = self.instance.farmer_id
+        active_farmers = active_farmer_queryset(farmer_id)
+        if farmer_id and str(farmer_id).isdigit():
+            self.fields["farmer"].queryset = active_farmers.filter(pk=farmer_id)
+        else:
+            self.fields["farmer"].queryset = active_farmers.none()
+        self.fields["farmer"].widget.attrs["data-search-url"] = reverse(
+            "interventions:farmer_search"
         )
         canonical_codes = [code for code, _name, _category in CANONICAL_AGRICULTURAL_SERVICES]
         services = ServiceCatalog.objects.filter(is_active=True, code__in=canonical_codes)
@@ -55,6 +67,12 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
                 pk__in=[*services.values_list("pk", flat=True), self.instance.service_id]
             )
         self.fields["service"].queryset = services.order_by("category", "name")
+        barangay_only_values = services.filter(
+            code__in=self.BARANGAY_ONLY_SERVICE_CODES
+        ).values_list("pk", flat=True)
+        self.fields["service"].widget.attrs["data-barangay-only-values"] = ",".join(
+            str(value) for value in barangay_only_values
+        )
         self.fields["assigned_to"].queryset = CustomUser.objects.filter(
             role="STAFF", is_active=True
         ).order_by("first_name", "last_name", "username")
@@ -69,10 +87,16 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         cleaned["scope"] = scope
         farmer = cleaned.get("farmer")
         barangay = cleaned.get("target_barangay")
+        service = cleaned.get("service")
         if scope == "INDIVIDUAL":
             cleaned["target_barangay"] = ""
             if not farmer:
                 self.add_error("farmer", "Choose the farmer requesting this service.")
+            if service and service.code in self.BARANGAY_ONLY_SERVICE_CODES:
+                self.add_error(
+                    "service",
+                    "This request type is for barangay recipients. Choose Barangay as the scope.",
+                )
         elif scope == "BARANGAY":
             cleaned["farmer"] = None
             if not barangay:

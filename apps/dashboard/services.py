@@ -363,18 +363,6 @@ def staff_dashboard_metrics():
         key=lambda row: (-int(row["records"] or 0), row["crop_type"] or ""),
     )
     total_crops = sum(int(row["records"] or 0) for row in sorted_commodity_rows)
-    commodity_rows_for_chart = sorted_commodity_rows[:5]
-    if len(sorted_commodity_rows) > 5:
-        commodity_rows_for_chart = sorted_commodity_rows[:4] + [
-            {
-                "crop_type": "Other commodities",
-                "records": sum(
-                    int(row["records"] or 0) for row in sorted_commodity_rows[4:]
-                ),
-                "farmers": None,
-            }
-        ]
-
     commodity_breakdown = [
         {
             "label": row["crop_type"] or "Not recorded",
@@ -385,15 +373,16 @@ def staff_dashboard_metrics():
                 else None
             ),
         }
-        for row in commodity_rows_for_chart
+        for row in sorted_commodity_rows
     ]
-    commodity_colors = ("#238b57", "#4d82cf", "#d68a19", "#7655c4", "#c95656")
     commodity_offset = 0.0
     for index, item in enumerate(commodity_breakdown):
         share = round((item["records"] / total_crops) * 100, 2) if total_crops else 0
         item.update(
             {
-                "color": commodity_colors[index],
+                # Golden-angle spacing keeps adjacent slices distinct while
+                # supporting every saved commodity without an "Other" bucket.
+                "color": f"hsl({round((142 + index * 137.508) % 360)} 58% 45%)",
                 "share": share,
                 "remainder": round(100 - share, 2),
                 "offset": round(commodity_offset, 2),
@@ -405,7 +394,7 @@ def staff_dashboard_metrics():
     barangay_distribution = list(
         rosario_farmers.values("barangay")
         .annotate(total=Count("pk"))
-        .order_by("-total", "barangay")[:5]
+        .order_by("-total", "barangay")
     )
     for index, item in enumerate(barangay_distribution, start=1):
         item["rank"] = index
