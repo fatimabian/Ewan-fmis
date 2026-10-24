@@ -34,7 +34,7 @@ from .forms import (
 )
 from .models import Farmer, FarmerDocument
 from .history import farmer_snapshot, record_farmer_update
-from .rsbsa_pdf import rsbsa_pdf_response
+from .rsbsa_pdf import farmer_record_pdf_response
 from .rsbsa_scan import RSBSAScanError, scan_rsbsa_profile
 from apps.activity_logs.services import record_request_event
 
@@ -230,7 +230,7 @@ class FarmerRSBSAExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             Farmer.objects.prefetch_related("parcels__crops"),
             pk=pk,
         )
-        response = rsbsa_pdf_response(farmer)
+        response = farmer_record_pdf_response(farmer)
         record_request_event(
             request,
             title="RSBSA Form Exported",

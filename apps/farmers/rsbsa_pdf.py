@@ -457,7 +457,7 @@ def _summary_pdf(farmer, parcels):
         pdf.setFillColor(colors.HexColor("#52645B"))
         pdf.setFont("Helvetica", 7)
         pdf.drawString(36, 17, f"FMIS current farmer record - {farmer.record_id}")
-        pdf.drawRightString(576, 17, f"Supplement page {document.page}")
+        pdf.drawRightString(576, 17, f"Page {document.page}")
         pdf.restoreState()
 
     document = SimpleDocTemplate(
@@ -473,7 +473,7 @@ def _summary_pdf(farmer, parcels):
     story = [
         Paragraph("FMIS CURRENT FARMER RECORD", title),
         Paragraph(
-            "Complete current information attached to the official RSBSA Enrollment Form. "
+            "Complete current information recorded in FMIS. "
             f"Generated {timezone.localtime().strftime('%B %d, %Y at %I:%M %p')}.",
             ParagraphStyle("subtitle", parent=body, alignment=TA_CENTER, spaceAfter=8),
         ),
@@ -642,53 +642,23 @@ def _summary_pdf(farmer, parcels):
     return output.getvalue()
 
 
-def build_rsbsa_pdf(farmer):
-    try:
-        from pypdf import PdfReader, PdfWriter
-    except ImportError as error:
-        raise ImportError("Install pypdf to generate the official RSBSA form.") from error
-
-    if not TEMPLATE_PATH.exists():
-        raise FileNotFoundError("The official RSBSA print template is unavailable.")
-
-    overlay = BytesIO()
-    pdf = canvas.Canvas(overlay, pagesize=(PAGE_WIDTH, PAGE_HEIGHT))
-    _page_one(pdf, farmer)
-    pdf.showPage()
+def build_farmer_record_pdf(farmer):
     parcels = list(
         farmer.parcels.filter(is_active=True)
         .prefetch_related("crops", "photos")
         .order_by("pk")
     )
-    _page_two(pdf, farmer, parcels[:3])
-    pdf.showPage()
-    pdf.save()
-    overlay.seek(0)
-
-    template_reader = PdfReader(str(TEMPLATE_PATH))
-    overlay_reader = PdfReader(overlay)
-    writer = PdfWriter()
-    for index, template_page in enumerate(template_reader.pages):
-        template_page.merge_page(overlay_reader.pages[index])
-        writer.add_page(template_page)
-    summary_reader = PdfReader(BytesIO(_summary_pdf(farmer, parcels)))
-    for summary_page in summary_reader.pages:
-        writer.add_page(summary_page)
-    writer.add_metadata(
-        {
-            "/Title": f"RSBSA Enrollment Form - {farmer.full_name}",
-            "/Author": "Office for Agricultural Services - Rosario, Batangas",
-            "/Subject": f"Single-farmer RSBSA printout for {farmer.record_id}",
-        }
-    )
-    output = BytesIO()
-    writer.write(output)
-    return output.getvalue()
+    return _summary_pdf(farmer, parcels)
 
 
-def rsbsa_pdf_response(farmer):
-    response = HttpResponse(build_rsbsa_pdf(farmer), content_type="application/pdf")
+def farmer_record_pdf_response(farmer):
+    response = HttpResponse(build_farmer_record_pdf(farmer), content_type="application/pdf")
     response["Content-Disposition"] = (
-        f'attachment; filename="rsbsa_{farmer.record_id.lower()}_{farmer.last_name.lower()}.pdf"'
+        f'attachment; filename="farmer_record_{farmer.record_id.lower()}_{farmer.last_name.lower()}.pdf"'
     )
     return response
+
+
+# Compatibility aliases for existing integrations that use the former export name.
+build_rsbsa_pdf = build_farmer_record_pdf
+rsbsa_pdf_response = farmer_record_pdf_response

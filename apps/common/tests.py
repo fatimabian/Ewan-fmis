@@ -1617,7 +1617,7 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(linked_form.context["form"].initial["farmer"], self.farmer)
 
-    def test_single_farmer_rsbsa_export_includes_official_form_and_complete_record(self):
+    def test_single_farmer_export_contains_only_the_current_fmis_record(self):
         from pypdf import PdfReader
 
         self.client.force_login(self.staff)
@@ -1643,6 +1643,8 @@ class FMISRequirementTests(TestCase):
         farmer_detail = self.client.get(reverse("farmers:detail", args=[self.farmer.pk]))
         export_url = reverse("farmers:rsbsa_export", args=[self.farmer.pk])
         self.assertContains(farmer_detail, export_url)
+        self.assertContains(farmer_detail, "Print Farmer Record")
+        self.assertNotContains(farmer_detail, "Print RSBSA")
 
         response = self.client.get(export_url)
         self.assertEqual(response.status_code, 200)
@@ -1650,8 +1652,8 @@ class FMISRequirementTests(TestCase):
         self.assertIn("attachment", response["Content-Disposition"])
         self.assertTrue(response.content.startswith(b"%PDF"))
         reader = PdfReader(BytesIO(response.content))
-        self.assertGreaterEqual(len(reader.pages), 3)
-        self.assertEqual(reader.metadata.title, f"RSBSA Enrollment Form - {self.farmer.full_name}")
+        self.assertGreaterEqual(len(reader.pages), 1)
+        self.assertEqual(reader.metadata.title, f"FMIS Current Farmer Record - {self.farmer.full_name}")
         exported_text = "\n".join(page.extract_text() or "" for page in reader.pages)
         exported_compact = "".join(exported_text.split())
         self.assertIn("FMIS CURRENT FARMER RECORD", exported_text)
@@ -1662,19 +1664,17 @@ class FMISRequirementTests(TestCase):
         self.assertIn("Interventions Given", exported_text)
         self.assertIn(service_request.request_id, exported_text)
         self.assertIn(intervention.reference_id, exported_text)
+        self.assertNotIn("RSBSA ENROLLMENT FORM", exported_text.upper())
         for expected in (
-            self.farmer.first_name.upper(),
-            self.farmer.last_name.upper(),
-            self.farmer.barangay.upper(),
+            self.farmer.first_name,
+            self.farmer.last_name,
+            self.farmer.barangay,
             self.farmer.rsbsa_number,
-            self.parcel.barangay.upper(),
-            self.crop.crop_type.upper(),
+            self.parcel.barangay,
+            self.crop.crop_type,
         ):
             self.assertIn(expected, exported_text)
-        # The official template supplies the leading "09" as static artwork;
-        # the PDF overlay contributes the remaining digits box by box.
-        phone_tail = self.farmer.phone_number[2:] if self.farmer.phone_number.startswith("09") else self.farmer.phone_number
-        self.assertIn(phone_tail, exported_compact)
+        self.assertIn(self.farmer.phone_number, exported_compact)
 
     def test_in_progress_service_request_tracks_intervention_through_completion(self):
         self.client.force_login(self.staff)
