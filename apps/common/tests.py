@@ -40,6 +40,7 @@ from apps.farmers.forms import (
     ParcelRegistrationFormSet,
 )
 from apps.farmers.models import Farmer, FarmerDocument, FarmerUpdateHistory
+from apps.farmers.views import build_farmer_qr_token
 from apps.interventions.forms import InterventionForm
 from apps.interventions.models import Intervention
 from apps.reports.export import build_report, build_system_report
@@ -3130,6 +3131,25 @@ class FMISRequirementTests(TestCase):
                 "https://field.fmis.example.gov.ph/farmers/field/"
             )
         )
+
+    def test_farmer_qr_requires_staff_login_rejects_tampering_and_is_not_cached(self):
+        token = build_farmer_qr_token(self.farmer.pk)
+        field_url = reverse("farmers:qr_access", args=[token])
+
+        anonymous = self.client.get(field_url)
+        self.assertEqual(anonymous.status_code, 302)
+        self.assertIn(reverse("authentication:login"), anonymous.url)
+
+        self.client.force_login(self.staff)
+        authorized = self.client.get(field_url)
+        self.assertEqual(authorized.status_code, 200)
+        self.assertIn("no-store", authorized["Cache-Control"])
+
+        replacement = "a" if token[-1] != "a" else "b"
+        tampered = self.client.get(
+            reverse("farmers:qr_access", args=[f"{token[:-1]}{replacement}"])
+        )
+        self.assertRedirects(tampered, reverse("farmers:list"))
 
     def test_missing_farmer_photo_returns_safe_authenticated_placeholder(self):
         self.client.force_login(self.staff)
