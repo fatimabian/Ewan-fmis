@@ -247,10 +247,10 @@
         </select>
       </label>
       <label>
-        Record Availability<select name="status" onchange="this.form.submit()">
-        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
-        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
-        <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All</option>
+        Archive Status<select name="status" onchange="this.form.submit()">
+        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Current Records</option>
+        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Archived Records</option>
+        <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All Records</option>
         </select>
       </label>
       <a class="btn btn-success btn-add-outline" href="{% url 'farmers:create' %}">
@@ -265,10 +265,9 @@
               <th>Farmer Name</th>
               <th>Barangay</th>
               <th>Contact Number</th>
-              <th>Livelihood</th>
               <th>RSBSA ID</th>
               <th>Registration Status</th>
-              <th>Availability</th>
+              <th>Archive Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -283,14 +282,13 @@
                 <td>{{ farmer.list_name }}</td>
                 <td>{{ farmer.barangay }}</td>
                 <td>{{ farmer.phone_number|default:'-' }}</td>
-                <td>{{ farmer.get_livelihood_display }}</td>
                 <td>
                   {{ farmer.rsbsa_number|default:'Not assigned' }}
                 </td>
                 <td>
                   <span class="farmer-status status-{{ farmer.registration_status|lower }}">{{ farmer.get_registration_status_display }}</span>
                 </td>
-                <td><span class="farmer-status status-{% if farmer.is_active %}completed{% else %}cancelled{% endif %}">{% if farmer.is_active %}Active{% else %}Inactive{% endif %}</span></td>
+                <td><span class="farmer-status status-{% if farmer.is_active %}completed{% else %}cancelled{% endif %}">{% if farmer.is_active %}Current{% else %}Archived{% endif %}</span></td>
                 <td>
                   <div class="farmer-actions">
                     <span class="farmer-action-slot" aria-hidden="{% if farmer.is_active and farmer.registration_status == 'COMPLETED' and farmer.rsbsa_number %}false{% else %}true{% endif %}">
@@ -321,7 +319,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="9" class="text-center py-5">No farmer records matched your search.</td>
+                <td colspan="8" class="text-center py-5">No farmer records matched your search.</td>
               </tr>
             {% endfor %}
           </tbody>

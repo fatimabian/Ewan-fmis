@@ -780,8 +780,17 @@ class FMISRequirementTests(TestCase):
         self.assertContains(page, encoded.record_id)
         self.assertNotContains(page, self.farmer.record_id)
         self.assertContains(page, "Registration Status")
-        self.assertContains(page, "Record Availability")
+        self.assertContains(page, "Archive Status")
+        self.assertContains(page, "Current Records")
+        self.assertNotContains(page, "<th>Livelihood</th>", html=True)
         self.assertNotContains(page, 'name="sex"')
+
+    def test_commodity_list_displays_farmer_livelihood(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse("crops:list"))
+        self.assertContains(page, "<th>Livelihood</th>", html=True)
+        self.assertContains(page, self.farmer.get_livelihood_display())
+        self.assertContains(page, self.crop.crop_type)
 
     def test_farmer_detail_returns_to_last_filtered_list_page(self):
         self.client.force_login(self.staff)

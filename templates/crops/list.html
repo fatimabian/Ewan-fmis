@@ -62,14 +62,15 @@
       padding:15px 16px;
       border-bottom:1px solid var(--border)
   }
-  .app-shell .crop-table :is(th,td):nth-child(1){width:11%!important}
-  .app-shell .crop-table :is(th,td):nth-child(2){width:39%!important}
-  .app-shell .crop-table :is(th,td):nth-child(3){width:22%!important}
-  .app-shell .crop-table :is(th,td):nth-child(4){
-      width:12%!important;
+  .app-shell .crop-table :is(th,td):nth-child(1){width:10%!important}
+  .app-shell .crop-table :is(th,td):nth-child(2){width:28%!important}
+  .app-shell .crop-table :is(th,td):nth-child(3){width:16%!important}
+  .app-shell .crop-table :is(th,td):nth-child(4){width:18%!important}
+  .app-shell .crop-table :is(th,td):nth-child(5){
+      width:14%!important;
       text-align:center!important
   }
-  .app-shell .crop-table :is(th,td):nth-child(5){width:16%!important}
+  .app-shell .crop-table :is(th,td):nth-child(6){width:14%!important}
   .app-shell .crop-table .status-pill{
       display:inline-flex!important;
       align-items:center;
@@ -181,6 +182,7 @@
             <tr>
               <th>Farmer ID</th>
               <th>Farmer Name</th>
+              <th>Livelihood</th>
               <th>Commodity</th>
               <th>Status</th>
               <th>Actions</th>
@@ -195,6 +197,7 @@
                   <a class="record-cell-link" href="{% url 'crops:farmer_detail' farmer.pk %}">{{ farmer.record_id }}</a>
                 </td>
                 <td class="crop-farmer-name">{{ farmer.full_name }}</td>
+                <td>{{ farmer.get_livelihood_display }}</td>
                 <td>{{ farmer.listed_crop_name }}</td>
                 <td><span class="status-pill status-{% if farmer.listed_is_active %}completed{% else %}cancelled{% endif %}">{% if farmer.listed_is_active %}Active{% else %}Inactive{% endif %}</span></td>
                 <td>
@@ -219,7 +222,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="5" class="text-center py-5">No commodity records matched your filters.</td>
+                <td colspan="6" class="text-center py-5">No commodity records matched your filters.</td>
               </tr>
             {% endfor %}
           </tbody>
