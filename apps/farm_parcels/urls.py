@@ -7,6 +7,8 @@ from .views import (
     FarmParcelHistoryView,
     FarmParcelListView,
     FarmParcelMapView,
+    FarmParcelMapDataView,
+    FarmParcelMapSearchView,
     FarmParcelPhotoArchiveView,
     FarmParcelPhotoView,
     FarmParcelPhotoUploadView,
@@ -17,6 +19,8 @@ app_name = "farm_parcels"
 urlpatterns = [
     path("", FarmParcelListView.as_view(), name="list"),
     path("map/", FarmParcelMapView.as_view(), name="map"),
+    path("map/data/", FarmParcelMapDataView.as_view(), name="map_data"),
+    path("map/search/", FarmParcelMapSearchView.as_view(), name="map_search"),
     path("map/pin/", FarmerLocationPinView.as_view(), name="pin_farmer"),
     path("new/", FarmParcelCreateView.as_view(), name="create"),
     path("<int:pk>/", FarmParcelDetailView.as_view(), name="detail"),
