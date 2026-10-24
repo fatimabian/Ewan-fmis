@@ -18,7 +18,7 @@
 </style>
 <div class="content record-detail farmer-crops-page">
   <div class="record-detail-nav">
-    <a href="{% url 'crops:list' %}"><i class="bi bi-arrow-left"></i> Back to Commodity</a>
+    <a href="{% url 'crops:list' %}" data-history-back><i class="bi bi-arrow-left"></i> Back to Commodity</a>
     <div class="record-detail-actions">
       <a class="btn btn-success" href="{% url 'crops:create' %}?farmer={{ object.pk }}"><i class="bi bi-plus-lg"></i> Add Commodity Record</a>
     </div>

@@ -4,7 +4,7 @@
 {% block content %}
   <div class="content record-detail">
     <div class="record-detail-nav">
-      <a href="{% url 'crops:list' %}"><i class="bi bi-arrow-left"></i> Back to Commodity</a>
+      <a href="{% url 'crops:list' %}" data-history-back><i class="bi bi-arrow-left"></i> Back to Commodity</a>
         <div class="record-detail-actions">
           <a class="btn btn-outline-success" href="{% url 'crops:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
           {% if object.is_active %}

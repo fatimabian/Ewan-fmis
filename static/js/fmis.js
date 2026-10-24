@@ -7,6 +7,25 @@ function applySystemTheme() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("click", (event) => {
+    const backLink = event.target.closest("a[data-history-back]");
+    if (!backLink || event.defaultPrevented || event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+    let sameSitePreviousPage = false;
+    try {
+      sameSitePreviousPage = Boolean(document.referrer)
+        && new URL(document.referrer).origin === window.location.origin;
+    } catch (_error) {
+      sameSitePreviousPage = false;
+    }
+
+    if (sameSitePreviousPage && window.history.length > 1) {
+      event.preventDefault();
+      window.history.back();
+    }
+  });
+
   const feedbackModal = document.getElementById("fmisFeedbackModal");
   let modalConfirmAction = null;
   const modalDetails = {

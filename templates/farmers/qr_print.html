@@ -8,7 +8,7 @@
 {% block content %}
   <div class="content farmer-qr-page">
     <div class="qr-page-actions no-print">
-      <a href="{% url 'farmers:detail' farmer.pk %}">
+      <a href="{% url 'farmers:detail' farmer.pk %}" data-history-back>
         <i class="bi bi-arrow-left">
         </i> Back to Farmer</a>
         <button class="btn btn-success" type="button" onclick="window.print()">

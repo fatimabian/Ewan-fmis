@@ -4,7 +4,7 @@
 {% block content %}
   <div class="content record-detail">
     <div class="record-detail-nav">
-      <a href="{% url 'accounts:list' %}"><i class="bi bi-arrow-left"></i> Back to User Accounts</a>
+      <a href="{% url 'accounts:list' %}" data-history-back><i class="bi bi-arrow-left"></i> Back to User Accounts</a>
       <div class="record-detail-actions">
         <a class="btn btn-outline-success" href="{% url 'accounts:edit' object.pk %}"><i class="bi bi-pencil"></i> Edit Account</a>
       </div>
