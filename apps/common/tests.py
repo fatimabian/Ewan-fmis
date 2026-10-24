@@ -2305,6 +2305,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "maxBounds: rosarioBounds")
         self.assertContains(map_response, "bounds: rosarioBounds")
         self.assertContains(map_response, "noWrap: true")
+        self.assertContains(map_response, "rosarioCutoutMask")
         self.assertContains(map_response, "keepInView: true")
 
     def test_newest_parcel_is_first_and_named_in_the_farm_parcel_table(self):

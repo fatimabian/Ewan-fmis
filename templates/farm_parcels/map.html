@@ -554,6 +554,22 @@
             map.fitBounds(rosarioBounds, {
                 padding: [18, 18]
             });
+            const rosarioCutoutMask = L.polygon([
+                [[-90, -180], [-90, 180], [90, 180], [90, -180]],
+                [
+                    [scope.south, scope.west],
+                    [scope.north, scope.west],
+                    [scope.north, scope.east],
+                    [scope.south, scope.east]
+                ]
+            ], {
+                stroke: false,
+                fill: true,
+                fillColor: '#eef3f0',
+                fillOpacity: .96,
+                fillRule: 'evenodd',
+                interactive: false
+            }).addTo(map);
             L.rectangle(rosarioBounds, {
                 color: '#f1d34f',
                 weight: 2,
