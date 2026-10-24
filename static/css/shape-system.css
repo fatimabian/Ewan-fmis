@@ -47,15 +47,12 @@ html body .showcase-nav:not(#fmis-shape-specificity){
     border-radius:0!important
 }
 
-/* Keep the authenticated workspace header visible above both the navigation
- * and workspace. The main shell reserves the matching height. */
+/* Keep the authenticated workspace header visible while its page scrolls.
+ * Sticky positioning preserves the header's place in the document, so page
+ * content never becomes hidden underneath it. */
 html body .app-shell>.page-scroll>.app-header:not(#fmis-shape-specificity){
-    position:fixed!important;
+    position:sticky!important;
     top:0!important;
-    right:0!important;
-    left:0!important;
-    width:100%!important;
-    margin:0!important;
     z-index:30!important
 }
 
