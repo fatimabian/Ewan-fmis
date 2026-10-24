@@ -197,7 +197,7 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 "parcel_name",
                 "area_hectares",
                 "barangay",
-                "farmer__pk",
+                "farmer__id",
                 "farmer__first_name",
                 "farmer__middle_name",
                 "farmer__last_name",
