@@ -32,6 +32,23 @@
         margin-left:280px;
         min-height:100vh
     }
+    /* Keep the workspace header across the entire screen. The navigation starts
+       below it so the two regions never compete for the same top-left space. */
+    @media screen{
+        .app-shell main.page-scroll{
+            padding-top:78px
+        }
+        .app-shell main.page-scroll>.app-header{
+            position:fixed!important;
+            inset:0 0 auto 0!important;
+            z-index:30;
+            width:100%!important
+        }
+        .sidebar{
+            inset:78px auto 0 0;
+            height:auto
+        }
+    }
     .btn-success,.catalog-add{
         background:var(--fmis-accent)!important;
         border-color:var(--fmis-accent)!important;
@@ -244,6 +261,17 @@
             color:#fff;
             outline:none;
             text-decoration:none
+        }
+    }
+    @media(max-width:600px){
+        .app-shell main.page-scroll{
+            padding-top:70px
+        }
+        .sidebar{
+            inset:70px auto 0 0
+        }
+        body.nav-mobile-open:after{
+            inset:70px 0 0
         }
     }
     .header-primary{

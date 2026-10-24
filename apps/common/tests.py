@@ -783,6 +783,25 @@ class FMISRequirementTests(TestCase):
         self.assertContains(page, "Record Availability")
         self.assertNotContains(page, 'name="sex"')
 
+    def test_farmer_detail_returns_to_last_filtered_list_page(self):
+        self.client.force_login(self.staff)
+        return_url = reverse("farmers:list") + "?page=1"
+        list_page = self.client.get(return_url)
+        detail_url = reverse("farmers:detail", args=[self.farmer.pk])
+
+        self.assertContains(list_page, f'{detail_url}?next=')
+        detail_page = self.client.get(detail_url, {"next": return_url})
+        self.assertContains(detail_page, f'href="{return_url}"')
+
+        reopened_detail = self.client.get(detail_url)
+        self.assertContains(reopened_detail, f'href="{return_url}"')
+
+    def test_farmer_detail_rejects_external_return_url(self):
+        self.client.force_login(self.staff)
+        detail_url = reverse("farmers:detail", args=[self.farmer.pk])
+        page = self.client.get(detail_url, {"next": "https://example.com/steal"})
+        self.assertContains(page, f'href="{reverse("farmers:list")}"')
+
     def test_valid_id_format_depends_on_selected_id_type(self):
         base_data = {
             "last_name": "Ramirez",

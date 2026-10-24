@@ -10,7 +10,7 @@
       </div>
     {% endif %}
     <div class="record-detail-nav">
-      <a href="{% url 'farmers:list' %}"><i class="bi bi-arrow-left"></i> Back to Farmers</a>
+      <a href="{{ farmers_return_url }}"><i class="bi bi-arrow-left"></i> Back to Farmers</a>
       <div class="record-detail-actions">
         {% if object.registration_status == 'COMPLETED' %}
           <a class="btn btn-outline-success" href="{% url 'farmers:qr_print' object.pk %}"><i class="bi bi-qr-code"></i> Print QR</a>

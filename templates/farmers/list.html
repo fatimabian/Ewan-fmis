@@ -276,9 +276,9 @@
             {% for farmer in object_list %}
               <tr class="record-row"
                   tabindex="0"
-                  data-record-url="{% url 'farmers:detail' farmer.pk %}">
+                  data-record-url="{% url 'farmers:detail' farmer.pk %}?next={{ farmer_return_url|urlencode }}">
                 <td>
-                  <a class="record-cell-link" href="{% url 'farmers:detail' farmer.pk %}">{{ farmer.record_id }}</a>
+                  <a class="record-cell-link" href="{% url 'farmers:detail' farmer.pk %}?next={{ farmer_return_url|urlencode }}">{{ farmer.record_id }}</a>
                 </td>
                 <td>{{ farmer.list_name }}</td>
                 <td>{{ farmer.barangay }}</td>

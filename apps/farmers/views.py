@@ -2,6 +2,7 @@ import base64
 import logging
 import mimetypes
 from io import BytesIO
+from urllib.parse import urlsplit
 
 from django.contrib import messages
 from django.conf import settings
@@ -13,6 +14,7 @@ from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import DetailView, ListView, UpdateView
 
@@ -130,6 +132,7 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context["farmer_return_url"] = self.request.get_full_path()
         context["barangays"] = (
             Farmer.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
         )
@@ -148,6 +151,26 @@ class FarmerDetailView(
             "documents",
             "update_history__actor",
         ).select_related("last_updated_by")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        list_path = reverse("farmers:list")
+        candidate = self.request.GET.get("next", "").strip()
+        if (
+            candidate
+            and url_has_allowed_host_and_scheme(
+                candidate,
+                allowed_hosts={self.request.get_host()},
+                require_https=self.request.is_secure(),
+            )
+            and urlsplit(candidate).path == list_path
+        ):
+            self.request.session["farmers_return_url"] = candidate
+
+        context["farmers_return_url"] = self.request.session.get(
+            "farmers_return_url", list_path
+        )
+        return context
 
 
 class FarmerHistoryView(
