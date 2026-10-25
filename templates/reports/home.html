@@ -530,6 +530,21 @@
       text-transform:uppercase;
       letter-spacing:.4px
   }
+  .report-download-status{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      margin:0;
+      padding:8px 10px;
+      border:1px solid #c9dfd1;
+      background:#f3faf5;
+      color:#275d3d;
+      font-size:11px;
+      font-weight:700;
+      text-align:center
+  }
+  .report-download-status[hidden]{display:none}
   @media(max-width:760px){
       .report-top{
           grid-template-columns:1fr
@@ -1067,10 +1082,14 @@
             </select>
           </div>
           <div class="report-actions"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
-            <button class="btn btn-success report-generate">
+            <button type="submit" class="btn btn-success report-generate">
               <i class="bi bi-download">
               </i> Download Report
             </button>
+            <p class="report-download-status" role="status" aria-live="polite" hidden>
+              <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+              <span>Please wait while FMIS prepares your report. The download will start automatically.</span>
+            </p>
           </div>
         </form>
       </article>
@@ -1405,6 +1424,70 @@
               if (el.tagName !== 'SELECT' || el.name === 'format') return;
               if (el === type) updateRelevantFilters();
               refreshPreview();
+          });
+
+          async function downloadReport(event) {
+              event.preventDefault();
+              const downloadForm = event.currentTarget;
+              if (downloadForm.dataset.downloading === 'true') return;
+              downloadForm.dataset.downloading = 'true';
+              const submitter = event.submitter;
+              const button = submitter || downloadForm.querySelector('button[type="submit"]');
+              let status = downloadForm.querySelector('.report-download-status');
+              if (!status) {
+                  status = document.createElement('p');
+                  status.className = 'report-download-status';
+                  status.setAttribute('role', 'status');
+                  status.setAttribute('aria-live', 'polite');
+                  status.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Please wait while FMIS prepares your report. The download will start automatically.</span>';
+                  downloadForm.appendChild(status)
+              }
+              const originalButton = button?.innerHTML;
+              if (button) {
+                  button.disabled = true;
+                  button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Preparing report…'
+              }
+              status.hidden = false;
+              try {
+                  const requestData = new FormData(downloadForm);
+                  if (submitter?.name) requestData.set(submitter.name, submitter.value);
+                  const response = await fetch(downloadForm.action || window.location.href, {
+                      method: (downloadForm.method || 'POST').toUpperCase(),
+                      body: requestData,
+                      credentials: 'same-origin',
+                      headers: {'X-Requested-With': 'XMLHttpRequest'}
+                  });
+                  if (!response.ok) throw new Error('The report could not be generated. Check the filters and try again.');
+                  const blob = await response.blob();
+                  const disposition = response.headers.get('Content-Disposition') || '';
+                  const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+                  const plainName = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+                  const filename = encodedName ? decodeURIComponent(encodedName) : (plainName || 'fmis-report');
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = filename;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+                  status.querySelector('span:last-child').textContent = 'Your report download has started.'
+              } catch (error) {
+                  status.querySelector('.spinner-border')?.remove();
+                  status.querySelector('span:last-child').textContent = error.message;
+                  window.fmisFeedback?.(error.message, 'error')
+              } finally {
+                  delete downloadForm.dataset.downloading;
+                  if (button) {
+                      button.disabled = false;
+                      button.innerHTML = originalButton
+                  }
+                  window.setTimeout(() => { status.hidden = true }, 3500)
+              }
+          }
+
+          document.querySelectorAll('#reportGenerator,[data-download-form]').forEach(downloadForm => {
+              downloadForm.addEventListener('submit', downloadReport)
           });
           updateRelevantFilters();
       })();

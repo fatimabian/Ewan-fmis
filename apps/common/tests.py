@@ -946,52 +946,38 @@ class FMISRequirementTests(TestCase):
             "rsbsa-page-1.jpg", output.getvalue(), content_type="image/jpeg"
         )
 
-    def test_registration_page_offers_review_first_rsbsa_capture(self):
+    def test_registration_page_offers_separate_record_only_rsbsa_uploads(self):
         self.client.force_login(self.staff)
-        with override_settings(OPENAI_API_KEY="configured-for-test"):
-            response = self.client.get(reverse("farmers:create"))
+        response = self.client.get(reverse("farmers:create"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Upload RSBSA")
-        self.assertContains(response, "Use camera")
-        self.assertContains(response, reverse("farmers:scan_rsbsa"))
-        self.assertNotContains(response, 'capture="environment"')
-        self.assertContains(response, 'id="rsbsaCameraModal"')
-        self.assertContains(response, 'id="rsbsaCameraCapture"')
-        self.assertContains(response, "rsbsa-camera.js")
-        self.assertContains(response, "Review every highlighted value")
-        self.assertContains(response, 'id="rsbsaScanSelection"')
-        self.assertLess(
-            response.content.index(b'id="rsbsaScanSelection"'),
-            response.content.index(b'Upload RSBSA'),
-        )
-        self.assertContains(response, "RSBSA form")
+        self.assertContains(response, "Upload a copy of the RSBSA form")
+        self.assertContains(response, "Upload a copy of the RSBSA form")
         self.assertContains(response, "(optional)")
-        self.assertContains(response, 'class="rsbsa-scan-card" hidden')
-        self.assertContains(response, "FMIS will verify the form")
-        self.assertNotContains(response, 'id="rsbsaScanPreviewImage"')
-        self.assertContains(response, 'id="rsbsaScanRemove"')
-        self.assertContains(response, "Remove selected RSBSA form")
+        self.assertContains(response, "up to three readable RSBSA files for record keeping")
+        self.assertContains(response, "FMIS checks the accepted JPG, PNG, or PDF format and file size only")
+        self.assertContains(response, "does not read or fill the registration fields automatically")
+        self.assertContains(response, 'id="id_rsbsa_form"')
+        self.assertContains(response, 'id="id_rsbsa_form_2"')
+        self.assertContains(response, 'id="id_rsbsa_form_3"')
+        self.assertContains(response, 'name="rsbsa_form"')
+        self.assertLess(
+            response.content.index(b'id="rsbsaRecordCopyTitle"'),
+            response.content.index(b'class="registration-stepper"'),
+        )
+        self.assertFalse(response.context["profile_form"].fields["rsbsa_form"].required)
+        self.assertFalse(response.context["profile_form"].fields["rsbsa_form_2"].required)
+        self.assertFalse(response.context["profile_form"].fields["rsbsa_form_3"].required)
+        self.assertNotContains(response, "Use camera")
+        self.assertNotContains(response, reverse("farmers:scan_rsbsa"))
+        self.assertNotContains(response, "rsbsa-camera.js")
+        self.assertNotContains(response, "prefill")
         self.assertContains(response, 'data-compact-file-upload')
         self.assertContains(response, "Select File")
-        self.assertContains(response, "Upload a JPG, PNG, or WEBP image no larger than 8 MB.")
-        self.assertContains(response, "registration-draft.js")
-        self.assertIn("camera=(self)", response["Permissions-Policy"])
+        self.assertContains(response, "JPG, PNG, or PDF; maximum 5 MB")
         self.assertContains(response, "Complete all required fields in this step to continue.")
         self.assertContains(response, "stepIsComplete")
-        self.assertNotContains(response, "Remove the upload and enter the registration details manually")
-        self.assertNotContains(response, "No RSBSA image selected.")
-        self.assertNotContains(response, "This workflow follows the RSBSA Enrollment Form")
         self.assertContains(response, 'id="fmisNetworkLoading"')
-
-        with override_settings(OPENAI_API_KEY=""):
-            unconfigured_response = self.client.get(reverse("farmers:create"))
-        self.assertNotContains(
-            unconfigured_response, "Automatic reading needs server configuration."
-        )
-        self.assertNotContains(
-            unconfigured_response, "Automatic reading is not configured"
-        )
 
     def test_rsbsa_scanner_accepts_standard_laptop_camera_resolution(self):
         from apps.farmers.rsbsa_scan import _validated_upload
@@ -1182,8 +1168,6 @@ class FMISRequirementTests(TestCase):
         self.assertIn("does not match", rejected.json()["error"])
 
     def _valid_registration_payload(self):
-        from apps.farmers.rsbsa_scan import build_scan_token
-
         rsbsa_bytes = b"%PDF-1.4\nRequired RSBSA form\n%%EOF"
         return {
             "last_name": "Dela Cruz",
@@ -1207,7 +1191,6 @@ class FMISRequirementTests(TestCase):
                 rsbsa_bytes,
                 content_type="application/pdf",
             ),
-            "rsbsa_scan_token": build_scan_token(rsbsa_bytes),
             "parcels-TOTAL_FORMS": "1",
             "parcels-INITIAL_FORMS": "0",
             "parcels-MIN_NUM_FORMS": "1",
@@ -1260,10 +1243,12 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(saved.documents.count(), 2)
         self.assertTrue(saved.documents.filter(document_type="RSBSA_FORM").exists())
 
-    def test_registration_rejects_an_unverified_rsbsa_upload(self):
+    def test_registration_rejects_an_invalid_rsbsa_upload(self):
         self.client.force_login(self.staff)
         payload = self._valid_registration_payload()
-        payload.pop("rsbsa_scan_token")
+        payload["rsbsa_form"] = SimpleUploadedFile(
+            "not-a-real-pdf.pdf", b"plain text", content_type="application/pdf"
+        )
 
         response = self.client.post(reverse("farmers:create"), payload)
 
@@ -1275,7 +1260,6 @@ class FMISRequirementTests(TestCase):
         self.client.force_login(self.staff)
         payload = self._valid_registration_payload()
         payload.pop("rsbsa_form")
-        payload.pop("rsbsa_scan_token")
 
         response = self.client.post(reverse("farmers:create"), payload)
 
@@ -1283,6 +1267,22 @@ class FMISRequirementTests(TestCase):
         saved = Farmer.objects.get(valid_id_number="9999888877776666")
         self.assertFalse(saved.documents.filter(document_type="RSBSA_FORM").exists())
         self.assertTrue(saved.documents.filter(document_type="VALID_ID").exists())
+
+    def test_registration_accepts_up_to_three_rsbsa_record_copies(self):
+        self.client.force_login(self.staff)
+        payload = self._valid_registration_payload()
+        payload["rsbsa_form_2"] = SimpleUploadedFile(
+            "rsbsa-page-2.pdf", b"%PDF-1.4\nPage 2\n%%EOF", content_type="application/pdf"
+        )
+        payload["rsbsa_form_3"] = SimpleUploadedFile(
+            "rsbsa-page-3.pdf", b"%PDF-1.4\nPage 3\n%%EOF", content_type="application/pdf"
+        )
+
+        response = self.client.post(reverse("farmers:create"), payload)
+
+        self.assertEqual(response.status_code, 302, response.context)
+        saved = Farmer.objects.get(valid_id_number="9999888877776666")
+        self.assertEqual(saved.documents.filter(document_type="RSBSA_FORM").count(), 3)
 
     def test_registration_requires_valid_id_type_and_number(self):
         self.client.force_login(self.staff)
@@ -2338,8 +2338,7 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(map_response, 'name="map_layer"')
         self.assertNotContains(map_response, "Terrain with place names")
         self.assertNotContains(map_response, "Street map with place names")
-        self.assertContains(map_response, "clarity.maptiles.arcgis.com")
-        self.assertContains(map_response, "s2cloudless-2024_3857")
+        self.assertContains(map_response, "World_Imagery")
         self.assertContains(map_response, "World_Boundaries_and_Places")
         self.assertContains(map_response, "maxBounds: rosarioPanBounds")
         self.assertContains(map_response, "rosarioBounds.pad(.18)")
@@ -2348,12 +2347,14 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "L.polygon(rosarioBoundary")
         self.assertContains(map_response, "L.marker")
         self.assertContains(map_response, "farmerIcon")
+        self.assertContains(map_response, "bi-geo-alt-fill")
         self.assertContains(map_response, "L.svg")
         self.assertContains(map_response, "barangay-focus-label")
         self.assertContains(map_response, "barangayBounds.getCenter()")
         self.assertContains(map_response, "Red map pins are saved farm parcel locations")
         self.assertNotContains(map_response, "_updateParcelPin")
         self.assertContains(map_response, "keepInView: true")
+        self.assertNotContains(map_response, "setTimeout(() => window.location.reload(), 700)")
 
     def test_newest_parcel_is_first_and_named_in_the_farm_parcel_table(self):
         newest = FarmParcel.objects.create(
@@ -3272,6 +3273,8 @@ class FMISRequirementTests(TestCase):
         self.assertContains(admin_reports, "User Account Registry")
         self.assertContains(admin_reports, "Activity Audit Trail")
         self.assertContains(admin_reports, "data-download-form", count=4)
+        self.assertContains(admin_reports, "Please wait while FMIS prepares your report")
+        self.assertContains(admin_reports, "Preparing report…")
         self.assertNotContains(admin_reports, "System Report Builder")
         self.assertNotContains(admin_reports, "No report selected yet")
 

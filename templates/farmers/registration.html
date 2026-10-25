@@ -9,53 +9,7 @@
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/compact-file-upload.css' %}">
   <style>
-    .rsbsa-scan-card{margin:18px 0;padding:14px 16px;border:1px solid #a9d4bc;border-left:3px solid var(--fmis-accent);background:#f4fbf7}
-    .rsbsa-scan-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
-    .rsbsa-scan-card-title{display:flex;align-items:center;gap:10px;min-width:0}
-    .rsbsa-scan-card-title>i{display:grid;flex:0 0 34px;width:34px;height:34px;place-items:center;border-radius:4px;background:#e0f3e8;color:#08763e;font-size:1rem}
-    .rsbsa-scan-card h2{margin:0 0 2px;font-size:.95rem}
-    .rsbsa-scan-card p{margin:0;color:#52675b;font-size:.8rem;line-height:1.35}
-    .rsbsa-scan-controls{display:flex;flex:0 0 auto;width:min(360px,100%);flex-direction:column;align-items:flex-end;gap:7px}
-    .rsbsa-scan-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
-    .rsbsa-scan-trigger{padding:7px 10px;font-size:.78rem}
-    .rsbsa-scan-trigger[hidden]{display:none!important}
-    .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
-    .rsbsa-scan-selection{display:flex;align-items:center;align-self:flex-end;gap:6px;width:auto;max-width:100%;min-height:30px;padding:4px 5px 4px 8px;border:1px solid #8b9490;border-radius:4px;background:#fff}
-    .rsbsa-scan-selection[hidden]{display:none!important}
-    .rsbsa-scan-remove{display:grid;flex:0 0 22px;width:22px;height:22px;margin-left:3px;padding:0;place-items:center;border:0;border-radius:3px;background:transparent;color:#4d5550;font-size:1rem;line-height:1;cursor:pointer}
-    .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#dde3df;color:#ad1d2b;outline:2px solid #87aa96}
-    .rsbsa-scan-meta{display:flex;align-items:baseline;gap:5px;min-width:0;max-width:310px;color:#5b655f;font-size:.75rem}
-    .rsbsa-scan-meta strong{overflow:hidden;color:#1766b1;text-overflow:ellipsis;white-space:nowrap}
-    .rsbsa-scan-status{margin-top:9px;padding:8px 10px;border:1px solid #bed7c8;background:#fff;color:#244535;font-size:.78rem}
-    .rsbsa-scan-status.is-error{border-color:#dc8c94;background:#fff5f5;color:#a20d1d}
-    .rsbsa-scan-status.is-success{border-color:#73bd91;background:#eefaf3;color:#075c30}
-    .rsbsa-scan-status ul{margin:7px 0 0;padding-left:20px}
-    .rsbsa-scan-trigger.is-loading{pointer-events:none;opacity:.65}
-    .rsbsa-camera-modal{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px}
-    .rsbsa-camera-modal[hidden]{display:none!important}
-    .rsbsa-camera-backdrop{position:absolute;inset:0;border:0;background:rgba(10,22,17,.74)}
-    .rsbsa-camera-dialog{position:relative;width:min(680px,100%);padding:18px;border:1px solid #7b9185;background:#fff;box-shadow:0 22px 60px rgba(0,0,0,.32)}
-    .rsbsa-camera-dialog h2{margin:0 0 5px;font-size:1.1rem}
-    .rsbsa-camera-dialog p{margin:0 0 12px;color:#52675b;font-size:.82rem}
-    .rsbsa-camera-video{display:block;width:100%;max-height:64vh;background:#111;object-fit:contain}
-    .rsbsa-camera-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}
-    body[data-theme="dark"] .rsbsa-camera-dialog{border-color:#607267;background:#1f2923;color:#edf6f0}
-    body[data-theme="dark"] .rsbsa-camera-dialog p{color:#c7d8ce}
-    .registration-field.scan-filled{padding:10px;border:1px solid #c7d5cd;background:#fff}
-    .registration-field.scan-needs-review{border-color:#d92d20;background:#fff4f3}
-    .scan-field-note{display:block;margin-top:5px;color:#42534a!important;font-weight:700}
-    .scan-needs-review .scan-field-note{color:#b42318!important}
-    .registration-field.scan-reviewed{border-color:#58a878;background:#f3fbf6}
-    .scan-reviewed .scan-field-note{color:#176b3a!important}
-    body[data-theme="dark"] .rsbsa-scan-card{border-color:#426c53;background:#1f3027}
-    body[data-theme="dark"] .rsbsa-scan-card p{color:#bed0c5}
-    body[data-theme="dark"] .rsbsa-scan-selection{border-color:#69736e;background:#202823}
-    body[data-theme="dark"] .rsbsa-scan-meta,body[data-theme="dark"] .rsbsa-scan-meta strong{color:#e3f4e9}
-    body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
-    body[data-theme="dark"] .registration-field.scan-filled{border-color:#526177;background:#202823}
-    body[data-theme="dark"] .registration-field.scan-needs-review{border-color:#ce5b64;background:#362124}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
-    @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-controls{width:100%;align-items:flex-start}.rsbsa-scan-selection{align-self:flex-start}.rsbsa-scan-trigger{flex:1;justify-content:center}.rsbsa-scan-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.rsbsa-camera-dialog{padding:14px}.rsbsa-camera-actions .btn{flex:1}}
   </style>
 {% endblock %}
 {% block content %}
@@ -63,46 +17,14 @@
     <section class="panel registration-shell">
       <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
         {% csrf_token %}
-        <section class="rsbsa-scan-card" hidden
-                 id="rsbsaScanCard"
-                 data-scan-url="{% url 'farmers:scan_rsbsa' %}"
-                 data-scan-configured="{{ rsbsa_scan_configured|yesno:'true,false' }}">
-          <div class="rsbsa-scan-card-head">
-            <div class="rsbsa-scan-card-title">
-              <i class="bi bi-camera" aria-hidden="true"></i>
-              <div>
-                <h2>RSBSA form <span style="font-weight:400">(optional)</span></h2>
-                <p>Upload or capture a clear, complete page 1. FMIS will verify the form and prefill readable fields for review.</p>
-              </div>
-            </div>
-            <div class="rsbsa-scan-controls">
-              <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
-                <div class="rsbsa-scan-meta">
-                  <strong id="rsbsaScanFileName"></strong>
-                  <span>(<span id="rsbsaScanFileSize"></span>)</span>
-                </div>
-                <button type="button"
-                        class="rsbsa-scan-remove"
-                        id="rsbsaScanRemove"
-                        aria-label="Remove selected RSBSA form"
-                        title="Remove and choose another file">&times;</button>
-              </div>
-              <div class="rsbsa-scan-actions">
-                <label class="btn btn-success rsbsa-scan-trigger" for="{{ profile_form.rsbsa_form.id_for_label }}">
-                  <i class="bi bi-upload" aria-hidden="true"></i>
-                  Upload RSBSA
-                </label>
-                <button type="button" class="btn btn-add-outline rsbsa-scan-trigger" id="rsbsaCameraOpen">
-                  <i class="bi bi-camera-fill" aria-hidden="true"></i>
-                  Use camera
-                </button>
-              </div>
-            </div>
+        <section class="form-section rsbsa-record-copy" aria-labelledby="rsbsaRecordCopyTitle">
+          <h2 id="rsbsaRecordCopyTitle"><i class="bi bi-file-earmark-arrow-up"></i> Upload a copy of the RSBSA form <span style="font-weight:400">(optional)</span></h2>
+          <p>You may attach up to three readable RSBSA files for record keeping. These uploads are optional. FMIS checks the accepted JPG, PNG, or PDF format and file size only; it does not read or fill the registration fields automatically.</p>
+          <div class="registration-grid three">
+            {% include "farmers/registration_field.html" with field=profile_form.rsbsa_form %}
+            {% include "farmers/registration_field.html" with field=profile_form.rsbsa_form_2 %}
+            {% include "farmers/registration_field.html" with field=profile_form.rsbsa_form_3 %}
           </div>
-          <div class="rsbsa-scan-input">{{ profile_form.rsbsa_form }}</div>
-          {{ profile_form.rsbsa_scan_token }}
-          {{ profile_form.rsbsa_form.errors }}
-          <div class="rsbsa-scan-status" id="rsbsaScanStatus" role="status" aria-live="polite" hidden></div>
         </section>
       <ol class="registration-stepper" aria-label="Registration progress">
         <li class="active" data-step-link="1">
@@ -311,10 +233,6 @@
               </i> Add Document
             </button>
           </div>
-          <div class="form-section">
-            <h3><i class="bi bi-file-earmark-arrow-up"></i> Optional RSBSA form copy</h3>
-            <p>If a copy was selected in Step 1, it will be attached to the farmer record. You may return to Step 1 to replace or remove it.</p>
-          </div>
           {{ document_formset.management_form }}
           {% if document_formset.non_form_errors %}
             <div class="alert alert-danger">{{ document_formset.non_form_errors }}</div>
@@ -372,21 +290,6 @@
           <p>Please wait. Do not close or refresh this page.</p>
         </div>
       </div>
-      <div class="rsbsa-camera-modal" id="rsbsaCameraModal" hidden aria-hidden="true">
-        <button type="button" class="rsbsa-camera-backdrop" id="rsbsaCameraBackdrop" aria-label="Close camera"></button>
-        <section class="rsbsa-camera-dialog" role="dialog" aria-modal="true" aria-labelledby="rsbsaCameraTitle" aria-describedby="rsbsaCameraStatus">
-          <h2 id="rsbsaCameraTitle">Capture RSBSA page 1</h2>
-          <p id="rsbsaCameraStatus" role="status" aria-live="polite">Position the whole form inside the frame and keep the handwriting clear.</p>
-          <video class="rsbsa-camera-video" id="rsbsaCameraVideo" autoplay playsinline muted></video>
-          <canvas id="rsbsaCameraCanvas" hidden></canvas>
-          <div class="rsbsa-camera-actions">
-            <button type="button" class="btn btn-outline-secondary" id="rsbsaCameraCancel">Cancel</button>
-            <button type="button" class="btn btn-success" id="rsbsaCameraCapture" disabled>
-              <i class="bi bi-camera" aria-hidden="true"></i> Capture photo
-            </button>
-          </div>
-        </section>
-      </div>
     </section>
   </div>
   <script src="{% static 'js/compact-file-upload.js' %}"></script>
@@ -397,216 +300,7 @@
           const steps = [...document.querySelectorAll('.registration-step')];
           const links = [...document.querySelectorAll('[data-step-link]')];
           const loading = document.getElementById('registrationLoading');
-          const scanCard = document.getElementById('rsbsaScanCard');
-          const scanInput = form.querySelector('[data-rsbsa-scan-source]');
-          const scanSelection = document.getElementById('rsbsaScanSelection');
-          const scanFileName = document.getElementById('rsbsaScanFileName');
-          const scanFileSize = document.getElementById('rsbsaScanFileSize');
-          const scanRemove = document.getElementById('rsbsaScanRemove');
-          const scanStatus = document.getElementById('rsbsaScanStatus');
-          const scanTokenInput = form.elements.rsbsa_scan_token;
-          const scanTriggers = [...(scanCard?.querySelectorAll('.rsbsa-scan-trigger') || [])];
-          const scanTrigger = scanTriggers[0];
           let current = 1;
-          let scanRequestToken = 0;
-
-          function showScanStatus(message, type = '', warnings = []) {
-              if (!scanStatus) return;
-              scanStatus.hidden = false;
-              scanStatus.className = `rsbsa-scan-status${type ? ` is-${type}` : ''}`;
-              scanStatus.replaceChildren();
-              const text = document.createElement('strong');
-              text.textContent = message;
-              scanStatus.appendChild(text);
-              if (warnings.length) {
-                  const list = document.createElement('ul');
-                  warnings.forEach(warning => {
-                      const item = document.createElement('li');
-                      item.textContent = warning;
-                      list.appendChild(item)
-                  });
-                  scanStatus.appendChild(list)
-              }
-          }
-
-          function clearScannedValues() {
-              form.querySelectorAll('[data-scan-filled="true"]').forEach(field => {
-                  field.value = field.dataset.scanPreviousValue || '';
-                  field.dispatchEvent(new Event('input', {bubbles: true}));
-                  field.dispatchEvent(new Event('change', {bubbles: true}));
-                  delete field.dataset.scanFilled;
-                  delete field.dataset.scanPreviousValue;
-                  const wrapper = field.closest('.registration-field');
-                  wrapper?.classList.remove('scan-filled', 'scan-needs-review', 'scan-reviewed');
-                  wrapper?.querySelector('.scan-field-note')?.remove()
-              })
-          }
-
-          function showSelectedFile(file) {
-              scanTriggers.forEach(trigger => trigger.hidden = true);
-              scanSelection.hidden = false;
-              scanFileName.textContent = file.name;
-              scanFileSize.textContent = file.size >= 1024 * 1024
-                  ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
-                  : `${Math.max(1, Math.round(file.size / 1024)).toLocaleString()} KB`;
-          }
-
-          function removeSelectedFile() {
-              scanRequestToken += 1;
-              scanInput.value = '';
-              scanInput.dispatchEvent(new Event('fmis:draft-file-cleared', {bubbles: true}));
-              clearScannedValues();
-              if (scanTokenInput) scanTokenInput.value = '';
-              scanSelection.hidden = true;
-              scanTriggers.forEach(trigger => trigger.hidden = false);
-              scanStatus.hidden = true;
-              scanStatus.replaceChildren();
-              scanTrigger?.classList.remove('is-loading')
-          }
-
-          function rejectSelectedFile(message) {
-              scanRequestToken += 1;
-              scanInput.value = '';
-              scanInput.dispatchEvent(new Event('fmis:draft-file-cleared', {bubbles: true}));
-              clearScannedValues();
-              if (scanTokenInput) scanTokenInput.value = '';
-              scanSelection.hidden = true;
-              scanTriggers.forEach(trigger => trigger.hidden = false);
-              scanTrigger?.classList.remove('is-loading');
-              showScanStatus(message, 'error')
-          }
-
-          async function compressCameraImage(file) {
-              if (!file.type.startsWith('image/') || file.size <= 4.8 * 1024 * 1024) return file;
-              if (!window.createImageBitmap || !window.DataTransfer) return file;
-              const bitmap = await createImageBitmap(file);
-              const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
-              const canvas = document.createElement('canvas');
-              canvas.width = Math.round(bitmap.width * scale);
-              canvas.height = Math.round(bitmap.height * scale);
-              canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-              bitmap.close();
-              const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .88));
-              if (!blob) return file;
-              return new File([blob], `rsbsa-page-1-${Date.now()}.jpg`, {type: 'image/jpeg'})
-          }
-
-          function markScannedField(field, needsReview) {
-              const wrapper = field.closest('.registration-field');
-              if (!wrapper) return;
-              wrapper.classList.remove('scan-reviewed');
-              wrapper.classList.add('scan-filled');
-              wrapper.classList.toggle('scan-needs-review', needsReview);
-              let note = wrapper.querySelector('.scan-field-note');
-              if (!note) {
-                  note = document.createElement('small');
-                  note.className = 'scan-field-note';
-                  wrapper.appendChild(note)
-              }
-              note.textContent = needsReview ? 'Unclear scan — verify this value carefully.' : 'Scanned value — check before submitting.';
-              field.dataset.scanFilled = 'true'
-          }
-
-          function applyScannedFields(payload) {
-              const review = new Set(payload.needs_review || []);
-              let filled = 0;
-              let preserved = 0;
-              Object.entries(payload.fields || {}).forEach(([name, value]) => {
-                  if (!value) return;
-                  const field = form.elements[name];
-                  if (!field || field.disabled) return;
-                  const existing = String(field.value || '').trim();
-                  if (existing && !(name === 'phone_number' && existing === '09')) {
-                      preserved += 1;
-                      return
-                  }
-                  if (field.options && ![...field.options].some(option => option.value === value)) return;
-                  field.dataset.scanPreviousValue = existing;
-                  field.value = value;
-                  field.dispatchEvent(new Event('input', {bubbles: true}));
-                  field.dispatchEvent(new Event('change', {bubbles: true}));
-                  markScannedField(field, review.has(name));
-                  filled += 1
-              });
-              const notes = [...(payload.warnings || [])];
-              if (preserved) notes.push(`${preserved} field(s) already contained information and were not overwritten.`);
-              showScanStatus(
-                  `${filled} profile field(s) were filled. Review every highlighted value before continuing.`,
-                  'success',
-                  notes
-              )
-          }
-
-          async function scanRSBSA(file, requestToken) {
-              if (!scanCard) return;
-              scanTrigger?.classList.add('is-loading');
-              showScanStatus('Checking that this is a clear RSBSA page 1… Keep this page open.');
-              const data = new FormData();
-              data.append('rsbsa_scan', file, file.name);
-              try {
-                  const response = await fetch(scanCard.dataset.scanUrl, {
-                      method: 'POST',
-                      headers: {'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value},
-                      body: data,
-                      credentials: 'same-origin'
-                  });
-                  const payload = await response.json().catch(() => ({}));
-                  if (requestToken !== scanRequestToken) return;
-                  if (!response.ok) throw new Error(payload.error || 'The form could not be read automatically.');
-                  if (scanTokenInput) scanTokenInput.value = payload.scan_token || '';
-                  applyScannedFields(payload)
-              } catch (error) {
-                  if (requestToken !== scanRequestToken) return;
-                  rejectSelectedFile(`${error.message} Capture another image or select the correct, clear RSBSA page 1.`)
-              } finally {
-                  if (requestToken === scanRequestToken) scanTrigger?.classList.remove('is-loading')
-              }
-          }
-
-          scanInput?.addEventListener('change', async () => {
-              const original = scanInput.files?.[0];
-              if (!original) {
-                  removeSelectedFile();
-                  return
-              }
-              const requestToken = ++scanRequestToken;
-              clearScannedValues();
-              scanStatus.hidden = true;
-              let selected = original;
-              try {
-                  selected = await compressCameraImage(original);
-                  if (selected !== original && window.DataTransfer) {
-                      const transfer = new DataTransfer();
-                      transfer.items.add(selected);
-                      scanInput.files = transfer.files
-                  }
-              } catch (error) {
-                  selected = original
-              }
-              if (requestToken !== scanRequestToken) return;
-              showSelectedFile(selected);
-              if (selected.size > 5 * 1024 * 1024) {
-                  rejectSelectedFile('This file is larger than 5 MB. Choose a smaller JPG, PNG, or PDF.');
-                  return
-              }
-              if (!['image/jpeg', 'image/png', 'application/pdf'].includes(selected.type)) {
-                  rejectSelectedFile('This file type is not supported. Choose a JPG, PNG, or PDF.');
-                  return
-              }
-              scanRSBSA(selected, requestToken)
-          });
-
-          scanRemove?.addEventListener('click', removeSelectedFile);
-
-          form.addEventListener('input', event => {
-              const field = event.target;
-              if (!event.isTrusted || field.dataset?.scanFilled !== 'true') return;
-              const wrapper = field.closest('.registration-field');
-              wrapper?.classList.remove('scan-needs-review');
-              wrapper?.classList.add('scan-reviewed');
-              const note = wrapper?.querySelector('.scan-field-note');
-              if (note) note.textContent = 'Scanned value checked or edited by staff.'
-          });
 
           function showStep(number) {
               current = number;
@@ -903,7 +597,4 @@
           }
       })();
   </script>
-{% endblock %}
-{% block extra_js %}
-  <script defer src="{% static 'js/rsbsa-camera.js' %}?v=1"></script>
 {% endblock %}

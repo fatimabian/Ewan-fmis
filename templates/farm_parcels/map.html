@@ -319,24 +319,14 @@
       transition:filter .15s ease,transform .15s ease
   }
   .farmer-pin{
-      position:relative;
-      width:24px;
-      height:24px;
-      display:grid;
-      place-items:center;
-      border:2px solid #fff;
-      border-radius:50% 50% 50% 2px;
-      background:#e11937;
-      box-shadow:0 3px 9px rgba(48,10,16,.5);
-      transform:rotate(-45deg)
+      display:block;
+      color:#e11937;
+      font-size:32px;
+      line-height:1;
+      filter:drop-shadow(0 0 1px #fff) drop-shadow(0 3px 3px rgba(48,10,16,.45))
   }
-  .farmer-pin::after{
-      content:"";
-      width:8px;
-      height:8px;
-      border-radius:50%;
-      background:#fff;
-      box-shadow:0 0 0 1px rgba(113,0,16,.2)
+  .farmer-pin i{
+      display:block
   }
   .farmer-pin-shell:hover{
       z-index:900!important;
@@ -344,8 +334,8 @@
       transform:translateY(-2px) scale(1.12)
   }
   .farmer-pin-shell.is-moving .farmer-pin{
-      background:#e1841d;
-      box-shadow:0 0 0 6px rgba(225,132,29,.2),0 3px 9px rgba(18,64,37,.35)
+      color:#e1841d;
+      filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 6px rgba(225,132,29,.7))
   }
   .pin-edit-panel{
       display:none;
@@ -556,15 +546,15 @@
                 maxBoundsViscosity: .72,
                 minZoom: 10
             });
-            let rosarioImagery = L.tileLayer(
-                'https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            const rosarioImagery = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 {
                     maxNativeZoom: 18,
                     maxZoom: 19,
                     noWrap: true,
                     keepBuffer: 1,
                     updateWhenIdle: true,
-                    attribution: 'Clarity imagery &copy; Esri and imagery providers'
+                    attribution: 'Satellite imagery &copy; Esri and imagery providers'
                 }
             );
             const rosarioLabels = L.tileLayer(
@@ -580,26 +570,6 @@
                 }
             );
             rosarioImagery.addTo(map);
-            let imageryFailures = 0,
-                cloudlessFallbackActive = false;
-            rosarioImagery.on('tileerror', () => {
-                imageryFailures += 1;
-                if (imageryFailures < 3 || cloudlessFallbackActive) return;
-                cloudlessFallbackActive = true;
-                map.removeLayer(rosarioImagery);
-                rosarioImagery = L.tileLayer(
-                    'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg',
-                    {
-                        maxNativeZoom: 14,
-                        maxZoom: 19,
-                        noWrap: true,
-                        keepBuffer: 1,
-                        updateWhenIdle: true,
-                        attribution: 'Sentinel-2 cloudless 2024 &copy; EOX · modified Copernicus Sentinel data 2024'
-                    }
-                ).addTo(map);
-                rosarioImagery.bringToBack()
-            });
             rosarioLabels.addTo(map);
             map.fitBounds(rosarioBounds, {
                 padding: [10, 10]
@@ -620,9 +590,9 @@
             });
             const farmerIcon = L.divIcon({
                 className: 'farmer-pin-shell',
-                html: '<span class="farmer-pin" aria-hidden="true"></span>',
-                iconSize: [28, 34],
-                iconAnchor: [14, 32],
+                html: '<span class="farmer-pin" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>',
+                iconSize: [30, 34],
+                iconAnchor: [15, 32],
                 popupAnchor: [0, -31],
                 tooltipAnchor: [0, -28]
             });
@@ -679,8 +649,18 @@
                             unpin.disabled = true;
                             try {
                                 const result = await removeFarmerPoint(item.id);
+                                const marker = markerByFarmer.get(String(item.id));
+                                if (marker) {
+                                    marker.closePopup();
+                                    map.removeLayer(marker);
+                                    markerByFarmer.delete(String(item.id))
+                                }
+                                const markerIndex = markers.findIndex(entry => String(entry.id) === String(item.id));
+                                if (markerIndex >= 0) markers.splice(markerIndex, 1);
+                                unmappedParcelCount.textContent = Number(unmappedParcelCount.textContent || 0) + 1;
+                                applyMapFilters(false);
+                                if (farmerSelect.value === String(item.id)) setPinButton(false);
                                 window.fmisFeedback?.(result.message, 'success');
-                                setTimeout(() => window.location.reload(), 700)
                             } catch (error) {
                                 unpin.disabled = false;
                                 window.fmisFeedback?.(error.message, 'error')

@@ -200,16 +200,26 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
     )
     rsbsa_form = forms.FileField(
         required=False,
-        label="RSBSA enrollment form",
+        label="RSBSA copy 1",
         help_text="Optional. Upload a readable JPG, PNG, or PDF; maximum 5 MB.",
         widget=forms.ClearableFileInput(
             attrs={
                 "accept": "image/jpeg,image/png,.pdf",
-                "data-rsbsa-scan-source": "true",
             }
         ),
     )
-    rsbsa_scan_token = forms.CharField(required=False, widget=forms.HiddenInput)
+    rsbsa_form_2 = forms.FileField(
+        required=False,
+        label="RSBSA copy 2",
+        help_text="Optional additional page or copy; maximum 5 MB.",
+        widget=forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png,.pdf"}),
+    )
+    rsbsa_form_3 = forms.FileField(
+        required=False,
+        label="RSBSA copy 3",
+        help_text="Optional additional page or copy; maximum 5 MB.",
+        widget=forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png,.pdf"}),
+    )
     is_indigenous = YesNoNAField(label="Member of an Indigenous People / ICC")
     is_pwd = YesNoNAField(label="Person with Disability (PWD)")
     is_four_ps = YesNoNAField(label="4Ps beneficiary")
@@ -396,15 +406,15 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         upload = self.cleaned_data.get("rsbsa_form")
         if not upload:
             return upload
-        upload = validate_farmer_document_upload(upload)
-        if not (self.instance and self.instance.pk):
-            from .rsbsa_scan import verify_scan_token
+        return validate_farmer_document_upload(upload)
 
-            if not verify_scan_token(upload, self.data.get("rsbsa_scan_token", "")):
-                raise ValidationError(
-                    "FMIS could not verify this upload as an RSBSA enrollment form. Capture another image, choose the correct page 1, or remove the file."
-                )
-        return upload
+    def clean_rsbsa_form_2(self):
+        upload = self.cleaned_data.get("rsbsa_form_2")
+        return validate_farmer_document_upload(upload) if upload else upload
+
+    def clean_rsbsa_form_3(self):
+        upload = self.cleaned_data.get("rsbsa_form_3")
+        return validate_farmer_document_upload(upload) if upload else upload
 
     def clean(self):
         cleaned = super().clean()
@@ -517,7 +527,8 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields.pop("rsbsa_form", None)
-        self.fields.pop("rsbsa_scan_token", None)
+        self.fields.pop("rsbsa_form_2", None)
+        self.fields.pop("rsbsa_form_3", None)
         # Older clients and saved drafts may omit the new tri-state fields.
         # Preserve the stored value on updates instead of silently replacing it.
         for name in ("is_indigenous", "is_pwd", "is_four_ps"):

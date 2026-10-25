@@ -170,6 +170,15 @@ class InterventionModuleTests(TestCase):
             {"COMPLETED", "SUBMITTED", "ENCODED", "SKIPPED"},
         )
         self.assertEqual(FarmParcel.objects.filter(farmer__in=demo_farmers).count(), 12)
+        coordinates = list(
+            FarmParcel.objects.filter(farmer__in=demo_farmers)
+            .order_by("id")
+            .values_list("coordinates", flat=True)
+        )
+        self.assertEqual(len(set(coordinates)), 12)
+        parsed = [tuple(map(float, value.split(","))) for value in coordinates]
+        self.assertGreater(max(lat for lat, _ in parsed) - min(lat for lat, _ in parsed), 0.1)
+        self.assertGreater(max(lng for _, lng in parsed) - min(lng for _, lng in parsed), 0.1)
         self.assertEqual(CropRecord.objects.filter(parcel__farmer__in=demo_farmers).count(), 12)
         self.assertEqual(ServiceRequest.objects.filter(farmer__in=demo_farmers).count(), 4)
         self.assertEqual(Intervention.objects.filter(farmer__in=demo_farmers).count(), 3)

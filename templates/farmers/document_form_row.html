@@ -1,4 +1,4 @@
-<article class="formset-row document-row{% if form.errors %} has-errors{% endif %}"
+<article class="formset-row document-row{% if form.errors %} has-errors{% endif %}{% if form.DELETE.value %} deleted{% endif %}"
          data-form-row>
   <div class="formset-row-heading">
     <h3>

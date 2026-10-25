@@ -363,12 +363,17 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 farmer.created_by = request.user
                 farmer.save()
 
-                rsbsa_form = profile_form.cleaned_data.get("rsbsa_form")
-                if rsbsa_form:
+                for copy_number, field_name in enumerate(
+                    ("rsbsa_form", "rsbsa_form_2", "rsbsa_form_3"),
+                    start=1,
+                ):
+                    rsbsa_form = profile_form.cleaned_data.get(field_name)
+                    if not rsbsa_form:
+                        continue
                     FarmerDocument.objects.create(
                         farmer=farmer,
                         document_type="RSBSA_FORM",
-                        description="Registration copy",
+                        description=f"Registration copy {copy_number}",
                         file=rsbsa_form,
                     )
 
