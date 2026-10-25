@@ -963,7 +963,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, 'id="rsbsaScanSelection"')
         self.assertContains(response, "RSBSA form")
         self.assertContains(response, "(optional)")
-        self.assertContains(response, "or continue below and enter the details manually")
+        self.assertContains(response, "FMIS will verify the form")
         self.assertNotContains(response, 'id="rsbsaScanPreviewImage"')
         self.assertContains(response, 'id="rsbsaScanRemove"')
         self.assertContains(response, "Remove selected RSBSA form")
@@ -1010,7 +1010,8 @@ class FMISRequirementTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 503)
-        self.assertIn("temporarily unavailable", response.json()["error"])
+        self.assertIn("verification is temporarily unavailable", response.json()["error"])
+        self.assertNotIn("manually", response.json()["error"])
         self.assertEqual(Farmer.objects.count(), farmer_count)
 
     @override_settings(

@@ -401,7 +401,7 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
 
             if not verify_scan_token(upload, self.data.get("rsbsa_scan_token", "")):
                 raise ValidationError(
-                    "Wait for FMIS to recognize this as an RSBSA enrollment form, or remove it and continue with manual entry."
+                    "FMIS could not verify this upload as an RSBSA enrollment form. Capture another image, choose the correct page 1, or remove the file."
                 )
         return upload
 

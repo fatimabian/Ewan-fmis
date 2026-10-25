@@ -216,7 +216,7 @@ def _response_text(payload):
                 return content["text"]
             if content.get("type") == "refusal":
                 raise RSBSAScanError(
-                    "The form could not be read automatically. Enter the details manually.",
+                    "FMIS could not verify this document. Capture another image or select a clear, complete RSBSA page 1.",
                     status=422,
                 )
     raise RSBSAScanError(
@@ -290,7 +290,7 @@ def scan_rsbsa_profile(upload):
     api_key = getattr(settings, "OPENAI_API_KEY", "").strip()
     if not api_key:
         raise RSBSAScanError(
-            "Automatic reading is temporarily unavailable. The RSBSA copy can still be attached while the registration details are entered manually.",
+            "RSBSA verification is temporarily unavailable. Try again shortly, then capture another image or select the correct RSBSA page 1.",
             status=503,
         )
 
@@ -351,14 +351,14 @@ def scan_rsbsa_profile(upload):
     except requests.RequestException as error:
         logger.warning("RSBSA form reader request failed: %s", error.__class__.__name__)
         raise RSBSAScanError(
-            "The form reader is temporarily unavailable. Enter the details manually or try again later.",
+            "RSBSA verification is temporarily unavailable. Try again shortly.",
             status=503,
         ) from error
 
     if response.status_code != 200:
         logger.warning("RSBSA form reader returned HTTP %s", response.status_code)
         raise RSBSAScanError(
-            "The form reader could not process this image. Try a clearer photo or enter the details manually.",
+            "FMIS could not verify this image. Capture another image or select a clearer RSBSA page 1.",
             status=502,
         )
     try:
