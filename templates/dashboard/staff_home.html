@@ -19,7 +19,12 @@
       scrollbar-width:thin;
       overscroll-behavior:contain
   }
-  .commodity-legend{max-height:none;overflow-y:visible}
+  .commodity-legend{
+      grid-auto-rows:32px;
+      max-height:188px;
+      overflow-y:auto;
+      scrollbar-gutter:stable
+  }
   </style>
   <div class="content rosario-dashboard staff-overview-v2">
     <section class="staff-kpi-grid" aria-label="Rosario agricultural record summary">

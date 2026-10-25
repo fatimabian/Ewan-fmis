@@ -315,23 +315,33 @@
   }
   .farmer-pin-shell{
       border:0;
-      background:transparent
+      background:transparent;
+      transition:filter .15s ease,transform .15s ease
   }
   .farmer-pin{
-      width:30px;
-      height:30px;
+      position:relative;
+      width:24px;
+      height:24px;
       display:grid;
       place-items:center;
-      border:3px solid #fff;
-      border-radius:50% 50% 50% 8px;
-      background:#168148;
-      box-shadow:0 3px 9px rgba(18,64,37,.35);
-      color:#fff;
-      font-size:13px;
+      border:2px solid #fff;
+      border-radius:50% 50% 50% 2px;
+      background:#e11937;
+      box-shadow:0 3px 9px rgba(48,10,16,.5);
       transform:rotate(-45deg)
   }
-  .farmer-pin i{
-      transform:rotate(45deg)
+  .farmer-pin::after{
+      content:"";
+      width:8px;
+      height:8px;
+      border-radius:50%;
+      background:#fff;
+      box-shadow:0 0 0 1px rgba(113,0,16,.2)
+  }
+  .farmer-pin-shell:hover{
+      z-index:900!important;
+      filter:brightness(1.08);
+      transform:translateY(-2px) scale(1.12)
   }
   .farmer-pin-shell.is-moving .farmer-pin{
       background:#e1841d;
@@ -546,15 +556,15 @@
                 maxBoundsViscosity: .72,
                 minZoom: 10
             });
-            const rosarioImagery = L.tileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            let rosarioImagery = L.tileLayer(
+                'https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 {
                     maxNativeZoom: 18,
                     maxZoom: 19,
                     noWrap: true,
                     keepBuffer: 1,
                     updateWhenIdle: true,
-                    attribution: 'Imagery &copy; Esri and imagery providers'
+                    attribution: 'Clarity imagery &copy; Esri and imagery providers'
                 }
             );
             const rosarioLabels = L.tileLayer(
@@ -570,11 +580,33 @@
                 }
             );
             rosarioImagery.addTo(map);
+            let imageryFailures = 0,
+                cloudlessFallbackActive = false;
+            rosarioImagery.on('tileerror', () => {
+                imageryFailures += 1;
+                if (imageryFailures < 3 || cloudlessFallbackActive) return;
+                cloudlessFallbackActive = true;
+                map.removeLayer(rosarioImagery);
+                rosarioImagery = L.tileLayer(
+                    'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg',
+                    {
+                        maxNativeZoom: 14,
+                        maxZoom: 19,
+                        noWrap: true,
+                        keepBuffer: 1,
+                        updateWhenIdle: true,
+                        attribution: 'Sentinel-2 cloudless 2024 &copy; EOX · modified Copernicus Sentinel data 2024'
+                    }
+                ).addTo(map);
+                rosarioImagery.bringToBack()
+            });
             rosarioLabels.addTo(map);
             map.fitBounds(rosarioBounds, {
                 padding: [10, 10]
             });
+            const boundaryRenderer = L.svg({padding: .25});
             L.polygon(rosarioBoundary, {
+                renderer: boundaryRenderer,
                 color: '#087a3d',
                 weight: 5,
                 opacity: 1,
@@ -586,17 +618,13 @@
                 permanent: false,
                 direction: 'center'
             });
-            // Keep all parcel locations on Leaflet's proven shared Canvas
-            // renderer. Thousands of SVG/DOM pins lag, while a custom Canvas
-            // path can disappear entirely on some browsers and GPU drivers.
-            const parcelRenderer = L.canvas({padding: .5, tolerance: 10});
             const farmerIcon = L.divIcon({
                 className: 'farmer-pin-shell',
-                html: '<span class="farmer-pin"><i class="bi bi-person-fill"></i></span>',
-                iconSize: [30, 30],
-                iconAnchor: [15, 29],
-                popupAnchor: [0, -28],
-                tooltipAnchor: [0, -25]
+                html: '<span class="farmer-pin" aria-hidden="true"></span>',
+                iconSize: [28, 34],
+                iconAnchor: [14, 32],
+                popupAnchor: [0, -31],
+                tooltipAnchor: [0, -28]
             });
             const make = (tag, className, text) => {
                 const node = document.createElement(tag);
@@ -667,28 +695,18 @@
                 return popup
             };
             const addMarker = item => {
-                const farmerMarker = L.circleMarker([item.lat, item.lng], {
-                    renderer: parcelRenderer,
-                    radius: 7,
-                    color: '#fff',
-                    weight: 2.5,
-                    fillColor: '#dc1735',
-                    fillOpacity: 1,
-                    title: `${item.parcel} — ${item.farmer}`
+                const farmerMarker = L.marker([item.lat, item.lng], {
+                    icon: farmerIcon,
+                    keyboard: false,
+                    riseOnHover: true,
+                    title: `${item.parcel} — ${item.farmer}`,
+                    alt: `${item.parcel} location`
                 }).addTo(map).bindTooltip(item.parcel, {
                     permanent: false,
                     direction: 'top',
                     className: 'farmer-map-label'
                 });
                 farmerMarker.fmisFarmer = item;
-                farmerMarker.on('mouseover', () => {
-                    farmerMarker.setRadius(10);
-                    farmerMarker.setStyle({fillColor: '#ff2948'});
-                });
-                farmerMarker.on('mouseout', () => {
-                    farmerMarker.setRadius(7);
-                    farmerMarker.setStyle({fillColor: '#dc1735'});
-                });
                 farmerMarker.on('click', () => {
                     if (!farmerMarker.getPopup()) {
                         const mobilePopup = window.matchMedia('(max-width:560px)').matches;
