@@ -315,17 +315,19 @@ def staff_dashboard_metrics():
         )
         .order_by("-farmers", "-area", "crop_type")
     )
+    commodity_group_case = Case(
+        *[
+            When(crop_type__iexact=detail, then=Value(group))
+            for detail, group in COMMODITY_DETAIL_TO_GROUP.items()
+        ],
+        default=Value("Other Commodity"),
+        output_field=CharField(),
+    )
+    grouped_rosario_crops = rosario_crops.annotate(
+        commodity_group=commodity_group_case
+    )
     commodity_group_rows = list(
-        rosario_crops.annotate(
-            commodity_group=Case(
-                *[
-                    When(crop_type__iexact=detail, then=Value(group))
-                    for detail, group in COMMODITY_DETAIL_TO_GROUP.items()
-                ],
-                default=Value("Other Commodity"),
-                output_field=CharField(),
-            )
-        )
+        grouped_rosario_crops
         .values("commodity_group")
         .annotate(
             records=Count("id"),
@@ -382,6 +384,22 @@ def staff_dashboard_metrics():
         key=lambda row: (-int(row["records"] or 0), row["commodity_group"] or ""),
     )
     total_crops = sum(int(row["records"] or 0) for row in sorted_commodity_rows)
+    top_commodity_rows = sorted_commodity_rows[:10]
+    remaining_commodity_rows = sorted_commodity_rows[10:]
+    if remaining_commodity_rows:
+        remaining_labels = [row["commodity_group"] for row in remaining_commodity_rows]
+        top_commodity_rows.append(
+            {
+                "commodity_group": "Others",
+                "records": sum(int(row["records"] or 0) for row in remaining_commodity_rows),
+                "farmers": grouped_rosario_crops.filter(
+                    commodity_group__in=remaining_labels
+                )
+                .values("parcel__farmer_id")
+                .distinct()
+                .count(),
+            }
+        )
     commodity_breakdown = [
         {
             "label": row["commodity_group"] or "Other Commodity",
@@ -392,7 +410,7 @@ def staff_dashboard_metrics():
                 else None
             ),
         }
-        for row in sorted_commodity_rows
+        for row in top_commodity_rows
     ]
     commodity_offset = 0.0
     for index, item in enumerate(commodity_breakdown):

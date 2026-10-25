@@ -967,6 +967,7 @@ class FMISRequirementTests(TestCase):
         )
         self.assertContains(response, "RSBSA form")
         self.assertContains(response, "(optional)")
+        self.assertContains(response, 'class="rsbsa-scan-card" hidden')
         self.assertContains(response, "FMIS will verify the form")
         self.assertNotContains(response, 'id="rsbsaScanPreviewImage"')
         self.assertContains(response, 'id="rsbsaScanRemove"')
@@ -2345,12 +2346,11 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "noWrap: true")
         self.assertContains(map_response, 'id="rosario-map-boundary"')
         self.assertContains(map_response, "L.polygon(rosarioBoundary")
-        self.assertContains(map_response, "parcelPins")
+        self.assertContains(map_response, "L.circleMarker")
         self.assertContains(map_response, "barangay-focus-label")
         self.assertContains(map_response, "barangayBounds.getCenter()")
         self.assertContains(map_response, "Red map pins are saved farm parcel locations")
-        self.assertContains(map_response, "municipalBoundary")
-        self.assertContains(map_response, "_updateParcelPin")
+        self.assertNotContains(map_response, "_updateParcelPin")
         self.assertContains(map_response, "keepInView: true")
 
     def test_newest_parcel_is_first_and_named_in_the_farm_parcel_table(self):
@@ -3169,6 +3169,36 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(shown_barangays, {"Bulihan", *barangays})
         self.assertContains(response, "All barangays")
         self.assertNotContains(response, "High Value Crops")
+
+    def test_staff_dashboard_groups_every_commodity_after_the_top_ten(self):
+        for name in (
+            "Banana",
+            "Cacao",
+            "Calamansi / Mandarin",
+            "Coconut",
+            "Coffee",
+            "Corn",
+            "Ginger",
+            "Mango",
+            "Squash",
+            "Turmeric",
+            "Swine",
+        ):
+            CropRecord.objects.create(
+                parcel=self.parcel,
+                crop_type=name,
+                area_hectares=None if name == "Swine" else Decimal("0.10"),
+                number_of_heads=12 if name == "Swine" else None,
+            )
+
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard:staff_home"))
+
+        breakdown = response.context["commodity_breakdown"]
+        self.assertEqual(len(breakdown), 11)
+        self.assertEqual(breakdown[-1]["label"], "Others")
+        self.assertEqual(breakdown[-1]["records"], 2)
+        self.assertEqual(breakdown[-1]["farmers"], 1)
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
     def test_farmer_qr_uses_configured_authenticated_field_address(self):

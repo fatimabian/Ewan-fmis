@@ -63,7 +63,7 @@
     <section class="panel registration-shell">
       <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
         {% csrf_token %}
-        <section class="rsbsa-scan-card"
+        <section class="rsbsa-scan-card" hidden
                  id="rsbsaScanCard"
                  data-scan-url="{% url 'farmers:scan_rsbsa' %}"
                  data-scan-configured="{{ rsbsa_scan_configured|yesno:'true,false' }}">
