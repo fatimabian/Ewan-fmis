@@ -14,6 +14,12 @@
       max-width:none;
       margin:0
   }
+  @media(min-width:900px){
+      .farmer-map-page{
+          width:calc(100% + 64px);
+          margin-inline:-32px
+      }
+  }
   .map-toolbar{
       display:grid;
       grid-template-columns:1fr auto auto;
@@ -114,8 +120,8 @@
   }
   #farmerMap{
       width:100%;
-      height:clamp(520px,70vh,780px);
-      min-height:520px;
+      height:clamp(600px,78vh,920px);
+      min-height:600px;
       margin:0;
       border:1px solid var(--ag-border,#dce7e0);
       border-radius:14px;
@@ -125,9 +131,10 @@
   }
   #farmerMap .leaflet-control-zoom a,
   #farmerMap .leaflet-control-zoom a:is(:hover,:focus,:active){
-      border-color:#a9b8af!important;
-      background:#fff!important;
-      color:#123f2a!important;
+      border-color:#fff!important;
+      background:#087a3d!important;
+      color:#fff!important;
+      -webkit-text-fill-color:#fff!important;
       box-shadow:0 2px 8px rgba(16,56,37,.18)!important;
       font-weight:800!important
   }
@@ -514,7 +521,8 @@
                 mapNode = document.getElementById('farmerMap'),
                 mapDataUrl = '{% url "farm_parcels:map_data" %}';
             const rosarioBoundary = JSON.parse(document.getElementById('rosario-map-boundary').textContent),
-                rosarioBounds = L.latLngBounds(rosarioBoundary);
+                rosarioBounds = L.latLngBounds(rosarioBoundary),
+                rosarioPanBounds = rosarioBounds.pad(.18);
             const farmerSelect = document.getElementById('pinFarmer'),
                 startPin = document.getElementById('startPin'),
                 pinEditPanel = document.getElementById('pinEditPanel'),
@@ -533,10 +541,10 @@
             let barangayFocusLabel = null;
             const map = L.map(mapNode, {
                 scrollWheelZoom: false,
-                preferCanvas: false,
-                maxBounds: rosarioBounds,
-                maxBoundsViscosity: 1,
-                minZoom: 11
+                preferCanvas: true,
+                maxBounds: rosarioPanBounds,
+                maxBoundsViscosity: .72,
+                minZoom: 10
             });
             const rosarioImagery = L.tileLayer(
                 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -580,7 +588,8 @@
             });
             map.createPane('parcelPins');
             map.getPane('parcelPins').style.zIndex = 650;
-            const parcelRenderer = L.svg({pane: 'parcelPins', padding: .5});
+            map.getPane('parcelPins').style.pointerEvents = 'auto';
+            const parcelRenderer = L.canvas({pane: 'parcelPins', padding: .5, tolerance: 8});
             const farmerIcon = L.divIcon({
                 className: 'farmer-pin-shell',
                 html: '<span class="farmer-pin"><i class="bi bi-person-fill"></i></span>',

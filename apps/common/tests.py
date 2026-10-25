@@ -2281,13 +2281,27 @@ class FMISRequirementTests(TestCase):
 
         self.parcel.coordinates = "13.8467000, 121.2060000"
         self.parcel.save(update_fields=["coordinates"])
+        second_pinned_parcel = FarmParcel.objects.create(
+            farmer=self.farmer,
+            parcel_name="Second mapped field",
+            barangay="Bulihan",
+            area_hectares=Decimal("0.75"),
+            ownership_type="OWNED",
+            coordinates="13.8468000, 121.2061000",
+        )
         map_response = self.client.get(reverse("farm_parcels:map"))
         self.assertEqual(map_response.status_code, 200)
-        self.assertEqual(map_response.context["mapped_count"], 1)
+        self.assertEqual(map_response.context["mapped_count"], 2)
         self.assertNotIn("map_markers", map_response.context)
         map_data = self.client.get(reverse("farm_parcels:map_data"))
         self.assertEqual(map_data.status_code, 200)
-        marker = map_data.json()["markers"][0]
+        payload = map_data.json()
+        self.assertEqual(payload["count"], 2)
+        self.assertSetEqual(
+            {marker["id"] for marker in payload["markers"]},
+            {self.parcel.pk, second_pinned_parcel.pk},
+        )
+        marker = payload["markers"][0]
         self.assertEqual(marker["id"], self.parcel.pk)
         self.assertEqual(marker["barangay"], "Bulihan")
         self.assertEqual(marker["crops"][0]["name"], "Rice")
@@ -2295,14 +2309,18 @@ class FMISRequirementTests(TestCase):
             reverse("farm_parcels:map_search"), {"q": self.farmer.record_id}
         )
         self.assertEqual(map_search.status_code, 200)
-        self.assertEqual(map_search.json()["results"][0]["id"], self.parcel.pk)
+        self.assertIn(
+            self.parcel.pk,
+            {result["id"] for result in map_search.json()["results"]},
+        )
         self.assertContains(map_response, 'id="mapBarangayFilter"')
         self.assertContains(map_response, 'id="mapCommodityFilter"')
         self.assertContains(map_response, reverse("farm_parcels:map_search"))
         self.assertContains(map_response, reverse("farm_parcels:map_data"))
         self.assertContains(map_response, "applyMapFilters")
         self.assertContains(map_response, "markerByFarmer")
-        self.assertContains(map_response, "L.svg")
+        self.assertContains(map_response, "L.canvas")
+        self.assertContains(map_response, "preferCanvas: true")
         self.assertContains(map_response, "Preparing map pins")
         self.assertContains(map_response, "Parcel Already Pinned")
         self.assertContains(map_response, "farmerMarker.fire('click')")
@@ -2312,7 +2330,8 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(map_response, "Street map with place names")
         self.assertContains(map_response, "World_Imagery")
         self.assertContains(map_response, "World_Boundaries_and_Places")
-        self.assertContains(map_response, "maxBounds: rosarioBounds")
+        self.assertContains(map_response, "maxBounds: rosarioPanBounds")
+        self.assertContains(map_response, "rosarioBounds.pad(.18)")
         self.assertContains(map_response, "noWrap: true")
         self.assertContains(map_response, 'id="rosario-map-boundary"')
         self.assertContains(map_response, "L.polygon(rosarioBoundary")
