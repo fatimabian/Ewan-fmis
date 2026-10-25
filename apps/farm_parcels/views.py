@@ -302,6 +302,10 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     f"{parcel.farmer.record_id} — {parcel.farmer.full_name} / "
                     f"{parcel.display_name} ({parcel.barangay})"
                 ),
+                "livelihood": parcel.farmer.get_livelihood_display(),
+                "livelihood_code": parcel.farmer.livelihood,
+                "activities": parcel.farmer.activities,
+                "activities_display": parcel.farmer.activities_display,
             }
             for parcel in parcels.order_by("-created_at", "-pk")[:40]
         ]

@@ -108,7 +108,12 @@ class GroupedCropListTests(TestCase):
                 "is_intercrop": "False",
             }
         )
-        choices = dict(form.fields["crop_type"].choices)
+        choices = {
+            value: label
+            for _group, group_choices in form.fields["crop_type"].choices
+            if isinstance(group_choices, (list, tuple))
+            for value, label in group_choices
+        }
         self.assertEqual(choices["Poultry"], "🐔 Poultry")
         self.assertNotIn("Rhode Island Red", choices)
         self.assertNotIn("Plymouth Rock", choices)
@@ -116,9 +121,50 @@ class GroupedCropListTests(TestCase):
         self.assertNotIn("Gamefowl", choices)
         self.assertTrue(form.is_valid(), form.errors)
         self.assertIsNone(form.cleaned_data["area_hectares"])
-        self.assertEqual(form.cleaned_data["cropping_schedule"], "January - December")
+        self.assertEqual(form.cleaned_data["cropping_schedule"], "")
+        self.assertFalse(form.cleaned_data["is_intercrop"])
         record = form.save()
-        self.assertEqual(record.cropping_schedule, "January - December")
+        self.assertEqual(record.cropping_schedule, "")
+
+    def test_fishery_commodity_does_not_require_a_cropping_schedule(self):
+        form = CropRecordForm(
+            data={
+                "parcel": self.parcel.pk,
+                "crop_type": "Tilapia",
+                "cropping_start_month": "",
+                "cropping_end_month": "",
+                "area_hectares": "",
+                "number_of_heads": "",
+                "is_organic": "False",
+                "is_intercrop": "",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["cropping_schedule"], "")
+        self.assertFalse(form.cleaned_data["is_intercrop"])
+
+    def test_common_then_other_then_additional_groups_are_ordered_for_staff(self):
+        form = CropRecordForm()
+        groups = [
+            label
+            for label, choices in form.fields["crop_type"].choices
+            if isinstance(choices, (list, tuple))
+        ]
+        self.assertEqual(groups[:2], ["Common in Rosario", "Not listed above"])
+        self.assertIn("Additional crops", groups)
+        self.assertIn("Additional livestock and poultry", groups)
+        self.assertIn("Fisheries and aquaculture", groups)
+
+    def test_add_commodity_loads_parcels_through_search(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("crops:create"))
+        self.assertEqual(response.status_code, 200)
+        parcel_field = response.context["form"].fields["parcel"]
+        self.assertEqual(parcel_field.queryset.count(), 0)
+        self.assertEqual(
+            parcel_field.widget.attrs["data-search-url"],
+            reverse("farm_parcels:map_search"),
+        )
 
     def test_grouped_trash_action_archives_only_displayed_crop_records(self):
         self.client.force_login(self.staff)

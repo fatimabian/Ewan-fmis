@@ -41,10 +41,11 @@ LAST_NAMES = (
     "Magpantay", "Manalo", "Marasigan", "Recto", "Salazar", "Tolentino", "Villanueva",
 )
 CROPS = (
-    "Rice", "Rice", "Rice", "Rice", "Rice", "Rice", "Rice", "Rice",
-    "Corn", "Corn", "Corn", "Corn",
-    "High Value Crops", "High Value Crops", "High Value Crops",
-    "Coconut", "Coconut", "Livestock", "Livestock", "Poultry",
+    "Rice", "Rice", "Rice", "Rice", "Rice", "Rice",
+    "Corn", "Corn", "Corn",
+    "Banana", "Banana", "Mango", "Mango", "Coconut", "Coconut",
+    "Squash", "Squash", "Ginger", "Turmeric", "Calamansi / Mandarin",
+    "Swine", "Swine", "Poultry", "Poultry", "Dairy Carabao",
 )
 SERVICE_CODES = (
     "SEED", "FERTILIZER", "SOIL-TEST", "PEST-DISEASE", "CROP-TECH",

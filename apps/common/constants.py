@@ -55,25 +55,94 @@ ROSARIO_MUNICIPALITY = "Rosario"
 ROSARIO_PROVINCE = "Batangas"
 ROSARIO_REGION = "CALABARZON Region IV-A"
 
-# Broad commodity groups used by Rosario's Office for Agricultural Services.
-# Detailed legacy entries remain mapped below so old records keep their meaning
-# while summaries and new encoding use a short, consistent municipal catalog.
-_ROSARIO_CROP_LABELS = (
+# Clear commodity names used for Rosario encoding and dashboard summaries.
+# Avoid broad labels such as "High Value Crops" because staff need to know the
+# actual crop or animal commodity recorded for each farmer.
+_ROSARIO_COMMON_COMMODITIES = (
     ("Rice", "Rice (Palay)"),
     ("Corn", "Corn"),
     ("Coconut", "Coconut"),
-    ("High Value Crops", "High Value Crops (fruits, vegetables, root crops, coffee, and cacao)"),
-    ("Livestock", "Livestock"),
+    ("Banana", "Banana"),
+    ("Mango", "Mango"),
+    ("Calamansi / Mandarin", "Calamansi / Mandarin Orange"),
+    ("Squash", "Squash"),
+    ("Ginger", "Ginger"),
+    ("Turmeric", "Turmeric"),
+    ("Swine", "Swine / Hogs"),
     ("Poultry", "Poultry"),
-    ("Other Crop / Commodity", "Other Commodity"),
+    ("Dairy Carabao", "Dairy Carabao"),
 )
-ROSARIO_CROP_CHOICES = (("", "Select crop or commodity"),) + tuple(
-    (value, f"{crop_symbol(value)} {label}") for value, label in _ROSARIO_CROP_LABELS
+_ROSARIO_ADDITIONAL_CROPS = (
+    ("Coffee", "Coffee"),
+    ("Cacao", "Cacao"),
+    ("Cassava", "Cassava"),
+    ("Sweet Potato", "Sweet Potato"),
+    ("Peanut", "Peanut"),
+    ("Mung Bean", "Mung Bean"),
+    ("Eggplant", "Eggplant"),
+    ("Tomato", "Tomato"),
+    ("String Beans", "String Beans"),
+    ("Bitter Gourd", "Bitter Gourd"),
+    ("Chili Pepper", "Chili Pepper"),
+    ("Leafy Vegetables", "Leafy Vegetables"),
+)
+_ROSARIO_ADDITIONAL_ANIMALS = (
+    ("Carabao", "Carabao"),
+    ("Cattle", "Cattle"),
+    ("Goat", "Goat"),
+    ("Sheep", "Sheep"),
+    ("Rabbit", "Rabbit"),
+    ("Broiler Chicken", "Broiler Chicken"),
+    ("Layer Chicken", "Layer Chicken"),
+    ("Native Chicken", "Native Chicken"),
+    ("Duck", "Duck"),
+    ("Quail", "Quail"),
+    ("Turkey", "Turkey"),
+)
+_ROSARIO_ADDITIONAL_FISHERIES = (
+    ("Tilapia", "Tilapia"),
+    ("Freshwater Fish", "Other Freshwater Fish"),
+    ("Aquaculture", "Other Aquaculture Commodity"),
+)
+
+
+def _symbol_choices(items):
+    return tuple((value, f"{crop_symbol(value)} {label}") for value, label in items)
+
+
+ROSARIO_CROP_CHOICES = (
+    ("", "Select crop or commodity"),
+    ("Common in Rosario", _symbol_choices(_ROSARIO_COMMON_COMMODITIES)),
+    (
+        "Not listed above",
+        (("Other Crop / Commodity", f"{crop_symbol('Other Crop / Commodity')} Other Commodity"),),
+    ),
+    ("Additional crops", _symbol_choices(_ROSARIO_ADDITIONAL_CROPS)),
+    ("Additional livestock and poultry", _symbol_choices(_ROSARIO_ADDITIONAL_ANIMALS)),
+    ("Fisheries and aquaculture", _symbol_choices(_ROSARIO_ADDITIONAL_FISHERIES)),
+)
+
+CROP_COMMODITIES = frozenset(
+    value for value, _label in _ROSARIO_COMMON_COMMODITIES + _ROSARIO_ADDITIONAL_CROPS
+    if value not in {"Swine", "Poultry", "Dairy Carabao"}
+)
+
+FISHERY_COMMODITIES = frozenset(value for value, _label in _ROSARIO_ADDITIONAL_FISHERIES)
+
+ROSARIO_COMMODITY_VALUES = frozenset(
+    value
+    for value, _label in (
+        _ROSARIO_COMMON_COMMODITIES
+        + _ROSARIO_ADDITIONAL_CROPS
+        + _ROSARIO_ADDITIONAL_ANIMALS
+        + _ROSARIO_ADDITIONAL_FISHERIES
+        + (("Other Crop / Commodity", "Other Commodity"),)
+    )
 )
 
 LIVESTOCK_COMMODITIES = frozenset(
     {
-        "Livestock", "Poultry",
+        "Livestock", "Poultry", "Dairy Carabao",
         "Carabao", "Cattle", "Swine", "Goat", "Sheep", "Broiler Chicken",
         "Layer Chicken", "Native Chicken", "Rhode Island Red", "Plymouth Rock",
         "Leghorn", "Gamefowl", "Duck", "Quail", "Turkey", "Rabbit",
@@ -84,30 +153,34 @@ COMMODITY_DETAIL_TO_GROUP = {
     "Rice": "Rice",
     "Corn": "Corn",
     "Coconut": "Coconut",
-    "High Value Crops": "High Value Crops",
-    "Banana": "High Value Crops",
-    "Mango": "High Value Crops",
-    "Calamansi": "High Value Crops",
-    "Coffee": "High Value Crops",
-    "Cacao": "High Value Crops",
-    "Cassava": "High Value Crops",
-    "Sweet Potato": "High Value Crops",
-    "Peanut": "High Value Crops",
-    "Mung Bean": "High Value Crops",
-    "Eggplant": "High Value Crops",
-    "Tomato": "High Value Crops",
-    "String Beans": "High Value Crops",
-    "Squash": "High Value Crops",
-    "Bitter Gourd": "High Value Crops",
-    "Chili Pepper": "High Value Crops",
-    "Leafy Vegetables": "High Value Crops",
-    "Livestock": "Livestock",
-    "Carabao": "Livestock",
-    "Cattle": "Livestock",
-    "Swine": "Livestock",
-    "Goat": "Livestock",
-    "Sheep": "Livestock",
-    "Rabbit": "Livestock",
+    "High Value Crops": "Mixed Fruits & Vegetables",
+    "Banana": "Banana",
+    "Mango": "Mango",
+    "Calamansi": "Calamansi",
+    "Calamansi / Mandarin": "Calamansi / Mandarin",
+    "Coffee": "Coffee",
+    "Cacao": "Cacao",
+    "Cassava": "Cassava",
+    "Sweet Potato": "Sweet Potato",
+    "Peanut": "Peanut",
+    "Mung Bean": "Mung Bean",
+    "Eggplant": "Eggplant",
+    "Tomato": "Tomato",
+    "String Beans": "String Beans",
+    "Squash": "Squash",
+    "Ginger": "Ginger",
+    "Turmeric": "Turmeric",
+    "Bitter Gourd": "Bitter Gourd",
+    "Chili Pepper": "Chili Pepper",
+    "Leafy Vegetables": "Leafy Vegetables",
+    "Livestock": "Mixed Livestock",
+    "Dairy Carabao": "Dairy Carabao",
+    "Carabao": "Carabao",
+    "Cattle": "Cattle",
+    "Swine": "Swine",
+    "Goat": "Goat",
+    "Sheep": "Sheep",
+    "Rabbit": "Rabbit",
     "Poultry": "Poultry",
     "Broiler Chicken": "Poultry",
     "Layer Chicken": "Poultry",
@@ -120,6 +193,9 @@ COMMODITY_DETAIL_TO_GROUP = {
     "Quail": "Poultry",
     "Turkey": "Poultry",
     "Other Crop / Commodity": "Other Commodity",
+    "Tilapia": "Tilapia",
+    "Freshwater Fish": "Freshwater Fish",
+    "Aquaculture": "Aquaculture",
 }
 _COMMODITY_GROUP_LOOKUP = {
     name.casefold(): group for name, group in COMMODITY_DETAIL_TO_GROUP.items()

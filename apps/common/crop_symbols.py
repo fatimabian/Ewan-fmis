@@ -10,6 +10,7 @@ CROP_SYMBOLS = {
     "banana": "🍌",
     "mango": "🥭",
     "calamansi": "🍊",
+    "calamansi / mandarin": "🍊",
     "coffee": "☕",
     "cacao": "🫘",
     "cassava": "🍠",
@@ -20,10 +21,13 @@ CROP_SYMBOLS = {
     "tomato": "🍅",
     "string beans": "🫘",
     "squash": "🎃",
+    "ginger": "🫚",
+    "turmeric": "🫚",
     "bitter gourd": "🥒",
     "chili pepper": "🌶️",
     "leafy vegetables": "🥬",
     "carabao": "🐃",
+    "dairy carabao": "🐃",
     "cattle": "🐄",
     "swine": "🐖",
     "goat": "🐐",
@@ -37,6 +41,9 @@ CROP_SYMBOLS = {
     "quail": "🐦",
     "turkey": "🦃",
     "rabbit": "🐇",
+    "tilapia": "🐟",
+    "freshwater fish": "🐟",
+    "aquaculture": "🐟",
 }
 
 

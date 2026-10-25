@@ -479,7 +479,7 @@
       </div>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
-        Green dots are saved farm parcel pins. The map is limited to the Rosario operational extent. Zoom in, then click a dot for details or right-click it to move the pin.
+        Red map pins are saved farm parcel locations. The green line marks the Rosario municipal boundary. Zoom in, then click a pin for details or right-click it to move the pin.
       </p>
       <p class="map-loading-status" id="mapLoadingStatus" role="status" aria-live="polite">
         <i class="bi bi-arrow-repeat"></i>
@@ -574,13 +574,19 @@
             map.fitBounds(rosarioBounds, {
                 padding: [10, 10]
             });
+            map.createPane('municipalBoundary');
+            map.getPane('municipalBoundary').style.zIndex = 620;
+            map.getPane('municipalBoundary').style.pointerEvents = 'none';
+            const boundaryRenderer = L.canvas({pane: 'municipalBoundary', padding: .2});
             L.polygon(rosarioBoundary, {
+                renderer: boundaryRenderer,
+                pane: 'municipalBoundary',
                 color: '#087a3d',
-                weight: 4,
+                weight: 5,
                 opacity: 1,
                 fill: true,
                 fillColor: '#51b878',
-                fillOpacity: .08,
+                fillOpacity: .1,
                 interactive: false
             }).addTo(map).bindTooltip('Rosario, Batangas boundary', {
                 permanent: false,
@@ -590,6 +596,63 @@
             map.getPane('parcelPins').style.zIndex = 650;
             map.getPane('parcelPins').style.pointerEvents = 'auto';
             const parcelRenderer = L.canvas({pane: 'parcelPins', padding: .5, tolerance: 8});
+            L.Canvas.include({
+                _updateParcelPin(layer) {
+                    if (!this._drawing || layer._empty()) return;
+                    const point = layer._point,
+                        radius = Math.max(Math.round(layer._radius), 7),
+                        centerY = point.y - radius * 1.55,
+                        context = this._ctx;
+                    context.beginPath();
+                    context.moveTo(point.x, point.y);
+                    context.bezierCurveTo(
+                        point.x - radius * .28, point.y - radius * .52,
+                        point.x - radius, point.y - radius * .88,
+                        point.x - radius, centerY
+                    );
+                    context.bezierCurveTo(
+                        point.x - radius, centerY - radius * .7,
+                        point.x - radius * .55, centerY - radius,
+                        point.x, centerY - radius
+                    );
+                    context.bezierCurveTo(
+                        point.x + radius * .55, centerY - radius,
+                        point.x + radius, centerY - radius * .7,
+                        point.x + radius, centerY
+                    );
+                    context.bezierCurveTo(
+                        point.x + radius, point.y - radius * .88,
+                        point.x + radius * .28, point.y - radius * .52,
+                        point.x, point.y
+                    );
+                    context.closePath();
+                    this._fillStroke(context, layer);
+                    context.save();
+                    context.beginPath();
+                    context.arc(point.x, centerY - radius * .05, radius * .35, 0, Math.PI * 2);
+                    context.fillStyle = '#fff';
+                    context.globalAlpha = .92;
+                    context.fill();
+                    context.restore();
+                }
+            });
+            const ParcelPin = L.CircleMarker.extend({
+                _updatePath() {
+                    this._renderer._updateParcelPin(this)
+                },
+                _updateBounds() {
+                    const radius = this._radius,
+                        tolerance = this._clickTolerance();
+                    this._pxBounds = new L.Bounds(
+                        this._point.subtract([radius + tolerance, radius * 2.7 + tolerance]),
+                        this._point.add([radius + tolerance, tolerance + 2])
+                    )
+                },
+                _containsPoint(point) {
+                    const visualCenter = this._point.subtract([0, this._radius * 1.35]);
+                    return point.distanceTo(visualCenter) <= this._radius * 1.55 + this._clickTolerance()
+                }
+            });
             const farmerIcon = L.divIcon({
                 className: 'farmer-pin-shell',
                 html: '<span class="farmer-pin"><i class="bi bi-person-fill"></i></span>',
@@ -667,13 +730,13 @@
                 return popup
             };
             const addMarker = item => {
-                const farmerMarker = L.circleMarker([item.lat, item.lng], {
+                const farmerMarker = new ParcelPin([item.lat, item.lng], {
                     renderer: parcelRenderer,
                     pane: 'parcelPins',
-                    radius: 8,
+                    radius: 9,
                     color: '#fff',
                     weight: 2,
-                    fillColor: '#087a3d',
+                    fillColor: '#dc1735',
                     fillOpacity: 1,
                     title: `${item.parcel} — ${item.farmer}`
                 }).addTo(map).bindTooltip(item.parcel, {
@@ -683,12 +746,12 @@
                 });
                 farmerMarker.fmisFarmer = item;
                 farmerMarker.on('mouseover', () => {
-                    farmerMarker.setRadius(10);
-                    farmerMarker.setStyle({fillColor: '#0aa653'});
+                    farmerMarker.setRadius(11);
+                    farmerMarker.setStyle({fillColor: '#ff2948'});
                 });
                 farmerMarker.on('mouseout', () => {
-                    farmerMarker.setRadius(8);
-                    farmerMarker.setStyle({fillColor: '#087a3d'});
+                    farmerMarker.setRadius(9);
+                    farmerMarker.setStyle({fillColor: '#dc1735'});
                 });
                 farmerMarker.on('click', () => {
                     if (!farmerMarker.getPopup()) {

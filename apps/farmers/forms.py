@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.crops.models import CropRecord
 from apps.common.constants import (
+    FISHERY_COMMODITIES,
     MONTH_CHOICES,
     ROSARIO_BARANGAY_CHOICES,
     ROSARIO_CROP_CHOICES,
@@ -861,11 +862,15 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
         ):
             self.fields[name].required = False
             self.fields[name].widget.attrs["data-step-required"] = "true"
+        self.fields["is_intercrop"].required = False
         self.apply_styles()
         configure_registration_inputs(self, mixed=self.MIXED_FIELDS)
         self.fields["crop_type"].widget.attrs["data-commodity-type"] = "true"
         self.fields["crop_type"].widget.attrs["data-livestock-values"] = "|".join(
             sorted(LIVESTOCK_COMMODITIES)
+        )
+        self.fields["crop_type"].widget.attrs["data-fishery-values"] = "|".join(
+            sorted(FISHERY_COMMODITIES)
         )
         self.fields["area_hectares"].widget.attrs["data-commodity-area"] = "true"
 
@@ -875,22 +880,34 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
         resolve_other_crop(self, cleaned)
         commodity = cleaned.get("crop_type")
         livestock = commodity in LIVESTOCK_COMMODITIES
+        fishery = commodity in FISHERY_COMMODITIES
         for name in (
             "parcel_number",
             "crop_type",
-            "cropping_start_month",
-            "cropping_end_month",
         ):
             if not cleaned.get(name):
                 self.add_error(name, "Complete this field for the commodity.")
+        if not livestock and not fishery:
+            for name in ("cropping_start_month", "cropping_end_month"):
+                if not cleaned.get(name):
+                    self.add_error(name, "Complete this field for the commodity.")
         if livestock:
             cleaned["area_hectares"] = None
-        elif not cleaned.get("area_hectares"):
+            cleaned["is_intercrop"] = False
+            if not cleaned.get("number_of_heads"):
+                self.add_error("number_of_heads", "Enter the number of animal heads.")
+        elif fishery:
+            cleaned["is_intercrop"] = False
+        elif not fishery and not cleaned.get("area_hectares"):
             self.add_error("area_hectares", "Complete this field for the commodity.")
+        if not livestock and not fishery and cleaned.get("is_intercrop") is None:
+            self.add_error("is_intercrop", "Select whether this is an intercropping commodity.")
         start_month = cleaned.get("cropping_start_month")
         end_month = cleaned.get("cropping_end_month")
         cleaned["cropping_schedule"] = (
-            f"{start_month} - {end_month}" if start_month and end_month else ""
+            f"{start_month} - {end_month}"
+            if not fishery and start_month and end_month
+            else ""
         )
         return cleaned
 

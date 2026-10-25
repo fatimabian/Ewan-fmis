@@ -2309,9 +2309,19 @@ class FMISRequirementTests(TestCase):
             reverse("farm_parcels:map_search"), {"q": self.farmer.record_id}
         )
         self.assertEqual(map_search.status_code, 200)
+        search_results = map_search.json()["results"]
         self.assertIn(
             self.parcel.pk,
-            {result["id"] for result in map_search.json()["results"]},
+            {result["id"] for result in search_results},
+        )
+        selected_result = next(
+            result for result in search_results if result["id"] == self.parcel.pk
+        )
+        self.assertEqual(selected_result["livelihood"], "Farmer")
+        self.assertEqual(selected_result["livelihood_code"], "FARMER")
+        self.assertEqual(selected_result["activities"], "FARMER_CROPS")
+        self.assertEqual(
+            selected_result["activities_display"], "Farmer - Crop Production"
         )
         self.assertContains(map_response, 'id="mapBarangayFilter"')
         self.assertContains(map_response, 'id="mapCommodityFilter"')
@@ -2338,7 +2348,9 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "parcelPins")
         self.assertContains(map_response, "barangay-focus-label")
         self.assertContains(map_response, "barangayBounds.getCenter()")
-        self.assertContains(map_response, "Green dots are saved farm parcel pins")
+        self.assertContains(map_response, "Red map pins are saved farm parcel locations")
+        self.assertContains(map_response, "municipalBoundary")
+        self.assertContains(map_response, "_updateParcelPin")
         self.assertContains(map_response, "keepInView: true")
 
     def test_newest_parcel_is_first_and_named_in_the_farm_parcel_table(self):
@@ -3044,7 +3056,7 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(response, "Current system overview")
         self.assertContains(response, "Active farmers")
         self.assertContains(response, "Production Snapshot")
-        self.assertContains(response, "Main Commodity Groups")
+        self.assertContains(response, "Common Commodities in Rosario")
         self.assertContains(response, "Where Farmers Are Registered")
         self.assertNotContains(response, "Records Needing Attention")
         self.assertContains(response, "Service &amp; Intervention Workload")
@@ -3114,7 +3126,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["managed_land_area"], Decimal("3.25"))
         self.assertEqual(
             {item["label"] for item in response.context["commodity_breakdown"]},
-            {"Rice", "High Value Crops"},
+            {"Rice", "Coffee"},
         )
 
         parcel_list = self.client.get(reverse("farm_parcels:list"))
@@ -3125,7 +3137,7 @@ class FMISRequirementTests(TestCase):
         )
         self.assertIn(inactive_parcel, listed_parcels)
 
-    def test_staff_dashboard_groups_detailed_commodities_and_lists_every_barangay(self):
+    def test_staff_dashboard_lists_detailed_commodities_and_every_barangay(self):
         commodity_names = ["Coffee", "Banana", "Corn", "Coconut", "Cacao"]
         for name in commodity_names:
             CropRecord.objects.create(
@@ -3146,14 +3158,17 @@ class FMISRequirementTests(TestCase):
         response = self.client.get(reverse("dashboard:staff_home"))
 
         labels = {item["label"] for item in response.context["commodity_breakdown"]}
-        self.assertEqual(labels, {"Rice", "Corn", "Coconut", "High Value Crops"})
+        self.assertEqual(
+            labels,
+            {"Rice", "Coffee", "Banana", "Corn", "Coconut", "Cacao"},
+        )
         self.assertNotIn("Other Commodity", labels)
         shown_barangays = {
             item["barangay"] for item in response.context["barangay_distribution"]
         }
         self.assertEqual(shown_barangays, {"Bulihan", *barangays})
         self.assertContains(response, "All barangays")
-        self.assertContains(response, "High Value Crops")
+        self.assertNotContains(response, "High Value Crops")
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
     def test_farmer_qr_uses_configured_authenticated_field_address(self):

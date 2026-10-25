@@ -800,11 +800,31 @@
               const area = row?.querySelector('[data-commodity-area]');
               if (!commodity || !area) return;
               const livestock = (commodity.dataset.livestockValues || '').split('|').includes(commodity.value);
+              const fishery = (commodity.dataset.fisheryValues || '').split('|').includes(commodity.value);
+              const nonCrop = livestock || fishery;
+              const schedule = row.querySelector('[data-field-name="cropping_schedule"]');
+              const scheduleInputs = schedule?.querySelectorAll('select') || [];
+              const intercrop = row.querySelector('[data-field-name="is_intercrop"]');
+              const intercropInput = intercrop?.querySelector('select');
+              const heads = row.querySelector('[data-field-name="number_of_heads"] input');
               area.disabled = livestock;
-              area.required = !livestock;
+              area.required = !nonCrop;
               if (livestock) area.value = '';
               area.placeholder = livestock ? 'Not applicable to livestock' : '';
               area.closest('.registration-field')?.classList.toggle('field-disabled', livestock);
+              if (schedule) schedule.hidden = nonCrop;
+              scheduleInputs.forEach(input => {
+                  input.disabled = nonCrop;
+                  input.required = !nonCrop;
+                  if (nonCrop) input.value = ''
+              });
+              if (intercrop) intercrop.hidden = nonCrop;
+              if (intercropInput) {
+                  intercropInput.disabled = nonCrop;
+                  intercropInput.required = !nonCrop;
+                  if (nonCrop) intercropInput.value = 'False'
+              }
+              if (heads) heads.required = livestock;
               updateNextButtonState()
           }
 

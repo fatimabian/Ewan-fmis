@@ -3,10 +3,12 @@ from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
 
 from apps.common.constants import (
+    FISHERY_COMMODITIES,
     LIVESTOCK_COMMODITIES,
     MONTH_CHOICES,
     ROSARIO_BARANGAY_CHOICES,
     ROSARIO_CROP_CHOICES,
+    ROSARIO_COMMODITY_VALUES,
     ROSARIO_MUNICIPALITY,
     ROSARIO_PROVINCE,
 )
@@ -263,16 +265,22 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
             ]
         )
         existing_crop = self.instance.crop_type if self.instance and self.instance.pk else ""
-        available_crops = {value for value, _label in self.fields["crop_type"].choices}
+        available_crops = ROSARIO_COMMODITY_VALUES
         if existing_crop and existing_crop not in available_crops:
             self.fields["crop_type"].choices = tuple(self.fields["crop_type"].choices) + (
                 (existing_crop, existing_crop),
             )
         self.fields["area_hectares"].min_value = 0.01
         self.fields["area_hectares"].required = False
+        self.fields["cropping_start_month"].required = False
+        self.fields["cropping_end_month"].required = False
+        self.fields["is_intercrop"].required = False
         self.fields["crop_type"].widget.attrs["data-commodity-type"] = "true"
         self.fields["crop_type"].widget.attrs["data-livestock-values"] = "|".join(
             sorted(LIVESTOCK_COMMODITIES)
+        )
+        self.fields["crop_type"].widget.attrs["data-fishery-values"] = "|".join(
+            sorted(FISHERY_COMMODITIES)
         )
         self.fields["area_hectares"].widget.attrs["data-commodity-area"] = "true"
         for field in self.fields.values():
@@ -283,14 +291,28 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
         cleaned = super().clean()
         resolve_other_crop(self, cleaned)
         commodity = cleaned.get("crop_type")
-        if commodity in LIVESTOCK_COMMODITIES:
-            cleaned["area_hectares"] = None
-        elif not cleaned.get("area_hectares"):
-            self.add_error("area_hectares", "Enter the area used for this commodity.")
         start_month = cleaned.get("cropping_start_month")
         end_month = cleaned.get("cropping_end_month")
+        if commodity in LIVESTOCK_COMMODITIES:
+            cleaned["area_hectares"] = None
+            cleaned["is_intercrop"] = False
+            if not cleaned.get("number_of_heads"):
+                self.add_error("number_of_heads", "Enter the number of animal heads.")
+        elif commodity in FISHERY_COMMODITIES:
+            cleaned["is_intercrop"] = False
+        elif not cleaned.get("area_hectares"):
+            self.add_error("area_hectares", "Enter the area used for this commodity.")
+        elif not start_month or not end_month:
+            if not start_month:
+                self.add_error("cropping_start_month", "Select the first cropping month.")
+            if not end_month:
+                self.add_error("cropping_end_month", "Select the last cropping month.")
+        if commodity not in LIVESTOCK_COMMODITIES | FISHERY_COMMODITIES and cleaned.get("is_intercrop") is None:
+            self.add_error("is_intercrop", "Select whether this is an intercropping commodity.")
         cleaned["cropping_schedule"] = (
-            f"{start_month} - {end_month}" if start_month and end_month else ""
+            f"{start_month} - {end_month}"
+            if commodity not in FISHERY_COMMODITIES and start_month and end_month
+            else ""
         )
         return cleaned
 

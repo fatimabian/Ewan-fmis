@@ -25,6 +25,16 @@
       </div>
       <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
+        <div class="registration-note" id="farmerLivelihoodSummary"
+             {% if not source_parcel and not object %}hidden{% endif %}>
+          <i class="bi bi-person-check"></i>
+          <span>
+            Farmer livelihood:
+            <strong data-livelihood-label>{% if source_parcel %}{{ source_parcel.farmer.get_livelihood_display }}{% elif object %}{{ object.parcel.farmer.get_livelihood_display }}{% endif %}</strong>
+            <span data-activities-label>{% if source_parcel and source_parcel.farmer.activities_display %} · {{ source_parcel.farmer.activities_display }}{% elif object and object.parcel.farmer.activities_display %} · {{ object.parcel.farmer.activities_display }}{% endif %}</span>
+            <small data-recommendation-label>Common Rosario commodities are listed first; all other groups remain available.</small>
+          </span>
+        </div>
         <div class="registration-grid three">
           {% for field in form %}
             {% if field.name == "cropping_start_month" %}
@@ -58,18 +68,80 @@
     (() => {
       const commodity = document.querySelector('[data-commodity-type]');
       const area = document.querySelector('[data-commodity-area]');
+      const parcel = document.querySelector('select[data-farmer-picker]');
+      const livelihoodSummary = document.getElementById('farmerLivelihoodSummary');
       if (!commodity || !area) return;
+
+      const originalGroups = [...commodity.querySelectorAll('optgroup')];
+      function showFarmerLivelihood(detail = {}) {
+        if (!livelihoodSummary) return;
+        const livelihood = detail.livelihood || parcel?.dataset.selectedLivelihood || '';
+        const livelihoodCode = detail.livelihoodCode || parcel?.dataset.selectedLivelihoodCode || '';
+        const activities = detail.activities || parcel?.dataset.selectedActivities || '';
+        const activitiesDisplay = detail.activitiesDisplay || parcel?.dataset.selectedActivitiesDisplay || '';
+        if (!livelihood) {
+          livelihoodSummary.hidden = true;
+          return;
+        }
+        livelihoodSummary.hidden = false;
+        livelihoodSummary.querySelector('[data-livelihood-label]').textContent = livelihood;
+        livelihoodSummary.querySelector('[data-activities-label]').textContent = activitiesDisplay ? ` · ${activitiesDisplay}` : '';
+
+        let preferredGroup = 'Additional crops';
+        let recommendation = 'Crop choices are prioritized from the farmer record.';
+        if (activities.includes('FARMER_POULTRY')) {
+          preferredGroup = 'Additional livestock and poultry';
+          recommendation = 'Poultry and animal choices are prioritized from the farmer record.';
+        } else if (activities.includes('FARMER_LIVESTOCK')) {
+          preferredGroup = 'Additional livestock and poultry';
+          recommendation = 'Livestock and poultry choices are prioritized from the farmer record.';
+        } else if (livelihoodCode === 'FISHERFOLK' || activities.includes('FISH_')) {
+          preferredGroup = 'Fisheries and aquaculture';
+          recommendation = 'Fisheries and aquaculture choices are prioritized from the farmer record.';
+        }
+        const fixedLabels = ['Common in Rosario', 'Not listed above'];
+        const fixed = fixedLabels.map(label => originalGroups.find(group => group.label === label)).filter(Boolean);
+        const preferred = originalGroups.find(group => group.label === preferredGroup);
+        const remaining = originalGroups.filter(group => !fixed.includes(group) && group !== preferred);
+        [...fixed, preferred, ...remaining].filter(Boolean).forEach(group => commodity.appendChild(group));
+        livelihoodSummary.querySelector('[data-recommendation-label]').textContent = `${recommendation} All commodity groups remain available.`;
+      }
 
       function updateCommodityArea() {
         const livestock = (commodity.dataset.livestockValues || '').split('|').includes(commodity.value);
+        const fishery = (commodity.dataset.fisheryValues || '').split('|').includes(commodity.value);
+        const nonCrop = livestock || fishery;
+        const schedule = document.querySelector('[data-field-name="cropping_schedule"]');
+        const scheduleInputs = schedule?.querySelectorAll('select') || [];
+        const intercrop = document.querySelector('[data-field-name="is_intercrop"]');
+        const intercropInput = intercrop?.querySelector('select');
+        const heads = document.querySelector('[data-field-name="number_of_heads"] input');
         area.disabled = livestock;
-        area.required = !livestock;
+        area.required = !nonCrop;
         if (livestock) area.value = '';
         area.placeholder = livestock ? 'Not applicable to livestock' : '';
         area.closest('.registration-field')?.classList.toggle('field-disabled', livestock);
+        if (schedule) schedule.hidden = nonCrop;
+        scheduleInputs.forEach(input => {
+          input.disabled = nonCrop;
+          input.required = !nonCrop;
+          if (nonCrop) input.value = '';
+        });
+        if (intercrop) intercrop.hidden = nonCrop;
+        if (intercropInput) {
+          intercropInput.disabled = nonCrop;
+          intercropInput.required = !nonCrop;
+          if (nonCrop) intercropInput.value = 'False';
+        }
+        if (heads) {
+          heads.required = livestock;
+          heads.placeholder = livestock ? 'Enter number of animal heads' : '';
+        }
       }
 
       commodity.addEventListener('change', updateCommodityArea);
+      parcel?.addEventListener('farmer-picker:selected', event => showFarmerLivelihood(event.detail));
+      showFarmerLivelihood();
       updateCommodityArea();
     })();
   </script>
