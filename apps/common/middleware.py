@@ -118,7 +118,7 @@ class SecurityHeadersMiddleware:
         response.setdefault("Content-Security-Policy", self.CONTENT_SECURITY_POLICY)
         response.setdefault(
             "Permissions-Policy",
-            "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+            "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
         )
         response.setdefault("Cross-Origin-Resource-Policy", "same-origin")
         return response

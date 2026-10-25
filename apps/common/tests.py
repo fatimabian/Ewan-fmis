@@ -971,6 +971,10 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "Select File")
         self.assertContains(response, "Upload a JPG, PNG, or WEBP image no larger than 8 MB.")
         self.assertContains(response, "registration-draft.js")
+        self.assertIn("camera=(self)", response["Permissions-Policy"])
+        self.assertContains(response, "Complete all required fields in this step to continue.")
+        self.assertContains(response, "stepIsComplete")
+        self.assertNotContains(response, "Remove the upload and enter the registration details manually")
         self.assertNotContains(response, "No RSBSA image selected.")
         self.assertNotContains(response, "This workflow follows the RSBSA Enrollment Form")
         self.assertContains(response, 'id="fmisNetworkLoading"')
@@ -1006,7 +1010,7 @@ class FMISRequirementTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 503)
-        self.assertIn("not configured", response.json()["error"])
+        self.assertIn("temporarily unavailable", response.json()["error"])
         self.assertEqual(Farmer.objects.count(), farmer_count)
 
     @override_settings(
@@ -2303,8 +2307,12 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(map_response, "Street map with place names")
         self.assertContains(map_response, "World_Street_Map")
         self.assertContains(map_response, "maxBounds: rosarioBounds")
-        self.assertContains(map_response, "bounds: rosarioBounds")
         self.assertContains(map_response, "noWrap: true")
+        self.assertContains(map_response, 'id="rosario-map-boundary"')
+        self.assertContains(map_response, "L.polygon(rosarioBoundary")
+        self.assertContains(map_response, "parcelPins")
+        self.assertContains(map_response, "barangay-focus-label")
+        self.assertContains(map_response, "barangayBounds.getCenter()")
         self.assertContains(map_response, "Green dots are saved farm parcel pins")
         self.assertContains(map_response, "keepInView: true")
 
@@ -3011,7 +3019,7 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(response, "Current system overview")
         self.assertContains(response, "Active farmers")
         self.assertContains(response, "Production Snapshot")
-        self.assertContains(response, "Commodity Mix")
+        self.assertContains(response, "Main Commodity Groups")
         self.assertContains(response, "Where Farmers Are Registered")
         self.assertNotContains(response, "Records Needing Attention")
         self.assertContains(response, "Service &amp; Intervention Workload")
@@ -3081,7 +3089,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["managed_land_area"], Decimal("3.25"))
         self.assertEqual(
             {item["label"] for item in response.context["commodity_breakdown"]},
-            {"Rice", "Coffee"},
+            {"Rice", "High Value Crops"},
         )
 
         parcel_list = self.client.get(reverse("farm_parcels:list"))
@@ -3092,7 +3100,7 @@ class FMISRequirementTests(TestCase):
         )
         self.assertIn(inactive_parcel, listed_parcels)
 
-    def test_staff_dashboard_lists_every_commodity_and_barangay_without_other_bucket(self):
+    def test_staff_dashboard_groups_detailed_commodities_and_lists_every_barangay(self):
         commodity_names = ["Coffee", "Banana", "Corn", "Coconut", "Cacao"]
         for name in commodity_names:
             CropRecord.objects.create(
@@ -3113,14 +3121,14 @@ class FMISRequirementTests(TestCase):
         response = self.client.get(reverse("dashboard:staff_home"))
 
         labels = {item["label"] for item in response.context["commodity_breakdown"]}
-        self.assertEqual(labels, {"Rice", *commodity_names})
-        self.assertNotIn("Other commodities", labels)
+        self.assertEqual(labels, {"Rice", "Corn", "Coconut", "High Value Crops"})
+        self.assertNotIn("Other Commodity", labels)
         shown_barangays = {
             item["barangay"] for item in response.context["barangay_distribution"]
         }
         self.assertEqual(shown_barangays, {"Bulihan", *barangays})
         self.assertContains(response, "All barangays")
-        self.assertContains(response, "Coffee")
+        self.assertContains(response, "High Value Crops")
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
     def test_farmer_qr_uses_configured_authenticated_field_address(self):

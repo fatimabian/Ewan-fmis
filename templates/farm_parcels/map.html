@@ -10,8 +10,9 @@
   <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
   <style>
   .farmer-map-page{
-      max-width:1400px;
-      margin:auto
+      width:100%;
+      max-width:none;
+      margin:0
   }
   .map-toolbar{
       display:grid;
@@ -77,6 +78,17 @@
   }
   .map-loading-status i{color:#167b43;font-size:16px}
   .map-loading-status.is-error{color:#a32323}
+  #farmerMap .barangay-focus-label{
+      padding:8px 13px;
+      border:2px solid #087a3d;
+      border-radius:999px;
+      background:#fff;
+      color:#0b4f2e;
+      box-shadow:0 3px 12px rgba(12,67,39,.24);
+      font-size:14px;
+      font-weight:800
+  }
+  #farmerMap .barangay-focus-label::before{display:none}
   .map-count{
       padding:8px 11px;
       border:1px solid var(--ag-border,#dce7e0);
@@ -101,10 +113,10 @@
       cursor:crosshair
   }
   #farmerMap{
-      width:min(100%,980px);
-      height:min(68vh,720px);
-      min-height:440px;
-      margin-inline:auto;
+      width:100%;
+      height:clamp(520px,70vh,780px);
+      min-height:520px;
+      margin:0;
       border:1px solid var(--ag-border,#dce7e0);
       border-radius:14px;
       background:#eaf4ed;
@@ -113,10 +125,11 @@
   }
   #farmerMap .leaflet-control-zoom a,
   #farmerMap .leaflet-control-zoom a:is(:hover,:focus,:active){
-      border-color:rgba(255,255,255,.32)!important;
-      background:#176b3d!important;
-      color:#fff!important;
-      box-shadow:none!important
+      border-color:#a9b8af!important;
+      background:#fff!important;
+      color:#123f2a!important;
+      box-shadow:0 2px 8px rgba(16,56,37,.18)!important;
+      font-weight:800!important
   }
   .map-empty{
       display:none;
@@ -493,18 +506,15 @@
     </div>
     {{ rosario_map_bounds|json_script:"rosario-map-bounds" }}
     {{ rosario_map_center|json_script:"rosario-map-center" }}
+    {{ rosario_boundary|json_script:"rosario-map-boundary" }}
     <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
     <script>
         (() => {
             const markers = [],
                 mapNode = document.getElementById('farmerMap'),
                 mapDataUrl = '{% url "farm_parcels:map_data" %}';
-            const scope = JSON.parse(document.getElementById('rosario-map-bounds').textContent),
-                rosarioCenter = JSON.parse(document.getElementById('rosario-map-center').textContent),
-                rosarioBounds = L.latLngBounds(
-                    [scope.south, scope.west],
-                    [scope.north, scope.east]
-                );
+            const rosarioBoundary = JSON.parse(document.getElementById('rosario-map-boundary').textContent),
+                rosarioBounds = L.latLngBounds(rosarioBoundary);
             const farmerSelect = document.getElementById('pinFarmer'),
                 startPin = document.getElementById('startPin'),
                 pinEditPanel = document.getElementById('pinEditPanel'),
@@ -520,6 +530,7 @@
                 mapLoadingStatus = document.getElementById('mapLoadingStatus'),
                 mapEmpty = document.getElementById('mapEmpty'),
                 markerByFarmer = new Map();
+            let barangayFocusLabel = null;
             const map = L.map(mapNode, {
                 scrollWheelZoom: false,
                 preferCanvas: false,
@@ -532,7 +543,6 @@
                 {
                     maxNativeZoom: 18,
                     maxZoom: 19,
-                    bounds: rosarioBounds,
                     noWrap: true,
                     keepBuffer: 1,
                     updateWhenIdle: true,
@@ -541,21 +551,23 @@
             );
             rosarioStreetMap.addTo(map);
             map.fitBounds(rosarioBounds, {
-                padding: [18, 18]
+                padding: [10, 10]
             });
-            L.rectangle(rosarioBounds, {
-                color: '#f1d34f',
-                weight: 2,
-                opacity: .9,
-                fill: false,
-                dashArray: '7 6',
+            L.polygon(rosarioBoundary, {
+                color: '#087a3d',
+                weight: 4,
+                opacity: 1,
+                fill: true,
+                fillColor: '#51b878',
+                fillOpacity: .08,
                 interactive: false
-            }).addTo(map).bindTooltip('Rosario, Batangas map limit', {
+            }).addTo(map).bindTooltip('Rosario, Batangas boundary', {
                 permanent: false,
                 direction: 'center'
             });
-            const bounds = [];
-            const parcelRenderer = L.svg({padding: .35});
+            map.createPane('parcelPins');
+            map.getPane('parcelPins').style.zIndex = 650;
+            const parcelRenderer = L.svg({pane: 'parcelPins', padding: .5});
             const farmerIcon = L.divIcon({
                 className: 'farmer-pin-shell',
                 html: '<span class="farmer-pin"><i class="bi bi-person-fill"></i></span>',
@@ -635,6 +647,7 @@
             const addMarker = item => {
                 const farmerMarker = L.circleMarker([item.lat, item.lng], {
                     renderer: parcelRenderer,
+                    pane: 'parcelPins',
                     radius: 8,
                     color: '#fff',
                     weight: 2,
@@ -676,7 +689,6 @@
                     beginMoveMarker(farmerMarker)
                 });
                 markerByFarmer.set(String(item.id), farmerMarker);
-                bounds.push([item.lat, item.lng]);
             };
 
             const appendFilterOptions = (select, values) => {
@@ -693,6 +705,10 @@
                 const barangay = barangayFilter.value;
                 const commodity = commodityFilter.value;
                 const visible = [];
+                if (barangayFocusLabel) {
+                    map.removeLayer(barangayFocusLabel);
+                    barangayFocusLabel = null
+                }
                 markers.forEach(item => {
                     const marker = markerByFarmer.get(String(item.id));
                     const matchesBarangay = !barangay || item.barangay === barangay;
@@ -714,10 +730,28 @@
                     : `No mapped parcels match${scopeLabels.length ? ` ${scopeLabels.join(' and ')}` : ' the selected filters'}.`;
                 mapNode.style.display = visible.length ? 'block' : 'none';
                 mapEmpty.style.display = visible.length ? 'none' : 'grid';
+                if (barangay && visible.length) {
+                    const barangayBounds = L.latLngBounds(
+                        visible.map(item => [item.lat, item.lng])
+                    );
+                    const barangayName = document.createElement('strong');
+                    barangayName.textContent = barangay;
+                    barangayFocusLabel = L.tooltip({
+                        permanent: true,
+                        direction: 'center',
+                        className: 'barangay-focus-label',
+                        interactive: false
+                    })
+                        .setLatLng(barangayBounds.getCenter())
+                        .setContent(barangayName)
+                        .addTo(map)
+                }
                 if (fit && visible.length === 1) {
                     map.setView([visible[0].lat, visible[0].lng], 16)
                 } else if (fit && visible.length > 1) {
                     map.fitBounds(visible.map(item => [item.lat, item.lng]), {padding:[35,35],maxZoom:16})
+                } else if (fit && !barangay && !commodity) {
+                    map.fitBounds(rosarioBounds, {padding:[10,10]})
                 }
             };
             barangayFilter.addEventListener('change', () => applyMapFilters());
@@ -908,7 +942,6 @@
                     );
                     visibleMappedCount.textContent = markers.length;
                     unmappedParcelCount.textContent = payload.unmapped_count || 0;
-                    if (bounds.length > 1) map.fitBounds(bounds, {padding:[35,35],maxZoom:16});
                     applyMapFilters(false);
                     mapLoadingStatus.querySelector('i').className = 'bi bi-check-circle-fill';
                     mapLoadingStatus.querySelector('span').textContent =

@@ -290,7 +290,7 @@ def scan_rsbsa_profile(upload):
     api_key = getattr(settings, "OPENAI_API_KEY", "").strip()
     if not api_key:
         raise RSBSAScanError(
-            "Automatic RSBSA reading is not configured yet. Enter the details manually.",
+            "Automatic reading is temporarily unavailable. The RSBSA copy can still be attached while the registration details are entered manually.",
             status=503,
         )
 

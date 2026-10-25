@@ -19,6 +19,7 @@ from django.views.generic import (
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
+from apps.common.constants import commodity_group
 from apps.common.crop_symbols import crop_symbol
 from apps.activity_logs.services import record_request_event
 from apps.activity_logs.models import ActivityLog
@@ -27,25 +28,42 @@ from apps.farmers.history import farmer_snapshot, record_farmer_update
 from apps.crops.models import CropRecord
 from .forms import FarmParcelForm, FarmParcelPhotoUploadForm
 from .models import FarmParcel, FarmParcelPhoto
+from .rosario_boundary import ROSARIO_BOUNDARY
 
 
-# Municipal extent published in Rosario's planning references. The same extent
-# is enforced by the browser and the save endpoint so out-of-town coordinates
+# Municipal extent and simplified administrative outline. The same polygon is
+# enforced by the browser and the save endpoint so out-of-town coordinates
 # cannot be stored by bypassing the map controls.
 ROSARIO_MAP_BOUNDS = {
-    "south": 13.685278,
-    "west": 121.166667,
-    "north": 13.875278,
-    "east": 121.333333,
+    "south": 13.6852949,
+    "west": 121.1638677,
+    "north": 13.8700758,
+    "east": 121.3710798,
 }
-ROSARIO_MAP_CENTER = [13.8467, 121.2060]
+ROSARIO_MAP_CENTER = [13.7776854, 121.2674738]
 
 
 def is_within_rosario(latitude, longitude):
-    return (
+    if not (
         ROSARIO_MAP_BOUNDS["south"] <= latitude <= ROSARIO_MAP_BOUNDS["north"]
         and ROSARIO_MAP_BOUNDS["west"] <= longitude <= ROSARIO_MAP_BOUNDS["east"]
-    )
+    ):
+        return False
+    inside = False
+    previous_latitude, previous_longitude = ROSARIO_BOUNDARY[-1]
+    for current_latitude, current_longitude in ROSARIO_BOUNDARY:
+        crosses_latitude = (current_latitude > latitude) != (previous_latitude > latitude)
+        if crosses_latitude:
+            boundary_longitude = (
+                (previous_longitude - current_longitude)
+                * (latitude - current_latitude)
+                / (previous_latitude - current_latitude)
+                + current_longitude
+            )
+            if longitude < boundary_longitude:
+                inside = not inside
+        previous_latitude, previous_longitude = current_latitude, current_longitude
+    return inside
 
 
 class RoleAwareParcelMixin:
@@ -177,6 +195,7 @@ class FarmParcelMapView(
         context["unmapped_count"] = max(0, total_count - mapped_count)
         context["rosario_map_bounds"] = ROSARIO_MAP_BOUNDS
         context["rosario_map_center"] = ROSARIO_MAP_CENTER
+        context["rosario_boundary"] = ROSARIO_BOUNDARY
         return context
 
 
@@ -220,6 +239,9 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             if not point or not is_within_rosario(*point):
                 continue
             farmer = parcel.farmer
+            commodity_groups = sorted(
+                {commodity_group(crop.crop_type) for crop in parcel.map_crops}
+            )
             markers.append(
                 {
                     "id": parcel.pk,
@@ -230,8 +252,8 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     "barangay": parcel.barangay,
                     "address": f"{parcel.barangay}, Rosario, Batangas",
                     "crops": [
-                        {"name": crop.crop_type, "symbol": crop_symbol(crop.crop_type)}
-                        for crop in parcel.map_crops
+                        {"name": name, "symbol": crop_symbol(name)}
+                        for name in commodity_groups
                     ],
                     "lat": point[0],
                     "lng": point[1],

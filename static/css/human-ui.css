@@ -1833,31 +1833,28 @@ body[data-theme="dark"] .crop-symbol{
 .fmis-pagination{
     display:flex;
     align-items:center;
-    justify-content:flex-end;
-    gap:10px;
+    justify-content:center;
+    gap:7px;
     max-width:100%;
-    overflow-x:auto;
-    padding:3px 1px;
-    scrollbar-width:thin
+    padding:3px 1px
 }
 
 .fmis-page-button,
-.fmis-page-input,
-.fmis-page-ellipsis{
-    width:50px;
-    height:50px;
-    min-height:50px!important;
+.fmis-page-input{
+    width:40px;
+    height:40px;
+    min-height:40px!important;
     display:grid;
-    flex:0 0 50px;
+    flex:0 0 40px;
     place-items:center;
     margin:0;
     padding:0!important;
     border:1px solid #dce3e7!important;
-    border-radius:12px!important;
+    border-radius:8px!important;
     background:#fff!important;
     color:#354052!important;
     box-shadow:none!important;
-    font-size:16px;
+    font-size:14px;
     line-height:1;
     text-align:center;
     text-decoration:none!important
@@ -1876,12 +1873,29 @@ body[data-theme="dark"] .crop-symbol{
 }
 
 .fmis-page-jump{
-    width:50px;
-    flex:0 0 50px;
-    margin:0
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    min-height:40px;
+    margin:0;
+    padding:0 9px;
+    border:1px solid #dce3e7;
+    border-radius:8px;
+    background:#fff;
+    white-space:nowrap
+}
+
+.fmis-page-label,
+.fmis-page-total{
+    color:#617080;
+    font-size:13px;
+    line-height:1
 }
 
 .fmis-page-input{
+    width:46px;
+    flex-basis:46px;
     appearance:textfield;
     border-color:#169b4b!important;
     background:#169b4b!important;
@@ -1902,34 +1916,31 @@ body[data-theme="dark"] .crop-symbol{
     outline-offset:2px
 }
 
-.fmis-page-ellipsis{
-    border-color:transparent!important;
-    background:transparent!important;
-    color:#8a96a5!important;
-    letter-spacing:3px
-}
-
 @media(max-width:600px){
     .fmis-pagination{
         width:100%;
-        justify-content:flex-start;
-        gap:7px
+        gap:5px
     }
 
     .fmis-page-button,
-    .fmis-page-input,
-    .fmis-page-ellipsis{
-        width:42px;
-        height:42px;
-        min-height:42px!important;
-        flex-basis:42px;
-        border-radius:10px!important;
-        font-size:14px
+    .fmis-page-input{
+        width:36px;
+        height:36px;
+        min-height:36px!important;
+        flex-basis:36px;
+        border-radius:7px!important;
+        font-size:13px
     }
 
     .fmis-page-jump{
-        width:42px;
-        flex-basis:42px
+        min-height:36px;
+        gap:5px;
+        padding-inline:7px
+    }
+
+    .fmis-page-label,
+    .fmis-page-total{
+        font-size:12px
     }
 }
 

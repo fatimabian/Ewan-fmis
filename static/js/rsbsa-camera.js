@@ -139,6 +139,12 @@
             return;
         }
         const file = new File([blob], `rsbsa-page-1-${Date.now()}.jpg`, {type: "image/jpeg"});
+        if (typeof DataTransfer !== "function") {
+            captureButton.disabled = false;
+            captureButton.removeAttribute("aria-busy");
+            setStatus("This browser cannot attach the captured photo. Update the browser or use Upload RSBSA.");
+            return;
+        }
         const transfer = new DataTransfer();
         transfer.items.add(file);
         input.files = transfer.files;

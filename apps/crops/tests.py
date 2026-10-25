@@ -95,11 +95,11 @@ class GroupedCropListTests(TestCase):
             ["Rice"],
         )
 
-    def test_chicken_types_are_available_and_do_not_require_area(self):
+    def test_poultry_group_is_available_and_does_not_require_area(self):
         form = CropRecordForm(
             data={
                 "parcel": self.parcel.pk,
-                "crop_type": "Broiler Chicken",
+                "crop_type": "Poultry",
                 "cropping_start_month": "January",
                 "cropping_end_month": "December",
                 "area_hectares": "",
@@ -109,11 +109,11 @@ class GroupedCropListTests(TestCase):
             }
         )
         choices = dict(form.fields["crop_type"].choices)
-        self.assertEqual(choices["Native Chicken"], "🐔 Native Chicken (Manok na Tagalog)")
-        self.assertIn("Rhode Island Red", choices)
-        self.assertIn("Plymouth Rock", choices)
-        self.assertIn("Leghorn", choices)
-        self.assertIn("Gamefowl", choices)
+        self.assertEqual(choices["Poultry"], "🐔 Poultry")
+        self.assertNotIn("Rhode Island Red", choices)
+        self.assertNotIn("Plymouth Rock", choices)
+        self.assertNotIn("Leghorn", choices)
+        self.assertNotIn("Gamefowl", choices)
         self.assertTrue(form.is_valid(), form.errors)
         self.assertIsNone(form.cleaned_data["area_hectares"])
         self.assertEqual(form.cleaned_data["cropping_schedule"], "January - December")

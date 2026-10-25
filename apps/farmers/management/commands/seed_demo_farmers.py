@@ -6,7 +6,7 @@ from django.core.management import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.common.constants import ROSARIO_BARANGAYS
+from apps.common.constants import LIVESTOCK_COMMODITIES, ROSARIO_BARANGAYS
 from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.demo_data import (
@@ -41,9 +41,10 @@ LAST_NAMES = (
     "Magpantay", "Manalo", "Marasigan", "Recto", "Salazar", "Tolentino", "Villanueva",
 )
 CROPS = (
-    "Rice", "Corn", "Coconut", "Banana", "Mango", "Calamansi", "Coffee",
-    "Cacao", "Cassava", "Sweet Potato", "Eggplant", "Tomato", "String Beans",
-    "Squash", "Bitter Gourd", "Chili Pepper", "Leafy Vegetables",
+    "Rice", "Rice", "Rice", "Rice", "Rice", "Rice", "Rice", "Rice",
+    "Corn", "Corn", "Corn", "Corn",
+    "High Value Crops", "High Value Crops", "High Value Crops",
+    "Coconut", "Coconut", "Livestock", "Livestock", "Poultry",
 )
 SERVICE_CODES = (
     "SEED", "FERTILIZER", "SOIL-TEST", "PEST-DISEASE", "CROP-TECH",
@@ -170,12 +171,15 @@ class Command(BaseCommand):
         crop_records = []
         for index, parcel in enumerate(parcels, start=1):
             active = index % 17 != 0
+            commodity = CROPS[(index - 1) % len(CROPS)]
+            animal_commodity = commodity in LIVESTOCK_COMMODITIES
             crop_records.append(
                 CropRecord(
                     parcel=parcel,
-                    crop_type=CROPS[(index - 1) % len(CROPS)],
+                    crop_type=commodity,
                     cropping_schedule=("Jan-Apr", "May-Aug", "Sep-Dec")[index % 3],
-                    area_hectares=parcel.area_hectares,
+                    area_hectares=None if animal_commodity else parcel.area_hectares,
+                    number_of_heads=(10 + index % 190) if animal_commodity else None,
                     is_organic=index % 8 == 0,
                     is_intercrop=index % 6 == 0,
                     planting_date=date(2026, 1 + (index % 9), 1 + (index % 20)),

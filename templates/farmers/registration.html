@@ -53,6 +53,7 @@
     body[data-theme="dark"] .rsbsa-scan-status{border-color:#496357;background:#1b2720;color:#e3f4e9}
     body[data-theme="dark"] .registration-field.scan-filled{border-color:#526177;background:#202823}
     body[data-theme="dark"] .registration-field.scan-needs-review{border-color:#ce5b64;background:#362124}
+    .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
     @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-actions,.rsbsa-scan-selection{width:100%}.rsbsa-scan-trigger{flex:1;justify-content:center}.rsbsa-scan-actions{justify-content:flex-start;flex-wrap:wrap}.rsbsa-camera-dialog{padding:14px}.rsbsa-camera-actions .btn{flex:1}}
   </style>
 {% endblock %}
@@ -535,7 +536,7 @@
 
           async function scanRSBSA(file, requestToken) {
               if (!scanCard || scanCard.dataset.scanConfigured !== 'true') {
-                  rejectSelectedFile('Automatic RSBSA reading is not configured. Remove the upload and enter the registration details manually.');
+                  showScanStatus('RSBSA copy attached. Continue entering the registration details manually.');
                   return
               }
               scanTrigger?.classList.add('is-loading');
@@ -551,6 +552,10 @@
                   });
                   const payload = await response.json().catch(() => ({}));
                   if (requestToken !== scanRequestToken) return;
+                  if (response.status === 503) {
+                      showScanStatus('RSBSA copy attached. Continue entering the registration details manually.');
+                      return
+                  }
                   if (!response.ok) throw new Error(payload.error || 'The form could not be read automatically.');
                   if (scanTokenInput) scanTokenInput.value = payload.scan_token || '';
                   applyScannedFields(payload)
@@ -620,12 +625,48 @@
                   behavior: 'smooth'
               });
               if (number === 5) buildReview()
+              updateNextButtonState()
+          }
+
+          function stepControlIsComplete(field) {
+              if (field.disabled || field.type === 'hidden' || field.closest('.deleted')) return true;
+              const wrapper = field.closest('.registration-field,[data-form-row]');
+              if (wrapper?.hidden) return true;
+              const required = field.required || field.dataset.stepRequired === 'true';
+              if (field.type === 'checkbox') {
+                  if (required && !field.checked) return false
+              } else if (field.type === 'file') {
+                  if (required && !field.files?.length) return false
+              } else {
+                  const value = String(field.value || '').trim();
+                  if (required && !value) return false
+              }
+              return field.checkValidity()
+          }
+
+          function stepIsComplete(step) {
+              return [...step.querySelectorAll('input,select,textarea')]
+                  .every(stepControlIsComplete)
+          }
+
+          function updateNextButtonState() {
+              steps.forEach(step => {
+                  const next = step.querySelector('.next-step');
+                  if (!next) return;
+                  const complete = stepIsComplete(step);
+                  next.disabled = !complete;
+                  next.setAttribute('aria-disabled', String(!complete));
+                  next.title = complete ? '' : 'Complete all required fields in this step to continue.'
+              })
           }
 
           document.querySelectorAll('.next-step').forEach(btn => btn.addEventListener('click', () => {
+              if (btn.disabled || !stepIsComplete(btn.closest('.registration-step'))) return;
               showStep(Math.min(5, current + 1))
           }));
           document.querySelectorAll('.prev-step').forEach(btn => btn.addEventListener('click', () => showStep(Math.max(1, current - 1))));
+          form.addEventListener('input', updateNextButtonState);
+          form.addEventListener('change', updateNextButtonState);
 
           function updateRemoveButtons(prefix) {
               const rows = [...document.querySelectorAll(`#${prefix}-rows .formset-row:not(.deleted)`)];
@@ -650,6 +691,7 @@
               if (prefix === 'parcels' || prefix === 'crops') syncParcelChoices();
               if (prefix === 'parcels') updateOwnershipFields(row);
               if (prefix === 'crops') updateCommodityArea(row);
+              updateNextButtonState();
               row.querySelector('input:not([type=hidden]):not([type=checkbox]),select,textarea')?.focus()
           }
           document.querySelectorAll('.add-form-row').forEach(btn => btn.addEventListener('click', () => addRow(btn.dataset.prefix)));
@@ -668,7 +710,8 @@
                   row.classList.add('deleted')
               } else row.remove();
               updateRemoveButtons(prefix);
-              if (prefix === 'parcels') syncParcelChoices()
+              if (prefix === 'parcels') syncParcelChoices();
+              updateNextButtonState()
           });
 
           function syncParcelChoices() {
@@ -725,7 +768,8 @@
               number.inputMode = rule.inputMode || 'text';
               number.placeholder = rule.placeholder;
               number.title = rule.help;
-              if (help) help.textContent = rule.help
+              if (help) help.textContent = rule.help;
+              updateNextButtonState()
           }
 
           function updateOwnershipFields(row) {
@@ -752,6 +796,7 @@
                   ownerNumber.disabled = !showNumber;
                   ownerNumber.required = showNumber
               }
+              updateNextButtonState()
           }
 
           function updateCommodityArea(row) {
@@ -763,7 +808,8 @@
               area.required = !livestock;
               if (livestock) area.value = '';
               area.placeholder = livestock ? 'Not applicable to livestock' : '';
-              area.closest('.registration-field')?.classList.toggle('field-disabled', livestock)
+              area.closest('.registration-field')?.classList.toggle('field-disabled', livestock);
+              updateNextButtonState()
           }
 
           function updateIndigenousGroup() {
@@ -775,7 +821,8 @@
               wrapper.hidden = !applies;
               group.disabled = !applies;
               group.required = applies;
-              if (!applies) group.value = ''
+              if (!applies) group.value = '';
+              updateNextButtonState()
           }
 
           document.addEventListener('change', event => {
@@ -827,6 +874,7 @@
           activeRows('parcels').forEach(updateOwnershipFields);
           activeRows('crops').forEach(updateCommodityArea);
           syncParcelChoices();
+          updateNextButtonState();
           const serverError = document.querySelector('.registration-step .errorlist');
           if (serverError) {
               const errorStep = serverError.closest('.registration-step');

@@ -2,9 +2,10 @@ from datetime import date, datetime, time, timedelta
 from math import ceil, floor, log10
 
 from django.conf import settings
-from django.db.models import Count, Max, Q, Sum
+from django.db.models import Case, CharField, Count, Max, Q, Sum, Value, When
 from django.utils import timezone
 
+from apps.common.constants import COMMODITY_DETAIL_TO_GROUP
 from apps.common.crop_symbols import crop_symbol
 
 from apps.crops.models import CropRecord
@@ -314,6 +315,24 @@ def staff_dashboard_metrics():
         )
         .order_by("-farmers", "-area", "crop_type")
     )
+    commodity_group_rows = list(
+        rosario_crops.annotate(
+            commodity_group=Case(
+                *[
+                    When(crop_type__iexact=detail, then=Value(group))
+                    for detail, group in COMMODITY_DETAIL_TO_GROUP.items()
+                ],
+                default=Value("Other Commodity"),
+                output_field=CharField(),
+            )
+        )
+        .values("commodity_group")
+        .annotate(
+            records=Count("id"),
+            farmers=Count("parcel__farmer", distinct=True),
+        )
+        .order_by("-records", "commodity_group")
+    )
     attention_chart = [
         {
             "key": "registration",
@@ -359,13 +378,13 @@ def staff_dashboard_metrics():
     attention_priority = max(attention_chart, key=lambda item: item["count"])
 
     sorted_commodity_rows = sorted(
-        recommendation_rows,
-        key=lambda row: (-int(row["records"] or 0), row["crop_type"] or ""),
+        commodity_group_rows,
+        key=lambda row: (-int(row["records"] or 0), row["commodity_group"] or ""),
     )
     total_crops = sum(int(row["records"] or 0) for row in sorted_commodity_rows)
     commodity_breakdown = [
         {
-            "label": row["crop_type"] or "Not recorded",
+            "label": row["commodity_group"] or "Other Commodity",
             "records": int(row["records"] or 0),
             "farmers": (
                 int(row["farmers"] or 0)

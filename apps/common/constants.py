@@ -55,44 +55,16 @@ ROSARIO_MUNICIPALITY = "Rosario"
 ROSARIO_PROVINCE = "Batangas"
 ROSARIO_REGION = "CALABARZON Region IV-A"
 
-# Rosario crop, livestock, and poultry commodities. Livestock terminology follows
-# the commodity names used by the Philippine Statistics Authority.
+# Broad commodity groups used by Rosario's Office for Agricultural Services.
+# Detailed legacy entries remain mapped below so old records keep their meaning
+# while summaries and new encoding use a short, consistent municipal catalog.
 _ROSARIO_CROP_LABELS = (
     ("Rice", "Rice (Palay)"),
     ("Corn", "Corn"),
     ("Coconut", "Coconut"),
-    ("Banana", "Banana"),
-    ("Mango", "Mango"),
-    ("Calamansi", "Calamansi"),
-    ("Coffee", "Coffee"),
-    ("Cacao", "Cacao"),
-    ("Cassava", "Cassava"),
-    ("Sweet Potato", "Sweet Potato (Kamote)"),
-    ("Peanut", "Peanut"),
-    ("Mung Bean", "Mung Bean (Monggo)"),
-    ("Eggplant", "Eggplant"),
-    ("Tomato", "Tomato"),
-    ("String Beans", "String Beans (Sitaw)"),
-    ("Squash", "Squash (Kalabasa)"),
-    ("Bitter Gourd", "Bitter Gourd (Ampalaya)"),
-    ("Chili Pepper", "Chili Pepper"),
-    ("Leafy Vegetables", "Leafy Vegetables"),
-    ("Carabao", "Carabao"),
-    ("Cattle", "Cattle"),
-    ("Swine", "Swine"),
-    ("Goat", "Goat"),
-    ("Sheep", "Sheep"),
-    ("Broiler Chicken", "Broiler Chicken"),
-    ("Layer Chicken", "Layer Chicken"),
-    ("Native Chicken", "Native Chicken (Manok na Tagalog)"),
-    ("Rhode Island Red", "Rhode Island Red"),
-    ("Plymouth Rock", "Plymouth Rock"),
-    ("Leghorn", "Leghorn"),
-    ("Gamefowl", "Gamefowl (Panabong)"),
-    ("Duck", "Duck"),
-    ("Quail", "Quail"),
-    ("Turkey", "Turkey"),
-    ("Rabbit", "Rabbit"),
+    ("High Value Crops", "High Value Crops (fruits, vegetables, root crops, coffee, and cacao)"),
+    ("Livestock", "Livestock"),
+    ("Poultry", "Poultry"),
     ("Other Crop / Commodity", "Other Commodity"),
 )
 ROSARIO_CROP_CHOICES = (("", "Select crop or commodity"),) + tuple(
@@ -101,11 +73,63 @@ ROSARIO_CROP_CHOICES = (("", "Select crop or commodity"),) + tuple(
 
 LIVESTOCK_COMMODITIES = frozenset(
     {
+        "Livestock", "Poultry",
         "Carabao", "Cattle", "Swine", "Goat", "Sheep", "Broiler Chicken",
         "Layer Chicken", "Native Chicken", "Rhode Island Red", "Plymouth Rock",
         "Leghorn", "Gamefowl", "Duck", "Quail", "Turkey", "Rabbit",
     }
 )
+
+COMMODITY_DETAIL_TO_GROUP = {
+    "Rice": "Rice",
+    "Corn": "Corn",
+    "Coconut": "Coconut",
+    "High Value Crops": "High Value Crops",
+    "Banana": "High Value Crops",
+    "Mango": "High Value Crops",
+    "Calamansi": "High Value Crops",
+    "Coffee": "High Value Crops",
+    "Cacao": "High Value Crops",
+    "Cassava": "High Value Crops",
+    "Sweet Potato": "High Value Crops",
+    "Peanut": "High Value Crops",
+    "Mung Bean": "High Value Crops",
+    "Eggplant": "High Value Crops",
+    "Tomato": "High Value Crops",
+    "String Beans": "High Value Crops",
+    "Squash": "High Value Crops",
+    "Bitter Gourd": "High Value Crops",
+    "Chili Pepper": "High Value Crops",
+    "Leafy Vegetables": "High Value Crops",
+    "Livestock": "Livestock",
+    "Carabao": "Livestock",
+    "Cattle": "Livestock",
+    "Swine": "Livestock",
+    "Goat": "Livestock",
+    "Sheep": "Livestock",
+    "Rabbit": "Livestock",
+    "Poultry": "Poultry",
+    "Broiler Chicken": "Poultry",
+    "Layer Chicken": "Poultry",
+    "Native Chicken": "Poultry",
+    "Rhode Island Red": "Poultry",
+    "Plymouth Rock": "Poultry",
+    "Leghorn": "Poultry",
+    "Gamefowl": "Poultry",
+    "Duck": "Poultry",
+    "Quail": "Poultry",
+    "Turkey": "Poultry",
+    "Other Crop / Commodity": "Other Commodity",
+}
+_COMMODITY_GROUP_LOOKUP = {
+    name.casefold(): group for name, group in COMMODITY_DETAIL_TO_GROUP.items()
+}
+
+
+def commodity_group(value):
+    """Return the municipal summary group without altering the saved detail."""
+    normalized = (value or "").strip().casefold()
+    return _COMMODITY_GROUP_LOOKUP.get(normalized, "Other Commodity")
 
 # Philippine Standard Geographic Code (PSGC), Municipality of Rosario,
 # Batangas. Verified against the PSA list of 48 barangays.
