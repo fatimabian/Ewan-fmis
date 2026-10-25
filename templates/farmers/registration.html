@@ -10,20 +10,21 @@
   <link rel="stylesheet" href="{% static 'css/compact-file-upload.css' %}">
   <style>
     .rsbsa-scan-card{margin:18px 0;padding:14px 16px;border:1px solid #a9d4bc;border-left:3px solid var(--fmis-accent);background:#f4fbf7}
-    .rsbsa-scan-card-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .rsbsa-scan-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
     .rsbsa-scan-card-title{display:flex;align-items:center;gap:10px;min-width:0}
     .rsbsa-scan-card-title>i{display:grid;flex:0 0 34px;width:34px;height:34px;place-items:center;border-radius:4px;background:#e0f3e8;color:#08763e;font-size:1rem}
     .rsbsa-scan-card h2{margin:0 0 2px;font-size:.95rem}
     .rsbsa-scan-card p{margin:0;color:#52675b;font-size:.8rem;line-height:1.35}
-    .rsbsa-scan-actions{display:flex;flex:0 0 auto;align-items:center;justify-content:flex-end;gap:8px;min-width:210px}
+    .rsbsa-scan-controls{display:flex;flex:0 0 auto;width:min(360px,100%);flex-direction:column;align-items:flex-end;gap:7px}
+    .rsbsa-scan-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px}
     .rsbsa-scan-trigger{padding:7px 10px;font-size:.78rem}
     .rsbsa-scan-trigger[hidden]{display:none!important}
     .rsbsa-scan-input{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important}
-    .rsbsa-scan-selection{display:flex;align-items:center;gap:8px;width:min(350px,100%);min-height:36px;padding:7px 9px;border:1px solid #8b9490;background:#fff}
+    .rsbsa-scan-selection{display:flex;align-items:center;align-self:flex-end;gap:6px;width:auto;max-width:100%;min-height:30px;padding:4px 5px 4px 8px;border:1px solid #8b9490;border-radius:4px;background:#fff}
     .rsbsa-scan-selection[hidden]{display:none!important}
-    .rsbsa-scan-remove{display:grid;flex:0 0 24px;width:24px;height:24px;margin-left:auto;padding:0;place-items:center;border:0;background:transparent;color:#4d5550;font-size:1.1rem;line-height:1;cursor:pointer}
+    .rsbsa-scan-remove{display:grid;flex:0 0 22px;width:22px;height:22px;margin-left:3px;padding:0;place-items:center;border:0;border-radius:3px;background:transparent;color:#4d5550;font-size:1rem;line-height:1;cursor:pointer}
     .rsbsa-scan-remove:hover,.rsbsa-scan-remove:focus-visible{background:#dde3df;color:#ad1d2b;outline:2px solid #87aa96}
-    .rsbsa-scan-meta{display:flex;align-items:baseline;gap:5px;min-width:0;color:#5b655f;font-size:.75rem}
+    .rsbsa-scan-meta{display:flex;align-items:baseline;gap:5px;min-width:0;max-width:310px;color:#5b655f;font-size:.75rem}
     .rsbsa-scan-meta strong{overflow:hidden;color:#1766b1;text-overflow:ellipsis;white-space:nowrap}
     .rsbsa-scan-status{margin-top:9px;padding:8px 10px;border:1px solid #bed7c8;background:#fff;color:#244535;font-size:.78rem}
     .rsbsa-scan-status.is-error{border-color:#dc8c94;background:#fff5f5;color:#a20d1d}
@@ -54,7 +55,7 @@
     body[data-theme="dark"] .registration-field.scan-filled{border-color:#526177;background:#202823}
     body[data-theme="dark"] .registration-field.scan-needs-review{border-color:#ce5b64;background:#362124}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
-    @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-actions,.rsbsa-scan-selection{width:100%}.rsbsa-scan-trigger{flex:1;justify-content:center}.rsbsa-scan-actions{justify-content:flex-start;flex-wrap:wrap}.rsbsa-camera-dialog{padding:14px}.rsbsa-camera-actions .btn{flex:1}}
+    @media(max-width:760px){.rsbsa-scan-card-head{flex-direction:column}.rsbsa-scan-controls{width:100%;align-items:flex-start}.rsbsa-scan-selection{align-self:flex-start}.rsbsa-scan-trigger{flex:1;justify-content:center}.rsbsa-scan-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.rsbsa-camera-dialog{padding:14px}.rsbsa-camera-actions .btn{flex:1}}
   </style>
 {% endblock %}
 {% block content %}
@@ -71,18 +72,10 @@
               <i class="bi bi-camera" aria-hidden="true"></i>
               <div>
                 <h2>RSBSA form <span style="font-weight:400">(optional)</span></h2>
-              <p>Upload or capture a clear, complete page 1. FMIS will verify the form and prefill readable fields for review.</p>
+                <p>Upload or capture a clear, complete page 1. FMIS will verify the form and prefill readable fields for review.</p>
               </div>
             </div>
-            <div class="rsbsa-scan-actions">
-              <label class="btn btn-success rsbsa-scan-trigger" for="{{ profile_form.rsbsa_form.id_for_label }}">
-                <i class="bi bi-upload" aria-hidden="true"></i>
-                Upload RSBSA
-              </label>
-              <button type="button" class="btn btn-add-outline rsbsa-scan-trigger" id="rsbsaCameraOpen">
-                <i class="bi bi-camera-fill" aria-hidden="true"></i>
-                Use camera
-              </button>
+            <div class="rsbsa-scan-controls">
               <div class="rsbsa-scan-selection" id="rsbsaScanSelection" hidden>
                 <div class="rsbsa-scan-meta">
                   <strong id="rsbsaScanFileName"></strong>
@@ -93,6 +86,16 @@
                         id="rsbsaScanRemove"
                         aria-label="Remove selected RSBSA form"
                         title="Remove and choose another file">&times;</button>
+              </div>
+              <div class="rsbsa-scan-actions">
+                <label class="btn btn-success rsbsa-scan-trigger" for="{{ profile_form.rsbsa_form.id_for_label }}">
+                  <i class="bi bi-upload" aria-hidden="true"></i>
+                  Upload RSBSA
+                </label>
+                <button type="button" class="btn btn-add-outline rsbsa-scan-trigger" id="rsbsaCameraOpen">
+                  <i class="bi bi-camera-fill" aria-hidden="true"></i>
+                  Use camera
+                </button>
               </div>
             </div>
           </div>

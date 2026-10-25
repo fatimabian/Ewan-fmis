@@ -961,6 +961,10 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, "rsbsa-camera.js")
         self.assertContains(response, "Review every highlighted value")
         self.assertContains(response, 'id="rsbsaScanSelection"')
+        self.assertLess(
+            response.content.index(b'id="rsbsaScanSelection"'),
+            response.content.index(b'Upload RSBSA'),
+        )
         self.assertContains(response, "RSBSA form")
         self.assertContains(response, "(optional)")
         self.assertContains(response, "FMIS will verify the form")
@@ -2306,7 +2310,8 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(map_response, 'name="map_layer"')
         self.assertNotContains(map_response, "Terrain with place names")
         self.assertNotContains(map_response, "Street map with place names")
-        self.assertContains(map_response, "World_Street_Map")
+        self.assertContains(map_response, "World_Imagery")
+        self.assertContains(map_response, "World_Boundaries_and_Places")
         self.assertContains(map_response, "maxBounds: rosarioBounds")
         self.assertContains(map_response, "noWrap: true")
         self.assertContains(map_response, 'id="rosario-map-boundary"')

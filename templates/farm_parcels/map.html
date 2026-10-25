@@ -538,18 +538,31 @@
                 maxBoundsViscosity: 1,
                 minZoom: 11
             });
-            const rosarioStreetMap = L.tileLayer(
-                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+            const rosarioImagery = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                 {
                     maxNativeZoom: 18,
                     maxZoom: 19,
                     noWrap: true,
                     keepBuffer: 1,
                     updateWhenIdle: true,
-                    attribution: 'Map &copy; Esri and contributors'
+                    attribution: 'Imagery &copy; Esri and imagery providers'
                 }
             );
-            rosarioStreetMap.addTo(map);
+            const rosarioLabels = L.tileLayer(
+                'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+                {
+                    maxNativeZoom: 18,
+                    maxZoom: 19,
+                    noWrap: true,
+                    keepBuffer: 1,
+                    updateWhenIdle: true,
+                    pane: 'overlayPane',
+                    attribution: 'Place labels &copy; Esri'
+                }
+            );
+            rosarioImagery.addTo(map);
+            rosarioLabels.addTo(map);
             map.fitBounds(rosarioBounds, {
                 padding: [10, 10]
             });
