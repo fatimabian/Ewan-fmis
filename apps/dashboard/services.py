@@ -25,20 +25,20 @@ STAFF_DASHBOARD_CACHE_KEY = "fmis:dashboard:staff:v1"
 
 # A restrained, agriculture-inspired palette keeps the commodity chart readable
 # without the harsh rainbow effect produced by evenly-spaced HSL hues.  The
-# final neutral is reserved for the aggregated "Others" slice.
+# final soft green is reserved for the aggregated "Others" slice.
 COMMODITY_CHART_COLORS = (
-    "#2F7D5C",  # forest
-    "#3B8EA5",  # teal blue
-    "#5C6F91",  # slate blue
-    "#8A6FA8",  # muted violet
-    "#D29A48",  # harvest gold
-    "#C46D5E",  # terracotta
-    "#6F8F72",  # sage
-    "#4E8098",  # steel blue
-    "#9B7E46",  # ochre
-    "#A65A74",  # muted berry
+    "#239B68",  # emerald
+    "#2F9DB5",  # teal blue
+    "#5B7FC5",  # cornflower
+    "#8B6FC0",  # violet
+    "#E0A63A",  # harvest gold
+    "#D76A5B",  # coral
+    "#6EAA45",  # leaf green
+    "#3C8FC1",  # sky blue
+    "#C88B2E",  # amber
+    "#C15C82",  # berry
 )
-COMMODITY_OTHERS_COLOR = "#88958D"
+COMMODITY_OTHERS_COLOR = "#6F9B83"
 
 
 def _cached_dashboard(key, builder):

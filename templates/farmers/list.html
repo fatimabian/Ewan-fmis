@@ -247,9 +247,9 @@
         </select>
       </label>
       <label>
-        Archive Status<select name="status" onchange="this.form.submit()">
-        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Current Records</option>
-        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Archived Records</option>
+        Active Status<select name="status" onchange="this.form.submit()">
+        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
         <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All Records</option>
         </select>
       </label>
@@ -267,7 +267,7 @@
               <th>Contact Number</th>
               <th>RSBSA ID</th>
               <th>Registration Status</th>
-              <th>Archive Status</th>
+              <th>Active Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -288,7 +288,7 @@
                 <td>
                   <span class="farmer-status status-{{ farmer.registration_status|lower }}">{{ farmer.get_registration_status_display }}</span>
                 </td>
-                <td><span class="farmer-status status-{% if farmer.is_active %}completed{% else %}cancelled{% endif %}">{% if farmer.is_active %}Current{% else %}Archived{% endif %}</span></td>
+                <td><span class="farmer-status status-{% if farmer.is_active %}completed{% else %}cancelled{% endif %}">{% if farmer.is_active %}Active{% else %}Inactive{% endif %}</span></td>
                 <td>
                   <div class="farmer-actions">
                     <span class="farmer-action-slot" aria-hidden="{% if farmer.is_active and farmer.registration_status == 'COMPLETED' and farmer.rsbsa_number %}false{% else %}true{% endif %}">

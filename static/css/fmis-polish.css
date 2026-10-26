@@ -426,7 +426,7 @@ body .sidebar nav a:hover,body .sidebar nav a.active{
 .notification-list-item{
     margin:0
 }
-.notification-list-item>button{
+.notification-list-item>summary{
     width:100%;
     display:flex;
     align-items:center;
@@ -439,13 +439,14 @@ body .sidebar nav a:hover,body .sidebar nav a.active{
     text-align:left;
     cursor:pointer
 }
-.notification-list-item.is-unread>button{
+.notification-list-item>summary::-webkit-details-marker{display:none}
+.notification-list-item.is-unread>summary{
     border-color:#acd6bd;
     background:#f5fbf7;
     box-shadow:inset 4px 0 var(--fmis-accent)
 }
-.notification-list-item>button:hover,
-.notification-list-item>button:focus-visible{
+.notification-list-item>summary:hover,
+.notification-list-item>summary:focus-visible{
     border-color:var(--fmis-accent);
     outline:2px solid color-mix(in srgb,var(--fmis-accent) 18%,transparent)
 }
@@ -480,6 +481,42 @@ body .sidebar nav a:hover,body .sidebar nav a.active{
     font-size:9px;
     font-weight:800
 }
+.notification-chevron{transition:transform .18s ease}
+.notification-list-item[open] .notification-chevron{transform:rotate(180deg)}
+.notification-change-detail{
+    padding:18px 22px 20px 78px;
+    border:1px solid #dde7e1;
+    border-top:0;
+    background:#fbfdfb
+}
+.notification-change-facts{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;
+    margin:0 0 16px
+}
+.notification-change-facts div{
+    min-width:0;
+    padding:10px 12px;
+    border:1px solid #dfe8e2;
+    background:#fff
+}
+.notification-change-facts dt{
+    margin-bottom:4px;
+    color:#6d7b73;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase
+}
+.notification-change-facts dd{margin:0;overflow-wrap:anywhere;font-size:12px;font-weight:700}
+.notification-change-table{width:100%;border-collapse:collapse;font-size:12px}
+.notification-change-table th,.notification-change-table td{padding:9px 11px;border:1px solid #dfe7e2;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.notification-change-table th{background:#edf5f0}
+.notification-before{background:#fffafa;color:#8a4b45}
+.notification-after{background:#f8fffa;color:#17623b}
+.notification-change-note,.notification-change-reason{margin:0 0 14px;padding:11px 13px;border-left:3px solid var(--fmis-accent);background:#edf8f1;color:#34483c;font-size:12px}
+.notification-open-record{margin-top:14px}
 .notification-empty{
     display:grid;
     place-items:center;
@@ -493,12 +530,12 @@ body .sidebar nav a:hover,body .sidebar nav a.active{
 .notification-empty i{margin-bottom:10px;font-size:30px;color:#8ba898}
 .notification-empty strong{color:#24364b}
 .notification-empty p{margin:5px 0 0;font-size:12px}
-body[data-theme="dark"] :is(.notification-preview-list button,.notification-list-item>button,.notification-empty){
+body[data-theme="dark"] :is(.notification-preview-list button,.notification-list-item>summary,.notification-change-detail,.notification-change-facts div,.notification-empty){
     background:#2b2b2b!important;
     color:#ededed!important;
     border-color:#454545!important
 }
-body[data-theme="dark"] :is(.notification-preview-list button.is-unread,.notification-list-item.is-unread>button){
+body[data-theme="dark"] :is(.notification-preview-list button.is-unread,.notification-list-item.is-unread>summary){
     background:#253129!important
 }
 body[data-theme="dark"] :is(.notification-panel-heading,.notification-preview-list button){
@@ -507,10 +544,14 @@ body[data-theme="dark"] :is(.notification-panel-heading,.notification-preview-li
 body[data-theme="dark"] :is(.notification-item-copy>span,.notification-item-copy small,.notification-preview-list button small,.notification-preview-list button time,.notification-page-header p){
     color:#bdbdbd!important
 }
+body[data-theme="dark"] :is(.notification-change-table th,.notification-before,.notification-after,.notification-change-note,.notification-change-reason){background:#202b28!important;color:#edf3fa!important;border-color:#46554c!important}
 @media(max-width:600px){
     .notification-page-header{flex-direction:column}
     .notification-page-header form,.notification-page-header button{width:100%}
     .notification-unread-marker{display:none}
+    .notification-change-detail{padding:15px}
+    .notification-change-facts{grid-template-columns:1fr 1fr}
+    .notification-change-table{display:block;overflow-x:auto}
 }
 .notification-panel strong{
     font-family:"Trebuchet MS",Arial,sans-serif;

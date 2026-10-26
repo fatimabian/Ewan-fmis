@@ -39,6 +39,26 @@ HTML_LETTERS_PATTERN = r"[A-Za-zÑñÁÉÍÓÚÜáéíóúü .,'’\-]+"
 HTML_MIXED_PATTERN = r"[A-Za-z0-9ÑñÁÉÍÓÚÜáéíóúü .,:#&'’_/()\-]+"
 
 
+class MultipleFarmerDocumentField(forms.FileField):
+    """Validate any number of files submitted through one upload control."""
+
+    widget = MultipleFileInput
+
+    def clean(self, data, initial=None):
+        uploads = data if isinstance(data, (list, tuple)) else [data]
+        uploads = [upload for upload in uploads if upload]
+        if not uploads:
+            if self.required:
+                raise ValidationError(self.error_messages["required"], code="required")
+            return []
+        return [
+            validate_farmer_document_upload(
+                super(MultipleFarmerDocumentField, self).clean(upload, initial)
+            )
+            for upload in uploads
+        ]
+
+
 def configure_registration_inputs(form, *, letters=(), digits=(), mixed=()):
     """Describe allowed input to browsers while server validation remains authoritative."""
 
@@ -198,28 +218,17 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         required=True,
         label="Valid ID type",
     )
-    rsbsa_form = forms.FileField(
+    rsbsa_form = MultipleFarmerDocumentField(
         required=False,
-        label="RSBSA copy 1",
-        help_text="Optional. Upload a readable JPG, PNG, or PDF; maximum 5 MB.",
-        widget=forms.ClearableFileInput(
+        label="RSBSA copies",
+        help_text="Optional. Upload readable JPG, PNG, or PDF files; maximum 5 MB each.",
+        widget=MultipleFileInput(
             attrs={
                 "accept": "image/jpeg,image/png,.pdf",
                 "data-rsbsa-camera-source": "true",
+                "data-rsbsa-file-input": "true",
             }
         ),
-    )
-    rsbsa_form_2 = forms.FileField(
-        required=False,
-        label="RSBSA copy 2",
-        help_text="Optional additional page or copy; maximum 5 MB.",
-        widget=forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png,.pdf"}),
-    )
-    rsbsa_form_3 = forms.FileField(
-        required=False,
-        label="RSBSA copy 3",
-        help_text="Optional additional page or copy; maximum 5 MB.",
-        widget=forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png,.pdf"}),
     )
     is_indigenous = YesNoNAField(label="Member of an Indigenous People / ICC")
     is_pwd = YesNoNAField(label="Person with Disability (PWD)")
@@ -403,20 +412,6 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             )
         return value
 
-    def clean_rsbsa_form(self):
-        upload = self.cleaned_data.get("rsbsa_form")
-        if not upload:
-            return upload
-        return validate_farmer_document_upload(upload)
-
-    def clean_rsbsa_form_2(self):
-        upload = self.cleaned_data.get("rsbsa_form_2")
-        return validate_farmer_document_upload(upload) if upload else upload
-
-    def clean_rsbsa_form_3(self):
-        upload = self.cleaned_data.get("rsbsa_form_3")
-        return validate_farmer_document_upload(upload) if upload else upload
-
     def clean(self):
         cleaned = super().clean()
         validate_registration_inputs(
@@ -528,8 +523,6 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields.pop("rsbsa_form", None)
-        self.fields.pop("rsbsa_form_2", None)
-        self.fields.pop("rsbsa_form_3", None)
         # Older clients and saved drafts may omit the new tri-state fields.
         # Preserve the stored value on updates instead of silently replacing it.
         for name in ("is_indigenous", "is_pwd", "is_four_ps"):

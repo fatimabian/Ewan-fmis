@@ -36,7 +36,7 @@
             <span class="status-text-{{ object.registration_status|lower }}">{{ object.get_registration_status_display }}</span>
           </small>
           <h2>{{ object.full_name }}</h2>
-          <p>{{ object.barangay }}, {{ object.city_municipality }}, {{ object.province }} · {% if object.is_active %}Active record{% else %}Archived record{% endif %}</p>
+          <p>{{ object.barangay }}, {{ object.city_municipality }}, {{ object.province }} · {% if object.is_active %}Active record{% else %}Inactive record{% endif %}</p>
         </div>
       </header>
 

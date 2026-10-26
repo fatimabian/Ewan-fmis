@@ -35,6 +35,7 @@
   .activity-row{
       position:relative;
       border:1px solid #e4ebf0;
+      border-left:4px solid var(--fmis-accent,#168052);
       border-radius:11px;
       margin-bottom:10px;
       overflow:hidden;
@@ -42,11 +43,16 @@
   }
   .activity-row[open]{
       border-color:#b9d9c9;
+      border-left-color:var(--fmis-accent,#168052);
       box-shadow:0 8px 24px #153d2910
   }
   .activity-row.is-highlighted{
       border-color:var(--fmis-accent);
+      border-left-color:var(--fmis-accent,#168052);
       box-shadow:0 0 0 3px color-mix(in srgb,var(--fmis-accent) 18%,transparent)
+  }
+  body[data-theme="dark"] .activity-row{
+      border-left-color:#65a989!important
   }
   .activity-summary{
       display:grid;

@@ -1,9 +1,10 @@
 import re
 import mimetypes
+from math import floor
 
 from django.contrib import messages
 from django.core.cache import cache
-from django.db.models import Case, Count, IntegerField, Prefetch, Q, Value, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.http import FileResponse, JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
@@ -22,6 +23,7 @@ from django.views.generic import (
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
 from apps.common.constants import ROSARIO_BARANGAYS, commodity_group
+from apps.farm_parcels.demo_locations import ROSARIO_BARANGAY_CENTERS
 from apps.common.crop_symbols import crop_symbol
 from apps.activity_logs.services import record_request_event
 from apps.activity_logs.models import ActivityLog
@@ -43,6 +45,8 @@ ROSARIO_MAP_BOUNDS = {
     "east": 121.3710798,
 }
 ROSARIO_MAP_CENTER = [13.7776854, 121.2674738]
+FARM_PARCEL_CLUSTER_SIZE = 0.006
+FARM_PARCEL_MAP_PAGE_SIZE = 25
 
 
 def is_within_rosario(latitude, longitude):
@@ -80,6 +84,13 @@ def parcel_pin_status(coordinates, remarks=""):
     ):
         return "NEEDS_VERIFICATION"
     return "PINNED"
+
+
+def parcel_cluster_key(latitude, longitude):
+    """Return a stable display cell without altering the stored coordinates."""
+    row = floor((latitude - ROSARIO_MAP_BOUNDS["south"]) / FARM_PARCEL_CLUSTER_SIZE)
+    column = floor((longitude - ROSARIO_MAP_BOUNDS["west"]) / FARM_PARCEL_CLUSTER_SIZE)
+    return f"{row}:{column}"
 
 
 class RoleAwareParcelMixin:
@@ -225,88 +236,257 @@ class FarmParcelMapView(
 
 
 class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
-    """Return compact map data after the page shell has rendered."""
+    """Return overview markers or actual-coordinate clusters on demand."""
 
     def get(self, request):
+        requested_barangay = request.GET.get("barangay", "").strip()
+        if requested_barangay and requested_barangay not in ROSARIO_BARANGAYS:
+            return JsonResponse({"message": "Choose a valid Rosario barangay."}, status=400)
+        requested_commodity = request.GET.get("commodity", "").strip()
+        commodity_parcels = {}
+        for crop_row in CropRecord.objects.filter(is_active=True).values(
+            "parcel_id", "crop_type"
+        ).iterator(chunk_size=1000):
+            group = commodity_group(crop_row["crop_type"])
+            commodity_parcels.setdefault(group, set()).add(crop_row["parcel_id"])
+        if requested_commodity and requested_commodity not in commodity_parcels:
+            return JsonResponse({"message": "Choose a valid commodity."}, status=400)
         active_parcels = FarmParcel.objects.filter(
             is_active=True,
             farmer__is_active=True,
         )
+        if requested_commodity:
+            active_parcels = active_parcels.filter(
+                pk__in=commodity_parcels[requested_commodity]
+            )
         totals_by_barangay = dict(
             active_parcels.values("barangay")
             .annotate(total=Count("pk"))
             .values_list("barangay", "total")
         )
-        parcels = (
-            active_parcels
-            .exclude(coordinates="")
-            .only(
-                "pk",
-                "coordinates",
-                "barangay",
-                "remarks",
-            )
-            .prefetch_related(
-                Prefetch(
-                    "crops",
-                    queryset=CropRecord.objects.filter(is_active=True)
-                    .only("parcel_id", "crop_type")
-                    .order_by("crop_type", "pk"),
-                    to_attr="map_crops",
-                )
-            )
-            .order_by("pk")
-        )
-        markers = []
+        coordinate_rows = active_parcels.values(
+            "pk", "coordinates", "barangay", "remarks"
+        ).iterator(chunk_size=1000)
+        points_by_barangay = {}
         mapped_by_barangay = {}
         verification_by_barangay = {}
-        for parcel in parcels.iterator(chunk_size=500):
-            point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
+        for row in coordinate_rows:
+            pin_status = parcel_pin_status(row["coordinates"], row["remarks"])
+            if pin_status == "NEEDS_VERIFICATION":
+                verification_by_barangay[row["barangay"]] = (
+                    verification_by_barangay.get(row["barangay"], 0) + 1
+                )
+            point = FarmParcelMapView.parse_coordinates(row["coordinates"])
             if not point or not is_within_rosario(*point):
                 continue
-            commodity_groups = sorted(
-                {commodity_group(crop.crop_type) for crop in parcel.map_crops}
+            points_by_barangay.setdefault(row["barangay"], []).append(
+                {"id": row["pk"], "lat": point[0], "lng": point[1]}
             )
-            pin_status = parcel_pin_status(parcel.coordinates, parcel.remarks)
-            markers.append(
+            mapped_by_barangay[row["barangay"]] = (
+                mapped_by_barangay.get(row["barangay"], 0) + 1
+            )
+        total_count = sum(totals_by_barangay.values())
+        barangay_counts = {
+            barangay: {
+                "total": total,
+                "mapped": mapped_by_barangay.get(barangay, 0),
+                "unmapped": max(0, total - mapped_by_barangay.get(barangay, 0)),
+                "needs_verification": verification_by_barangay.get(barangay, 0),
+            }
+            for barangay, total in totals_by_barangay.items()
+        }
+        mapped_count = sum(mapped_by_barangay.values())
+        payload = {
+            "count": mapped_count,
+            "unmapped_count": max(0, total_count - mapped_count),
+            "verification_count": sum(verification_by_barangay.values()),
+            "barangay_counts": barangay_counts,
+            "commodities": sorted(commodity_parcels),
+            "commodity": requested_commodity,
+        }
+
+        if not requested_barangay:
+            barangay_markers = []
+            for barangay in ROSARIO_BARANGAYS:
+                points = points_by_barangay.get(barangay, [])
+                reference_point = ROSARIO_BARANGAY_CENTERS.get(barangay)
+                if not points and reference_point is None:
+                    continue
+                latitudes = [point["lat"] for point in points]
+                longitudes = [point["lng"] for point in points]
+                marker_point = reference_point or (
+                    sum(latitudes) / len(latitudes),
+                    sum(longitudes) / len(longitudes),
+                )
+                counts = barangay_counts.get(
+                    barangay,
+                    {"mapped": 0, "unmapped": 0, "needs_verification": 0},
+                )
+                barangay_markers.append(
+                    {
+                        "name": barangay,
+                        "lat": marker_point[0],
+                        "lng": marker_point[1],
+                        "mapped": len(points),
+                        "unmapped": counts["unmapped"],
+                        "needs_verification": counts["needs_verification"],
+                        "bounds": (
+                            [
+                                [min(latitudes), min(longitudes)],
+                                [max(latitudes), max(longitudes)],
+                            ]
+                            if points
+                            else [[marker_point[0], marker_point[1]], [marker_point[0], marker_point[1]]]
+                        ),
+                    }
+                )
+            payload.update(
                 {
-                    "id": parcel.pk,
-                    "parcel": parcel.display_name,
-                    "barangay": parcel.barangay,
-                    "crops": [
-                        {"name": name, "symbol": crop_symbol(name)}
-                        for name in commodity_groups
-                    ],
-                    "lat": point[0],
-                    "lng": point[1],
-                    "pin_status": pin_status,
+                    "mode": "overview",
+                    "markers": [],
+                    "clusters": [],
+                    "barangays": barangay_markers,
+                    "location_basis": "published_barangay_reference_points",
                 }
             )
-            mapped_by_barangay[parcel.barangay] = (
-                mapped_by_barangay.get(parcel.barangay, 0) + 1
-            )
-            if pin_status == "NEEDS_VERIFICATION":
-                verification_by_barangay[parcel.barangay] = (
-                    verification_by_barangay.get(parcel.barangay, 0) + 1
+        else:
+            cluster_groups = {}
+            for point in points_by_barangay.get(requested_barangay, []):
+                key = parcel_cluster_key(point["lat"], point["lng"])
+                cluster_groups.setdefault(key, []).append(point)
+            clusters = []
+            for key, points in sorted(cluster_groups.items()):
+                latitudes = [point["lat"] for point in points]
+                longitudes = [point["lng"] for point in points]
+                clusters.append(
+                    {
+                        "id": key,
+                        "lat": sum(latitudes) / len(latitudes),
+                        "lng": sum(longitudes) / len(longitudes),
+                        "count": len(points),
+                        "bounds": [
+                            [min(latitudes), min(longitudes)],
+                            [max(latitudes), max(longitudes)],
+                        ],
+                    }
                 )
-        total_count = sum(totals_by_barangay.values())
+            counts = barangay_counts.get(
+                requested_barangay,
+                {"total": 0, "mapped": 0, "unmapped": 0, "needs_verification": 0},
+            )
+            payload.update(
+                {
+                    "mode": "barangay",
+                    "barangay": requested_barangay,
+                    "count": counts["mapped"],
+                    "unmapped_count": counts["unmapped"],
+                    "verification_count": counts["needs_verification"],
+                    "markers": [],
+                    "barangays": [],
+                    "clusters": clusters,
+                }
+            )
+        response = JsonResponse(
+            payload
+        )
+        patch_cache_control(response, no_store=True, private=True)
+        return response
+
+
+class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Return one small, server-paginated parcel page for the map side panel."""
+
+    def get(self, request):
+        barangay = request.GET.get("barangay", "").strip()
+        if barangay not in ROSARIO_BARANGAYS:
+            return JsonResponse({"message": "Choose a barangay first."}, status=400)
+        cluster_id = request.GET.get("cluster", "").strip()
+        query = request.GET.get("q", "").strip()
+        commodity = request.GET.get("commodity", "").strip()
+        requested_status = request.GET.get("pin_status", "").strip().upper()
+        if requested_status not in {"", "PINNED", "UNPINNED", "NEEDS_VERIFICATION"}:
+            return JsonResponse({"message": "Choose a valid pin status."}, status=400)
+        try:
+            page = max(1, int(request.GET.get("page", 1)))
+        except (TypeError, ValueError):
+            page = 1
+
+        parcels = FarmParcel.objects.filter(
+            is_active=True,
+            farmer__is_active=True,
+            barangay=barangay,
+        ).select_related("farmer")
+        if commodity:
+            matching_ids = [
+                row["parcel_id"]
+                for row in CropRecord.objects.filter(is_active=True).values(
+                    "parcel_id", "crop_type"
+                )
+                if commodity_group(row["crop_type"]) == commodity
+            ]
+            parcels = parcels.filter(pk__in=matching_ids)
+        if query:
+            farmer_id = query.upper().removeprefix("F-")
+            filters = (
+                Q(parcel_name__icontains=query)
+                | Q(farmer__first_name__icontains=query)
+                | Q(farmer__middle_name__icontains=query)
+                | Q(farmer__last_name__icontains=query)
+                | Q(farmer__rsbsa_number__icontains=query)
+            )
+            if farmer_id.isdigit():
+                filters |= Q(farmer_id=int(farmer_id))
+            parcels = parcels.filter(filters)
+
+        rows = []
+        for parcel in parcels.only(
+            "pk", "parcel_name", "barangay", "coordinates", "remarks", "created_at",
+            "farmer__id", "farmer__first_name", "farmer__middle_name",
+            "farmer__last_name", "farmer__extension_name",
+        ).order_by("-created_at", "-pk"):
+            status = parcel_pin_status(parcel.coordinates, parcel.remarks)
+            if requested_status and status != requested_status:
+                continue
+            point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
+            valid_point = point if point and is_within_rosario(*point) else None
+            if cluster_id:
+                if not valid_point or parcel_cluster_key(*valid_point) != cluster_id:
+                    continue
+            rows.append((parcel, status, valid_point))
+
+        total = len(rows)
+        total_pages = max(1, (total + FARM_PARCEL_MAP_PAGE_SIZE - 1) // FARM_PARCEL_MAP_PAGE_SIZE)
+        page = min(page, total_pages)
+        start = (page - 1) * FARM_PARCEL_MAP_PAGE_SIZE
+        page_rows = rows[start : start + FARM_PARCEL_MAP_PAGE_SIZE]
+        results = []
+        for parcel, status, point in page_rows:
+            results.append(
+                {
+                    "id": parcel.pk,
+                    "farmer_id": parcel.farmer.record_id,
+                    "farmer": parcel.farmer.full_name,
+                    "parcel": parcel.display_name,
+                    "barangay": parcel.barangay,
+                    "pin_status": status,
+                    "pin_status_label": status.replace("_", " ").title(),
+                    "lat": point[0] if point else None,
+                    "lng": point[1] if point else None,
+                }
+            )
         response = JsonResponse(
             {
-                "markers": markers,
-                "count": len(markers),
-                "unmapped_count": max(0, total_count - len(markers)),
-                "verification_count": sum(verification_by_barangay.values()),
-                "barangay_counts": {
-                    barangay: {
-                        "total": total,
-                        "mapped": mapped_by_barangay.get(barangay, 0),
-                        "unmapped": max(
-                            0, total - mapped_by_barangay.get(barangay, 0)
-                        ),
-                        "needs_verification": verification_by_barangay.get(barangay, 0),
-                    }
-                    for barangay, total in totals_by_barangay.items()
+                "results": results,
+                "pagination": {
+                    "page": page,
+                    "total_pages": total_pages,
+                    "total": total,
+                    "has_previous": page > 1,
+                    "has_next": page < total_pages,
                 },
+                "barangay": barangay,
+                "cluster": cluster_id,
+                "page_size": FARM_PARCEL_MAP_PAGE_SIZE,
             }
         )
         patch_cache_control(response, no_store=True, private=True)
@@ -321,20 +501,47 @@ class FarmParcelMapDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             FarmParcel.objects.filter(is_active=True, farmer__is_active=True)
             .select_related("farmer")
             .only(
-                "pk", "area_hectares", "barangay", "farmer__id",
+                "pk", "area_hectares", "barangay", "coordinates", "remarks", "farmer__id",
                 "farmer__first_name", "farmer__middle_name",
                 "farmer__last_name", "farmer__extension_name",
             ),
             pk=pk,
         )
+        active_photo = parcel.photos.filter(is_active=True).only("pk").first()
+        crops = sorted(
+            {
+                commodity_group(crop_type)
+                for crop_type in parcel.crops.filter(is_active=True).values_list(
+                    "crop_type", flat=True
+                )
+            }
+        )
+        point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
+        pin_status = parcel_pin_status(parcel.coordinates, parcel.remarks)
         return JsonResponse(
             {
                 "id": parcel.pk,
                 "farmer_id": parcel.farmer.record_id,
                 "farmer": parcel.farmer.full_name,
                 "parcel": parcel.display_name,
+                "barangay": parcel.barangay,
                 "area": f"{parcel.area_hectares} ha",
                 "address": f"{parcel.barangay}, Rosario, Batangas",
+                "coordinates": (
+                    f"{point[0]:.7f}, {point[1]:.7f}" if point else "Not recorded"
+                ),
+                "pin_status": pin_status,
+                "pin_status_label": pin_status.replace("_", " ").title(),
+                "lat": point[0] if point and is_within_rosario(*point) else None,
+                "lng": point[1] if point and is_within_rosario(*point) else None,
+                "crops": [
+                    {"name": name, "symbol": crop_symbol(name)} for name in crops
+                ],
+                "photo_url": (
+                    reverse("farm_parcels:photo_view", args=[parcel.pk, active_photo.pk])
+                    if active_photo
+                    else ""
+                ),
                 "edit_url": reverse("farm_parcels:detail", args=[parcel.pk]),
             }
         )
@@ -420,6 +627,7 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     "is_pinned": is_pinned,
                     "pin_status": pin_status,
                     "pin_status_label": status_label,
+                    "barangay": parcel.barangay,
                     "livelihood": parcel.farmer.get_livelihood_display(),
                     "livelihood_code": parcel.farmer.livelihood,
                     "activities": parcel.farmer.activities,

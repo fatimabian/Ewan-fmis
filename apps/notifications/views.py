@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -20,6 +21,19 @@ class NotificationListView(FMISLoginRequiredMixin, ListView):
             "source_activity", "source_activity__actor"
         )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        for notification in context["notifications"]:
+            target = notification_target(notification, self.request.user)
+            if not url_has_allowed_host_and_scheme(
+                target,
+                allowed_hosts={self.request.get_host()},
+                require_https=self.request.is_secure(),
+            ) or target == reverse("notifications:list"):
+                target = ""
+            notification.target_url = target
+        return context
+
 
 class NotificationOpenView(FMISLoginRequiredMixin, View):
     def post(self, request, pk):
@@ -35,6 +49,8 @@ class NotificationOpenView(FMISLoginRequiredMixin, View):
             require_https=request.is_secure(),
         ):
             target = reverse("notifications:list")
+        if request.headers.get("Accept") == "application/json":
+            return JsonResponse({"ok": True, "target": target})
         return redirect(target)
 
 

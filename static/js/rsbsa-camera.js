@@ -138,7 +138,7 @@
             setStatus("The photo could not be captured. Please try again.");
             return;
         }
-        const file = new File([blob], `rsbsa-page-1-${Date.now()}.jpg`, {type: "image/jpeg"});
+        const file = new File([blob], `rsbsa-copy-${Date.now()}.jpg`, {type: "image/jpeg"});
         if (typeof DataTransfer !== "function") {
             captureButton.disabled = false;
             captureButton.removeAttribute("aria-busy");

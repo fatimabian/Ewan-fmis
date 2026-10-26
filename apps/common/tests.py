@@ -784,8 +784,10 @@ class FMISRequirementTests(TestCase):
         self.assertContains(page, encoded.record_id)
         self.assertNotContains(page, self.farmer.record_id)
         self.assertContains(page, "Registration Status")
-        self.assertContains(page, "Archive Status")
-        self.assertContains(page, "Current Records")
+        self.assertContains(page, "Active Status")
+        self.assertContains(page, ">Active</option>", html=False)
+        self.assertNotContains(page, "Archive Status")
+        self.assertNotContains(page, "Current Records")
         self.assertNotContains(page, "<th>Livelihood</th>", html=True)
         self.assertNotContains(page, 'name="sex"')
 
@@ -949,33 +951,31 @@ class FMISRequirementTests(TestCase):
             "rsbsa-page-1.jpg", output.getvalue(), content_type="image/jpeg"
         )
 
-    def test_registration_page_offers_separate_record_only_rsbsa_uploads(self):
+    def test_registration_page_offers_one_unlimited_record_only_rsbsa_upload(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("farmers:create"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "RSBSA form")
         self.assertContains(response, "(optional)")
-        self.assertContains(response, "Upload or capture up to three clear copies for record keeping")
+        self.assertContains(response, "Upload or capture clear copies for record keeping")
+        self.assertContains(response, "Add as many copies as needed")
         self.assertContains(response, "Accepted: JPG, PNG, or PDF up to 5 MB each")
         self.assertContains(response, "will not fill the registration fields")
         self.assertContains(response, 'id="id_rsbsa_form"')
-        self.assertContains(response, 'id="id_rsbsa_form_2"')
-        self.assertContains(response, 'id="id_rsbsa_form_3"')
         self.assertContains(response, 'name="rsbsa_form"')
+        self.assertContains(response, 'multiple')
         self.assertLess(
             response.content.index(b'id="rsbsaRecordCopyTitle"'),
             response.content.index(b'class="registration-stepper"'),
         )
         self.assertFalse(response.context["profile_form"].fields["rsbsa_form"].required)
-        self.assertFalse(response.context["profile_form"].fields["rsbsa_form_2"].required)
-        self.assertFalse(response.context["profile_form"].fields["rsbsa_form_3"].required)
         self.assertContains(response, "Use camera")
         self.assertNotContains(response, reverse("farmers:scan_rsbsa"))
         self.assertContains(response, "rsbsa-camera")
         self.assertNotContains(response, "prefill")
-        self.assertContains(response, 'data-compact-file-upload')
-        self.assertContains(response, "Choose File")
+        self.assertContains(response, 'data-rsbsa-file-input')
+        self.assertContains(response, "Choose files")
         self.assertContains(response, "Complete all required fields in this step to continue.")
         self.assertContains(response, "stepIsComplete")
         self.assertContains(response, 'id="fmisNetworkLoading"')
@@ -1269,21 +1269,23 @@ class FMISRequirementTests(TestCase):
         self.assertFalse(saved.documents.filter(document_type="RSBSA_FORM").exists())
         self.assertTrue(saved.documents.filter(document_type="VALID_ID").exists())
 
-    def test_registration_accepts_up_to_three_rsbsa_record_copies(self):
+    def test_registration_accepts_more_than_three_rsbsa_record_copies(self):
         self.client.force_login(self.staff)
         payload = self._valid_registration_payload()
-        payload["rsbsa_form_2"] = SimpleUploadedFile(
-            "rsbsa-page-2.pdf", b"%PDF-1.4\nPage 2\n%%EOF", content_type="application/pdf"
-        )
-        payload["rsbsa_form_3"] = SimpleUploadedFile(
-            "rsbsa-page-3.pdf", b"%PDF-1.4\nPage 3\n%%EOF", content_type="application/pdf"
-        )
+        payload["rsbsa_form"] = [
+            SimpleUploadedFile(
+                f"rsbsa-page-{number}.pdf",
+                f"%PDF-1.4\nPage {number}\n%%EOF".encode(),
+                content_type="application/pdf",
+            )
+            for number in range(1, 6)
+        ]
 
         response = self.client.post(reverse("farmers:create"), payload)
 
         self.assertEqual(response.status_code, 302, response.context)
         saved = Farmer.objects.get(valid_id_number="9999888877776666")
-        self.assertEqual(saved.documents.filter(document_type="RSBSA_FORM").count(), 3)
+        self.assertEqual(saved.documents.filter(document_type="RSBSA_FORM").count(), 5)
 
     def test_registration_requires_valid_id_type_and_number(self):
         self.client.force_login(self.staff)
@@ -2301,24 +2303,66 @@ class FMISRequirementTests(TestCase):
         self.assertIn("no-store", map_data["Cache-Control"])
         self.assertIn("private", map_data["Cache-Control"])
         self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["mode"], "overview")
         self.assertEqual(payload["barangay_counts"]["Bulihan"]["mapped"], 2)
         self.assertEqual(payload["barangay_counts"]["Bulihan"]["unmapped"], 0)
+        self.assertEqual(payload["markers"], [])
+        self.assertEqual(payload["clusters"], [])
+        bulihan_summary = next(
+            marker for marker in payload["barangays"] if marker["name"] == "Bulihan"
+        )
+        self.assertEqual(bulihan_summary["mapped"], 2)
+        self.assertEqual(
+            payload["location_basis"], "published_barangay_reference_points"
+        )
+        coordinates_before = {
+            self.parcel.pk: self.parcel.coordinates,
+            second_pinned_parcel.pk: second_pinned_parcel.coordinates,
+        }
+        barangay_data = self.client.get(
+            reverse("farm_parcels:map_data"), {"barangay": "Bulihan"}
+        )
+        self.assertEqual(barangay_data.status_code, 200)
+        barangay_payload = barangay_data.json()
+        self.assertEqual(barangay_payload["mode"], "barangay")
+        self.assertEqual(barangay_payload["markers"], [])
+        self.assertEqual(
+            sum(cluster["count"] for cluster in barangay_payload["clusters"]), 2
+        )
+        parcel_page = self.client.get(
+            reverse("farm_parcels:map_parcels"), {"barangay": "Bulihan"}
+        )
+        self.assertEqual(parcel_page.status_code, 200)
         self.assertSetEqual(
-            {marker["id"] for marker in payload["markers"]},
+            {row["id"] for row in parcel_page.json()["results"]},
             {self.parcel.pk, second_pinned_parcel.pk},
         )
-        marker = payload["markers"][0]
-        self.assertEqual(marker["id"], self.parcel.pk)
-        self.assertEqual(marker["barangay"], "Bulihan")
-        self.assertEqual(marker["crops"][0]["name"], "Rice")
-        self.assertNotIn("farmer", marker)
-        self.assertNotIn("area", marker)
+        self.parcel.refresh_from_db()
+        second_pinned_parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, coordinates_before[self.parcel.pk])
+        self.assertEqual(
+            second_pinned_parcel.coordinates,
+            coordinates_before[second_pinned_parcel.pk],
+        )
+        active_photo = FarmParcelPhoto.objects.create(
+            parcel=self.parcel,
+            image="farm_parcel_photos/map-popup.png",
+            uploaded_by=self.staff,
+        )
         marker_detail = self.client.get(
             reverse("farm_parcels:map_detail", args=[self.parcel.pk])
         )
         self.assertEqual(marker_detail.status_code, 200)
         self.assertEqual(marker_detail.json()["farmer"], self.farmer.full_name)
         self.assertEqual(marker_detail.json()["parcel"], self.parcel.display_name)
+        self.assertEqual(marker_detail.json()["barangay"], "Bulihan")
+        self.assertEqual(
+            marker_detail.json()["photo_url"],
+            reverse(
+                "farm_parcels:photo_view",
+                args=[self.parcel.pk, active_photo.pk],
+            ),
+        )
         unpinned_parcel = FarmParcel.objects.create(
             farmer=self.farmer,
             parcel_name="Field location needed",
@@ -2389,12 +2433,10 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, 'id="mapCommodityFilter"')
         self.assertContains(map_response, reverse("farm_parcels:map_search"))
         self.assertContains(map_response, reverse("farm_parcels:map_data"))
-        self.assertContains(map_response, "applyMapFilters")
-        self.assertContains(map_response, "markerByFarmer")
-        self.assertContains(map_response, "preferCanvas: true")
-        self.assertContains(map_response, "Preparing map pins")
-        self.assertContains(map_response, "Parcel Already Pinned")
-        self.assertContains(map_response, "farmerMarker.fire('click')")
+        self.assertContains(map_response, reverse("farm_parcels:map_parcels"))
+        self.assertContains(map_response, 'id="parcelSidePanel"')
+        self.assertContains(map_response, 'id="backToOverview"')
+        self.assertContains(map_response, "farm-parcel-map.")
         self.assertNotContains(map_response, 'id="farmer-map-markers"')
         self.assertNotContains(map_response, 'name="map_layer"')
         self.assertNotContains(map_response, "Terrain with place names")
@@ -2407,11 +2449,6 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, 'id="rosario-map-boundary"')
         self.assertContains(map_response, "L.polygon(rosarioBoundary")
         self.assertContains(map_response, "L.marker")
-        self.assertContains(map_response, "L.markerClusterGroup")
-        self.assertContains(map_response, "disableClusteringAtZoom: 15")
-        self.assertContains(map_response, "iconCreateFunction")
-        self.assertContains(map_response, "parcel-cluster-count")
-        self.assertContains(map_response, "farmerIcon")
         self.assertContains(map_response, "bi-geo-alt-fill")
         self.assertContains(map_response, "L.svg")
         self.assertNotContains(map_response, "barangay-focus-label")
@@ -2419,9 +2456,18 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "Red map pins are saved farm parcel locations")
         self.assertNotContains(map_response, "_updateParcelPin")
         self.assertContains(map_response, "keepInView: true")
-        self.assertContains(map_response, "map.panTo(farmerMarker.getLatLng()")
-        self.assertContains(map_response, "cache: 'no-store'")
         self.assertNotContains(map_response, "setTimeout(() => window.location.reload(), 700)")
+        map_script = (
+            Path(__file__).resolve().parents[2] / "static" / "js" / "farm-parcel-map.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("const barangayLayer", map_script)
+        self.assertIn("const clusterLayer", map_script)
+        self.assertIn("const parcelLayer", map_script)
+        self.assertIn("AbortController", map_script)
+        self.assertIn("No field photo available", map_script)
+        self.assertIn("map.panTo", map_script)
+        self.assertNotIn("markerClusterGroup", map_script)
+        self.assertNotIn("location.reload", map_script)
 
     def test_coordinate_audit_flags_duplicates_without_changing_them(self):
         original = "13.8467000, 121.2060000"
@@ -2446,6 +2492,37 @@ class FMISRequirementTests(TestCase):
         duplicate.refresh_from_db()
         self.assertEqual(self.parcel.coordinates, original)
         self.assertEqual(duplicate.coordinates, original)
+
+    def test_parcel_map_side_panel_is_server_paginated_to_twenty_five_rows(self):
+        FarmParcel.objects.bulk_create(
+            [
+                FarmParcel(
+                    farmer=self.farmer,
+                    parcel_name=f"Mapped field {index}",
+                    barangay="Bulihan",
+                    area_hectares=Decimal("0.25"),
+                    ownership_type="OWNED",
+                    coordinates=f"{13.7920 + index * 0.00001:.7f}, 121.2350000",
+                )
+                for index in range(30)
+            ]
+        )
+        self.client.force_login(self.staff)
+
+        first_page = self.client.get(
+            reverse("farm_parcels:map_parcels"),
+            {"barangay": "Bulihan", "page": 1},
+        )
+        second_page = self.client.get(
+            reverse("farm_parcels:map_parcels"),
+            {"barangay": "Bulihan", "page": 2},
+        )
+
+        self.assertEqual(first_page.status_code, 200)
+        self.assertEqual(len(first_page.json()["results"]), 25)
+        self.assertEqual(first_page.json()["page_size"], 25)
+        self.assertTrue(first_page.json()["pagination"]["has_next"])
+        self.assertGreaterEqual(len(second_page.json()["results"]), 5)
 
     def test_newest_parcel_is_first_and_named_in_the_farm_parcel_table(self):
         newest = FarmParcel.objects.create(
@@ -2604,7 +2681,7 @@ class FMISRequirementTests(TestCase):
             "Contact Number",
             "RSBSA ID",
             "Registration Status",
-            "Archive Status",
+            "Active Status",
             "Actions",
         ):
             self.assertContains(response, f"<th>{heading}</th>", html=True)
@@ -3294,7 +3371,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(breakdown[-1]["label"], "Others")
         self.assertEqual(breakdown[-1]["records"], 2)
         self.assertEqual(breakdown[-1]["farmers"], 1)
-        self.assertEqual(breakdown[-1]["color"], "#88958D")
+        self.assertEqual(breakdown[-1]["color"], "#6F9B83")
         self.assertTrue(all(item["color"].startswith("#") for item in breakdown))
         self.assertEqual(len({item["color"] for item in breakdown}), len(breakdown))
 
@@ -3498,6 +3575,10 @@ class FMISRequirementTests(TestCase):
         response = self.client.get(reverse("activity_logs:list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Activity Log")
+        self.assertContains(
+            response,
+            "border-left:4px solid var(--fmis-accent,#168052)",
+        )
         self.assertNotContains(response, "pagination_tags is not a registered tag library")
 
     def test_operational_delete_actions_preserve_records(self):
@@ -3632,6 +3713,11 @@ class FMISRequirementTests(TestCase):
             email="notice@example.com",
         )
         activity = log_activity(self.admin, "POST /farmers/new/", "/farmers/new/")
+        activity.target_label = "Ana Santos"
+        activity.details = [
+            {"field": "Barangay", "before": "Alupay", "after": "Bulihan"}
+        ]
+        activity.save(update_fields=("target_label", "details"))
 
         from apps.notifications.models import Notification
         from apps.settings_page.models import UserPreference
@@ -3665,6 +3751,19 @@ class FMISRequirementTests(TestCase):
         notification_page = self.client.get(reverse("notifications:list"))
         self.assertEqual(notification_page.status_code, 200)
         self.assertContains(notification_page, notification.title)
+        self.assertContains(notification_page, "Select a notification to see exactly what changed.")
+        self.assertContains(notification_page, "Information changed")
+        self.assertContains(notification_page, "Previous information")
+        self.assertContains(notification_page, "Updated information")
+        self.assertContains(notification_page, "Open related record")
+
+        opened_inline = self.client.post(
+            reverse("notifications:open", args=[notification.pk]),
+            HTTP_ACCEPT="application/json",
+        )
+        self.assertEqual(opened_inline.status_code, 200)
+        self.assertEqual(opened_inline.json()["target"], reverse("farmers:list"))
+        self.assertTrue(opened_inline.json()["ok"])
 
         opened = self.client.post(
             reverse("notifications:open", args=[notification.pk]), follow=True

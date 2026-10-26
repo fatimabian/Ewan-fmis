@@ -210,6 +210,7 @@ document.addEventListener("DOMContentLoaded", () => {
           option.dataset.activitiesDisplay = item.activities_display || "";
           option.dataset.pinStatus = item.pin_status || "";
           option.dataset.pinStatusLabel = item.pin_status_label || "";
+          option.dataset.barangay = item.barangay || "";
           select.add(option);
           return option;
         });
@@ -250,7 +251,8 @@ document.addEventListener("DOMContentLoaded", () => {
               livelihood: option.dataset.livelihood || "",
               livelihoodCode: option.dataset.livelihoodCode || "",
               activities: option.dataset.activities || "",
-              activitiesDisplay: option.dataset.activitiesDisplay || ""
+              activitiesDisplay: option.dataset.activitiesDisplay || "",
+              barangay: option.dataset.barangay || ""
             }
           }));
           list.hidden = true;

@@ -375,13 +375,9 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 farmer.created_by = request.user
                 farmer.save()
 
-                for copy_number, field_name in enumerate(
-                    ("rsbsa_form", "rsbsa_form_2", "rsbsa_form_3"),
-                    start=1,
+                for copy_number, rsbsa_form in enumerate(
+                    profile_form.cleaned_data.get("rsbsa_form", []), start=1
                 ):
-                    rsbsa_form = profile_form.cleaned_data.get(field_name)
-                    if not rsbsa_form:
-                        continue
                     FarmerDocument.objects.create(
                         farmer=farmer,
                         document_type="RSBSA_FORM",
@@ -629,14 +625,14 @@ class FarmerSlipBUpdateView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
 
 
 class FarmerDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
-    """Archive the shared record so dependent module data remains intact."""
+    """Change active status while keeping dependent module data intact."""
 
     def post(self, request, pk):
         farmer = get_object_or_404(Farmer, pk=pk)
         restoring = request.POST.get("action") == "restore"
         farmer.is_active = restoring
         farmer.save(update_fields=["is_active"])
-        action = "Restored" if restoring else "Archived"
+        action = "Reactivated" if restoring else "Set Inactive"
         record_request_event(
             request,
             title=f"Farmer Record {action}",
@@ -650,7 +646,7 @@ class FarmerDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         messages.success(
             request,
             (
-                f"{farmer.full_name} was restored to active records."
+                f"{farmer.full_name} is active again."
                 if restoring
                 else f"{farmer.full_name} was set to inactive. Find the record under Record Status → Inactive; related farm records were preserved."
             ),

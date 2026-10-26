@@ -224,9 +224,9 @@ html body .feature-toggle:not(#fmis-shape-specificity):is(:hover,:focus,:focus-v
 
 /* Notification rows use clean rectangular edges without button chrome. */
 html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity),
-html body .app-shell .notification-list-item>button:not(#fmis-shape-specificity),
+html body .app-shell .notification-list-item>summary:not(#fmis-shape-specificity),
 html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active),
-html body .app-shell .notification-list-item>button:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+html body .app-shell .notification-list-item>summary:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
     border:0!important;
     border-radius:0!important;
     outline:0!important;
@@ -238,7 +238,7 @@ html body .app-shell .notification-list-item>button:not(#fmis-shape-specificity)
 /* Notification content is a reading list, so it must not inherit the global
  * centered button treatment. */
 html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity),
-html body .app-shell .notification-list-item>button:not(#fmis-shape-specificity){
+html body .app-shell .notification-list-item>summary:not(#fmis-shape-specificity){
     text-align:left!important
 }
 html body .app-shell .notification-preview-list button:not(#fmis-shape-specificity){

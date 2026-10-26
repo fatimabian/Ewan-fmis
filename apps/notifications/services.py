@@ -69,10 +69,14 @@ def _notification_copy(activity):
     record_label = RECORD_LABELS.get(activity.module, "record")
     if "created" in title:
         verb = "created"
+    elif "set inactive" in title:
+        verb = "set inactive"
+    elif "reactivated" in title:
+        verb = "reactivated"
     elif "archived" in title:
-        verb = "archived"
+        verb = "set inactive"
     elif "restored" in title:
-        verb = "restored"
+        verb = "reactivated"
     else:
         verb = "updated"
 
