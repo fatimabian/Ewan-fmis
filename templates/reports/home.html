@@ -701,6 +701,31 @@
       border:1px solid #dce5e8;
       border-radius:7px
   }
+  .report-horizontal-controls{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:7px;
+      margin:0 0 7px
+  }
+  .report-horizontal-controls span{
+      margin-right:auto;
+      color:#637184;
+      font-size:11px;
+      font-weight:700
+  }
+  .report-scroll-button{
+      width:34px;
+      height:32px;
+      display:grid;
+      place-items:center;
+      border:1px solid #a9bbb1;
+      border-radius:6px;
+      background:#fff;
+      color:#153d29;
+      cursor:pointer
+  }
+  .farmer-master-preview{min-width:1180px}
   .report-preview-table{
       width:100%;
       border-collapse:collapse;
@@ -1144,6 +1169,11 @@
             {% endif %}
           {% endif %}
           {% if report_preview.rows %}
+            <div class="report-horizontal-controls" aria-label="Scroll report columns">
+              <span><i class="bi bi-arrows"></i> Scroll to view all columns</span>
+              <button class="report-scroll-button" type="button" data-report-scroll="-1" aria-label="Scroll report left"><i class="bi bi-chevron-left"></i></button>
+              <button class="report-scroll-button" type="button" data-report-scroll="1" aria-label="Scroll report right"><i class="bi bi-chevron-right"></i></button>
+            </div>
             <div class="report-table-wrap{% if report_preview.is_farmer_master %} farmer-master-table-wrap{% endif %}">
               <table class="report-preview-table{% if report_preview.is_farmer_master %} farmer-master-preview{% endif %}">
                 <thead>
@@ -1424,6 +1454,18 @@
               if (el.tagName !== 'SELECT' || el.name === 'format') return;
               if (el === type) updateRelevantFilters();
               refreshPreview();
+          });
+
+          document.addEventListener('click', event => {
+              const button = event.target.closest('[data-report-scroll]');
+              if (!button) return;
+              const controls = button.closest('.report-horizontal-controls');
+              const tableWrap = controls?.nextElementSibling;
+              if (!tableWrap?.classList.contains('report-table-wrap')) return;
+              tableWrap.scrollBy({
+                  left: Number(button.dataset.reportScroll) * Math.max(320, tableWrap.clientWidth * .75),
+                  behavior: 'smooth'
+              })
           });
 
           async function downloadReport(event) {

@@ -208,7 +208,11 @@ def report_metrics(date_range="all", filters=None):
         filters,
     )
 
-    total_area = parcels.aggregate(total=Sum("area_hectares"))["total"] or 0
+    parcel_totals = parcels.aggregate(
+        total=Count("pk", distinct=True),
+        area=Sum("area_hectares"),
+    )
+    total_area = parcel_totals["area"] or 0
     crop_summary = list(
         crops.values("crop_type")
         .annotate(
@@ -272,6 +276,7 @@ def report_metrics(date_range="all", filters=None):
     ]
 
     intervention_totals = interventions.aggregate(
+        total=Count("pk", distinct=True),
         farmers=Count(
             "recipients__farmer",
             filter=Q(recipients__is_active=True),
@@ -298,20 +303,41 @@ def report_metrics(date_range="all", filters=None):
     ]
 
     senior_cutoff = timezone.localdate().replace(year=timezone.localdate().year - 60)
+    farmer_totals = farmers.aggregate(
+        total=Count("pk", distinct=True),
+        female=Count("pk", filter=Q(sex="FEMALE"), distinct=True),
+        male=Count("pk", filter=Q(sex="MALE"), distinct=True),
+        senior=Count("pk", filter=Q(birth_date__lte=senior_cutoff), distinct=True),
+        four_ps=Count("pk", filter=Q(is_four_ps=True), distinct=True),
+        pwd=Count("pk", filter=Q(is_pwd=True), distinct=True),
+        indigenous=Count("pk", filter=Q(is_indigenous=True), distinct=True),
+    )
     farmer_statistics = [
-        {"label": "Active Farmers", "total": farmers.count()},
-        {"label": "Female Farmers", "total": farmers.filter(sex="FEMALE").count()},
-        {"label": "Male Farmers", "total": farmers.filter(sex="MALE").count()},
-        {"label": "Senior Farmers", "total": farmers.filter(birth_date__lte=senior_cutoff).count()},
-        {"label": "4Ps Beneficiaries", "total": farmers.filter(is_four_ps=True).count()},
-        {"label": "PWD Farmers", "total": farmers.filter(is_pwd=True).count()},
-        {"label": "Indigenous Farmers", "total": farmers.filter(is_indigenous=True).count()},
+        {"label": "Active Farmers", "total": farmer_totals["total"]},
+        {"label": "Female Farmers", "total": farmer_totals["female"]},
+        {"label": "Male Farmers", "total": farmer_totals["male"]},
+        {"label": "Senior Farmers", "total": farmer_totals["senior"]},
+        {"label": "4Ps Beneficiaries", "total": farmer_totals["four_ps"]},
+        {"label": "PWD Farmers", "total": farmer_totals["pwd"]},
+        {"label": "Indigenous Farmers", "total": farmer_totals["indigenous"]},
     ]
+    account_totals = CustomUser.objects.filter(deleted_at__isnull=True).aggregate(
+        total=Count("pk"),
+        active=Count("pk", filter=Q(is_active=True)),
+        admins=Count("pk", filter=Q(role="ADMIN", is_active=True)),
+        staff=Count("pk", filter=Q(role="STAFF", is_active=True)),
+        inactive=Count("pk", filter=Q(is_active=False)),
+        pending=Count("pk", filter=Q(activation_pending=True)),
+    )
+    activity_totals = ActivityLog.objects.aggregate(
+        total=Count("pk"),
+        failed=Count("pk", filter=~Q(status__iexact="Success")),
+    )
     return {
-        "farmers": farmers.count(),
-        "parcels": parcels.count(),
-        "crops": crops.count(),
-        "pending_requests": requests.filter(status="PENDING").count(),
+        "farmers": farmer_totals["total"],
+        "parcels": parcel_totals["total"],
+        "crops": crops.aggregate(total=Count("pk", distinct=True))["total"],
+        "pending_requests": request_status_counts.get("PENDING", 0),
         "total_area": total_area,
         "crop_summary": crop_summary,
         "crop_area_total": crop_area_total,
@@ -320,19 +346,19 @@ def report_metrics(date_range="all", filters=None):
         "request_total": request_total,
         "request_priorities": request_priorities,
         "recent_requests": recent_requests,
-        "intervention_total": interventions.count(),
+        "intervention_total": intervention_totals["total"],
         "intervention_farmers": intervention_totals["farmers"] or 0,
         "intervention_summary": intervention_summary,
         "activity_summary": ActivityLog.objects.values("module")
         .annotate(total=Count("id"))
         .order_by("-total")[:5],
         "farmer_statistics": farmer_statistics,
-        "total_accounts": CustomUser.objects.filter(deleted_at__isnull=True).count(),
-        "active_accounts": CustomUser.objects.filter(deleted_at__isnull=True, is_active=True).count(),
-        "admin_accounts": CustomUser.objects.filter(deleted_at__isnull=True, role="ADMIN", is_active=True).count(),
-        "staff_accounts": CustomUser.objects.filter(deleted_at__isnull=True, role="STAFF", is_active=True).count(),
-        "inactive_accounts": CustomUser.objects.filter(deleted_at__isnull=True, is_active=False).count(),
-        "pending_activations": CustomUser.objects.filter(deleted_at__isnull=True, activation_pending=True).count(),
-        "total_activities": ActivityLog.objects.count(),
-        "failed_activities": ActivityLog.objects.exclude(status__iexact="Success").count(),
+        "total_accounts": account_totals["total"],
+        "active_accounts": account_totals["active"],
+        "admin_accounts": account_totals["admins"],
+        "staff_accounts": account_totals["staff"],
+        "inactive_accounts": account_totals["inactive"],
+        "pending_activations": account_totals["pending"],
+        "total_activities": activity_totals["total"],
+        "failed_activities": activity_totals["failed"],
     }

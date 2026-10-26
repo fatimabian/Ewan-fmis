@@ -7,7 +7,7 @@
     const cancelButton = document.getElementById("rsbsaCameraCancel");
     const backdrop = document.getElementById("rsbsaCameraBackdrop");
     const status = document.getElementById("rsbsaCameraStatus");
-    const input = document.querySelector("[data-rsbsa-scan-source]");
+    const input = document.querySelector("[data-rsbsa-camera-source]");
     if (!openButton || !modal || !video || !canvas || !captureButton || !input) return;
 
     const consentKey = "fmis-rsbsa-camera-confirmed-v1";
@@ -46,10 +46,10 @@
 
     const cameraErrorMessage = (error) => {
         if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
-            return "Camera access was not allowed. Enable camera permission in this browser, or use Upload RSBSA instead.";
+            return "Camera access was not allowed. Enable camera permission in this browser, or choose a file instead.";
         }
         if (error?.name === "NotFoundError" || error?.name === "DevicesNotFoundError") {
-            return "No camera was found on this device. Use Upload RSBSA instead.";
+            return "No camera was found on this device. Choose a file instead.";
         }
         if (error?.name === "NotReadableError" || error?.name === "TrackStartError") {
             return "The camera is busy or unavailable. Close other camera apps and try again, or upload the file.";
@@ -87,7 +87,7 @@
     const verifyAndStart = async () => {
         if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
             window.fmisFeedback?.(
-                "Camera capture is unavailable in this browser. Open the secure FMIS website in a current browser, or use Upload RSBSA instead.",
+                "Camera capture is unavailable in this browser. Open the secure FMIS website in a current browser, or choose a file instead.",
                 "warning"
             );
             return;
@@ -99,14 +99,14 @@
         try {
             const devices = await navigator.mediaDevices.enumerateDevices?.();
             if (devices?.length && !devices.some((device) => device.kind === "videoinput")) {
-                window.fmisFeedback?.("No camera was found on this device. Use Upload RSBSA instead.", "warning");
+                window.fmisFeedback?.("No camera was found on this device. Choose a file instead.", "warning");
                 return;
             }
             if (hasRememberedConsent()) {
                 await startCamera();
                 return;
             }
-            const message = "FMIS will use this device camera only to capture the RSBSA form. The photo will be attached to this registration and read to prepare a draft for staff review. Continue?";
+            const message = "FMIS will use this device camera only to capture an RSBSA copy for this farmer record. The photo will not fill the registration fields. Continue?";
             if (window.fmisFeedback) {
                 window.fmisFeedback(message, "confirm", () => {
                     startCamera(true);
@@ -142,7 +142,7 @@
         if (typeof DataTransfer !== "function") {
             captureButton.disabled = false;
             captureButton.removeAttribute("aria-busy");
-            setStatus("This browser cannot attach the captured photo. Update the browser or use Upload RSBSA.");
+            setStatus("This browser cannot attach the captured photo. Update the browser or choose a file.");
             return;
         }
         const transfer = new DataTransfer();

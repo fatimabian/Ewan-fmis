@@ -99,10 +99,22 @@ class RoleAwareTemplateMixin:
 class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTemplateMixin, ListView):
     model = Farmer
     template_name = "farmers/list.html"
-    paginate_by = 10
-
     def get_queryset(self):
-        queryset = Farmer.objects.prefetch_related("parcels__crops")
+        # The list renders farmer columns only. Loading every parcel and crop
+        # here added two large queries and thousands of unused related objects.
+        queryset = Farmer.objects.only(
+            "pk",
+            "first_name",
+            "middle_name",
+            "last_name",
+            "extension_name",
+            "barangay",
+            "phone_number",
+            "rsbsa_number",
+            "registration_status",
+            "is_active",
+            "created_at",
+        )
         query = self.request.GET.get("q", "").strip()
         barangay = self.request.GET.get("barangay", "").strip()
         registration_status = self.request.GET.get("registration_status", "").strip()

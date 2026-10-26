@@ -32,8 +32,6 @@ class RoleAwareCropMixin:
 class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixin, ListView):
     model = Farmer
     template_name = "crops/list.html"
-    paginate_by = 10
-
     def get_queryset(self):
         crops = CropRecord.objects.select_related("parcel", "parcel__farmer")
         query = self.request.GET.get("q", "").strip()

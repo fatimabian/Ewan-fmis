@@ -74,8 +74,6 @@ class ServiceRequestListView(
 ):
     model = ServiceRequest
     template_name = "service_requests/list.html"
-    paginate_by = 10
-
     def get_queryset(self):
         queryset = ServiceRequest.objects.select_related("farmer", "service", "assigned_to")
         query = self.request.GET.get("q", "").strip()

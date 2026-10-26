@@ -28,7 +28,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "apps.common",
     "apps.authentication",
-    "apps.dashboard",
+    "apps.dashboard.apps.DashboardConfig",
     "apps.accounts",
     "apps.farmers",
     "apps.farm_parcels",
@@ -144,6 +144,10 @@ LOGOUT_REDIRECT_URL = "authentication:landing"
 PUBLIC_PAGE_CACHE_SECONDS = max(
     0,
     int(os.getenv("PUBLIC_PAGE_CACHE_SECONDS", "300" if not DEBUG else "0")),
+)
+DASHBOARD_CACHE_SECONDS = max(
+    0,
+    int(os.getenv("DASHBOARD_CACHE_SECONDS", "30" if not DEBUG else "0")),
 )
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "FMIS <noreply@fmis.local>")
 STATIC_ROOT = BASE_DIR / "staticfiles"

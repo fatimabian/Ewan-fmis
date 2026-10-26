@@ -674,12 +674,29 @@
                 const popupWidth = Math.max(190, Math.min(mobilePopup ? 244 : 300, map.getSize().x - 54));
                 return popup
             };
+            const loadMarkerDetails = item => {
+                if (item.detailsLoaded) return Promise.resolve(item);
+                if (item.detailPromise) return item.detailPromise;
+                item.detailPromise = fetch(`${mapDataUrl}${item.id}/`, {
+                    headers: {'X-Requested-With': 'XMLHttpRequest'}
+                })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Parcel details could not be loaded.');
+                        return response.json()
+                    })
+                    .then(details => {
+                        Object.assign(item, details, {detailsLoaded: true});
+                        return item
+                    })
+                    .finally(() => { delete item.detailPromise });
+                return item.detailPromise
+            };
             const addMarker = item => {
                 const farmerMarker = L.marker([item.lat, item.lng], {
                     icon: farmerIcon,
                     keyboard: false,
                     riseOnHover: true,
-                    title: `${item.parcel} — ${item.farmer}`,
+                    title: `${item.parcel} — ${item.barangay}`,
                     alt: `${item.parcel} location`
                 }).addTo(map).bindTooltip(item.parcel, {
                     permanent: false,
@@ -687,7 +704,17 @@
                     className: 'farmer-map-label'
                 });
                 farmerMarker.fmisFarmer = item;
-                farmerMarker.on('click', () => {
+                farmerMarker.on('click', async () => {
+                    if (!item.detailsLoaded) {
+                        farmerMarker.bindPopup('<div class="farmer-popup-loading" role="status">Loading parcel details…</div>').openPopup();
+                        try {
+                            await loadMarkerDetails(item)
+                        } catch (error) {
+                            farmerMarker.setPopupContent('<div class="farmer-popup-loading is-error">Parcel details could not be loaded.</div>');
+                            return
+                        }
+                        farmerMarker.unbindPopup()
+                    }
                     if (!farmerMarker.getPopup()) {
                         const mobilePopup = window.matchMedia('(max-width:560px)').matches;
                         const popupWidth = Math.max(190, Math.min(mobilePopup ? 244 : 300, map.getSize().x - 54));
@@ -796,8 +823,14 @@
                 originalMarkerPoint = null;
                 pinEditPanel.classList.remove('is-visible')
             };
-            const beginMoveMarker = sourceLayer => {
+            const beginMoveMarker = async sourceLayer => {
                 const item = sourceLayer.fmisFarmer;
+                try {
+                    await loadMarkerDetails(item)
+                } catch (error) {
+                    window.fmisFeedback?.(error.message, 'error');
+                    return
+                }
                 window.fmisFeedback?.(
                     `Move ${item.farmer}'s saved pin?`,
                     'confirm',

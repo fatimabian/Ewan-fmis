@@ -9,7 +9,38 @@
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/compact-file-upload.css' %}">
   <style>
+    .rsbsa-record-card{margin:14px 0 18px;padding:12px 14px;border:1px solid #a9d4bc;border-left:3px solid var(--fmis-accent);background:#f4fbf7}
+    .rsbsa-record-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+    .rsbsa-record-title{display:flex;align-items:center;gap:10px;min-width:260px}
+    .rsbsa-record-title>i{display:grid;flex:0 0 32px;width:32px;height:32px;place-items:center;background:#e0f3e8;color:#08763e}
+    .rsbsa-record-title h2{margin:0 0 2px;font-size:.95rem}
+    .rsbsa-record-title p{margin:0;color:#52675b;font-size:.75rem;line-height:1.3}
+    .rsbsa-record-files{display:grid;flex:1;grid-template-columns:repeat(3,minmax(180px,1fr));gap:8px}
+    .rsbsa-copy-field{min-width:0}
+    .rsbsa-copy-field>label{display:block;margin:0 0 3px;color:#18352a;font-size:.68rem;font-weight:800}
+    .rsbsa-copy-field .compact-file-upload{padding:4px 6px}
+    .rsbsa-copy-field .compact-file-row{min-height:30px;gap:6px}
+    .rsbsa-copy-field .compact-file-select{min-height:28px;padding:4px 8px;font-size:.72rem}
+    .rsbsa-copy-field .compact-file-name{font-size:.72rem}
+    .rsbsa-copy-field .compact-file-remove{width:22px;height:22px;flex-basis:22px}
+    .rsbsa-copy-field .errorlist{margin:4px 0 0;font-size:.7rem}
+    .rsbsa-camera-button{flex:0 0 auto;min-height:34px;padding:6px 10px!important;font-size:.74rem!important}
+    .rsbsa-record-note{margin:7px 0 0;color:#315847;font-size:.7rem}
+    .rsbsa-camera-modal{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px}
+    .rsbsa-camera-modal[hidden]{display:none!important}
+    .rsbsa-camera-backdrop{position:absolute;inset:0;border:0;background:rgba(10,22,17,.74)}
+    .rsbsa-camera-dialog{position:relative;width:min(680px,100%);padding:18px;border:1px solid #7b9185;background:#fff;box-shadow:0 22px 60px rgba(0,0,0,.32)}
+    .rsbsa-camera-dialog h2{margin:0 0 5px;font-size:1.1rem}
+    .rsbsa-camera-dialog p{margin:0 0 12px;color:#52675b;font-size:.82rem}
+    .rsbsa-camera-video{display:block;width:100%;max-height:64vh;background:#111;object-fit:contain}
+    .rsbsa-camera-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}
+    body[data-theme="dark"] .rsbsa-record-card{border-color:#426c53;background:#1f3027}
+    body[data-theme="dark"] .rsbsa-record-title p,body[data-theme="dark"] .rsbsa-record-note{color:#bed0c5}
+    body[data-theme="dark"] .rsbsa-copy-field>label{color:#edf6f0}
+    body[data-theme="dark"] .rsbsa-camera-dialog{border-color:#607267;background:#1f2923;color:#edf6f0}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
+    @media(max-width:1100px){.rsbsa-record-head{align-items:flex-start;flex-wrap:wrap}.rsbsa-record-files{flex-basis:100%}}
+    @media(max-width:760px){.rsbsa-record-files{grid-template-columns:1fr}.rsbsa-camera-button{width:100%}.rsbsa-camera-actions .btn{flex:1}}
   </style>
 {% endblock %}
 {% block content %}
@@ -17,14 +48,25 @@
     <section class="panel registration-shell">
       <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
         {% csrf_token %}
-        <section class="form-section rsbsa-record-copy" aria-labelledby="rsbsaRecordCopyTitle">
-          <h2 id="rsbsaRecordCopyTitle"><i class="bi bi-file-earmark-arrow-up"></i> Upload a copy of the RSBSA form <span style="font-weight:400">(optional)</span></h2>
-          <p>You may attach up to three readable RSBSA files for record keeping. These uploads are optional. FMIS checks the accepted JPG, PNG, or PDF format and file size only; it does not read or fill the registration fields automatically.</p>
-          <div class="registration-grid three">
-            {% include "farmers/registration_field.html" with field=profile_form.rsbsa_form %}
-            {% include "farmers/registration_field.html" with field=profile_form.rsbsa_form_2 %}
-            {% include "farmers/registration_field.html" with field=profile_form.rsbsa_form_3 %}
+        <section class="rsbsa-record-card" aria-labelledby="rsbsaRecordCopyTitle">
+          <div class="rsbsa-record-head">
+            <div class="rsbsa-record-title">
+              <i class="bi bi-camera" aria-hidden="true"></i>
+              <div>
+                <h2 id="rsbsaRecordCopyTitle">RSBSA form <span style="font-weight:400">(optional)</span></h2>
+                <p>Upload or capture up to three clear copies for record keeping.</p>
+              </div>
+            </div>
+            <div class="rsbsa-record-files">
+              {% include "farmers/rsbsa_compact_upload.html" with field=profile_form.rsbsa_form copy_number="1" %}
+              {% include "farmers/rsbsa_compact_upload.html" with field=profile_form.rsbsa_form_2 copy_number="2" %}
+              {% include "farmers/rsbsa_compact_upload.html" with field=profile_form.rsbsa_form_3 copy_number="3" %}
+            </div>
+            <button type="button" class="btn btn-add-outline rsbsa-camera-button" id="rsbsaCameraOpen">
+              <i class="bi bi-camera-fill" aria-hidden="true"></i> Use camera
+            </button>
           </div>
+          <p class="rsbsa-record-note">Accepted: JPG, PNG, or PDF up to 5 MB each. Files are stored only and will not fill the registration fields.</p>
         </section>
       <ol class="registration-stepper" aria-label="Registration progress">
         <li class="active" data-step-link="1">
@@ -289,6 +331,19 @@
           <strong>Saving farmer registration…</strong>
           <p>Please wait. Do not close or refresh this page.</p>
         </div>
+      </div>
+      <div class="rsbsa-camera-modal" id="rsbsaCameraModal" hidden aria-hidden="true">
+        <button type="button" class="rsbsa-camera-backdrop" id="rsbsaCameraBackdrop" aria-label="Close camera"></button>
+        <section class="rsbsa-camera-dialog" role="dialog" aria-modal="true" aria-labelledby="rsbsaCameraTitle" aria-describedby="rsbsaCameraStatus">
+          <h2 id="rsbsaCameraTitle">Capture an RSBSA copy</h2>
+          <p id="rsbsaCameraStatus" role="status" aria-live="polite">Position the whole form inside the frame.</p>
+          <video class="rsbsa-camera-video" id="rsbsaCameraVideo" autoplay playsinline muted></video>
+          <canvas id="rsbsaCameraCanvas" hidden></canvas>
+          <div class="rsbsa-camera-actions">
+            <button type="button" class="btn btn-outline-secondary" id="rsbsaCameraCancel">Cancel</button>
+            <button type="button" class="btn btn-success" id="rsbsaCameraCapture" disabled><i class="bi bi-camera"></i> Capture photo</button>
+          </div>
+        </section>
       </div>
     </section>
   </div>
@@ -597,4 +652,7 @@
           }
       })();
   </script>
+{% endblock %}
+{% block extra_js %}
+  <script defer src="{% static 'js/rsbsa-camera.js' %}?v=2"></script>
 {% endblock %}

@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from apps.common.constants import LIVESTOCK_COMMODITIES, ROSARIO_BARANGAYS
 from apps.crops.models import CropRecord
-from apps.farm_parcels.demo_locations import rosario_demo_coordinates
+from apps.farm_parcels.demo_locations import rosario_demo_coordinates_for_barangays
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.demo_data import (
     SYNTHETIC_REMARKS_PREFIX,
@@ -89,7 +89,11 @@ class Command(BaseCommand):
         education = ("Elementary", "High School", "College", "Vocational")
         religions = ("Roman Catholic", "Christian", "Iglesia ni Cristo", "")
         livelihoods = ("FARMER", "FARMER", "FARMWORKER", "AGRI_YOUTH")
-        demo_coordinates = rosario_demo_coordinates(count)
+        demo_barangays = [
+            ROSARIO_BARANGAYS[position % len(ROSARIO_BARANGAYS)]
+            for position in range(count)
+        ]
+        demo_coordinates = rosario_demo_coordinates_for_barangays(demo_barangays)
         farmers = []
         for index in range(1, count + 1):
             position = index - 1
@@ -99,7 +103,7 @@ class Command(BaseCommand):
                 (position // (len(FIRST_NAMES) * len(MIDDLE_NAMES))) % len(LAST_NAMES)
             ]
             status = registration_status(index)
-            barangay = ROSARIO_BARANGAYS[position % len(ROSARIO_BARANGAYS)]
+            barangay = demo_barangays[position]
             farmers.append(
                 Farmer(
                     first_name=first_name,

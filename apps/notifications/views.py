@@ -15,8 +15,6 @@ class NotificationListView(FMISLoginRequiredMixin, ListView):
     model = Notification
     template_name = "notifications/list.html"
     context_object_name = "notifications"
-    paginate_by = 15
-
     def get_queryset(self):
         return Notification.objects.filter(recipient=self.request.user).select_related(
             "source_activity", "source_activity__actor"

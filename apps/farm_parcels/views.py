@@ -2,7 +2,7 @@ import re
 import mimetypes
 
 from django.contrib import messages
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from django.http import FileResponse, JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
@@ -80,8 +80,6 @@ class FarmParcelListView(
 ):
     model = FarmParcel
     template_name = "farm_parcels/list.html"
-    paginate_by = 10
-
     def get_queryset(self):
         queryset = FarmParcel.objects.select_related("farmer")
         query = self.request.GET.get("q", "").strip()
@@ -189,10 +187,17 @@ class FarmParcelMapView(
         # choices are fetched after the map shell is visible instead of rendering
         # thousands of records, photos, and <option> elements into this page.
         parcels = FarmParcel.objects.filter(is_active=True, farmer__is_active=True)
-        total_count = parcels.count()
-        mapped_count = parcels.exclude(coordinates="").count()
-        context["mapped_count"] = mapped_count
-        context["unmapped_count"] = max(0, total_count - mapped_count)
+        parcel_totals = parcels.aggregate(
+            total=Count("pk"),
+            mapped=Count(
+                "pk",
+                filter=~Q(coordinates="") & Q(coordinates__isnull=False),
+            ),
+        )
+        context["mapped_count"] = parcel_totals["mapped"]
+        context["unmapped_count"] = max(
+            0, parcel_totals["total"] - parcel_totals["mapped"]
+        )
         context["rosario_map_bounds"] = ROSARIO_MAP_BOUNDS
         context["rosario_map_center"] = ROSARIO_MAP_CENTER
         context["rosario_boundary"] = ROSARIO_BOUNDARY
@@ -209,18 +214,10 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 farmer__is_active=True,
             )
             .exclude(coordinates="")
-            .select_related("farmer")
             .only(
                 "pk",
                 "coordinates",
-                "parcel_name",
-                "area_hectares",
                 "barangay",
-                "farmer__id",
-                "farmer__first_name",
-                "farmer__middle_name",
-                "farmer__last_name",
-                "farmer__extension_name",
             )
             .prefetch_related(
                 Prefetch(
@@ -238,26 +235,20 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
             if not point or not is_within_rosario(*point):
                 continue
-            farmer = parcel.farmer
             commodity_groups = sorted(
                 {commodity_group(crop.crop_type) for crop in parcel.map_crops}
             )
             markers.append(
                 {
                     "id": parcel.pk,
-                    "farmer_id": farmer.record_id,
-                    "farmer": farmer.full_name,
                     "parcel": parcel.display_name,
-                    "area": f"{parcel.area_hectares} ha",
                     "barangay": parcel.barangay,
-                    "address": f"{parcel.barangay}, Rosario, Batangas",
                     "crops": [
                         {"name": name, "symbol": crop_symbol(name)}
                         for name in commodity_groups
                     ],
                     "lat": point[0],
                     "lng": point[1],
-                    "edit_url": reverse("farm_parcels:detail", args=[parcel.pk]),
                 }
             )
         total_count = FarmParcel.objects.filter(
@@ -269,6 +260,33 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 "markers": markers,
                 "count": len(markers),
                 "unmapped_count": max(0, total_count - len(markers)),
+            }
+        )
+
+
+class FarmParcelMapDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Fetch private popup fields only after an authorized user selects a pin."""
+
+    def get(self, request, pk):
+        parcel = get_object_or_404(
+            FarmParcel.objects.filter(is_active=True, farmer__is_active=True)
+            .select_related("farmer")
+            .only(
+                "pk", "area_hectares", "barangay", "farmer__id",
+                "farmer__first_name", "farmer__middle_name",
+                "farmer__last_name", "farmer__extension_name",
+            ),
+            pk=pk,
+        )
+        return JsonResponse(
+            {
+                "id": parcel.pk,
+                "farmer_id": parcel.farmer.record_id,
+                "farmer": parcel.farmer.full_name,
+                "parcel": parcel.display_name,
+                "area": f"{parcel.area_hectares} ha",
+                "address": f"{parcel.barangay}, Rosario, Batangas",
+                "edit_url": reverse("farm_parcels:detail", args=[parcel.pk]),
             }
         )
 

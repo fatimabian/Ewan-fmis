@@ -303,6 +303,8 @@
     body[data-theme="dark"] .fmis-network-loading{border-color:#607267;background:#202923;color:#edf3fa}
     </style>
     <link rel="stylesheet" href="{% static 'css/fmis-overrides.min.css' %}?v=6">
+    {# Loaded last so dark mode also reaches page-specific cards, dialogs and tables. #}
+    <link rel="stylesheet" href="{% static 'css/dark-mode.css' %}?v=7">
   </head>
   <body class="{% if request.user.is_admin %}role-admin{% else %}role-staff{% endif %}"
         data-theme="{{ user_preference.theme|default:'system' }}"

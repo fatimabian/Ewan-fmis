@@ -951,12 +951,11 @@ class FMISRequirementTests(TestCase):
         response = self.client.get(reverse("farmers:create"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Upload a copy of the RSBSA form")
-        self.assertContains(response, "Upload a copy of the RSBSA form")
+        self.assertContains(response, "RSBSA form")
         self.assertContains(response, "(optional)")
-        self.assertContains(response, "up to three readable RSBSA files for record keeping")
-        self.assertContains(response, "FMIS checks the accepted JPG, PNG, or PDF format and file size only")
-        self.assertContains(response, "does not read or fill the registration fields automatically")
+        self.assertContains(response, "Upload or capture up to three clear copies for record keeping")
+        self.assertContains(response, "Accepted: JPG, PNG, or PDF up to 5 MB each")
+        self.assertContains(response, "will not fill the registration fields")
         self.assertContains(response, 'id="id_rsbsa_form"')
         self.assertContains(response, 'id="id_rsbsa_form_2"')
         self.assertContains(response, 'id="id_rsbsa_form_3"')
@@ -968,13 +967,12 @@ class FMISRequirementTests(TestCase):
         self.assertFalse(response.context["profile_form"].fields["rsbsa_form"].required)
         self.assertFalse(response.context["profile_form"].fields["rsbsa_form_2"].required)
         self.assertFalse(response.context["profile_form"].fields["rsbsa_form_3"].required)
-        self.assertNotContains(response, "Use camera")
+        self.assertContains(response, "Use camera")
         self.assertNotContains(response, reverse("farmers:scan_rsbsa"))
-        self.assertNotContains(response, "rsbsa-camera.js")
+        self.assertContains(response, "rsbsa-camera.js")
         self.assertNotContains(response, "prefill")
         self.assertContains(response, 'data-compact-file-upload')
-        self.assertContains(response, "Select File")
-        self.assertContains(response, "JPG, PNG, or PDF; maximum 5 MB")
+        self.assertContains(response, "Choose File")
         self.assertContains(response, "Complete all required fields in this step to continue.")
         self.assertContains(response, "stepIsComplete")
         self.assertContains(response, 'id="fmisNetworkLoading"')
@@ -1397,8 +1395,8 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(masterlist.status_code, 200)
         self.assertContains(masterlist, "Farmer ID")
         self.assertContains(masterlist, "<th>RSBSA ID</th>", html=True)
-        self.assertContains(masterlist, "<th>Status</th>", html=True)
-        self.assertNotContains(masterlist, 'name="registration_status"')
+        self.assertContains(masterlist, "<th>Registration Status</th>", html=True)
+        self.assertContains(masterlist, 'name="registration_status"')
         self.assertNotContains(masterlist, "farmer-workflow-input")
 
         create_page = self.client.get(reverse("farmers:create"))
@@ -2306,6 +2304,14 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(marker["id"], self.parcel.pk)
         self.assertEqual(marker["barangay"], "Bulihan")
         self.assertEqual(marker["crops"][0]["name"], "Rice")
+        self.assertNotIn("farmer", marker)
+        self.assertNotIn("area", marker)
+        marker_detail = self.client.get(
+            reverse("farm_parcels:map_detail", args=[self.parcel.pk])
+        )
+        self.assertEqual(marker_detail.status_code, 200)
+        self.assertEqual(marker_detail.json()["farmer"], self.farmer.full_name)
+        self.assertEqual(marker_detail.json()["parcel"], self.parcel.display_name)
         map_search = self.client.get(
             reverse("farm_parcels:map_search"), {"q": self.farmer.record_id}
         )
@@ -2509,9 +2515,9 @@ class FMISRequirementTests(TestCase):
             "Farmer Name",
             "Barangay",
             "Contact Number",
-            "Livelihood",
             "RSBSA ID",
-            "Status",
+            "Registration Status",
+            "Archive Status",
             "Actions",
         ):
             self.assertContains(response, f"<th>{heading}</th>", html=True)
@@ -2521,7 +2527,6 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, self.farmer.record_id)
         self.assertContains(response, self.farmer.list_name)
         self.assertContains(response, self.farmer.phone_number)
-        self.assertContains(response, self.farmer.get_livelihood_display())
         self.assertContains(response, self.farmer.rsbsa_number)
         self.assertContains(response, self.farmer.get_registration_status_display())
         self.assertContains(response, 'class="farmer-status status-completed"')
@@ -3272,7 +3277,11 @@ class FMISRequirementTests(TestCase):
         self.assertContains(admin_reports, "Governance Reports")
         self.assertContains(admin_reports, "User Account Registry")
         self.assertContains(admin_reports, "Activity Audit Trail")
-        self.assertContains(admin_reports, "data-download-form", count=4)
+        self.assertContains(
+            admin_reports,
+            'class="admin-report-actions" method="post" data-download-form',
+            count=4,
+        )
         self.assertContains(admin_reports, "Please wait while FMIS prepares your report")
         self.assertContains(admin_reports, "Preparing report…")
         self.assertNotContains(admin_reports, "System Report Builder")
@@ -3785,6 +3794,133 @@ class FMISRequirementTests(TestCase):
         with CaptureQueriesContext(connection) as captured:
             build_report("farmer_master", "all", {"commodity": "Rice"})
         self.assertLessEqual(len(captured), 5)
+
+    def test_management_lists_use_bounded_configurable_database_pagination(self):
+        Farmer.objects.bulk_create(
+            [
+                Farmer(
+                    first_name=f"Page{index}",
+                    last_name="Farmer",
+                    barangay="Alupay",
+                    consent_given=True,
+                )
+                for index in range(30)
+            ]
+        )
+        self.client.force_login(self.staff)
+
+        default_page = self.client.get(reverse("farmers:list"))
+        self.assertEqual(default_page.status_code, 200)
+        self.assertEqual(default_page.context["page_obj"].paginator.per_page, 25)
+        self.assertEqual(len(default_page.context["object_list"]), 25)
+
+        invalid_page = self.client.get(
+            reverse("farmers:list"), {"page": "not-a-number", "per_page": "25"}
+        )
+        self.assertEqual(invalid_page.status_code, 200)
+        self.assertEqual(invalid_page.context["page_obj"].number, 1)
+
+        stale_page = self.client.get(
+            reverse("farmers:list"), {"page": "999999", "per_page": "25"}
+        )
+        self.assertEqual(stale_page.status_code, 200)
+        self.assertEqual(
+            stale_page.context["page_obj"].number,
+            stale_page.context["page_obj"].paginator.num_pages,
+        )
+        self.assertContains(default_page, 'name="per_page"')
+        self.assertContains(default_page, '<option value="100">100</option>', html=True)
+
+        smaller_page = self.client.get(
+            reverse("farmers:list"),
+            {"per_page": "10", "barangay": "Alupay", "page": "2"},
+        )
+        self.assertEqual(smaller_page.context["page_obj"].paginator.per_page, 10)
+        self.assertEqual(smaller_page.context["page_obj"].number, 2)
+        self.assertContains(smaller_page, 'name="barangay" value="Alupay"')
+        self.assertContains(smaller_page, 'per_page=10')
+
+        invalid_size = self.client.get(reverse("farmers:list"), {"per_page": "5000"})
+        self.assertEqual(invalid_size.context["page_obj"].paginator.per_page, 25)
+
+    def test_user_accounts_are_server_side_paginated(self):
+        User = get_user_model()
+        User.objects.bulk_create(
+            [
+                User(
+                    username=f"page-user-{index}",
+                    role="STAFF",
+                    email=f"page-{index}@example.com",
+                    password="!",
+                )
+                for index in range(30)
+            ]
+        )
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("accounts:list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_obj"].paginator.per_page, 25)
+        self.assertEqual(len(response.context["object_list"]), 25)
+
+    def test_farmer_list_does_not_prefetch_unused_parcels_and_crops(self):
+        from apps.farmers.views import FarmerListView
+
+        request = RequestFactory().get(reverse("farmers:list"))
+        request.user = self.staff
+        view = FarmerListView()
+        view.request = request
+        queryset = view.get_queryset()
+        self.assertEqual(queryset._prefetch_related_lookups, ())
+
+    def test_farmer_list_with_five_thousand_records_keeps_queries_bounded(self):
+        Farmer.objects.bulk_create(
+            [
+                Farmer(
+                    first_name=f"Scale{index}",
+                    last_name="Farmer",
+                    barangay="Alupay",
+                    consent_given=True,
+                )
+                for index in range(5000)
+            ],
+            batch_size=500,
+        )
+        self.client.force_login(self.staff)
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get(reverse("farmers:list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["object_list"]), 25)
+        # Includes session/auth, preference/notification navigation, count,
+        # one 25-row page query, and the barangay filter choices. It must not
+        # grow with the farmer, parcel, or commodity table sizes.
+        self.assertLessEqual(len(captured), 13)
+
+    def test_shared_navigation_loads_notification_preview_and_count_in_one_query(self):
+        from apps.notifications.models import Notification
+        from apps.settings_page.context_processors import user_preference
+        from apps.settings_page.models import UserPreference
+
+        UserPreference.objects.get_or_create(user=self.staff)
+        Notification.objects.bulk_create(
+            [
+                Notification(
+                    recipient=self.staff,
+                    title=f"Notice {index}",
+                    message="Performance preview",
+                    is_read=index >= 3,
+                )
+                for index in range(7)
+            ]
+        )
+        request = RequestFactory().get(reverse("farmers:list"))
+        request.user = self.staff
+        with CaptureQueriesContext(connection) as captured:
+            context = user_preference(request)
+        self.assertEqual(context["notification_unread_count"], 3)
+        self.assertEqual(len(context["notification_preview"]), 5)
+        self.assertEqual(len(captured), 2)
 
     def test_key_pages_respond_within_two_seconds_in_test_environment(self):
         self.client.force_login(self.staff)

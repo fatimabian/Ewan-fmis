@@ -2,6 +2,7 @@ from datetime import date, datetime, time, timedelta
 from math import ceil, floor, log10
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Case, CharField, Count, Max, Q, Sum, Value, When
 from django.utils import timezone
 
@@ -17,6 +18,22 @@ from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
 from apps.settings_page.models import BackupRun
 from decimal import Decimal
+
+
+ADMIN_DASHBOARD_CACHE_KEY = "fmis:dashboard:admin:v1"
+STAFF_DASHBOARD_CACHE_KEY = "fmis:dashboard:staff:v1"
+
+
+def _cached_dashboard(key, builder):
+    timeout = settings.DASHBOARD_CACHE_SECONDS
+    if timeout <= 0:
+        return builder()
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    result = builder()
+    cache.set(key, result, timeout)
+    return result
 
 
 def _day_boundary(value):
@@ -40,7 +57,7 @@ def _farmer_chart_scale(peak):
     return ceiling, list(range(ceiling, -1, -step))
 
 
-def dashboard_metrics():
+def _build_dashboard_metrics():
     today = timezone.localdate()
     first_day = today - timedelta(days=6)
     day_ranges = []
@@ -119,7 +136,7 @@ def dashboard_metrics():
             f"{chart_right},{chart_bottom}"
         ),
         "activity_week_total": sum(item["total"] for item in activity_trend),
-        "recent_activity": ActivityLog.objects.select_related("actor")[:6],
+        "recent_activity": list(ActivityLog.objects.select_related("actor")[:6]),
         "latest_backup": latest_backup,
         "backup_scheduler_configured": settings.FMIS_BACKUP_SCHEDULER_CONFIGURED,
         "backup_encryption_configured": bool(settings.FMIS_BACKUP_ENCRYPTION_KEY),
@@ -127,6 +144,10 @@ def dashboard_metrics():
             settings.BACKUP_AZURE_CONTAINER_URL or settings.BACKUP_RCLONE_REMOTE
         ),
     }
+
+
+def dashboard_metrics():
+    return _cached_dashboard(ADMIN_DASHBOARD_CACHE_KEY, _build_dashboard_metrics)
 
 
 def _month_start(value):
@@ -283,7 +304,7 @@ def _crop_recommendation(today, crop_rows):
     }
 
 
-def staff_dashboard_metrics():
+def _build_staff_dashboard_metrics():
     """Rosario-only operational and crop-planning summary for staff."""
     today = timezone.localdate()
     current_month = _month_start(today)
@@ -335,12 +356,25 @@ def staff_dashboard_metrics():
         )
         .order_by("-records", "commodity_group")
     )
+    farmer_totals = rosario_farmers.aggregate(
+        total=Count("pk"),
+        incomplete=Count("pk", filter=~Q(registration_status="COMPLETED")),
+    )
+    parcel_totals = rosario_parcels.aggregate(
+        total=Count("pk"),
+        active=Count("pk", filter=Q(is_active=True)),
+        unmapped=Count(
+            "pk",
+            filter=Q(is_active=True) & (Q(coordinates="") | Q(coordinates__isnull=True)),
+        ),
+        managed_area=Sum("area_hectares"),
+    )
     attention_chart = [
         {
             "key": "registration",
             "label": "Registrations to complete",
             "help": "Active farmer records not yet marked completed",
-            "count": rosario_farmers.exclude(registration_status="COMPLETED").count(),
+            "count": farmer_totals["incomplete"],
         },
         {
             "key": "parcel",
@@ -356,9 +390,7 @@ def staff_dashboard_metrics():
             "key": "mapping",
             "label": "Parcels without map pins",
             "help": "Active parcels without saved coordinates",
-            "count": active_rosario_parcels.filter(
-                Q(coordinates="") | Q(coordinates__isnull=True)
-            ).count(),
+            "count": parcel_totals["unmapped"],
         },
         {
             "key": "crop",
@@ -427,7 +459,7 @@ def staff_dashboard_metrics():
         )
         commodity_offset += share
 
-    total_farmers = rosario_farmers.count()
+    total_farmers = farmer_totals["total"]
     barangay_distribution = list(
         rosario_farmers.values("barangay")
         .annotate(total=Count("pk"))
@@ -478,13 +510,10 @@ def staff_dashboard_metrics():
         (Decimal(str(row["area"] or 0)) for row in recommendation_rows),
         Decimal("0"),
     )
-    total_parcels = rosario_parcels.count()
-    managed_land_area = (
-        rosario_parcels.aggregate(total=Sum("area_hectares"))["total"]
-        or Decimal("0")
-    )
+    total_parcels = parcel_totals["total"]
+    managed_land_area = parcel_totals["managed_area"] or Decimal("0")
     registration_complete = total_farmers - attention_chart[0]["count"]
-    active_parcel_count = active_rosario_parcels.count()
+    active_parcel_count = parcel_totals["active"]
     mapped_parcels = active_parcel_count - attention_chart[2]["count"]
     parcels_with_commodities = active_parcel_count - attention_chart[3]["count"]
     completeness_denominator = total_farmers + (active_parcel_count * 2)
@@ -519,6 +548,10 @@ def staff_dashboard_metrics():
             "completed": intervention_summary["completed"] or 0,
         },
         "crop_recommendation": _crop_recommendation(today, recommendation_rows),
-        "recent_requests": rosario_requests.filter(open_filter)[:5],
+        "recent_requests": list(rosario_requests.filter(open_filter)[:5]),
         "dashboard_date": today,
     }
+
+
+def staff_dashboard_metrics():
+    return _cached_dashboard(STAFF_DASHBOARD_CACHE_KEY, _build_staff_dashboard_metrics)

@@ -10,8 +10,6 @@ from .models import ActivityLog
 class ActivityLogListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
     model = ActivityLog
     template_name = "activity_logs/list.html"
-    paginate_by = 10
-
     def get_queryset(self):
         queryset = ActivityLog.objects.select_related("actor")
         query = self.request.GET.get("q", "").strip()

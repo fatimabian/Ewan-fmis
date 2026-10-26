@@ -212,6 +212,9 @@
           </tbody>
         </table>
         </div>
+        {% if is_paginated %}
+          {% include 'shared/pagination.html' %}
+        {% endif %}
     </section>
   </div>
 {% endblock %}

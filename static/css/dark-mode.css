@@ -826,3 +826,107 @@ html body[data-theme="dark"] .app-shell :is(button,.btn,[class*="btn-"],a)>.bi{
     color:inherit!important;
     opacity:1!important
 }
+
+/* Windows-style final audit: neutral near-black workspaces and controls. */
+html body[data-theme="dark"]{
+    --ui-page:#0c0c0c;
+    --ui-surface:#171717;
+    --ui-surface-soft:#202020;
+    --ui-border:#3a3a3a;
+    --ui-text:#f3f3f3;
+    --ui-muted:#b8b8b8;
+    --surface:#171717;
+    --surface-muted:#202020;
+    --border:#3a3a3a;
+    --fmis-surface:#171717;
+    --fmis-canvas:#0c0c0c;
+    --fmis-line:#3a3a3a;
+    background:#0c0c0c!important;
+    color:#f3f3f3!important
+}
+
+html body[data-theme="dark"] :is(
+    .app-shell main,.page-scroll,.workspace-scroll-region,.content,
+    .rosario-dashboard,.reports-page,.settings-page,.catalog-page,.activity-page
+){background:#0c0c0c!important;color:#f3f3f3!important}
+
+html body[data-theme="dark"] .app-header{
+    background:#151515!important;
+    border-color:#363636!important
+}
+
+html body[data-theme="dark"] :is(
+    .panel,.report-card,.report-metric,.metric-card,.dashboard-card,.dashboard-metric,
+    .staff-metric-card,.settings-card,.settings-tab,.catalog-card,.catalog-toolbar,
+    .catalog-section,.service-reference-card,.activity-table,.activity-row,
+    .account-form-card,.account-form-body,.account-action,.form-panel,.form-section,
+    .formset-row,.registration-shell,.reference-card,.record-hero,.record-section,
+    .farmer-table-wrap,.parcel-table-wrap,.crop-table-wrap,.request-table-wrap,
+    .table-panel,.map-count,.map-empty,.unmapped-panel,.notification-panel,
+    .fmis-feedback-dialog,.fmis-submit-loading-card,.fmis-password-dialog,
+    .report-filter-card,.report-preview,.report-table-wrap,.rsbsa-record-card
+){background:#171717!important;color:#f3f3f3!important;border-color:#3a3a3a!important}
+
+html body[data-theme="dark"] :is(
+    input:not([type="checkbox"]):not([type="radio"]),select,textarea,.form-control,
+    .farmer-picker-control,.farmer-picker-list,.farmer-picker-option
+){background:#101010!important;color:#f3f3f3!important;border-color:#505050!important}
+
+html body[data-theme="dark"] .app-shell table{
+    background:#171717!important;
+    border-color:#3a3a3a!important
+}
+html body[data-theme="dark"] .app-shell table thead th{
+    background:#202020!important;
+    color:#fff!important;
+    border-color:#464646!important
+}
+html body[data-theme="dark"] .app-shell table tbody :is(tr,td),
+html body[data-theme="dark"] .report-preview-table tbody tr:nth-child(even),
+html body[data-theme="dark"] .app-shell table tbody tr:nth-child(even) td{
+    background:#141414!important;
+    color:#ededed!important;
+    border-color:#353535!important
+}
+html body[data-theme="dark"] .app-shell table tbody tr:nth-child(even) td{background:#1a1a1a!important}
+html body[data-theme="dark"] .app-shell table tbody tr:hover td{background:#252525!important}
+
+html body[data-theme="dark"] :is(.fmis-pagination,.fmis-page-jump){
+    background:#171717!important;
+    color:#f3f3f3!important;
+    border-color:#454545!important
+}
+html body[data-theme="dark"] :is(.fmis-page-label,.fmis-page-total){color:#f3f3f3!important}
+html body[data-theme="dark"] :is(.fmis-page-button,.fmis-page-ellipsis){
+    background:#171717!important;
+    color:#f3f3f3!important;
+    border-color:#505050!important
+}
+html body[data-theme="dark"] .fmis-page-button.is-disabled{color:#858585!important}
+html body[data-theme="dark"] .fmis-page-input{
+    background:#242424!important;
+    color:#fff!important;
+    border-color:#686868!important
+}
+
+/* Satellite imagery must stay clear; dark mode only themes the map chrome. */
+html body[data-theme="dark"] .leaflet-tile-pane{filter:none!important}
+
+/* Map pins are operational signals, not theme-colored icons. Keep them red. */
+html body[data-theme="dark"] .farmer-pin,
+html body[data-theme="dark"] .farmer-pin i,
+html body[data-theme="dark"] .farmer-pin i::before{
+    color:#e11937!important;
+    opacity:1!important;
+    -webkit-text-fill-color:#e11937!important
+}
+html body[data-theme="dark"] .farmer-pin-shell.is-moving :is(.farmer-pin,.farmer-pin i,.farmer-pin i::before){
+    color:#e1841d!important;
+    -webkit-text-fill-color:#e1841d!important
+}
+
+html body[data-theme="dark"] :is(.report-horizontal-controls,.report-scroll-button){
+    background:#171717!important;
+    color:#f3f3f3!important;
+    border-color:#505050!important
+}

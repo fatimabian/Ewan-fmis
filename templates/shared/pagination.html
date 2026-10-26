@@ -1,4 +1,15 @@
 <nav class="fmis-pagination" aria-label="Table pages">
+  <form class="fmis-page-size" method="get" aria-label="Rows per page">
+    {% for name, value in preserved_fields %}
+      {% if name != 'per_page' %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endif %}
+    {% endfor %}
+    <label for="fmisPageSize">Rows</label>
+    <select id="fmisPageSize" name="per_page" onchange="this.form.submit()">
+      {% for size in page_size_choices %}
+        <option value="{{ size }}"{% if page_size == size %} selected{% endif %}>{{ size }}</option>
+      {% endfor %}
+    </select>
+  </form>
   {% if page_obj.has_previous %}
     <a class="fmis-page-button"
        href="?{% if preserved_query %}{{ preserved_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"

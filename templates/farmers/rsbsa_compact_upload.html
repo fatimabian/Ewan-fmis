@@ -1,0 +1,13 @@
+<div class="rsbsa-copy-field{% if field.errors %} has-error{% endif %}" data-field-name="{{ field.name }}">
+  <label for="{{ field.id_for_label }}">Copy {{ copy_number }}</label>
+  <div class="compact-file-upload" data-compact-file-upload>
+    <div class="compact-file-native">{{ field }}</div>
+    <div class="compact-file-row">
+      <label class="compact-file-select" for="{{ field.id_for_label }}">Choose File</label>
+      <span class="compact-file-name is-empty" data-compact-file-name>No file chosen</span>
+      <a class="compact-file-download" data-compact-file-download href="#" hidden aria-label="Open selected RSBSA copy"><i class="bi bi-download"></i></a>
+      <button class="compact-file-remove" data-compact-file-remove type="button" hidden aria-label="Remove selected RSBSA copy">&times;</button>
+    </div>
+  </div>
+  {{ field.errors }}
+</div>

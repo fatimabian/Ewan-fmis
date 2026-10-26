@@ -203,12 +203,9 @@ class InterventionFarmerSearchView(InterventionAccessMixin, View):
 class InterventionListView(InterventionAccessMixin, ListView):
     model = Intervention
     template_name = "interventions/list.html"
-    paginate_by = 10
-
     def get_queryset(self):
         queryset = (
             Intervention.objects.select_related("farmer", "service_request", "recorded_by")
-            .prefetch_related("recipients__farmer")
             .annotate(beneficiary_count=Count("recipients", filter=Q(recipients__is_active=True)))
         )
         query = self.request.GET.get("q", "").strip()
