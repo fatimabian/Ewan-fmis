@@ -23,6 +23,23 @@ from decimal import Decimal
 ADMIN_DASHBOARD_CACHE_KEY = "fmis:dashboard:admin:v1"
 STAFF_DASHBOARD_CACHE_KEY = "fmis:dashboard:staff:v1"
 
+# A restrained, agriculture-inspired palette keeps the commodity chart readable
+# without the harsh rainbow effect produced by evenly-spaced HSL hues.  The
+# final neutral is reserved for the aggregated "Others" slice.
+COMMODITY_CHART_COLORS = (
+    "#2F7D5C",  # forest
+    "#3B8EA5",  # teal blue
+    "#5C6F91",  # slate blue
+    "#8A6FA8",  # muted violet
+    "#D29A48",  # harvest gold
+    "#C46D5E",  # terracotta
+    "#6F8F72",  # sage
+    "#4E8098",  # steel blue
+    "#9B7E46",  # ochre
+    "#A65A74",  # muted berry
+)
+COMMODITY_OTHERS_COLOR = "#88958D"
+
 
 def _cached_dashboard(key, builder):
     timeout = settings.DASHBOARD_CACHE_SECONDS
@@ -447,11 +464,14 @@ def _build_staff_dashboard_metrics():
     commodity_offset = 0.0
     for index, item in enumerate(commodity_breakdown):
         share = round((item["records"] / total_crops) * 100, 2) if total_crops else 0
+        is_others = item["label"] == "Others"
         item.update(
             {
-                # Golden-angle spacing keeps adjacent slices distinct while
-                # supporting every saved commodity without an "Other" bucket.
-                "color": f"hsl({round((142 + index * 137.508) % 360)} 58% 45%)",
+                "color": (
+                    COMMODITY_OTHERS_COLOR
+                    if is_others
+                    else COMMODITY_CHART_COLORS[index % len(COMMODITY_CHART_COLORS)]
+                ),
                 "share": share,
                 "remainder": round(100 - share, 2),
                 "offset": round(commodity_offset, 2),

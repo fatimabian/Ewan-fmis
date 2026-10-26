@@ -3294,6 +3294,9 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(breakdown[-1]["label"], "Others")
         self.assertEqual(breakdown[-1]["records"], 2)
         self.assertEqual(breakdown[-1]["farmers"], 1)
+        self.assertEqual(breakdown[-1]["color"], "#88958D")
+        self.assertTrue(all(item["color"].startswith("#") for item in breakdown))
+        self.assertEqual(len({item["color"] for item in breakdown}), len(breakdown))
 
     @override_settings(FMIS_FIELD_BASE_URL="https://field.fmis.example.gov.ph")
     def test_farmer_qr_uses_configured_authenticated_field_address(self):
