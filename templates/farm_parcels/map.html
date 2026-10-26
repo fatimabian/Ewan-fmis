@@ -9,7 +9,6 @@
 {% block content %}
   <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/leaflet-markercluster/MarkerCluster.css' %}">
-  <link rel="stylesheet" href="{% static 'vendor/leaflet-markercluster/MarkerCluster.Default.css' %}">
   <style>
   .farmer-map-page{
       width:100%;
@@ -24,7 +23,7 @@
   }
   .map-toolbar{
       display:grid;
-      grid-template-columns:1fr auto auto;
+      grid-template-columns:minmax(300px,1.4fr) minmax(145px,.55fr) minmax(165px,.65fr) auto auto;
       gap:10px;
       align-items:end;
       margin-bottom:14px
@@ -86,15 +85,16 @@
   }
   .map-loading-status i{color:#167b43;font-size:16px}
   .map-loading-status.is-error{color:#a32323}
-  #farmerMap .marker-cluster{
-      background:rgba(231,25,63,.28)
-  }
-  #farmerMap .marker-cluster div{
-      background:#e7193f;
-      color:#fff;
-      font-weight:800;
-      box-shadow:0 2px 8px rgba(0,0,0,.32)
-  }
+  #farmerMap .parcel-cluster-shell{background:transparent;border:0}
+  #farmerMap .parcel-cluster{display:grid;width:34px;height:40px;place-items:center;color:#e7193f;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+  #farmerMap .parcel-cluster i{font-size:34px;line-height:1}
+  #farmerMap .parcel-cluster-count{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  #farmerMap .farmer-pin-shell.is-selected .farmer-pin{filter:drop-shadow(0 0 7px #ffd447);transform:scale(1.22)!important}
+  .farmer-picker-option{display:flex!important;align-items:center;gap:9px}
+  .farmer-picker-pin-status{flex:0 0 auto;min-width:112px;padding:3px 7px;border:1px solid currentColor;font-size:9px;font-weight:800;text-align:center}
+  .farmer-picker-pin-status.status-pinned{color:#087a3d}
+  .farmer-picker-pin-status.status-unpinned{color:#9b4f00}
+  .farmer-picker-pin-status.status-needs-verification{color:#b42318}
   .map-count{
       padding:8px 11px;
       border:1px solid var(--ag-border,#dce7e0);
@@ -445,8 +445,23 @@
         required
         data-farmer-picker="true"
         data-search-url="{% url 'farm_parcels:map_search' %}"
-        data-search-placeholder="Type Farmer ID, farmer name, or parcel...">
+        data-extra-filter-ids="parcelSearchStatus,parcelSearchBarangay"
+        data-search-placeholder="Search parcel — Not pinned records are listed first">
         <option value="">Select a farm parcel</option>
+        </select>
+      </label>
+      <label>Pin Status
+        <select id="parcelSearchStatus" name="pin_status">
+          <option value="">All parcels</option>
+          <option value="UNPINNED">Unpinned</option>
+          <option value="PINNED">Pinned</option>
+          <option value="NEEDS_VERIFICATION">Needs verification</option>
+        </select>
+      </label>
+      <label>Parcel Barangay
+        <select id="parcelSearchBarangay" name="barangay">
+          <option value="">All barangays</option>
+          {% for barangay in rosario_barangays %}<option value="{{ barangay }}">{{ barangay }}</option>{% endfor %}
         </select>
       </label>
       <button class="btn btn-success" id="startPin" type="button">
@@ -476,6 +491,8 @@
           <strong id="visibleMappedCount">{{ mapped_count }}</strong> mapped parcels shown</span>
         <span class="map-count">
           <strong id="unmappedParcelCount">{{ unmapped_count }}</strong> parcels need a pin</span>
+        <span class="map-count">
+          <strong id="verificationParcelCount">{{ verification_count }}</strong> pins need verification</span>
       </div>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
@@ -536,6 +553,7 @@
                 mapFilterSummary = document.getElementById('mapFilterSummary'),
                 visibleMappedCount = document.getElementById('visibleMappedCount'),
                 unmappedParcelCount = document.getElementById('unmappedParcelCount'),
+                verificationParcelCount = document.getElementById('verificationParcelCount'),
                 mapLoadingStatus = document.getElementById('mapLoadingStatus'),
                 mapEmpty = document.getElementById('mapEmpty'),
                 markerByFarmer = new Map();
@@ -572,16 +590,24 @@
             );
             rosarioImagery.addTo(map);
             rosarioLabels.addTo(map);
+            // Clusters are used only while zoomed out. At working zoom, every
+            // parcel is its own red pin at its exact saved coordinate.
             const markerLayer = L.markerClusterGroup({
                 chunkedLoading: true,
                 chunkInterval: 50,
                 chunkDelay: 20,
-                maxClusterRadius: 48,
-                disableClusteringAtZoom: 17,
+                maxClusterRadius: 36,
+                disableClusteringAtZoom: 15,
                 removeOutsideVisibleBounds: true,
                 showCoverageOnHover: false,
                 spiderfyOnMaxZoom: true,
-                spiderfyDistanceMultiplier: 1.45
+                spiderfyDistanceMultiplier: 1.45,
+                iconCreateFunction: cluster => L.divIcon({
+                    className: 'parcel-cluster-shell',
+                    html: `<span class="parcel-cluster"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i><span class="parcel-cluster-count">${cluster.getChildCount()} farm parcels</span></span>`,
+                    iconSize: [34, 40],
+                    iconAnchor: [17, 38]
+                })
             }).addTo(map);
             map.fitBounds(rosarioBounds, {
                 padding: [10, 10]
@@ -784,6 +810,9 @@
                 unmappedParcelCount.textContent = barangay && barangayCounts[barangay]
                     ? barangayCounts[barangay].unmapped
                     : Object.values(barangayCounts).reduce((sum, counts) => sum + counts.unmapped, 0);
+                verificationParcelCount.textContent = visible.filter(
+                    item => item.pin_status === 'NEEDS_VERIFICATION'
+                ).length;
                 const scopeLabels = [
                     barangay ? `Barangay ${barangay}` : '',
                     commodity ? commodity : ''
@@ -866,14 +895,19 @@
                 const farmerMarker = markerByFarmer.get(String(farmerSelect.value));
                 setPinButton(Boolean(farmerMarker));
                 if (!farmerMarker) return;
+                markerByFarmer.forEach(marker => marker._icon?.classList.remove('is-selected'));
                 if (!markerLayer.hasLayer(farmerMarker)) {
                     barangayFilter.value = '';
                     commodityFilter.value = '';
                     applyMapFilters(false)
                 }
                 const point = farmerMarker.getLatLng();
+                map.setView(point, Math.max(map.getZoom(), 16), {
+                    animate: true,
+                    duration: .2
+                });
                 markerLayer.zoomToShowLayer(farmerMarker, () => {
-                    map.panTo(point, {animate: true, duration: .2});
+                    farmerMarker._icon?.classList.add('is-selected');
                     farmerMarker.fire('click')
                 });
             };
@@ -996,6 +1030,7 @@
                     );
                     visibleMappedCount.textContent = markers.length;
                     unmappedParcelCount.textContent = payload.unmapped_count || 0;
+                    verificationParcelCount.textContent = payload.verification_count || 0;
                     applyMapFilters(false);
                     mapLoadingStatus.querySelector('i').className = 'bi bi-check-circle-fill';
                     mapLoadingStatus.querySelector('span').textContent =

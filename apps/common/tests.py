@@ -2319,6 +2319,23 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(marker_detail.status_code, 200)
         self.assertEqual(marker_detail.json()["farmer"], self.farmer.full_name)
         self.assertEqual(marker_detail.json()["parcel"], self.parcel.display_name)
+        unpinned_parcel = FarmParcel.objects.create(
+            farmer=self.farmer,
+            parcel_name="Field location needed",
+            barangay="Bulihan",
+            area_hectares=Decimal("0.40"),
+            ownership_type="OWNED",
+            coordinates="",
+        )
+        verification_parcel = FarmParcel.objects.create(
+            farmer=self.farmer,
+            parcel_name="Generated location to verify",
+            barangay="Bulihan",
+            area_hectares=Decimal("0.45"),
+            ownership_type="OWNED",
+            coordinates="13.8469000, 121.2062000",
+            remarks="FMIS-DEMO-DATA: test record",
+        )
         map_search = self.client.get(
             reverse("farm_parcels:map_search"), {"q": self.farmer.record_id}
         )
@@ -2334,6 +2351,37 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(selected_result["livelihood"], "Farmer")
         self.assertEqual(selected_result["livelihood_code"], "FARMER")
         self.assertEqual(selected_result["activities"], "FARMER_CROPS")
+        self.assertTrue(selected_result["is_pinned"])
+        self.assertEqual(selected_result["pin_status"], "PINNED")
+        self.assertTrue(selected_result["label"].startswith("PINNED —"))
+        self.assertEqual(search_results[0]["id"], unpinned_parcel.pk)
+        self.assertFalse(search_results[0]["is_pinned"])
+        self.assertEqual(search_results[0]["pin_status"], "UNPINNED")
+        self.assertTrue(search_results[0]["label"].startswith("UNPINNED —"))
+        verification_result = next(
+            result for result in search_results if result["id"] == verification_parcel.pk
+        )
+        self.assertEqual(verification_result["pin_status"], "NEEDS_VERIFICATION")
+        self.assertIn("NEEDS VERIFICATION —", verification_result["label"])
+        self.assertEqual(search_results[1]["id"], verification_parcel.pk)
+        unpinned_search = self.client.get(
+            reverse("farm_parcels:map_search"),
+            {"q": self.farmer.record_id, "pin_status": "UNPINNED", "barangay": "Bulihan"},
+        ).json()
+        self.assertEqual(
+            [result["id"] for result in unpinned_search["results"]],
+            [unpinned_parcel.pk],
+        )
+        self.assertEqual(unpinned_search["counts"]["ALL"], 4)
+        self.assertEqual(unpinned_search["counts"]["UNPINNED"], 1)
+        verification_search = self.client.get(
+            reverse("farm_parcels:map_search"),
+            {"q": self.farmer.record_id, "pin_status": "NEEDS_VERIFICATION"},
+        ).json()["results"]
+        self.assertEqual(
+            [result["id"] for result in verification_search],
+            [verification_parcel.pk],
+        )
         self.assertEqual(
             selected_result["activities_display"], "Farmer - Crop Production"
         )
@@ -2360,7 +2408,9 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "L.polygon(rosarioBoundary")
         self.assertContains(map_response, "L.marker")
         self.assertContains(map_response, "L.markerClusterGroup")
-        self.assertContains(map_response, "spiderfyOnMaxZoom: true")
+        self.assertContains(map_response, "disableClusteringAtZoom: 15")
+        self.assertContains(map_response, "iconCreateFunction")
+        self.assertContains(map_response, "parcel-cluster-count")
         self.assertContains(map_response, "farmerIcon")
         self.assertContains(map_response, "bi-geo-alt-fill")
         self.assertContains(map_response, "L.svg")
@@ -2429,7 +2479,8 @@ class FMISRequirementTests(TestCase):
 
     def test_staff_can_move_parcel_pin_and_change_is_audited(self):
         self.parcel.coordinates = "13.8467000, 121.2060000"
-        self.parcel.save(update_fields=["coordinates"])
+        self.parcel.remarks = "FMIS-DEMO-DATA: generated location"
+        self.parcel.save(update_fields=["coordinates", "remarks"])
         self.client.force_login(self.staff)
         response = self.client.post(
             reverse("farm_parcels:pin_farmer"),
@@ -2443,6 +2494,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.parcel.refresh_from_db()
         self.assertEqual(self.parcel.coordinates, "13.8501000, 121.2102000")
+        self.assertTrue(self.parcel.remarks.startswith("FMIS-DEMO-VERIFIED:"))
         activity = ActivityLog.objects.get(
             title="Farm Parcel Map Pin Moved",
             target_label=f"{self.farmer.record_id} - {self.parcel.display_name}",

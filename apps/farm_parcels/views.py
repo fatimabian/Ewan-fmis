@@ -2,7 +2,8 @@ import re
 import mimetypes
 
 from django.contrib import messages
-from django.db.models import Count, Prefetch, Q
+from django.core.cache import cache
+from django.db.models import Case, Count, IntegerField, Prefetch, Q, Value, When
 from django.http import FileResponse, JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
@@ -20,7 +21,7 @@ from django.views.generic import (
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
-from apps.common.constants import commodity_group
+from apps.common.constants import ROSARIO_BARANGAYS, commodity_group
 from apps.common.crop_symbols import crop_symbol
 from apps.activity_logs.services import record_request_event
 from apps.activity_logs.models import ActivityLog
@@ -65,6 +66,20 @@ def is_within_rosario(latitude, longitude):
                 inside = not inside
         previous_latitude, previous_longitude = current_latitude, current_longitude
     return inside
+
+
+def parcel_pin_status(coordinates, remarks=""):
+    """Classify a pin without changing or estimating its stored coordinates."""
+    if not (coordinates or "").strip():
+        return "UNPINNED"
+    point = FarmParcelMapView.parse_coordinates(coordinates)
+    if (
+        not point
+        or not is_within_rosario(*point)
+        or (remarks or "").startswith("FMIS-DEMO-DATA:")
+    ):
+        return "NEEDS_VERIFICATION"
+    return "PINNED"
 
 
 class RoleAwareParcelMixin:
@@ -199,9 +214,13 @@ class FarmParcelMapView(
         context["unmapped_count"] = max(
             0, parcel_totals["total"] - parcel_totals["mapped"]
         )
+        context["verification_count"] = parcels.exclude(coordinates="").filter(
+            remarks__startswith="FMIS-DEMO-DATA:"
+        ).count()
         context["rosario_map_bounds"] = ROSARIO_MAP_BOUNDS
         context["rosario_map_center"] = ROSARIO_MAP_CENTER
         context["rosario_boundary"] = ROSARIO_BOUNDARY
+        context["rosario_barangays"] = ROSARIO_BARANGAYS
         return context
 
 
@@ -225,6 +244,7 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 "pk",
                 "coordinates",
                 "barangay",
+                "remarks",
             )
             .prefetch_related(
                 Prefetch(
@@ -239,6 +259,7 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         )
         markers = []
         mapped_by_barangay = {}
+        verification_by_barangay = {}
         for parcel in parcels.iterator(chunk_size=500):
             point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
             if not point or not is_within_rosario(*point):
@@ -246,6 +267,7 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             commodity_groups = sorted(
                 {commodity_group(crop.crop_type) for crop in parcel.map_crops}
             )
+            pin_status = parcel_pin_status(parcel.coordinates, parcel.remarks)
             markers.append(
                 {
                     "id": parcel.pk,
@@ -257,17 +279,23 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     ],
                     "lat": point[0],
                     "lng": point[1],
+                    "pin_status": pin_status,
                 }
             )
             mapped_by_barangay[parcel.barangay] = (
                 mapped_by_barangay.get(parcel.barangay, 0) + 1
             )
+            if pin_status == "NEEDS_VERIFICATION":
+                verification_by_barangay[parcel.barangay] = (
+                    verification_by_barangay.get(parcel.barangay, 0) + 1
+                )
         total_count = sum(totals_by_barangay.values())
         response = JsonResponse(
             {
                 "markers": markers,
                 "count": len(markers),
                 "unmapped_count": max(0, total_count - len(markers)),
+                "verification_count": sum(verification_by_barangay.values()),
                 "barangay_counts": {
                     barangay: {
                         "total": total,
@@ -275,6 +303,7 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                         "unmapped": max(
                             0, total - mapped_by_barangay.get(barangay, 0)
                         ),
+                        "needs_verification": verification_by_barangay.get(barangay, 0),
                     }
                     for barangay, total in totals_by_barangay.items()
                 },
@@ -316,10 +345,30 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
 
     def get(self, request):
         query = request.GET.get("q", "").strip()
+        barangay = request.GET.get("barangay", "").strip()
+        requested_status = request.GET.get("pin_status", "").strip().upper()
         parcels = FarmParcel.objects.filter(
             is_active=True,
             farmer__is_active=True,
         ).select_related("farmer")
+        if barangay in ROSARIO_BARANGAYS:
+            parcels = parcels.filter(barangay=barangay)
+        count_cache_key = f"farm-parcel-pin-counts:{barangay or 'all'}"
+        status_counts = cache.get(count_cache_key)
+        if status_counts is None:
+            status_counts = {
+                "ALL": 0,
+                "PINNED": 0,
+                "UNPINNED": 0,
+                "NEEDS_VERIFICATION": 0,
+            }
+            for coordinate_row in parcels.values("coordinates", "remarks").iterator(chunk_size=1000):
+                status = parcel_pin_status(
+                    coordinate_row["coordinates"], coordinate_row["remarks"]
+                )
+                status_counts["ALL"] += 1
+                status_counts[status] += 1
+            cache.set(count_cache_key, status_counts, 30)
         if query:
             farmer_id = query.upper().removeprefix("F-")
             filters = (
@@ -333,21 +382,54 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             if farmer_id.isdigit():
                 filters |= Q(farmer_id=int(farmer_id))
             parcels = parcels.filter(filters)
-        results = [
-            {
-                "id": parcel.pk,
-                "label": (
-                    f"{parcel.farmer.record_id} — {parcel.farmer.full_name} / "
-                    f"{parcel.display_name} ({parcel.barangay})"
-                ),
-                "livelihood": parcel.farmer.get_livelihood_display(),
-                "livelihood_code": parcel.farmer.livelihood,
-                "activities": parcel.farmer.activities,
-                "activities_display": parcel.farmer.activities_display,
-            }
-            for parcel in parcels.order_by("-created_at", "-pk")[:40]
-        ]
-        return JsonResponse({"results": results})
+        # Put parcels requiring field work first so staff do not have to guess
+        # which records still need a location. The final validity check below
+        # also catches malformed/out-of-bound legacy coordinate strings.
+        if requested_status == "UNPINNED":
+            parcels = parcels.filter(Q(coordinates="") | Q(coordinates__isnull=True))
+        elif requested_status == "PINNED":
+            parcels = parcels.exclude(coordinates="").exclude(
+                remarks__startswith="FMIS-DEMO-DATA:"
+            )
+        elif requested_status == "NEEDS_VERIFICATION":
+            parcels = parcels.exclude(coordinates="")
+
+        parcels = parcels.annotate(
+            pin_order=Case(
+                When(Q(coordinates="") | Q(coordinates__isnull=True), then=Value(0)),
+                When(remarks__startswith="FMIS-DEMO-DATA:", then=Value(1)),
+                default=Value(2),
+                output_field=IntegerField(),
+            )
+        ).order_by("pin_order", "-created_at", "-pk")[:400]
+        results = []
+        for parcel in parcels:
+            pin_status = parcel_pin_status(parcel.coordinates, parcel.remarks)
+            if requested_status and pin_status != requested_status:
+                continue
+            is_pinned = pin_status != "UNPINNED"
+            status_label = pin_status.replace("_", " ")
+            results.append(
+                {
+                    "id": parcel.pk,
+                    "label": (
+                        f"{status_label} — {parcel.farmer.record_id} — "
+                        f"{parcel.farmer.full_name} / {parcel.display_name} "
+                        f"({parcel.barangay})"
+                    ),
+                    "is_pinned": is_pinned,
+                    "pin_status": pin_status,
+                    "pin_status_label": status_label,
+                    "livelihood": parcel.farmer.get_livelihood_display(),
+                    "livelihood_code": parcel.farmer.livelihood,
+                    "activities": parcel.farmer.activities,
+                    "activities_display": parcel.farmer.activities_display,
+                }
+            )
+        status_order = {"UNPINNED": 0, "NEEDS_VERIFICATION": 1, "PINNED": 2}
+        results.sort(key=lambda result: (status_order[result["pin_status"]], result["label"]))
+        results = results[:40]
+        return JsonResponse({"results": results, "counts": status_counts})
 
 
 class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
@@ -363,6 +445,10 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             previous_coordinates = parcel.coordinates.strip()
             parcel.coordinates = ""
             parcel.save(update_fields=["coordinates"])
+            cache.delete_many([
+                "farm-parcel-pin-counts:all",
+                f"farm-parcel-pin-counts:{parcel.barangay}",
+            ])
             record_request_event(
                 request,
                 title="Farm Parcel Map Pin Removed",
@@ -407,7 +493,17 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         previous_coordinates = parcel.coordinates.strip()
         new_coordinates = f"{latitude:.7f}, {longitude:.7f}"
         parcel.coordinates = new_coordinates
-        parcel.save(update_fields=["coordinates"])
+        update_fields = ["coordinates"]
+        if parcel.remarks.startswith("FMIS-DEMO-DATA:"):
+            parcel.remarks = parcel.remarks.replace(
+                "FMIS-DEMO-DATA:", "FMIS-DEMO-VERIFIED:", 1
+            )
+            update_fields.append("remarks")
+        parcel.save(update_fields=update_fields)
+        cache.delete_many([
+            "farm-parcel-pin-counts:all",
+            f"farm-parcel-pin-counts:{parcel.barangay}",
+        ])
         record_request_event(
             request,
             title="Farm Parcel Map Pin Moved" if operation == "move" else "Farm Parcel Map Pin Saved",
