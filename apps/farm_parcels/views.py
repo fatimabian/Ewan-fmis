@@ -8,6 +8,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.utils.cache import patch_cache_control
 from django.views import View
 from django.views.generic import (
     CreateView,
@@ -208,11 +209,17 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
     """Return compact map data after the page shell has rendered."""
 
     def get(self, request):
+        active_parcels = FarmParcel.objects.filter(
+            is_active=True,
+            farmer__is_active=True,
+        )
+        totals_by_barangay = dict(
+            active_parcels.values("barangay")
+            .annotate(total=Count("pk"))
+            .values_list("barangay", "total")
+        )
         parcels = (
-            FarmParcel.objects.filter(
-                is_active=True,
-                farmer__is_active=True,
-            )
+            active_parcels
             .exclude(coordinates="")
             .only(
                 "pk",
@@ -231,6 +238,7 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             .order_by("pk")
         )
         markers = []
+        mapped_by_barangay = {}
         for parcel in parcels.iterator(chunk_size=500):
             point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
             if not point or not is_within_rosario(*point):
@@ -251,17 +259,29 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     "lng": point[1],
                 }
             )
-        total_count = FarmParcel.objects.filter(
-            is_active=True,
-            farmer__is_active=True,
-        ).count()
-        return JsonResponse(
+            mapped_by_barangay[parcel.barangay] = (
+                mapped_by_barangay.get(parcel.barangay, 0) + 1
+            )
+        total_count = sum(totals_by_barangay.values())
+        response = JsonResponse(
             {
                 "markers": markers,
                 "count": len(markers),
                 "unmapped_count": max(0, total_count - len(markers)),
+                "barangay_counts": {
+                    barangay: {
+                        "total": total,
+                        "mapped": mapped_by_barangay.get(barangay, 0),
+                        "unmapped": max(
+                            0, total - mapped_by_barangay.get(barangay, 0)
+                        ),
+                    }
+                    for barangay, total in totals_by_barangay.items()
+                },
             }
         )
+        patch_cache_control(response, no_store=True, private=True)
+        return response
 
 
 class FarmParcelMapDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View):

@@ -8,7 +8,6 @@ from django.utils import timezone
 
 from apps.common.constants import LIVESTOCK_COMMODITIES, ROSARIO_BARANGAYS
 from apps.crops.models import CropRecord
-from apps.farm_parcels.demo_locations import rosario_demo_coordinates_for_barangays
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.demo_data import (
     SYNTHETIC_REMARKS_PREFIX,
@@ -93,7 +92,6 @@ class Command(BaseCommand):
             ROSARIO_BARANGAYS[position % len(ROSARIO_BARANGAYS)]
             for position in range(count)
         ]
-        demo_coordinates = rosario_demo_coordinates_for_barangays(demo_barangays)
         farmers = []
         for index in range(1, count + 1):
             position = index - 1
@@ -135,7 +133,9 @@ class Command(BaseCommand):
                     registration_status=status,
                     consent_given=status != "ENCODED",
                     submitted_at=now if status in {"SUBMITTED", "COMPLETED"} else None,
-                    location_coordinates=demo_coordinates[position],
+                    # A barangay reference point is not a verified farm location.
+                    # Keep demo records unmapped until a staff user places a pin.
+                    location_coordinates="",
                     philsys_registered=index % 3 != 0,
                     philsys_pcn=f"SYNPCN{index:012d}" if index % 3 != 0 else "",
                     fca_membership="Rosario Farmers Association" if index % 5 == 0 else "",
@@ -169,7 +169,7 @@ class Command(BaseCommand):
                     gpx_status=("KNOWN", "FORGOT", "NOT_GEOREFERENCED")[index % 3],
                     rotational_tiller=index % 2 == 0,
                     remarks=f"{SYNTHETIC_REMARKS_PREFIX} Synthetic parcel record.",
-                    coordinates=demo_coordinates[index - 1],
+                    coordinates="",
                     is_active=index % 19 != 0,
                 )
             )

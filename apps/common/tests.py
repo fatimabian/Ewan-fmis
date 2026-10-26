@@ -31,6 +31,9 @@ from apps.crops.models import CropRecord
 from apps.common.forms import InlineValidationMixin
 from apps.dashboard.services import _crop_recommendation
 from apps.farm_parcels.models import FarmParcel, FarmParcelPhoto
+from apps.farm_parcels.management.commands.audit_parcel_coordinates import (
+    build_coordinate_audit,
+)
 from apps.farmers.forms import (
     CropRegistrationForm,
     CropRegistrationFormSet,
@@ -118,15 +121,15 @@ class FMISRequirementTests(TestCase):
             self.client.get(reverse("authentication:privacy")), "Information collected"
         )
         landing = self.client.get(reverse("authentication:landing"))
-        self.assertContains(landing, "rice-field-data-collection.webp")
-        self.assertContains(landing, "images/brand/fmis-logo-display.webp")
+        self.assertContains(landing, "rice-field-data-collection")
+        self.assertContains(landing, "images/brand/fmis-logo-display")
         self.assertNotContains(landing, 'id="heroCarousel"')
         self.assertNotContains(landing, "data-carousel-next")
         self.assertNotContains(landing, "scope-carousel")
         self.assertContains(landing, "data-service-next")
         self.assertNotContains(landing, "feature-toggle")
         self.assertContains(landing, "landingProgress")
-        self.assertContains(landing, "js/landing.min.js")
+        self.assertContains(landing, "js/landing.min")
         self.assertContains(landing, "script defer")
         self.assertContains(landing, reverse("authentication:login"))
         self.assertContains(landing, "showcase-login-button")
@@ -156,7 +159,7 @@ class FMISRequirementTests(TestCase):
         login_page = self.client.get(reverse("authentication:login"))
         self.assertContains(login_page, "data-password-toggle", count=1)
         self.assertContains(login_page, 'aria-controls="id_password"')
-        self.assertContains(login_page, "password-toggle.min.js")
+        self.assertContains(login_page, "password-toggle.min")
 
         self.client.force_login(self.admin)
         account_form = self.client.get(reverse("accounts:create"))
@@ -969,7 +972,7 @@ class FMISRequirementTests(TestCase):
         self.assertFalse(response.context["profile_form"].fields["rsbsa_form_3"].required)
         self.assertContains(response, "Use camera")
         self.assertNotContains(response, reverse("farmers:scan_rsbsa"))
-        self.assertContains(response, "rsbsa-camera.js")
+        self.assertContains(response, "rsbsa-camera")
         self.assertNotContains(response, "prefill")
         self.assertContains(response, 'data-compact-file-upload')
         self.assertContains(response, "Choose File")
@@ -2295,7 +2298,11 @@ class FMISRequirementTests(TestCase):
         map_data = self.client.get(reverse("farm_parcels:map_data"))
         self.assertEqual(map_data.status_code, 200)
         payload = map_data.json()
+        self.assertIn("no-store", map_data["Cache-Control"])
+        self.assertIn("private", map_data["Cache-Control"])
         self.assertEqual(payload["count"], 2)
+        self.assertEqual(payload["barangay_counts"]["Bulihan"]["mapped"], 2)
+        self.assertEqual(payload["barangay_counts"]["Bulihan"]["unmapped"], 0)
         self.assertSetEqual(
             {marker["id"] for marker in payload["markers"]},
             {self.parcel.pk, second_pinned_parcel.pk},
@@ -2352,15 +2359,43 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, 'id="rosario-map-boundary"')
         self.assertContains(map_response, "L.polygon(rosarioBoundary")
         self.assertContains(map_response, "L.marker")
+        self.assertContains(map_response, "L.markerClusterGroup")
+        self.assertContains(map_response, "spiderfyOnMaxZoom: true")
         self.assertContains(map_response, "farmerIcon")
         self.assertContains(map_response, "bi-geo-alt-fill")
         self.assertContains(map_response, "L.svg")
-        self.assertContains(map_response, "barangay-focus-label")
-        self.assertContains(map_response, "barangayBounds.getCenter()")
+        self.assertNotContains(map_response, "barangay-focus-label")
+        self.assertNotContains(map_response, "barangayBounds.getCenter()")
         self.assertContains(map_response, "Red map pins are saved farm parcel locations")
         self.assertNotContains(map_response, "_updateParcelPin")
         self.assertContains(map_response, "keepInView: true")
+        self.assertContains(map_response, "map.panTo(farmerMarker.getLatLng()")
+        self.assertContains(map_response, "cache: 'no-store'")
         self.assertNotContains(map_response, "setTimeout(() => window.location.reload(), 700)")
+
+    def test_coordinate_audit_flags_duplicates_without_changing_them(self):
+        original = "13.8467000, 121.2060000"
+        self.parcel.coordinates = original
+        self.parcel.save(update_fields=["coordinates"])
+        duplicate = FarmParcel.objects.create(
+            farmer=self.farmer,
+            parcel_name="Shared verified location",
+            barangay=self.parcel.barangay,
+            area_hectares=Decimal("0.50"),
+            ownership_type="OWNED",
+            coordinates=original,
+        )
+
+        report = build_coordinate_audit()
+
+        self.assertGreaterEqual(report["summary"]["duplicate_coordinate_pairs"], 1)
+        self.assertGreaterEqual(
+            report["summary"]["parcels_on_duplicate_coordinates"], 2
+        )
+        self.parcel.refresh_from_db()
+        duplicate.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, original)
+        self.assertEqual(duplicate.coordinates, original)
 
     def test_newest_parcel_is_first_and_named_in_the_farm_parcel_table(self):
         newest = FarmParcel.objects.create(

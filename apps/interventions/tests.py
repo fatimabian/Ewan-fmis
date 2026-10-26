@@ -175,10 +175,11 @@ class InterventionModuleTests(TestCase):
             .order_by("id")
             .values_list("coordinates", flat=True)
         )
-        self.assertEqual(len(set(coordinates)), 12)
-        parsed = [tuple(map(float, value.split(","))) for value in coordinates]
-        self.assertGreater(max(lat for lat, _ in parsed) - min(lat for lat, _ in parsed), 0.1)
-        self.assertGreater(max(lng for _, lng in parsed) - min(lng for _, lng in parsed), 0.1)
+        self.assertEqual(coordinates, [""] * 12)
+        self.assertFalse(
+            demo_farmers.exclude(location_coordinates="").exists(),
+            "Synthetic records must not be assigned invented farm locations.",
+        )
         self.assertEqual(CropRecord.objects.filter(parcel__farmer__in=demo_farmers).count(), 12)
         self.assertEqual(ServiceRequest.objects.filter(farmer__in=demo_farmers).count(), 4)
         self.assertEqual(Intervention.objects.filter(farmer__in=demo_farmers).count(), 3)

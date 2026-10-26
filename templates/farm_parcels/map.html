@@ -8,6 +8,8 @@
 {% endblock %}
 {% block content %}
   <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/leaflet-markercluster/MarkerCluster.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/leaflet-markercluster/MarkerCluster.Default.css' %}">
   <style>
   .farmer-map-page{
       width:100%;
@@ -84,17 +86,15 @@
   }
   .map-loading-status i{color:#167b43;font-size:16px}
   .map-loading-status.is-error{color:#a32323}
-  #farmerMap .barangay-focus-label{
-      padding:8px 13px;
-      border:2px solid #087a3d;
-      border-radius:999px;
-      background:#fff;
-      color:#0b4f2e;
-      box-shadow:0 3px 12px rgba(12,67,39,.24);
-      font-size:14px;
-      font-weight:800
+  #farmerMap .marker-cluster{
+      background:rgba(231,25,63,.28)
   }
-  #farmerMap .barangay-focus-label::before{display:none}
+  #farmerMap .marker-cluster div{
+      background:#e7193f;
+      color:#fff;
+      font-weight:800;
+      box-shadow:0 2px 8px rgba(0,0,0,.32)
+  }
   .map-count{
       padding:8px 11px;
       border:1px solid var(--ag-border,#dce7e0);
@@ -515,6 +515,7 @@
     {{ rosario_map_center|json_script:"rosario-map-center" }}
     {{ rosario_boundary|json_script:"rosario-map-boundary" }}
     <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+    <script src="{% static 'vendor/leaflet-markercluster/leaflet.markercluster.js' %}"></script>
     <script>
         (() => {
             const markers = [],
@@ -538,7 +539,7 @@
                 mapLoadingStatus = document.getElementById('mapLoadingStatus'),
                 mapEmpty = document.getElementById('mapEmpty'),
                 markerByFarmer = new Map();
-            let barangayFocusLabel = null;
+            let barangayCounts = {};
             const map = L.map(mapNode, {
                 scrollWheelZoom: false,
                 preferCanvas: true,
@@ -571,6 +572,17 @@
             );
             rosarioImagery.addTo(map);
             rosarioLabels.addTo(map);
+            const markerLayer = L.markerClusterGroup({
+                chunkedLoading: true,
+                chunkInterval: 50,
+                chunkDelay: 20,
+                maxClusterRadius: 48,
+                disableClusteringAtZoom: 17,
+                removeOutsideVisibleBounds: true,
+                showCoverageOnHover: false,
+                spiderfyOnMaxZoom: true,
+                spiderfyDistanceMultiplier: 1.45
+            }).addTo(map);
             map.fitBounds(rosarioBounds, {
                 padding: [10, 10]
             });
@@ -652,7 +664,7 @@
                                 const marker = markerByFarmer.get(String(item.id));
                                 if (marker) {
                                     marker.closePopup();
-                                    map.removeLayer(marker);
+                                    markerLayer.removeLayer(marker);
                                     markerByFarmer.delete(String(item.id))
                                 }
                                 const markerIndex = markers.findIndex(entry => String(entry.id) === String(item.id));
@@ -678,6 +690,7 @@
                 if (item.detailsLoaded) return Promise.resolve(item);
                 if (item.detailPromise) return item.detailPromise;
                 item.detailPromise = fetch(`${mapDataUrl}${item.id}/`, {
+                    cache: 'no-store',
                     headers: {'X-Requested-With': 'XMLHttpRequest'}
                 })
                     .then(response => {
@@ -698,13 +711,17 @@
                     riseOnHover: true,
                     title: `${item.parcel} — ${item.barangay}`,
                     alt: `${item.parcel} location`
-                }).addTo(map).bindTooltip(item.parcel, {
+                }).bindTooltip(item.parcel, {
                     permanent: false,
                     direction: 'top',
                     className: 'farmer-map-label'
                 });
                 farmerMarker.fmisFarmer = item;
                 farmerMarker.on('click', async () => {
+                    map.panTo(farmerMarker.getLatLng(), {
+                        animate: true,
+                        duration: .2
+                    });
                     if (!item.detailsLoaded) {
                         farmerMarker.bindPopup('<div class="farmer-popup-loading" role="status">Loading parcel details…</div>').openPopup();
                         try {
@@ -735,6 +752,7 @@
                     beginMoveMarker(farmerMarker)
                 });
                 markerByFarmer.set(String(item.id), farmerMarker);
+                return farmerMarker
             };
 
             const appendFilterOptions = (select, values) => {
@@ -751,22 +769,21 @@
                 const barangay = barangayFilter.value;
                 const commodity = commodityFilter.value;
                 const visible = [];
-                if (barangayFocusLabel) {
-                    map.removeLayer(barangayFocusLabel);
-                    barangayFocusLabel = null
-                }
                 markers.forEach(item => {
                     const marker = markerByFarmer.get(String(item.id));
                     const matchesBarangay = !barangay || item.barangay === barangay;
                     const matchesCommodity = !commodity || item.crops.some(entry => entry.name === commodity);
                     if (matchesBarangay && matchesCommodity) {
-                        if (!map.hasLayer(marker)) marker.addTo(map);
+                        if (!markerLayer.hasLayer(marker)) markerLayer.addLayer(marker);
                         visible.push(item)
-                    } else if (map.hasLayer(marker)) {
-                        map.removeLayer(marker)
+                    } else if (markerLayer.hasLayer(marker)) {
+                        markerLayer.removeLayer(marker)
                     }
                 });
                 visibleMappedCount.textContent = visible.length;
+                unmappedParcelCount.textContent = barangay && barangayCounts[barangay]
+                    ? barangayCounts[barangay].unmapped
+                    : Object.values(barangayCounts).reduce((sum, counts) => sum + counts.unmapped, 0);
                 const scopeLabels = [
                     barangay ? `Barangay ${barangay}` : '',
                     commodity ? commodity : ''
@@ -776,22 +793,6 @@
                     : `No mapped parcels match${scopeLabels.length ? ` ${scopeLabels.join(' and ')}` : ' the selected filters'}.`;
                 mapNode.style.display = visible.length ? 'block' : 'none';
                 mapEmpty.style.display = visible.length ? 'none' : 'grid';
-                if (barangay && visible.length) {
-                    const barangayBounds = L.latLngBounds(
-                        visible.map(item => [item.lat, item.lng])
-                    );
-                    const barangayName = document.createElement('strong');
-                    barangayName.textContent = barangay;
-                    barangayFocusLabel = L.tooltip({
-                        permanent: true,
-                        direction: 'center',
-                        className: 'barangay-focus-label',
-                        interactive: false
-                    })
-                        .setLatLng(barangayBounds.getCenter())
-                        .setContent(barangayName)
-                        .addTo(map)
-                }
                 if (fit && visible.length === 1) {
                     map.setView([visible[0].lat, visible[0].lng], 16)
                 } else if (fit && visible.length > 1) {
@@ -816,7 +817,7 @@
                 map.removeLayer(movingMarker);
                 if (movingSourceLayer) {
                     if (restorePosition && originalMarkerPoint) movingSourceLayer.setLatLng(originalMarkerPoint);
-                    movingSourceLayer.addTo(map)
+                    markerLayer.addLayer(movingSourceLayer)
                 }
                 movingMarker = null;
                 movingSourceLayer = null;
@@ -839,7 +840,7 @@
                         resetPinMode();
                         movingSourceLayer = sourceLayer;
                         originalMarkerPoint = L.latLng(sourceLayer.getLatLng());
-                        map.removeLayer(sourceLayer);
+                        markerLayer.removeLayer(sourceLayer);
                         movingMarker = L.marker(originalMarkerPoint, {
                             icon: farmerIcon,
                             draggable: true,
@@ -865,19 +866,16 @@
                 const farmerMarker = markerByFarmer.get(String(farmerSelect.value));
                 setPinButton(Boolean(farmerMarker));
                 if (!farmerMarker) return;
-                if (!map.hasLayer(farmerMarker)) {
+                if (!markerLayer.hasLayer(farmerMarker)) {
                     barangayFilter.value = '';
                     commodityFilter.value = '';
                     applyMapFilters(false)
                 }
                 const point = farmerMarker.getLatLng();
-                map.flyTo(point, Math.max(map.getZoom(), 16), {
-                    animate: true,
-                    duration: .7
+                markerLayer.zoomToShowLayer(farmerMarker, () => {
+                    map.panTo(point, {animate: true, duration: .2});
+                    farmerMarker.fire('click')
                 });
-                map.once('moveend', () => farmerMarker.openPopup());
-                farmerMarker.fire('click');
-                if (map.getCenter().distanceTo(point) < 1) farmerMarker.openPopup();
             };
             farmerSelect.addEventListener('change', showSelectedFarmer);
             startPin.addEventListener('click', () => {
@@ -975,14 +973,18 @@
             const loadMapData = async () => {
                 try {
                     const response = await fetch(mapDataUrl, {
+                        cache: 'no-store',
                         headers: {'X-Requested-With': 'XMLHttpRequest'}
                     });
                     if (!response.ok) throw new Error('Farm parcel locations could not be loaded.');
                     const payload = await response.json();
+                    barangayCounts = payload.barangay_counts || {};
                     markers.push(...(payload.markers || []));
                     const batchSize = 250;
                     for (let index = 0; index < markers.length; index += batchSize) {
-                        markers.slice(index, index + batchSize).forEach(addMarker);
+                        markerLayer.addLayers(
+                            markers.slice(index, index + batchSize).map(addMarker)
+                        );
                         mapLoadingStatus.querySelector('span').textContent =
                             `Preparing map pins… ${Math.min(index + batchSize, markers.length)} of ${markers.length}`;
                         await new Promise(resolve => requestAnimationFrame(resolve))
