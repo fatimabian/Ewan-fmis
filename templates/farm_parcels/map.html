@@ -185,7 +185,7 @@
   .parcel-panel-pagination{display:flex;z-index:2;flex:0 0 auto;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-top:1px solid var(--ag-border,#dce7e0);background:var(--surface,#fff);font-size:10px}
   .parcel-panel-pagination button{min-width:76px;min-height:34px;padding:5px 9px}
   .map-breadcrumb{display:flex;align-items:center;gap:7px;margin:0 0 10px;color:#345445;font-size:11px;font-weight:700}
-  .parcel-popup-photo-link{display:block}.parcel-popup-photo{height:145px;margin:0 0 12px;border-radius:8px}
+  .parcel-popup-photo-link{display:block;width:100%;padding:2px 2px 0}.parcel-popup-photo{margin:0 auto 14px;border-radius:8px}
   #farmerMap .leaflet-control-zoom a,
   #farmerMap .leaflet-control-zoom a:is(:hover,:focus,:active){
       border-color:#fff!important;
@@ -206,7 +206,7 @@
       background:var(--surface,#fff)
   }
   .farmer-popup{
-      width:min(300px,calc(100vw - 70px));
+      width:min(360px,calc(100vw - 70px));
       max-width:100%;
       max-height:min(58vh,430px);
       overflow-y:auto;
@@ -248,9 +248,10 @@
   }
   .parcel-popup-photo{
       width:100%;
-      height:110px;
-      margin:10px 0 12px;
+      height:190px;
+      margin:8px auto 14px;
       object-fit:cover;
+      object-position:center;
       border:1px solid #dfe7e2;
       background:#eef4ef
   }
@@ -582,7 +583,7 @@
       <section class="map-filters" aria-label="Farm parcel map filters">
         <div class="map-search-field">
           <label for="mapParcelSearch">Find Farm Parcel</label>
-          <input id="mapParcelSearch" type="search" placeholder="Search farmer name or parcel ID..." autocomplete="off" aria-controls="mapParcelSearchResults" aria-expanded="false">
+          <input id="mapParcelSearch" type="search" placeholder="Search farmer name, parcel, or farmer number..." autocomplete="off" aria-controls="mapParcelSearchResults" aria-expanded="false">
           <div class="map-search-results" id="mapParcelSearchResults" role="listbox" hidden></div>
         </div>
         <label>Barangay
@@ -654,7 +655,7 @@
             <button class="btn btn-outline-secondary" id="closeParcelPanel" type="button" aria-label="Collapse parcel panel"><i class="bi bi-chevron-right"></i></button>
           </div>
           <div class="parcel-panel-controls">
-            <input id="parcelPanelSearch" type="search" placeholder="Farmer name or parcel ID" aria-label="Search parcels in selected barangay">
+            <input id="parcelPanelSearch" type="search" placeholder="Farmer name, parcel, or farmer number" aria-label="Search pinned parcels in selected barangay">
             <select id="parcelPanelStatus" aria-label="Filter parcel pin status">
               <option value="">All parcels</option><option value="PINNED">Pinned</option><option value="UNPINNED">Unpinned</option>
             </select>

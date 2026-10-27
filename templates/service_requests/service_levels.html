@@ -1,0 +1,31 @@
+{% extends base_template %}
+{% block page_title %}Service Request Targets{% endblock %}
+{% block page_subtitle %}Configure proposed response and completion targets for OAS approval{% endblock %}
+{% block content %}
+<div class="content" style="max-width:980px;margin:auto">
+  <div class="alert alert-warning" style="border-left:4px solid #b7791f">
+    These values are proposed operational defaults, not official OAS policy, until “Approved by OAS” is checked by an authorized administrator.
+  </div>
+  <form method="post" class="panel" style="padding:22px">
+    {% csrf_token %}{{ formset.management_form }}
+    <div class="universal-table-wrap"><table class="universal-table" style="width:100%">
+      <thead><tr><th>Priority</th><th>First response</th><th>Completion</th><th>Policy status</th></tr></thead>
+      <tbody>
+      {% for form in formset %}
+        <tr>
+          <td><strong>{{ form.instance.get_priority_display }}</strong>{{ form.id }}</td>
+          <td>{{ form.first_response_hours }}<small style="display:block">hours</small>{{ form.first_response_hours.errors }}</td>
+          <td>{{ form.completion_hours }}<small style="display:block">hours</small>{{ form.completion_hours.errors }}</td>
+          <td>{{ form.is_approved }} {{ form.is_approved.label_tag }}{{ form.non_field_errors }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    <p class="text-muted mt-3">Current proposed defaults: High 24–72 hours, Medium 3–4 days, and Low 5–7 days. Elapsed time is used until OAS approves an office-hours calendar.</p>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <a class="btn btn-outline-secondary" href="{% url 'settings_page:home' %}">Cancel</a>
+      <button class="btn btn-success" type="submit">Save Service Targets</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

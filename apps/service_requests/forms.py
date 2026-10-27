@@ -6,7 +6,7 @@ from apps.common.constants import ROSARIO_BARANGAY_CHOICES
 from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
 from apps.service_catalog.models import ServiceCatalog
 from apps.common.forms import InlineValidationMixin
-from .models import ServiceRequest
+from .models import ServiceLevelPolicy, ServiceRequest
 
 
 class ServiceCatalogChoiceField(forms.ModelChoiceField):
@@ -33,16 +33,27 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         fields = [
             "scope", "farmer", "target_barangay", "service",
             "priority", "status", "notes", "assigned_to",
+            "satisfaction_rating", "satisfaction_feedback", "feedback_method",
         ]
         labels = {
             "service": "Request Type",
             "assigned_to": "Assign to Staff",
             "notes": "Request Details",
+            "satisfaction_rating": "Farmer Satisfaction (Optional)",
+            "satisfaction_feedback": "Farmer Feedback (Optional)",
+            "feedback_method": "Feedback Collection Method",
         }
         widgets = {
             "notes": forms.Textarea(
                 attrs={"rows": 5, "placeholder": "Add useful details about the service request..."}
             ),
+            "satisfaction_rating": forms.Select(
+                choices=[("", "No feedback recorded")] + [(value, f"{value} - {label}") for value, label in (
+                    (1, "Very Dissatisfied"), (2, "Dissatisfied"), (3, "Neutral"),
+                    (4, "Satisfied"), (5, "Very Satisfied"),
+                )]
+            ),
+            "satisfaction_feedback": forms.Textarea(attrs={"rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -80,6 +91,8 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         # Preserve the original one-farmer behavior for older submissions that
         # predate the scope field. New browser submissions always include it.
         self.fields["scope"].required = False
+        for field in ("satisfaction_rating", "satisfaction_feedback", "feedback_method"):
+            self.fields[field].required = False
 
     def clean(self):
         cleaned = super().clean()
@@ -106,11 +119,28 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
                     "target_barangay",
                     "This barangay has no active farmers. Choose a barangay with at least one active farmer.",
                 )
+        rating = cleaned.get("satisfaction_rating")
+        feedback = (cleaned.get("satisfaction_feedback") or "").strip()
+        method = (cleaned.get("feedback_method") or "").strip()
+        if (rating or feedback or method) and cleaned.get("status") != "COMPLETED":
+            self.add_error(
+                "satisfaction_rating",
+                "Farmer feedback can be recorded only after the request is completed.",
+            )
+        if rating and not method:
+            self.add_error("feedback_method", "Record how the farmer feedback was collected.")
         return cleaned
 
     def save(self, commit=True):
         request = super().save(commit=False)
         request.subject = self.cleaned_data["service"].name
+        if self.cleaned_data.get("satisfaction_rating"):
+            from django.utils import timezone
+
+            request.feedback_recorded_at = timezone.now()
+        else:
+            request.feedback_recorded_at = None
+            request.feedback_recorded_by = None
         if commit:
             request.save()
             self.save_m2m()
@@ -127,3 +157,22 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
                 "Register this service request in Interventions before marking it Completed."
             )
         return status
+
+
+class ServiceLevelPolicyForm(forms.ModelForm):
+    class Meta:
+        model = ServiceLevelPolicy
+        fields = ("first_response_hours", "completion_hours", "is_approved")
+        labels = {
+            "first_response_hours": "First response (hours)",
+            "completion_hours": "Completion (hours)",
+            "is_approved": "Approved by OAS",
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        response = cleaned.get("first_response_hours")
+        completion = cleaned.get("completion_hours")
+        if response and completion and completion < response:
+            self.add_error("completion_hours", "Completion must be later than first response.")
+        return cleaned

@@ -92,7 +92,7 @@ def report_preview(report_type, date_range, filters, system_report=False):
         title, headers, rows = builder(report_type, date_range, filters)
     chart_values = defaultdict(float)
     value_label = "Records"
-    show_chart = report_type != "farmer_master"
+    show_chart = report_type not in {"farmer_master", "service_effectiveness"}
 
     if report_type == "system_overview":
         for row in rows:
@@ -139,6 +139,8 @@ def report_preview(report_type, date_range, filters, system_report=False):
         for row in rows:
             chart_values[row[6] or "Not recorded"] += 1
         value_label = "Requests"
+    elif report_type == "service_effectiveness":
+        pass
     else:
         value_indexes = {
             "intervention_summary": (1, "Interventions"),

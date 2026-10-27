@@ -1078,7 +1078,7 @@
               </select>
             </div>
           {% else %}
-            <div class="report-filter-row" data-filter-row="status"{% if selected_report_type != 'service_status' %} hidden{% endif %}>
+            <div class="report-filter-row" data-filter-row="status"{% if selected_report_type != 'service_status' and selected_report_type != 'service_effectiveness' %} hidden{% endif %}>
               <label>Status</label>
               <select name="status">
                 <option value="">All request statuses</option>
@@ -1393,7 +1393,7 @@
           function updateRelevantFilters() {
               const selected = type.value;
               const hasSelection = Boolean(selected);
-              const isService = selected === 'service_status';
+              const isService = selected === 'service_status' || selected === 'service_effectiveness';
               const isIntervention = ['intervention_summary', 'intervention_registry'].includes(selected);
               const supportsCommodity = [
                   'farmer_master',

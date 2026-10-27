@@ -409,7 +409,9 @@
       if (!(payload.results || []).length) {
         const empty = document.createElement("p");
         empty.className = "parcel-panel-empty";
-        empty.textContent = "No parcels found.";
+        empty.textContent = payload.unlocated_matches
+          ? "A matching parcel was found, but it is unpinned or its saved location is invalid."
+          : "No parcels found.";
         panelList.append(empty);
       }
     } catch (error) {
@@ -565,7 +567,7 @@
       }
       hideMobileSheet();
       exactMarker.bindPopup(popupNode(item), {
-        maxWidth: 330, minWidth: 250, maxHeight: 450, autoPan: true, keepInView: true,
+        maxWidth: 390, minWidth: 290, maxHeight: 450, autoPan: true, keepInView: true,
         autoPanPaddingTopLeft: [20, 90], autoPanPaddingBottomRight: [20, 30],
       }).openPopup();
     } catch (error) {
@@ -618,6 +620,7 @@
     const url = new URL(parcelSearchUrl, window.location.origin);
     url.searchParams.set("q", query);
     url.searchParams.set("compact", "1");
+    url.searchParams.set("pinned_only", "1");
     if (barangayFilter.value) url.searchParams.set("barangay", barangayFilter.value);
     if (commodityFilter.value) url.searchParams.set("commodity", commodityFilter.value);
     try {
@@ -639,7 +642,9 @@
       if (!(payload.results || []).length) {
         const empty = document.createElement("p");
         empty.className = "map-search-message";
-        empty.textContent = "No farm parcels match your search.";
+        empty.textContent = payload.unlocated_matches
+          ? "A matching parcel was found, but it is unpinned or its saved location is invalid."
+          : "No farm parcels match your search.";
         mapParcelSearchResults.append(empty);
       }
       mapParcelSearchResults.hidden = false;

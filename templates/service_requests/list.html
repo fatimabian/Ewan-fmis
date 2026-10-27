@@ -13,7 +13,7 @@
   }
   .request-toolbar{
       display:grid;
-      grid-template-columns:1.25fr .95fr .8fr .75fr .9fr auto;
+      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
       gap:14px;
       align-items:end;
       margin:10px 0 24px
@@ -77,9 +77,12 @@
       text-align:center!important
   }
   .request-table :is(th,td):nth-child(7){
-      width:13%!important
+      width:14%!important
   }
   .request-table :is(th,td):nth-child(8){
+      width:13%!important
+  }
+  .request-table :is(th,td):nth-child(9){
       width:8%!important;
       text-align:center!important
   }
@@ -140,6 +143,11 @@
       background:#ffe0e0;
       color:#d32626
   }
+  .timing-indicator{display:inline-grid;gap:2px;font-size:11px;font-weight:800}
+  .timing-indicator.overdue{color:#b42318}
+  .timing-indicator.due-soon{color:#9a6700}
+  .timing-indicator.on-time{color:#087f49}
+  .timing-indicator small{max-width:190px;font-size:10px;font-weight:600;line-height:1.25}
   .request-actions{
       display:grid;
       grid-template-columns:24px 24px;
@@ -264,11 +272,20 @@
         </select>
       </label>
       <label>
-        Date Requested<input type="date"
-       name="date"
-       value="{{ request.GET.date }}"
-       onchange="this.form.submit()">
+        Assigned Staff<select name="assigned_to" onchange="this.form.submit()">
+          <option value="">All staff</option>
+          <option value="unassigned" {% if request.GET.assigned_to == 'unassigned' %}selected{% endif %}>Unassigned</option>
+          {% for staff in staff_choices %}<option value="{{ staff.pk }}" {% if request.GET.assigned_to == staff.pk|stringformat:'s' %}selected{% endif %}>{{ staff.display_name }}</option>{% endfor %}
+        </select>
       </label>
+      <label>Timing<select name="overdue" onchange="this.form.submit()">
+        <option value="">All timing</option>
+        <option value="yes" {% if request.GET.overdue == 'yes' %}selected{% endif %}>Overdue</option>
+        <option value="no" {% if request.GET.overdue == 'no' %}selected{% endif %}>Not overdue</option>
+      </select></label>
+      <label>From<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+      <label>To<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+      <a class="btn btn-outline-success" href="{% url 'service_requests:list' %}">Clear Filters</a>
       <a class="btn btn-success btn-add-outline" href="{% url 'service_requests:create' %}">
         <i class="bi bi-plus-lg">
         </i> New Request</a>
@@ -283,6 +300,7 @@
               <th>Beneficiary</th>
               <th>Priority</th>
               <th>Status</th>
+              <th>Service Timing</th>
               <th>Date Requested</th>
               <th>Actions</th>
             </tr>
@@ -303,6 +321,12 @@
                 </td>
                 <td>
                   <span class="request-status {{ item.status|lower }}">{{ item.get_status_display }}</span>
+                </td>
+                <td>
+                  <span class="timing-indicator {{ item.timing_indicator|slugify }}">
+                    {{ item.timing_indicator }}
+                    {% if item.overdue_text %}<small>{{ item.overdue_text }}</small>{% endif %}
+                  </span>
                 </td>
                 <td class="request-date">
                   {{ item.created_at|date:"M d, Y" }}<small>{{ item.created_at|date:"h:i A" }}</small>
@@ -339,7 +363,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="8" class="text-center py-5">No service requests matched your filters.</td>
+                <td colspan="9" class="text-center py-5">No service requests matched your filters.</td>
               </tr>
             {% endfor %}
           </tbody>

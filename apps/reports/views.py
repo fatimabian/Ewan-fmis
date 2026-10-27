@@ -58,7 +58,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
         ):
             if filters.get(key):
                 active.append({"label": label, "value": filters[key]})
-        if report_type == "service_status" and filters.get("status"):
+        if report_type in {"service_status", "service_effectiveness"} and filters.get("status"):
             active.append(
                 {
                     "label": "Status",

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the FMIS service request escalation check every 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=fmis-escalation.service
+
+[Install]
+WantedBy=timers.target
+

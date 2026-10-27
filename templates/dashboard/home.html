@@ -42,6 +42,15 @@
         </span>
       </a>
     </section>
+    <section class="panel" style="margin:16px 0;padding:20px" aria-labelledby="adminServiceEffectivenessTitle">
+      <div class="staff-panel-heading"><div><span class="staff-section-label">OAS SERVICE MANAGEMENT</span><h3 id="adminServiceEffectivenessTitle">Organization-wide Service Effectiveness</h3><p>Elapsed-time results from recorded service request timestamps</p></div><a class="btn btn-outline-success" href="{% url 'service_requests:service_levels' %}">Service Targets</a></div>
+      <div class="staff-metric-grid">
+        <div class="staff-metric-card"><i class="bi bi-stopwatch"></i><span><small>AVERAGE RESPONSE</small><b>{{ service_effectiveness.average_response_display }}</b><em>{{ service_effectiveness.unanswered }} unanswered</em></span></div>
+        <div class="staff-metric-card"><i class="bi bi-hourglass-split"></i><span><small>AVERAGE TURNAROUND</small><b>{{ service_effectiveness.average_turnaround_display }}</b><em>Elapsed time</em></span></div>
+        <div class="staff-metric-card"><i class="bi bi-check2-circle"></i><span><small>RESOLUTION RATE</small><b>{{ service_effectiveness.resolution_rate_display }}</b><em>{{ service_effectiveness.cohort_completed }} of {{ service_effectiveness.cohort_total }}</em></span></div>
+        <div class="staff-metric-card"><i class="bi bi-exclamation-triangle"></i><span><small>OVERDUE / BACKLOG</small><b>{{ service_effectiveness.overdue }} / {{ service_effectiveness.open_backlog }}</b><em>Open requests</em></span></div>
+      </div>
+    </section>
     <section class="staff-dashboard-main">
       <article class="panel staff-primary-chart dashboard-click-card"
                data-card-url="{% url 'activity_logs:list' %}"

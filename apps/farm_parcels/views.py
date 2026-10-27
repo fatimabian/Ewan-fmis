@@ -110,6 +110,31 @@ def parcel_cluster_key(latitude, longitude):
     return f"{row}:{column}"
 
 
+def parcel_search_filter(query):
+    """Match names and identifiers, including bare, P-, and F- numbers."""
+    query = (query or "").strip()
+    filters = (
+        Q(parcel_name__icontains=query)
+        | Q(barangay__icontains=query)
+        | Q(farmer__first_name__icontains=query)
+        | Q(farmer__middle_name__icontains=query)
+        | Q(farmer__last_name__icontains=query)
+        | Q(farmer__rsbsa_number__icontains=query)
+    )
+    identifier = re.fullmatch(r"\s*([PF])?\s*[-#]?\s*(\d+)\s*", query, re.IGNORECASE)
+    if not identifier:
+        return filters
+    prefix, digits = identifier.groups()
+    number = int(digits)
+    if not prefix or prefix.upper() == "P":
+        filters |= Q(pk=number)
+        # Preserve the useful type-ahead behaviour for input such as P-28.
+        filters |= Q(pk__startswith=digits)
+    if not prefix or prefix.upper() == "F":
+        filters |= Q(farmer_id=number)
+    return filters
+
+
 class RoleAwareParcelMixin:
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -132,17 +157,9 @@ class FarmParcelListView(
         area = self.request.GET.get("area", "").strip()
         status = self.request.GET.get("status", "all").strip()
         if query:
-            farmer_id = query.upper().removeprefix("F-")
-            filters = (
-                Q(parcel_name__icontains=query)
-                | Q(farmer__first_name__icontains=query)
-                | Q(farmer__last_name__icontains=query)
-                | Q(farmer__rsbsa_number__icontains=query)
-                | Q(farmer__barangay__icontains=query)
+            queryset = queryset.filter(
+                parcel_search_filter(query) | Q(farmer__barangay__icontains=query)
             )
-            if farmer_id.isdigit():
-                filters |= Q(farmer_id=int(farmer_id))
-            queryset = queryset.filter(filters)
         if barangay:
             queryset = queryset.filter(barangay=barangay)
         if ownership:
@@ -321,7 +338,10 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     verification_by_barangay.get(row["barangay"], 0) + 1
                 )
             point = FarmParcelMapView.parse_coordinates(row["coordinates"])
-            if not point or not is_within_rosario(*point):
+            # A syntactically valid saved coordinate is a map pin. Boundary and
+            # verification findings remain available to the audit workflow, but
+            # must not make a saved pin disappear from the operational map.
+            if not point:
                 continue
             points_by_barangay.setdefault(row["barangay"], []).append(
                 {"id": row["pk"], "lat": point[0], "lng": point[1]}
@@ -536,17 +556,7 @@ class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, Vi
             ]
             parcels = parcels.filter(pk__in=matching_ids)
         if query:
-            farmer_id = query.upper().removeprefix("F-")
-            filters = (
-                Q(parcel_name__icontains=query)
-                | Q(farmer__first_name__icontains=query)
-                | Q(farmer__middle_name__icontains=query)
-                | Q(farmer__last_name__icontains=query)
-                | Q(farmer__rsbsa_number__icontains=query)
-            )
-            if farmer_id.isdigit():
-                filters |= Q(farmer_id=int(farmer_id))
-            parcels = parcels.filter(filters)
+            parcels = parcels.filter(parcel_search_filter(query))
 
         rows = []
         for parcel in parcels.only(
@@ -555,8 +565,10 @@ class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, Vi
             "farmer__last_name", "farmer__extension_name",
         ).order_by("-created_at", "-pk"):
             point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
-            valid_point = point if point and is_within_rosario(*point) else None
+            valid_point = point
             status = "PINNED" if valid_point else "UNPINNED"
+            if query and status == "UNPINNED":
+                continue
             if requested_status and status != requested_status:
                 continue
             if cluster_id:
@@ -584,6 +596,13 @@ class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, Vi
                     "lng": point[1] if point else None,
                 }
             )
+        unlocated_matches = 0
+        if query:
+            unlocated_matches = sum(
+                1
+                for coordinates in parcels.values_list("coordinates", flat=True)
+                if not FarmParcelMapView.parse_coordinates(coordinates)
+            )
         response = JsonResponse(
             {
                 "results": results,
@@ -597,6 +616,7 @@ class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, Vi
                 "barangay": barangay,
                 "cluster": cluster_id,
                 "page_size": FARM_PARCEL_MAP_PAGE_SIZE,
+                "unlocated_matches": unlocated_matches,
             }
         )
         patch_cache_control(response, no_store=True, private=True)
@@ -649,8 +669,8 @@ class FarmParcelMapDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 ),
                 "pin_status": pin_status,
                 "pin_status_label": pin_status.replace("_", " ").title(),
-                "lat": point[0] if point and is_within_rosario(*point) else None,
-                "lng": point[1] if point and is_within_rosario(*point) else None,
+                "lat": point[0] if point else None,
+                "lng": point[1] if point else None,
                 "crops": [
                     {"name": name, "symbol": crop_symbol(name)} for name in crops
                 ],
@@ -674,6 +694,7 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         requested_commodity = request.GET.get("commodity", "").strip()
         requested_status = request.GET.get("pin_status", "").strip().upper()
         compact = request.GET.get("compact") == "1"
+        pinned_only = request.GET.get("pinned_only") == "1"
         parcels = FarmParcel.objects.filter(
             is_active=True,
             farmer__is_active=True,
@@ -719,18 +740,7 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 status_counts[status] += 1
             cache.set(count_cache_key, status_counts, 30)
         if query:
-            farmer_id = query.upper().removeprefix("F-")
-            filters = (
-                Q(parcel_name__icontains=query)
-                | Q(barangay__icontains=query)
-                | Q(farmer__first_name__icontains=query)
-                | Q(farmer__middle_name__icontains=query)
-                | Q(farmer__last_name__icontains=query)
-                | Q(farmer__rsbsa_number__icontains=query)
-            )
-            if farmer_id.isdigit():
-                filters |= Q(farmer_id=int(farmer_id))
-            parcels = parcels.filter(filters)
+            parcels = parcels.filter(parcel_search_filter(query))
         # Put parcels requiring field work first so staff do not have to guess
         # which records still need a location. The final validity check below
         # also catches malformed/out-of-bound legacy coordinate strings.
@@ -757,6 +767,7 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             )
         ).order_by("pin_order", "-created_at", "-pk")[:400]
         results = []
+        unlocated_matches = 0
         for parcel in parcels:
             pin_status = (
                 "NEEDS_VERIFICATION"
@@ -765,8 +776,14 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             )
             if requested_status and pin_status != requested_status:
                 continue
-            is_pinned = pin_status != "UNPINNED"
+            point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
+            is_pinned = point is not None
+            if pinned_only and not is_pinned:
+                unlocated_matches += 1
+                continue
             status_label = pin_status.replace("_", " ")
+            response_pin_status = "PINNED" if pinned_only and is_pinned else pin_status
+            response_status_label = "PINNED" if pinned_only and is_pinned else status_label
             results.append(
                 {
                     "id": parcel.pk,
@@ -779,8 +796,8 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                         f"({parcel.barangay})"
                     ),
                     "is_pinned": is_pinned,
-                    "pin_status": pin_status,
-                    "pin_status_label": status_label,
+                    "pin_status": response_pin_status,
+                    "pin_status_label": response_status_label,
                     "barangay": parcel.barangay,
                     "livelihood": parcel.farmer.get_livelihood_display(),
                     "livelihood_code": parcel.farmer.livelihood,
@@ -791,7 +808,13 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         status_order = {"UNPINNED": 0, "NEEDS_VERIFICATION": 1, "PINNED": 2}
         results.sort(key=lambda result: (status_order[result["pin_status"]], result["label"]))
         results = results[:40]
-        return JsonResponse({"results": results, "counts": status_counts})
+        return JsonResponse(
+            {
+                "results": results,
+                "counts": status_counts,
+                "unlocated_matches": unlocated_matches,
+            }
+        )
 
 
 class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):

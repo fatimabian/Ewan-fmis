@@ -20,6 +20,11 @@
         </div>
         <span class="request-status {{ object.status|lower }} record-hero-status">{{ object.get_status_display }}</span>
       </header>
+      {% if object.overdue_text %}
+        <div class="alert alert-danger" style="margin:16px 20px 0;border-left:4px solid #b42318">
+          <strong><i class="bi bi-exclamation-triangle"></i> {{ object.timing_indicator }}</strong> — {{ object.overdue_text }}
+        </div>
+      {% endif %}
       <section class="record-single-section">
         <h3><i class="bi bi-card-checklist"></i> Request Information</h3>
         <dl class="record-data">
@@ -30,7 +35,23 @@
           <div><dt>Assigned Staff</dt><dd>{{ object.assigned_to.display_name|default:"Unassigned" }}</dd></div>
           <div><dt>Date Requested</dt><dd>{{ object.created_at|date:"M d, Y h:i A" }}</dd></div>
           <div><dt>Last Updated</dt><dd>{{ object.updated_at|date:"M d, Y h:i A" }}</dd></div>
+          <div><dt>First Response</dt><dd>{{ object.first_responded_at|date:"M d, Y h:i A"|default:"Not recorded" }}</dd></div>
+          <div><dt>Response Target</dt><dd>{{ object.first_response_due_at|date:"M d, Y h:i A"|default:"Not available" }}</dd></div>
+          <div><dt>Completion Target</dt><dd>{{ object.due_at|date:"M d, Y h:i A"|default:"Not available" }}</dd></div>
+          <div><dt>Completed</dt><dd>{{ object.completed_at|date:"M d, Y h:i A"|default:"Not completed" }}</dd></div>
         </dl>
+      </section>
+      <section class="record-single-section">
+        <h3><i class="bi bi-chat-heart"></i> Farmer Feedback</h3>
+        {% if object.satisfaction_rating %}
+          <dl class="record-data">
+            <div><dt>Rating</dt><dd>{{ object.satisfaction_rating }} / 5</dd></div>
+            <div><dt>Collection Method</dt><dd>{{ object.feedback_method }}</dd></div>
+            <div><dt>Recorded</dt><dd>{{ object.feedback_recorded_at|date:"M d, Y h:i A" }}</dd></div>
+            <div><dt>Recorded By</dt><dd>{{ object.feedback_recorded_by.display_name|default:"Not recorded" }}</dd></div>
+          </dl>
+          <p>{{ object.satisfaction_feedback|default:"No written feedback provided." }}</p>
+        {% else %}<p class="text-muted">No feedback recorded.</p>{% endif %}
       </section>
       <section class="record-single-section">
         <h3><i class="bi bi-file-text"></i> Request Details</h3>

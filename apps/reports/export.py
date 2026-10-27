@@ -15,6 +15,7 @@ from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
+from apps.service_requests.services import service_effectiveness_metrics
 
 REPORT_TEMPLATES = [
     {
@@ -52,6 +53,12 @@ REPORT_TEMPLATES = [
         "title": "Service Request Status",
         "description": "Farmer service requests grouped by current status",
         "icon": "bi-clipboard-check",
+    },
+    {
+        "key": "service_effectiveness",
+        "title": "Service Effectiveness Report",
+        "description": "Response time, turnaround, resolution, backlog, overdue requests, aging, and feedback",
+        "icon": "bi-stopwatch",
     },
     {
         "key": "intervention_summary",
@@ -177,7 +184,7 @@ def normalize_report_filters(report_type, filters=None):
     normalized = dict(filters or {})
     if report_type not in COMMODITY_REPORT_KEYS:
         normalized["commodity"] = ""
-    if report_type != "service_status":
+    if report_type not in {"service_status", "service_effectiveness"}:
         normalized["status"] = ""
     if report_type not in {"intervention_summary", "intervention_registry"}:
         normalized["intervention_type"] = ""
@@ -208,7 +215,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
         raise ValueError("Choose a valid Rosario barangay.")
     if commodity and len(commodity) > 100:
         raise ValueError("Choose a valid commodity.")
-    if report_type == "service_status" and status and status not in dict(ServiceRequest.STATUS_CHOICES):
+    if report_type in {"service_status", "service_effectiveness"} and status and status not in dict(ServiceRequest.STATUS_CHOICES):
         raise ValueError("Choose a valid request status.")
     if (
         report_type in {"intervention_summary", "intervention_registry"}
@@ -566,6 +573,43 @@ def build_report(report_type, date_range, filters=None, compact=False):
                 "Description", "Quantity", "Provider", "Service Request", "Recorded By",
             ],
             rows,
+        )
+
+    if report_type == "service_effectiveness":
+        request_queryset = ServiceRequest.objects.filter(
+            Q(farmer__is_active=True) | Q(scope="BARANGAY")
+        )
+        if year:
+            request_queryset = request_queryset.filter(created_at__year=int(year))
+        if barangay:
+            request_queryset = request_queryset.filter(
+                Q(scope="BARANGAY", target_barangay=barangay)
+                | Q(scope="INDIVIDUAL", farmer__barangay=barangay)
+            )
+        if status:
+            request_queryset = request_queryset.filter(status=status)
+        metrics = service_effectiveness_metrics(
+            request_queryset,
+            start=_cutoff(date_range),
+        )
+        return (
+            "Service Effectiveness Report",
+            ["Indicator", "Result", "Definition"],
+            [
+                ["Requests received", metrics["cohort_total"], "Requests created in the reporting cohort"],
+                ["Requests completed", metrics["cohort_completed"], "Cohort requests completed by the report cutoff"],
+                ["Resolution rate", metrics["resolution_rate_display"], "Completed cohort requests divided by requests received"],
+                ["Average first response", metrics["average_response_display"], "Elapsed time from creation to first In Progress or Completed action"],
+                ["Average turnaround", metrics["average_turnaround_display"], "Elapsed time from creation to completion"],
+                ["Open backlog", metrics["open_backlog"], "Requests not Completed or Cancelled"],
+                ["Overdue open requests", metrics["overdue"], "Open requests beyond the applicable response or completion target"],
+                ["Unanswered requests", metrics["unanswered"], "Open requests without a recorded first response"],
+                ["Backlog age: 0–1 day", metrics["aging"]["0_1_days"], "Open request age"],
+                ["Backlog age: 2–3 days", metrics["aging"]["2_3_days"], "Open request age"],
+                ["Backlog age: 4–7 days", metrics["aging"]["4_7_days"], "Open request age"],
+                ["Backlog age: more than 7 days", metrics["aging"]["over_7_days"], "Open request age"],
+                ["Farmer satisfaction", metrics["satisfaction_display"], f"{metrics['satisfaction_responses']} recorded response(s)"],
+            ],
         )
 
     queryset = _filter_period(

@@ -2526,7 +2526,8 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "Find Farm Parcel")
         self.assertContains(map_response, 'id="mapParcelSearch"')
         self.assertContains(
-            map_response, 'placeholder="Search farmer name or parcel ID..."'
+            map_response,
+            'placeholder="Search farmer name, parcel, or farmer number..."',
         )
         self.assertContains(map_response, 'id="clearMapFilters"')
         self.assertNotContains(map_response, 'id="parcelSearchStatus"')
@@ -2585,7 +2586,7 @@ class FMISRequirementTests(TestCase):
         self.assertIn("clusterLayer.clearLayers();", map_script)
         self.assertIn("AbortController", map_script)
         self.assertIn("No field photo available", map_script)
-        self.assertIn('empty.textContent = "No parcels found."', map_script)
+        self.assertIn('"No parcels found."', map_script)
         self.assertIn('window.matchMedia("(max-width: 768px)")', map_script)
         self.assertIn("const showMobileSheet", map_script)
         self.assertIn("const toggleMobileSheet", map_script)
@@ -2606,6 +2607,54 @@ class FMISRequirementTests(TestCase):
         self.assertNotIn("barangay-marker", map_script)
         self.assertNotIn("spatial-cluster-marker", map_script)
         self.assertNotIn("location.reload", map_script)
+
+    def test_map_searches_identifiers_and_shows_every_valid_saved_coordinate(self):
+        self.client.force_login(self.staff)
+        mapped = FarmParcel.objects.create(
+            farmer=self.farmer,
+            parcel_name="Saved coordinate field",
+            barangay="Bulihan",
+            area_hectares=Decimal("0.80"),
+            ownership_type="OWNED",
+            # Intentionally outside the legacy reference polygon. It remains a
+            # verification concern, but a valid saved point must not disappear.
+            coordinates="13.6900000, 121.1700000",
+        )
+
+        barangay_payload = self.client.get(
+            reverse("farm_parcels:map_data"), {"barangay": "Bulihan"}
+        ).json()
+        self.assertEqual(barangay_payload["count"], 1)
+        self.assertEqual(
+            sum(cluster["count"] for cluster in barangay_payload["clusters"]), 1
+        )
+        detail = self.client.get(
+            reverse("farm_parcels:map_detail", args=[mapped.pk])
+        ).json()
+        self.assertEqual(detail["lat"], 13.69)
+        self.assertEqual(detail["lng"], 121.17)
+
+        for query in (str(mapped.pk), f"P-{mapped.pk}", mapped.display_name):
+            panel = self.client.get(
+                reverse("farm_parcels:map_parcels"),
+                {"barangay": "Bulihan", "q": query},
+            ).json()
+            self.assertIn(mapped.pk, {row["id"] for row in panel["results"]})
+            self.assertTrue(all(row["pin_status"] == "PINNED" for row in panel["results"]))
+
+        farmer_search = self.client.get(
+            reverse("farm_parcels:map_search"),
+            {"q": self.farmer.record_id, "compact": "1", "pinned_only": "1"},
+        ).json()
+        self.assertIn(mapped.pk, {row["id"] for row in farmer_search["results"]})
+        self.assertTrue(all(row["pin_status"] == "PINNED" for row in farmer_search["results"]))
+
+        unpinned_search = self.client.get(
+            reverse("farm_parcels:map_parcels"),
+            {"barangay": "Bulihan", "q": self.parcel.display_name},
+        ).json()
+        self.assertEqual(unpinned_search["results"], [])
+        self.assertEqual(unpinned_search["unlocated_matches"], 1)
 
     def test_coordinate_audit_flags_duplicates_without_changing_them(self):
         original = "13.8467000, 121.2060000"
