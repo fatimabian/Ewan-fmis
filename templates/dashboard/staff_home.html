@@ -183,18 +183,6 @@
       </div>
     </section>
 
-      <article class="panel" style="grid-column:1/-1" aria-labelledby="serviceEffectivenessTitle">
-        <div class="staff-panel-heading"><div><span class="staff-section-label">SERVICE MANAGEMENT</span><h3 id="serviceEffectivenessTitle">Service Effectiveness</h3><p>Elapsed-time indicators from recorded service request timestamps</p></div></div>
-        <div class="request-overview-grid">
-          <a href="{% url 'service_requests:list' %}"><small>Average response</small><b>{{ service_effectiveness.average_response_display }}</b></a>
-          <a href="{% url 'service_requests:list' %}"><small>Average turnaround</small><b>{{ service_effectiveness.average_turnaround_display }}</b></a>
-          <a href="{% url 'service_requests:list' %}?status=COMPLETED"><small>Resolution rate</small><b>{{ service_effectiveness.resolution_rate_display }}</b></a>
-          <a href="{% url 'service_requests:list' %}"><small>Open backlog</small><b>{{ service_effectiveness.open_backlog }}</b></a>
-          <a href="{% url 'service_requests:list' %}?overdue=yes"><small>Overdue</small><b>{{ service_effectiveness.overdue }}</b></a>
-        </div>
-        <small class="text-muted">Resolution rate uses requests created in the measured cohort and completed by the cutoff. Historical requests without timestamps remain N/A.</small>
-      </article>
-
       <article class="staff-card weather-card"
                id="rosarioWeather"
                data-latitude="13.8442"

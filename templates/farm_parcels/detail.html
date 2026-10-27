@@ -1,6 +1,6 @@
 {% extends base_template %}
 {% block page_title %}Farm Parcel Record{% endblock %}
-{% block page_subtitle %}Land, tenure, and georeference information{% endblock %}
+{% block page_subtitle %}Land, tenure, and location information{% endblock %}
 {% block content %}
   <style>
   .parcel-photo-gallery{
@@ -95,12 +95,11 @@
       </section>
 
       <section class="record-single-section">
-        <h3><i class="bi bi-pin-map"></i> Location &amp; Georeference</h3>
+        <h3><i class="bi bi-pin-map"></i> Location</h3>
         <dl class="record-data">
           <div><dt>Barangay</dt><dd>{{ object.barangay }}</dd></div>
           <div><dt>Municipality / Province</dt><dd>{{ object.municipality }}, {{ object.province }}</dd></div>
           <div><dt>Coordinates</dt><dd>{{ object.coordinates|default:'Not recorded' }}</dd></div>
-          <div><dt>Georeference ID</dt><dd>{{ object.georef_id|default:'Not recorded' }}</dd></div>
         </dl>
       </section>
 

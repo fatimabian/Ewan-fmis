@@ -16,7 +16,6 @@ from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
-from apps.service_requests.services import service_effectiveness_metrics
 from apps.settings_page.models import BackupRun
 from decimal import Decimal
 
@@ -139,7 +138,6 @@ def _build_dashboard_metrics():
     latest_backup = BackupRun.objects.first()
     return {
         **account_summary,
-        "service_effectiveness": service_effectiveness_metrics(),
         "events_today": activity_summary["day_6"],
         "failed_events": (
             activity_summary["failed_events"]
@@ -572,7 +570,6 @@ def _build_staff_dashboard_metrics():
         "crop_recommendation": _crop_recommendation(today, recommendation_rows),
         "recent_requests": list(rosario_requests.filter(open_filter)[:5]),
         "dashboard_date": today,
-        "service_effectiveness": service_effectiveness_metrics(rosario_requests),
     }
 
 

@@ -248,9 +248,9 @@
   }
   .parcel-popup-photo{
       width:100%;
-      height:190px;
+      height:230px;
       margin:8px auto 14px;
-      object-fit:cover;
+      object-fit:contain;
       object-position:center;
       border:1px solid #dfe7e2;
       background:#eef4ef
@@ -520,7 +520,7 @@
       }
       .parcel-mobile-sheet .farmer-popup{width:100%;max-width:none;max-height:none;overflow:visible}
       .parcel-mobile-sheet .parcel-popup-facts{grid-template-columns:1fr}
-      .parcel-mobile-sheet .parcel-popup-photo{height:auto;max-height:210px;aspect-ratio:16/9}
+      .parcel-mobile-sheet .parcel-popup-photo{height:230px;max-height:min(34dvh,260px);aspect-ratio:auto;object-fit:contain}
       .parcel-mobile-sheet .parcel-popup-photo-empty{height:100px}
       .parcel-mobile-sheet .farmer-popup h3,
       .parcel-mobile-sheet .parcel-popup-fact span{overflow-wrap:anywhere}

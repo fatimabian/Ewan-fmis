@@ -13,7 +13,6 @@ from apps.common.permissions import AdminRequiredMixin, StaffRequiredMixin
 from apps.activity_logs.services import record_request_event
 from apps.common.record_history import service_request_rows
 from apps.interventions.services import complete_registered_request_intervention
-from apps.service_catalog.models import ServiceCatalog
 from .forms import ServiceLevelPolicyForm, ServiceRequestForm
 from .models import ServiceLevelPolicy, ServiceRequest, ServiceRequestHistory
 from .services import ensure_service_level_policies, recalculate_open_deadlines
@@ -141,14 +140,8 @@ class ServiceRequestListView(
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["request_types"] = ServiceCatalog.objects.filter(is_active=True).order_by("name")
         context["status_choices"] = ServiceRequest.STATUS_CHOICES
         context["priority_choices"] = ServiceRequest.PRIORITY_CHOICES
-        from apps.authentication.models import CustomUser
-
-        context["staff_choices"] = CustomUser.objects.filter(role="STAFF", is_active=True).order_by(
-            "first_name", "last_name", "username"
-        )
         return context
 
 

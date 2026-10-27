@@ -116,8 +116,6 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
             "agrarian_reform_beneficiary",
             "is_rsbsa_recorded",
             "coordinates",
-            "georef_id",
-            "gpx_status",
             "rotational_tiller",
             "remarks",
             "is_active",
@@ -140,8 +138,6 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
             "agrarian_reform_beneficiary": "Agrarian Reform Beneficiary (ARB)",
             "is_rsbsa_recorded": "Parcel already recorded in RSBSA",
             "coordinates": "GPS coordinates",
-            "georef_id": "Georeference / GPX ID",
-            "gpx_status": "GPX / georeference status",
             "rotational_tiller": "Uses a rotational tiller",
             "remarks": "Parcel remarks",
             "is_active": "Currently cultivated / active",
@@ -151,8 +147,6 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["area_hectares"].min_value = 0.01
-        self.fields["gpx_status"].required = False
-        self.fields["georef_id"].required = False
         for name, fixed_value in (
             ("municipality", ROSARIO_MUNICIPALITY),
             ("province", ROSARIO_PROVINCE),

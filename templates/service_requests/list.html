@@ -13,7 +13,7 @@
   }
   .request-toolbar{
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      grid-template-columns:minmax(260px,2fr) minmax(170px,1fr) minmax(170px,1fr) auto;
       gap:14px;
       align-items:end;
       margin:10px 0 24px
@@ -51,39 +51,39 @@
   }
   .request-table{
       width:100%;
+      min-width:1400px;
       border-collapse:collapse;
       table-layout:fixed!important
   }
   .request-table :is(th,td):nth-child(1){
-      width:8%!important
+      width:80px!important
   }
   .request-table :is(th,td):nth-child(2){
-      width:18%!important;
+      width:240px!important;
       min-width:0
   }
   .request-table :is(th,td):nth-child(3){
-      width:10%!important;
-      white-space:nowrap
+      width:140px!important
   }
   .request-table :is(th,td):nth-child(4){
-      width:22%!important
+      width:260px!important
   }
   .request-table :is(th,td):nth-child(5){
-      width:10%!important;
+      width:110px!important;
       text-align:center!important
   }
   .request-table :is(th,td):nth-child(6){
-      width:11%!important;
+      width:130px!important;
       text-align:center!important
   }
   .request-table :is(th,td):nth-child(7){
-      width:14%!important
+      width:220px!important
   }
   .request-table :is(th,td):nth-child(8){
-      width:13%!important
+      width:140px!important
   }
   .request-table :is(th,td):nth-child(9){
-      width:8%!important;
+      width:80px!important;
       text-align:center!important
   }
   .request-table th{
@@ -101,11 +101,14 @@
       border-bottom:1px solid var(--border);
       vertical-align:middle
   }
-  .request-type-cell{
+  .request-type-cell,
+  .request-coverage-cell,
+  .request-beneficiary-cell{
       min-width:0;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap
+      white-space:normal!important;
+      overflow-wrap:anywhere;
+      word-break:normal;
+      line-height:1.4
   }
   .priority-badge,.request-status{
       display:inline-block;
@@ -143,11 +146,12 @@
       background:#ffe0e0;
       color:#d32626
   }
-  .timing-indicator{display:inline-grid;gap:2px;font-size:11px;font-weight:800}
-  .timing-indicator.overdue{color:#b42318}
-  .timing-indicator.due-soon{color:#9a6700}
-  .timing-indicator.on-time{color:#087f49}
-  .timing-indicator small{max-width:190px;font-size:10px;font-weight:600;line-height:1.25}
+  .timing-indicator{display:inline-grid;gap:3px;color:#111827;font-size:11px;font-weight:800}
+  .timing-indicator .timing-label{display:block}
+  .timing-indicator.overdue .timing-label{color:#b42318!important}
+  .timing-indicator.due-soon .timing-label{color:#9a6700!important}
+  .timing-indicator.on-time .timing-label{color:#087f49!important}
+  .timing-indicator small{display:block;max-width:190px;color:#111827!important;font-size:10px;font-weight:600;line-height:1.35}
   .request-actions{
       display:grid;
       grid-template-columns:24px 24px;
@@ -206,8 +210,9 @@
   }
   @media(max-width:1250px){
       .request-toolbar{
-          grid-template-columns:repeat(3,1fr)
+          grid-template-columns:minmax(240px,2fr) repeat(2,minmax(160px,1fr))
       }
+      .request-toolbar .btn{justify-self:start}
       .request-table-wrap{
           overflow-x:auto
       }
@@ -240,20 +245,13 @@
       color:#edf3fa!important;
       border-color:#354457!important
   }
+  body[data-theme="dark"] .timing-indicator,
+  body[data-theme="dark"] .timing-indicator small{color:#edf3fa!important}
   </style>
   <div class="content request-page">
     <form class="request-toolbar" method="get">
       <label>
         Search Request<input name="q" value="{{ request.GET.q }}" placeholder="Search request...">
-      </label>
-      <label>
-        Request Type<select name="request_type" onchange="this.form.submit()">
-        <option value="">All</option>
-        {% for service in request_types %}
-          <option value="{{ service.pk }}"
-                  {% if request.GET.request_type == service.pk|stringformat:'s' %}selected{% endif %}>{{ service.name }}</option>
-        {% endfor %}
-        </select>
       </label>
       <label>
         Status<select name="status" onchange="this.form.submit()">
@@ -271,21 +269,6 @@
         {% endfor %}
         </select>
       </label>
-      <label>
-        Assigned Staff<select name="assigned_to" onchange="this.form.submit()">
-          <option value="">All staff</option>
-          <option value="unassigned" {% if request.GET.assigned_to == 'unassigned' %}selected{% endif %}>Unassigned</option>
-          {% for staff in staff_choices %}<option value="{{ staff.pk }}" {% if request.GET.assigned_to == staff.pk|stringformat:'s' %}selected{% endif %}>{{ staff.display_name }}</option>{% endfor %}
-        </select>
-      </label>
-      <label>Timing<select name="overdue" onchange="this.form.submit()">
-        <option value="">All timing</option>
-        <option value="yes" {% if request.GET.overdue == 'yes' %}selected{% endif %}>Overdue</option>
-        <option value="no" {% if request.GET.overdue == 'no' %}selected{% endif %}>Not overdue</option>
-      </select></label>
-      <label>From<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
-      <label>To<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
-      <a class="btn btn-outline-success" href="{% url 'service_requests:list' %}">Clear Filters</a>
       <a class="btn btn-success btn-add-outline" href="{% url 'service_requests:create' %}">
         <i class="bi bi-plus-lg">
         </i> New Request</a>
@@ -313,9 +296,9 @@
                 <td>
                   <a class="record-cell-link" href="{% url 'service_requests:detail' item.pk %}">{{ item.request_id }}</a>
                 </td>
-                <td class="request-type-cell" title="{{ item.service.name }}">{{ item.service.name }}</td>
-                <td>{{ item.beneficiary_reference }}</td>
-                <td>{{ item.beneficiary_label }}</td>
+                <td class="request-type-cell">{{ item.service.name }}</td>
+                <td class="request-coverage-cell">{{ item.beneficiary_reference }}</td>
+                <td class="request-beneficiary-cell">{{ item.beneficiary_label }}</td>
                 <td>
                   <span class="priority-badge {{ item.priority|lower }}">{{ item.get_priority_display }}</span>
                 </td>
@@ -324,7 +307,7 @@
                 </td>
                 <td>
                   <span class="timing-indicator {{ item.timing_indicator|slugify }}">
-                    {{ item.timing_indicator }}
+                    <span class="timing-label">{{ item.timing_indicator }}</span>
                     {% if item.overdue_text %}<small>{{ item.overdue_text }}</small>{% endif %}
                   </span>
                 </td>

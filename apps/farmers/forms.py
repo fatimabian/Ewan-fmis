@@ -663,7 +663,6 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
     MIXED_FIELDS = (
         "ownership_document_other",
         "land_owner_rsbsa_number",
-        "georef_id",
     )
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
     is_active = RequiredYesNoField(label="Currently cultivated / active?")
@@ -708,7 +707,15 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
 
     class Meta:
         model = FarmParcel
-        exclude = ["farmer", "created_at", "parcel_name", "remarks", "is_rsbsa_recorded"]
+        exclude = [
+            "farmer",
+            "created_at",
+            "parcel_name",
+            "remarks",
+            "is_rsbsa_recorded",
+            "georef_id",
+            "gpx_status",
+        ]
         labels = {
             "is_rsbsa_recorded": "Already recorded in RSBSA",
             "within_ancestral_domain": "Within ancestral domain",
@@ -716,7 +723,6 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
             "land_owner_registered_rsbsa": "Land owner is registered in RSBSA",
             "ownership_document": "Ownership / tenure document",
             "coordinates": "GPS coordinates",
-            "georef_id": "Georeference / GPX ID",
         }
         widgets = {
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
@@ -733,7 +739,6 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
             self.fields[name].initial = fixed_value
             self.initial[name] = fixed_value
             self.fields[name].disabled = True
-        self.fields["gpx_status"].required = False
         for name in ("land_owner_name", "land_owner_registered_rsbsa", "land_owner_rsbsa_number"):
             self.fields[name].widget.attrs["data-owner-detail"] = "true"
         self.fields["ownership_type"].widget.attrs["data-ownership-type"] = "true"

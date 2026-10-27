@@ -449,6 +449,58 @@ html body .app-shell .farmer-picker-list .farmer-picker-option[aria-selected="tr
     color:#075d38!important
 }
 
+/* Map search suggestions are dropdown rows, not action-card buttons. */
+html body .app-shell .map-search-results:not(#fmis-shape-specificity){
+    padding:0!important;
+    border:1px solid #c7d5cd!important;
+    border-radius:0!important;
+    background:var(--surface,#fff)!important;
+    box-shadow:0 8px 18px rgba(15,23,42,.12)!important
+}
+
+html body .app-shell .map-search-results .map-search-result:not(#fmis-shape-specificity),
+html body .app-shell .map-search-results .map-search-result:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    display:block!important;
+    width:100%!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:10px 12px!important;
+    border:0!important;
+    border-bottom:1px solid #e5ebe7!important;
+    border-radius:0!important;
+    background:var(--surface,#fff)!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    color:inherit!important;
+    text-align:left!important;
+    transform:none!important
+}
+
+html body .app-shell .map-search-results .map-search-result:last-child:not(#fmis-shape-specificity){
+    border-bottom:0!important
+}
+
+html body .app-shell .map-search-results .map-search-result:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible){
+    background:#eef7f1!important;
+    color:#075d38!important
+}
+
+html body .app-shell .map-search-results .map-search-result :is(strong,small):not(#fmis-shape-specificity){
+    display:block!important;
+    width:100%!important;
+    text-align:left!important
+}
+
+html body[data-theme="dark"] .app-shell .map-search-results .map-search-result:not(#fmis-shape-specificity),
+html body[data-theme="dark"] .app-shell .map-search-results .map-search-result:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
+    background:#18231e!important;
+    color:#f0f7f2!important
+}
+
+html body[data-theme="dark"] .app-shell .map-search-results .map-search-result:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible){
+    background:#20382c!important
+}
+
 /* Report navigation uses the same outlined rounded rectangle as every other
  * action button. */
 html body .report-text-link:not(#fmis-shape-specificity),
