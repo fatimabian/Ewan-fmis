@@ -2463,10 +2463,16 @@ class FMISRequirementTests(TestCase):
         self.assertIn("const barangayLayer", map_script)
         self.assertIn("const clusterLayer", map_script)
         self.assertIn("const parcelLayer", map_script)
+        self.assertIn("const redPinIcon", map_script)
+        self.assertIn('redPinIcon("barangay-location-pin")', map_script)
+        self.assertIn('redPinIcon("cluster-location-pin")', map_script)
+        self.assertIn("clusterLayer.clearLayers();", map_script)
         self.assertIn("AbortController", map_script)
         self.assertIn("No field photo available", map_script)
         self.assertIn("map.panTo", map_script)
         self.assertNotIn("markerClusterGroup", map_script)
+        self.assertNotIn("barangay-marker", map_script)
+        self.assertNotIn("spatial-cluster-marker", map_script)
         self.assertNotIn("location.reload", map_script)
 
     def test_coordinate_audit_flags_duplicates_without_changing_them(self):

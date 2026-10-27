@@ -1,6 +1,7 @@
 (() => {
     const input = document.querySelector("[data-rsbsa-file-input]");
     const list = document.getElementById("rsbsaFileList");
+    const listLabel = document.getElementById("rsbsaFileListLabel");
     const summary = document.getElementById("rsbsaFileSummary");
     if (!input || !list || !summary || typeof DataTransfer !== "function") return;
 
@@ -32,7 +33,7 @@
             name.title = file.name;
             const size = document.createElement("span");
             size.className = "rsbsa-file-item-size";
-            size.textContent = `(${formatSize(file.size)})`;
+            size.textContent = `· ${formatSize(file.size)}`;
             const remove = document.createElement("button");
             remove.type = "button";
             remove.className = "rsbsa-file-remove";
@@ -49,6 +50,7 @@
         summary.textContent = files.length
             ? `${files.length} file${files.length === 1 ? "" : "s"} selected`
             : "No files selected";
+        if (listLabel) listLabel.hidden = files.length === 0;
     };
 
     input.addEventListener("change", () => {

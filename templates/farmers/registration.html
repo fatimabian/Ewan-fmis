@@ -9,23 +9,24 @@
 {% block extra_css %}
   <style>
     .rsbsa-record-card{margin:14px 0 18px;padding:12px 14px;border:1px solid #a9d4bc;border-left:3px solid var(--fmis-accent);background:#f4fbf7}
-    .rsbsa-record-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+    .rsbsa-record-head{display:grid;gap:10px}
     .rsbsa-record-title{display:flex;align-items:center;gap:10px;min-width:260px}
     .rsbsa-record-title>i{display:grid;flex:0 0 32px;width:32px;height:32px;place-items:center;background:#e0f3e8;color:#08763e}
     .rsbsa-record-title h2{margin:0 0 2px;font-size:.95rem}
     .rsbsa-record-title p{margin:0;color:#52675b;font-size:.75rem;line-height:1.3}
-    .rsbsa-record-files{display:flex;min-width:260px;flex:1;flex-direction:column;gap:7px}
-    .rsbsa-file-picker{display:flex;align-items:center;gap:9px}
+    .rsbsa-record-files{display:grid;gap:7px;padding-left:42px}
+    .rsbsa-file-picker{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
     .rsbsa-file-picker input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-    .rsbsa-file-picker label{margin:0;white-space:nowrap}
-    .rsbsa-file-summary{color:#52675b;font-size:.72rem}
-    .rsbsa-file-list{display:grid;gap:5px;margin:0;padding:0;list-style:none}
+    .rsbsa-file-action{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;min-height:36px!important;margin:0;padding:7px 11px!important;border-radius:7px!important;font-size:.74rem!important;line-height:1!important;white-space:nowrap}
+    .rsbsa-file-summary{margin-left:2px;color:#52675b;font-size:.72rem;font-weight:600}
+    .rsbsa-file-list-label{margin:2px 0 0;color:#315847;font-size:.7rem;font-weight:800}
+    .rsbsa-file-list{display:flex;align-items:flex-start;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
     .rsbsa-file-list:empty{display:none}
-    .rsbsa-file-item{display:flex;align-items:center;gap:8px;min-height:32px;padding:6px 8px;background:#edf1ef;font-size:.72rem}
-    .rsbsa-file-item-name{min-width:0;flex:1;overflow:hidden;color:#075dc4;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+    .rsbsa-file-item{display:inline-flex;width:fit-content;max-width:min(100%,460px);align-items:center;gap:5px;min-height:34px;padding:3px 4px 3px 9px;border:1px solid #cedbd4;border-radius:7px;background:#edf3f0;font-size:.72rem}
+    .rsbsa-file-item-name{min-width:0;max-width:300px;overflow:hidden;color:#075dc4;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
     .rsbsa-file-item-size{color:#52675b;font-weight:600;white-space:nowrap}
-    .rsbsa-file-remove{display:grid;width:24px;height:24px;padding:0;border:0;background:transparent;color:#68756e;font-size:1rem;font-weight:800;place-items:center}
-    .rsbsa-camera-button{flex:0 0 auto;min-height:34px;padding:6px 10px!important;font-size:.74rem!important}
+    .rsbsa-file-remove{display:grid;flex:0 0 30px;width:30px;height:30px;padding:0;border:0;border-radius:5px;background:transparent;color:#68756e;font-size:1rem;font-weight:800;place-items:center}
+    .rsbsa-file-remove:hover,.rsbsa-file-remove:focus-visible{background:#dbe8e1;color:#174b35;outline:2px solid #168052;outline-offset:1px}
     .rsbsa-record-note{margin:7px 0 0;color:#315847;font-size:.7rem}
     .rsbsa-camera-modal{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px}
     .rsbsa-camera-modal[hidden]{display:none!important}
@@ -37,12 +38,14 @@
     .rsbsa-camera-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}
     body[data-theme="dark"] .rsbsa-record-card{border-color:#426c53;background:#1f3027}
     body[data-theme="dark"] .rsbsa-record-title p,body[data-theme="dark"] .rsbsa-record-note{color:#bed0c5}
-    body[data-theme="dark"] .rsbsa-file-summary,body[data-theme="dark"] .rsbsa-file-item-size{color:#bed0c5}
-    body[data-theme="dark"] .rsbsa-file-item{background:#293a31}
+    body[data-theme="dark"] .rsbsa-file-summary,body[data-theme="dark"] .rsbsa-file-list-label,body[data-theme="dark"] .rsbsa-file-item-size{color:#bed0c5}
+    body[data-theme="dark"] .rsbsa-file-item{border-color:#4a6758;background:#293a31}
+    body[data-theme="dark"] .rsbsa-file-item-name{color:#8fc3ff}
+    body[data-theme="dark"] .rsbsa-file-remove{color:#d2e2d8}
+    body[data-theme="dark"] .rsbsa-file-remove:hover,body[data-theme="dark"] .rsbsa-file-remove:focus-visible{background:#385044;color:#fff}
     body[data-theme="dark"] .rsbsa-camera-dialog{border-color:#607267;background:#1f2923;color:#edf6f0}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
-    @media(max-width:1100px){.rsbsa-record-head{align-items:flex-start;flex-wrap:wrap}.rsbsa-record-files{flex-basis:100%}}
-    @media(max-width:760px){.rsbsa-camera-modal{padding:6px}.rsbsa-camera-dialog{padding:12px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-button{width:100%}.rsbsa-camera-actions .btn{flex:1}}
+    @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-picker{align-items:stretch}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-summary{flex:1 0 100%;margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal{padding:6px}.rsbsa-camera-dialog{padding:12px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}}
   </style>
 {% endblock %}
 {% block content %}
@@ -62,15 +65,16 @@
             <div class="rsbsa-record-files{% if profile_form.rsbsa_form.errors %} has-error{% endif %}">
               <div class="rsbsa-file-picker">
                 {{ profile_form.rsbsa_form }}
-                <label class="btn btn-add-outline" for="{{ profile_form.rsbsa_form.id_for_label }}"><i class="bi bi-upload" aria-hidden="true"></i> Choose files</label>
+                <label class="btn btn-add-outline rsbsa-file-action" for="{{ profile_form.rsbsa_form.id_for_label }}"><i class="bi bi-upload" aria-hidden="true"></i> Choose files</label>
+                <button type="button" class="btn btn-add-outline rsbsa-file-action" id="rsbsaCameraOpen">
+                  <i class="bi bi-camera-fill" aria-hidden="true"></i> Use camera
+                </button>
                 <span class="rsbsa-file-summary" id="rsbsaFileSummary">No files selected</span>
               </div>
+              <p class="rsbsa-file-list-label" id="rsbsaFileListLabel" hidden>Selected files:</p>
               <ul class="rsbsa-file-list" id="rsbsaFileList" aria-live="polite"></ul>
               {{ profile_form.rsbsa_form.errors }}
             </div>
-            <button type="button" class="btn btn-add-outline rsbsa-camera-button" id="rsbsaCameraOpen">
-              <i class="bi bi-camera-fill" aria-hidden="true"></i> Use camera
-            </button>
           </div>
           <p class="rsbsa-record-note">Add as many copies as needed. Accepted: JPG, PNG, or PDF up to 5 MB each. Files are stored only and will not fill the registration fields.</p>
         </section>

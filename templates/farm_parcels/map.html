@@ -160,10 +160,6 @@
   .parcel-panel-empty{margin:0;padding:18px 10px;color:#657287;font-size:11px;text-align:center}
   .parcel-panel-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-top:1px solid var(--ag-border,#dce7e0);font-size:10px}
   .parcel-panel-pagination button{min-width:76px;min-height:34px;padding:5px 9px}
-  .map-summary-marker,.map-spatial-cluster{border:0;background:transparent}
-  .barangay-marker{display:grid;min-width:118px;padding:8px 10px;border:2px solid #087a3d;border-radius:10px;background:rgba(255,255,255,.94);box-shadow:0 4px 13px rgba(15,58,36,.2);color:#173c28;text-align:center}
-  .barangay-marker strong{font-size:11px}.barangay-marker small{margin-top:2px;font-size:9px}
-  .spatial-cluster-marker{display:grid;width:46px;height:46px;place-items:center;border:3px solid #fff;border-radius:50%;background:#087a3d;box-shadow:0 3px 12px rgba(0,0,0,.3);color:#fff;font-size:12px;font-weight:900}
   .map-breadcrumb{display:flex;align-items:center;gap:7px;margin:0 0 10px;color:#345445;font-size:11px;font-weight:700}
   .parcel-popup-photo-link{display:block}.parcel-popup-photo{height:145px;margin:0 0 12px;border-radius:8px}
   #farmerMap .leaflet-control-zoom a,
@@ -352,15 +348,15 @@
   }
   .farmer-pin-shell{
       border:0;
-      background:transparent;
+      background:transparent!important;
       transition:filter .15s ease,transform .15s ease
   }
   .farmer-pin{
       display:block;
       color:#e11937;
-      font-size:32px;
+      font-size:24px;
       line-height:1;
-      filter:drop-shadow(0 0 1px #fff) drop-shadow(0 3px 3px rgba(48,10,16,.45))
+      filter:drop-shadow(0 0 1px #fff) drop-shadow(0 2px 1px rgba(48,10,16,.38))
   }
   .farmer-pin i{
       display:block
@@ -412,7 +408,6 @@
       background:#382d1f;
       color:#ffe7bd
   }
-  body[data-theme="dark"] .barangay-marker{border-color:#52cf89;background:rgba(24,37,31,.96);color:#f0f7f2}
   body[data-theme="dark"] .parcel-side-panel{background:#18231e;color:#f0f7f2}
   body[data-theme="dark"] .parcel-popup-photo-empty,body[data-theme="dark"] .parcel-popup-fact{border-color:#43564a;background:#25342c;color:#e8f0eb}
   @media(max-width:850px){

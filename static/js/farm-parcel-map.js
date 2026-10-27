@@ -83,15 +83,16 @@
   const clusterLayer = L.layerGroup().addTo(map);
   const parcelLayer = L.layerGroup().addTo(map);
   const markerByParcel = new Map();
-  const farmerIcon = L.divIcon({
-    className: "farmer-pin-shell",
+  const redPinIcon = (contextClass = "") => L.divIcon({
+    className: `farmer-pin-shell ${contextClass}`.trim(),
     html: '<span class="farmer-pin" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>',
-    iconSize: [30, 34], iconAnchor: [15, 32], popupAnchor: [0, -31], tooltipAnchor: [0, -28],
+    iconSize: [30, 32], iconAnchor: [15, 28], popupAnchor: [0, -27], tooltipAnchor: [0, -25],
   });
+  const farmerIcon = redPinIcon("parcel-location-pin");
   const movingIcon = L.divIcon({
     className: "farmer-pin-shell is-moving",
     html: '<span class="farmer-pin" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>',
-    iconSize: [30, 34], iconAnchor: [15, 32], popupAnchor: [0, -31],
+    iconSize: [30, 32], iconAnchor: [15, 28], popupAnchor: [0, -27],
   });
 
   const setLoading = (message = "", isError = false) => {
@@ -117,7 +118,6 @@
     body: new URLSearchParams(data),
   });
   const statusClass = (value) => String(value || "unpinned").toLowerCase().replaceAll("_", "-");
-  const escapeText = (value) => String(value ?? "");
 
   const clearMapLayers = () => {
     barangayLayer.clearLayers();
@@ -147,16 +147,8 @@
     return points.length ? L.latLngBounds(points) : null;
   };
 
-  const summaryIcon = (item) => L.divIcon({
-    className: "map-summary-marker",
-    html: `<span class="barangay-marker"><strong>${escapeText(item.name)}</strong><small>${item.mapped} mapped parcel${item.mapped === 1 ? "" : "s"}</small></span>`,
-    iconSize: [124, 48], iconAnchor: [62, 24],
-  });
-  const clusterIcon = (count) => L.divIcon({
-    className: "map-spatial-cluster",
-    html: `<span class="spatial-cluster-marker" aria-label="${count} parcels">${count}</span>`,
-    iconSize: [46, 46], iconAnchor: [23, 23],
-  });
+  const summaryIcon = () => redPinIcon("barangay-location-pin");
+  const clusterIcon = () => redPinIcon("cluster-location-pin");
 
   const loadOverview = async () => {
     state.dataRequest?.abort();
@@ -181,7 +173,7 @@
       fillSelectOnce(barangayFilter, (payload.barangays || []).map((item) => item.name), "All barangays");
       fillSelectOnce(commodityFilter, payload.commodities || [], "All commodities");
       (payload.barangays || []).forEach((item) => {
-        L.marker([item.lat, item.lng], {icon: summaryIcon(item), keyboard: true, riseOnHover: true})
+        L.marker([item.lat, item.lng], {icon: summaryIcon(), keyboard: true, riseOnHover: true})
           .addTo(barangayLayer)
           .bindTooltip(`${item.name}: ${item.mapped} mapped, ${item.unmapped} not pinned`)
           .on("click", () => selectBarangay(item.name, item.bounds));
@@ -221,7 +213,7 @@
       const payload = await requestJson(url, {signal: state.dataRequest.signal});
       updateCounts(payload);
       (payload.clusters || []).forEach((item) => {
-        L.marker([item.lat, item.lng], {icon: clusterIcon(item.count), keyboard: true, riseOnHover: true})
+        L.marker([item.lat, item.lng], {icon: clusterIcon(), keyboard: true, riseOnHover: true})
           .addTo(clusterLayer)
           .bindTooltip(`${item.count} mapped parcel${item.count === 1 ? "" : "s"}. Click to inspect.`)
           .on("click", () => selectCluster(item));
@@ -240,6 +232,7 @@
   const selectCluster = async (cluster) => {
     state.cluster = cluster.id;
     state.page = 1;
+    clusterLayer.clearLayers();
     parcelLayer.clearLayers();
     markerByParcel.clear();
     backToBarangay.hidden = false;
