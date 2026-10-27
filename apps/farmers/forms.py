@@ -29,6 +29,7 @@ from apps.common.forms import (
     normalize_person_name,
 )
 from apps.farm_parcels.models import FarmParcel
+from apps.farm_parcels.coordinate_services import validate_coordinate_text_for_barangay
 
 from .models import Farmer, FarmerDocument, FarmerUpdateHistory
 
@@ -778,6 +779,15 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
                 )
             if cleaned.get("land_owner_registered_rsbsa") is not True:
                 cleaned["land_owner_rsbsa_number"] = ""
+        coordinates = (cleaned.get("coordinates") or "").strip()
+        if coordinates:
+            try:
+                validate_coordinate_text_for_barangay(
+                    barangay=cleaned.get("barangay"),
+                    coordinates=coordinates,
+                )
+            except forms.ValidationError as error:
+                self.add_error("coordinates", error)
         return cleaned
 
 

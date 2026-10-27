@@ -25,6 +25,7 @@ from apps.crops.models import CropRecord
 from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
 from apps.farmers.models import FarmerUpdateHistory
 
+from .coordinate_services import validate_coordinate_text_for_barangay
 from .models import FarmParcel
 
 
@@ -185,6 +186,26 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
                 "land_owner_rsbsa_number",
                 "Enter the land owner's RSBSA number.",
             )
+        coordinates = (cleaned.get("coordinates") or "").strip()
+        barangay = cleaned.get("barangay")
+        original_coordinates = (
+            (self.instance.coordinates or "").strip()
+            if self.instance and self.instance.pk
+            else ""
+        )
+        original_barangay = (
+            self.instance.barangay if self.instance and self.instance.pk else ""
+        )
+        if coordinates and (
+            coordinates != original_coordinates or barangay != original_barangay
+        ):
+            try:
+                validate_coordinate_text_for_barangay(
+                    barangay=barangay,
+                    coordinates=coordinates,
+                )
+            except forms.ValidationError as error:
+                self.add_error("coordinates", error)
         return cleaned
 
 

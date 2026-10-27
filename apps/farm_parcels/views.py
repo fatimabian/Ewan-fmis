@@ -879,14 +879,20 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             )
         previous_coordinates = parcel.coordinates.strip()
         new_coordinates = format_coordinates(latitude, longitude)
-        review = propose_coordinate_change(
-            parcel=parcel,
-            actor=request.user,
-            operation=ParcelCoordinateReview.OPERATION_SET,
-            proposed_coordinates=new_coordinates,
-            issue_codes=["staff_map_correction" if previous_coordinates else "missing"],
-            notes=request.POST.get("notes", "").strip(),
-        )
+        try:
+            review = propose_coordinate_change(
+                parcel=parcel,
+                actor=request.user,
+                operation=ParcelCoordinateReview.OPERATION_SET,
+                proposed_coordinates=new_coordinates,
+                issue_codes=["staff_map_correction" if previous_coordinates else "missing"],
+                notes=request.POST.get("notes", "").strip(),
+            )
+        except ValidationError as error:
+            return JsonResponse(
+                {"ok": False, "message": error.messages[0]},
+                status=400,
+            )
         record_request_event(
             request,
             title="Farm Parcel Coordinate Review Submitted",

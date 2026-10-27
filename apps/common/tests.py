@@ -102,6 +102,24 @@ class FMISRequirementTests(TestCase):
             area_hectares=Decimal("2.50"),
             ownership_type="OWNED",
         )
+        cls.bulihan_boundary = RosarioBarangayBoundary.objects.create(
+            psgc_code=ROSARIO_BARANGAY_PSGC["Bulihan"],
+            barangay_name="Bulihan",
+            geometry={
+                "type": "Polygon",
+                "coordinates": [[
+                    [121.1800, 13.7800],
+                    [121.2500, 13.7800],
+                    [121.2500, 13.8700],
+                    [121.1800, 13.8700],
+                    [121.1800, 13.7800],
+                ]],
+            },
+            source_agency="Test fixture",
+            source_url="https://example.com/test-boundary",
+            dataset_version="test",
+            source_sha256="0" * 64,
+        )
         cls.crop = CropRecord.objects.create(
             parcel=cls.parcel,
             crop_type="Rice",
@@ -2782,6 +2800,40 @@ class FMISRequirementTests(TestCase):
         self.parcel.refresh_from_db()
         self.assertEqual(self.parcel.coordinates, "")
 
+    def test_parcel_map_rejects_pin_outside_assigned_barangay(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("farm_parcels:pin_farmer"),
+            {
+                "parcel_id": self.parcel.pk,
+                "latitude": "13.7700",
+                "longitude": "121.2600",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("outside Bulihan", response.json()["message"])
+        self.assertFalse(
+            ParcelCoordinateReview.objects.filter(parcel=self.parcel).exists()
+        )
+
+    def test_parcel_map_rejects_pin_when_verified_barangay_boundary_is_missing(self):
+        self.parcel.barangay = "Tulos"
+        self.parcel.save(update_fields=["barangay"])
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("farm_parcels:pin_farmer"),
+            {
+                "parcel_id": self.parcel.pk,
+                "latitude": "13.8200",
+                "longitude": "121.2500",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("verified barangay boundary has not been loaded", response.json()["message"])
+
     def test_staff_coordinate_move_requires_approval_and_is_audited(self):
         self.parcel.coordinates = "13.8467000, 121.2060000"
         self.parcel.remarks = "FMIS-DEMO-DATA: generated location"
@@ -2973,7 +3025,8 @@ class FMISRequirementTests(TestCase):
         create_url = reverse("farm_parcels:create")
         response = self.client.get(create_url)
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.context["form"].fields["georef_id"].required)
+        self.assertNotIn("georef_id", response.context["form"].fields)
+        self.assertNotIn("gpx_status", response.context["form"].fields)
         self.assertNotIn("crop_formset", response.context)
         self.assertNotContains(response, "Add Crop")
         self.assertContains(response, "Add commodities separately in Commodity Management")

@@ -4,12 +4,67 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.activity_logs.services import record_event
+from apps.common.constants import ROSARIO_BARANGAY_PSGC
 
-from .models import FarmParcel, ParcelCoordinateHistory, ParcelCoordinateReview
+from .geojson import point_in_geojson
+from .models import (
+    FarmParcel,
+    ParcelCoordinateHistory,
+    ParcelCoordinateReview,
+    RosarioBarangayBoundary,
+)
 
 
 def format_coordinates(latitude, longitude):
     return f"{latitude:.7f}, {longitude:.7f}"
+
+
+def parse_coordinates(value):
+    """Return a WGS84 latitude/longitude pair without estimating a location."""
+    try:
+        parts = [part.strip() for part in str(value or "").split(",")]
+        if len(parts) != 2:
+            return None
+        latitude, longitude = (float(part) for part in parts)
+    except (TypeError, ValueError):
+        return None
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return None
+    return latitude, longitude
+
+
+def validate_coordinate_for_barangay(*, barangay, latitude, longitude):
+    """Fail closed unless an approved PSGC boundary contains the point."""
+    psgc_code = ROSARIO_BARANGAY_PSGC.get((barangay or "").strip())
+    if not psgc_code:
+        raise ValidationError("Select a valid Rosario barangay before saving coordinates.")
+    boundary = RosarioBarangayBoundary.objects.filter(
+        psgc_code=psgc_code,
+        is_active=True,
+    ).first()
+    if boundary is None:
+        raise ValidationError(
+            f"Pinning is unavailable for {barangay} because its verified barangay "
+            "boundary has not been loaded. Ask an administrator to load the approved "
+            "PSGC boundary dataset."
+        )
+    if not point_in_geojson(latitude, longitude, boundary.geometry):
+        raise ValidationError(
+            f"That location is outside {barangay}. Choose a point inside the farm "
+            "parcel's assigned barangay boundary."
+        )
+    return boundary
+
+
+def validate_coordinate_text_for_barangay(*, barangay, coordinates):
+    point = parse_coordinates(coordinates)
+    if point is None:
+        raise ValidationError("Enter coordinates as latitude, longitude.")
+    return validate_coordinate_for_barangay(
+        barangay=barangay,
+        latitude=point[0],
+        longitude=point[1],
+    )
 
 
 def clear_coordinate_caches(parcel):
@@ -27,6 +82,11 @@ def propose_coordinate_change(
     evidence_source="Staff map selection", evidence_reference="", notes=""
 ):
     locked = FarmParcel.objects.select_for_update().get(pk=parcel.pk)
+    if operation == ParcelCoordinateReview.OPERATION_SET:
+        validate_coordinate_text_for_barangay(
+            barangay=locked.barangay,
+            coordinates=proposed_coordinates,
+        )
     ParcelCoordinateReview.objects.filter(
         parcel=locked, status=ParcelCoordinateReview.STATUS_PENDING
     ).update(
@@ -67,6 +127,11 @@ def approve_coordinate_review(*, review_id, actor, decision_notes=""):
             "Reject it and create a new proposal from the current record."
         )
     after = "" if review.operation == ParcelCoordinateReview.OPERATION_REMOVE else review.proposed_coordinates
+    if after:
+        validate_coordinate_text_for_barangay(
+            barangay=parcel.barangay,
+            coordinates=after,
+        )
     parcel.coordinates = after
     update_fields = ["coordinates"]
     if parcel.remarks.startswith("FMIS-DEMO-DATA:") and after:
