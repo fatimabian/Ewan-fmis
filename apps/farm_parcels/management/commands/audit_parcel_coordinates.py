@@ -1,13 +1,19 @@
+import csv
+import io
 import json
 import math
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
+from django.db import DatabaseError
+from django.utils import timezone
 
+from apps.common.constants import ROSARIO_BARANGAY_PSGC, ROSARIO_PSGC_CODE
 from apps.farm_parcels.demo_locations import ROSARIO_BARANGAY_CENTERS
-from apps.farm_parcels.models import FarmParcel
+from apps.farm_parcels.geojson import point_in_geojson
+from apps.farm_parcels.models import FarmParcel, RosarioBarangayBoundary
 from apps.farm_parcels.views import is_within_rosario
 
 
@@ -42,8 +48,22 @@ def likely_reference_point(point):
     return ""
 
 
-def build_coordinate_audit(barangay=""):
-    parcels = FarmParcel.objects.filter(is_active=True)
+def recommended_action(issue_codes):
+    if "missing" in issue_codes:
+        return "Field-verify the farm location and submit a coordinate proposal."
+    if "invalid" in issue_codes or "zero" in issue_codes or "outside_rosario" in issue_codes:
+        return "Do not use this pin; field-verify it and submit a corrected coordinate proposal."
+    if "synthetic_demo" in issue_codes or "reference_center" in issue_codes:
+        return "Confirm the actual farm location; never substitute the barangay reference point."
+    if "outside_assigned_barangay" in issue_codes:
+        return "Compare the assigned barangay with field evidence and submit a reviewed correction."
+    if "duplicate" in issue_codes:
+        return "Confirm whether parcels genuinely share this location; correct only verified records."
+    return "No coordinate action recommended."
+
+
+def build_coordinate_audit(barangay="", using="default"):
+    parcels = FarmParcel.objects.using(using).filter(is_active=True)
     if barangay:
         parcels = parcels.filter(barangay=barangay)
     rows = list(
@@ -51,18 +71,31 @@ def build_coordinate_audit(barangay=""):
         .values("pk", "barangay", "coordinates", "remarks")
         .order_by("pk")
     )
+    try:
+        boundaries = {
+            boundary.barangay_name: boundary.geometry
+            for boundary in RosarioBarangayBoundary.objects.using(using).filter(is_active=True)
+        }
+    except DatabaseError:
+        # Keeps the read-only audit usable before the optional boundary-storage
+        # migration is applied. Municipality checks still run normally.
+        boundaries = {}
+    barangay_boundaries_available = len(boundaries) == len(ROSARIO_BARANGAY_PSGC)
     coordinate_counts = Counter()
     parsed_rows = []
+    audit_rows = []
     missing = invalid = zero = outside = synthetic_saved = 0
 
     for row in rows:
         raw = (row["coordinates"] or "").strip()
         if not raw:
             missing += 1
+            audit_rows.append((row, None, None, ["missing"]))
             continue
         point = parse_coordinate(raw)
         if point is None:
             invalid += 1
+            audit_rows.append((row, None, None, ["invalid"]))
             continue
         if point == (0.0, 0.0):
             zero += 1
@@ -77,28 +110,61 @@ def build_coordinate_audit(barangay=""):
     duplicate_pairs = {
         point: count for point, count in coordinate_counts.items() if count > 1
     }
+    audit_rows.extend((row, point, key, []) for row, point, key in parsed_rows)
     flagged = []
-    for row, point, key in parsed_rows:
+    for row, point, key, issue_codes in audit_rows:
         reasons = []
+        issue_codes = list(issue_codes)
+        if "missing" in issue_codes:
+            reasons.append("missing coordinate")
+        if "invalid" in issue_codes:
+            reasons.append("invalid coordinate format or range")
+        if point is None:
+            flagged.append(
+                {
+                    "parcel_id": f"P-{row['pk']:04d}",
+                    "barangay": row["barangay"],
+                    "barangay_psgc": ROSARIO_BARANGAY_PSGC.get(row["barangay"], "UNMATCHED"),
+                    "current_coordinates": (row["coordinates"] or "").strip(),
+                    "issue_codes": issue_codes,
+                    "detected_issue": "; ".join(reasons),
+                    "recommended_verification_action": recommended_action(issue_codes),
+                }
+            )
+            continue
         if point == (0.0, 0.0):
             reasons.append("zero coordinate")
+            issue_codes.append("zero")
         if not is_within_rosario(*point):
             reasons.append("outside Rosario reference boundary")
+            issue_codes.append("outside_rosario")
+        if (
+            barangay_boundaries_available
+            and row["barangay"] in boundaries
+            and not point_in_geojson(point[0], point[1], boundaries[row["barangay"]])
+        ):
+            reasons.append("outside assigned barangay boundary")
+            issue_codes.append("outside_assigned_barangay")
         if key in duplicate_pairs:
             reasons.append(f"shared by {duplicate_pairs[key]} parcels")
+            issue_codes.append("duplicate")
         reference = likely_reference_point(point)
         if reference:
             reasons.append(f"matches {reference} reference centre")
+            issue_codes.append("reference_center")
         if (row["remarks"] or "").startswith("FMIS-DEMO-DATA:"):
             reasons.append("synthetic demo location; not field-verified")
+            issue_codes.append("synthetic_demo")
         if reasons:
             flagged.append(
                 {
-                    "parcel": f"P-{row['pk']:04d}",
+                    "parcel_id": f"P-{row['pk']:04d}",
                     "barangay": row["barangay"],
-                    "latitude": point[0],
-                    "longitude": point[1],
-                    "reasons": reasons,
+                    "barangay_psgc": ROSARIO_BARANGAY_PSGC.get(row["barangay"], "UNMATCHED"),
+                    "current_coordinates": (row["coordinates"] or "").strip(),
+                    "issue_codes": issue_codes,
+                    "detected_issue": "; ".join(reasons),
+                    "recommended_verification_action": recommended_action(issue_codes),
                 }
             )
 
@@ -114,6 +180,17 @@ def build_coordinate_audit(barangay=""):
             "outside_rosario_reference_boundary": outside,
             "synthetic_saved_coordinates": synthetic_saved,
             "records_requiring_manual_verification": len(flagged),
+        },
+        "metadata": {
+            "generated_at": timezone.now().isoformat(),
+            "municipality": "Rosario, Batangas",
+            "municipality_psgc": ROSARIO_PSGC_CODE,
+            "barangay_boundary_check": (
+                "performed using installed PSGC-matched authoritative polygons"
+                if barangay_boundaries_available
+                else "not performed; complete authoritative barangay polygons not installed"
+            ),
+            "contains_personal_information": False,
         },
         "flagged_records": flagged,
         "notice": (
@@ -132,6 +209,17 @@ class Command(BaseCommand):
             help="Optional JSON output file. Existing files are not overwritten.",
         )
         parser.add_argument(
+            "--format",
+            choices=("json", "csv"),
+            default="json",
+            help="Output format. CSV contains only flagged parcels and no personal information.",
+        )
+        parser.add_argument(
+            "--database",
+            default="default",
+            help="Django database alias. Credentials remain in server environment variables.",
+        )
+        parser.add_argument(
             "--barangay",
             default="",
             help="Optionally audit one barangay using an exact database match.",
@@ -143,10 +231,23 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        report = build_coordinate_audit(options.get("barangay", "").strip())
+        report = build_coordinate_audit(
+            options.get("barangay", "").strip(), options.get("database", "default")
+        )
         if options.get("summary_only"):
             report.pop("flagged_records", None)
-        rendered = json.dumps(report, indent=2, ensure_ascii=False)
+        if options["format"] == "csv":
+            buffer = io.StringIO()
+            fields = [
+                "parcel_id", "barangay", "barangay_psgc", "current_coordinates",
+                "detected_issue", "recommended_verification_action",
+            ]
+            writer = csv.DictWriter(buffer, fieldnames=fields, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(report.get("flagged_records", []))
+            rendered = buffer.getvalue()
+        else:
+            rendered = json.dumps(report, indent=2, ensure_ascii=False)
         output = options.get("output")
         if output:
             path = Path(output).expanduser().resolve()
@@ -154,6 +255,10 @@ class Command(BaseCommand):
                 raise CommandError(f"Refusing to overwrite existing file: {path}")
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(rendered + "\n", encoding="utf-8")
+            try:
+                path.chmod(0o600)
+            except OSError:
+                pass
             self.stdout.write(self.style.SUCCESS(f"Coordinate audit written to {path}"))
             return
         self.stdout.write(rendered)

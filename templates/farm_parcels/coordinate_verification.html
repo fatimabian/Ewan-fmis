@@ -1,0 +1,68 @@
+{% extends base_template %}
+{% block page_title %}Coordinate Verification{% endblock %}
+{% block page_subtitle %}Review proposed farm locations before changing the live parcel map{% endblock %}
+{% block content %}
+<style>
+.coordinate-review-page{display:grid;gap:18px}.coordinate-note{padding:13px 15px;border-left:4px solid #087a3d;background:#edf8f1;color:#284d37}.coordinate-grid{display:grid;gap:10px}.coordinate-card{padding:15px;border:1px solid var(--ag-border,#dce7e0);border-radius:10px;background:var(--surface,#fff)}.coordinate-card h3{margin:0 0 7px;font-size:15px}.coordinate-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}.coordinate-fact{padding:9px;background:#f3f7f4;font-size:12px}.coordinate-fact strong{display:block;margin-bottom:3px}.coordinate-actions{display:flex;gap:8px;flex-wrap:wrap}.coordinate-actions input{min-width:260px;flex:1}.coordinate-history{overflow:auto}.coordinate-history table{width:100%;min-width:850px;border-collapse:collapse}.coordinate-history th,.coordinate-history td{padding:10px;border-bottom:1px solid var(--ag-border,#dce7e0);text-align:left;font-size:12px}body[data-theme="dark"] .coordinate-note,body[data-theme="dark"] .coordinate-fact{background:#23362c;color:#edf7f0}@media(max-width:620px){.coordinate-facts{grid-template-columns:1fr}.coordinate-actions input{min-width:100%}}
+</style>
+<div class="content coordinate-review-page">
+  <p class="coordinate-note"><strong>Review-first safeguard:</strong> proposals do not alter saved coordinates. Verify the field evidence and exact parcel before approving. Barangay centres are never used as replacement farm coordinates.</p>
+  <section>
+    <h2>Pending coordinate proposals ({{ pending_reviews|length }})</h2>
+    <div class="coordinate-grid">
+      {% for review in pending_reviews %}
+      <article class="coordinate-card" id="review-{{ review.pk }}">
+        <h3>{{ review.parcel.display_name }} · {{ review.parcel.barangay }}</h3>
+        <div class="coordinate-facts">
+          <div class="coordinate-fact"><strong>Current</strong>{{ review.original_coordinates|default:"Not pinned" }}</div>
+          <div class="coordinate-fact"><strong>Proposed</strong>{{ review.proposed_coordinates|default:"Not pinned" }}</div>
+          <div class="coordinate-fact"><strong>Evidence source</strong>{{ review.evidence_source }}</div>
+          <div class="coordinate-fact"><strong>Submitted</strong>{{ review.submitted_at }}{% if review.submitted_by %} by {{ review.submitted_by.display_name }}{% endif %}</div>
+        </div>
+        {% if review.staff_notes %}<p>{{ review.staff_notes }}</p>{% endif %}
+        <div class="coordinate-actions">
+          <input type="text" id="decision-{{ review.pk }}" placeholder="Decision notes (recommended)">
+          <button class="btn btn-success coordinate-decision" type="button" data-url="{% url 'farm_parcels:coordinate_review_approve' review.pk %}" data-notes="decision_notes">Approve</button>
+          <button class="btn btn-outline-secondary coordinate-decision" type="button" data-url="{% url 'farm_parcels:coordinate_review_reject' review.pk %}" data-notes="decision_notes">Reject</button>
+        </div>
+      </article>
+      {% empty %}<p>No coordinate proposals are awaiting review.</p>{% endfor %}
+    </div>
+  </section>
+  <section class="coordinate-history">
+    <h2>Recent coordinate history</h2>
+    <table>
+      <thead><tr><th>Parcel</th><th>Action</th><th>Before</th><th>After</th><th>Changed by</th><th>Date</th><th>Recovery</th></tr></thead>
+      <tbody>
+      {% for entry in coordinate_history %}
+        <tr><td>{{ entry.parcel.display_name }} · {{ entry.parcel.barangay }}</td><td>{{ entry.get_action_display }}</td><td>{{ entry.before_coordinates|default:"Not pinned" }}</td><td>{{ entry.after_coordinates|default:"Not pinned" }}</td><td>{% if entry.changed_by %}{{ entry.changed_by.display_name }}{% else %}System{% endif %}</td><td>{{ entry.created_at }}</td><td>{% if entry.is_reversible %}<button class="btn btn-outline-secondary coordinate-reverse" type="button" data-url="{% url 'farm_parcels:coordinate_history_reverse' entry.pk %}">Reverse</button>{% else %}—{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="7">No approved coordinate history yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+<script>
+(() => {
+  const csrf = "{{ csrf_token }}";
+  const post = async (url, values) => {
+    const response = await fetch(url, {method:"POST", credentials:"same-origin", headers:{"X-CSRFToken":csrf,"X-Requested-With":"XMLHttpRequest"}, body:new URLSearchParams(values)});
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message || "The coordinate request failed.");
+    return payload;
+  };
+  document.querySelectorAll(".coordinate-decision").forEach((button) => button.addEventListener("click", async () => {
+    const id = button.closest(".coordinate-card").id.replace("review-", "");
+    button.disabled = true;
+    try { const payload = await post(button.dataset.url, {decision_notes:document.getElementById(`decision-${id}`).value}); window.fmisFeedback ? window.fmisFeedback(payload.message,"success") : alert(payload.message); location.reload(); }
+    catch (error) { button.disabled = false; window.fmisFeedback ? window.fmisFeedback(error.message,"error") : alert(error.message); }
+  }));
+  document.querySelectorAll(".coordinate-reverse").forEach((button) => button.addEventListener("click", async () => {
+    const reason = window.prompt("Reason for reversing this approved coordinate change:");
+    if (!reason) return;
+    button.disabled = true;
+    try { const payload = await post(button.dataset.url, {reason}); window.fmisFeedback ? window.fmisFeedback(payload.message,"success") : alert(payload.message); location.reload(); }
+    catch (error) { button.disabled = false; window.fmisFeedback ? window.fmisFeedback(error.message,"error") : alert(error.message); }
+  }));
+})();
+</script>
+{% endblock %}

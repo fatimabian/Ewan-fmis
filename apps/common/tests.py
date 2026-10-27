@@ -15,6 +15,7 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.cache import cache
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, connection
 from django.http import HttpResponse
@@ -29,10 +30,20 @@ from apps.accounts.forms import AccountForm
 from apps.crops.forms import CropRecordForm
 from apps.crops.models import CropRecord
 from apps.common.forms import InlineValidationMixin
+from apps.common.constants import ROSARIO_BARANGAY_PSGC
 from apps.dashboard.services import _crop_recommendation
-from apps.farm_parcels.models import FarmParcel, FarmParcelPhoto
+from apps.farm_parcels.models import (
+    FarmParcel,
+    FarmParcelPhoto,
+    ParcelCoordinateHistory,
+    ParcelCoordinateReview,
+    RosarioBarangayBoundary,
+)
 from apps.farm_parcels.management.commands.audit_parcel_coordinates import (
     build_coordinate_audit,
+)
+from apps.farm_parcels.management.commands.import_rosario_barangay_boundaries import (
+    validate_feature_collection,
 )
 from apps.farmers.forms import (
     CropRegistrationForm,
@@ -976,6 +987,7 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(response, "prefill")
         self.assertContains(response, 'data-rsbsa-file-input')
         self.assertContains(response, "Choose files")
+        self.assertNotContains(response, "Selected files:")
         self.assertContains(response, "Complete all required fields in this step to continue.")
         self.assertContains(response, "stepIsComplete")
         self.assertContains(response, 'id="fmisNetworkLoading"')
@@ -2327,7 +2339,43 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(barangay_payload["mode"], "barangay")
         self.assertEqual(barangay_payload["markers"], [])
         self.assertEqual(
+            barangay_payload["focus_basis"], "non_flagged_parcel_coordinates"
+        )
+        self.assertEqual(
+            barangay_payload["focus_bounds"],
+            [[13.8467, 121.206], [13.8468, 121.2061]],
+        )
+        self.assertEqual(
             sum(cluster["count"] for cluster in barangay_payload["clusters"]), 2
+        )
+        RosarioBarangayBoundary.objects.create(
+            psgc_code="0401021001",
+            barangay_name="Bulihan",
+            geometry={
+                "type": "Polygon",
+                "coordinates": [[
+                    [121.20, 13.84],
+                    [121.21, 13.84],
+                    [121.21, 13.85],
+                    [121.20, 13.85],
+                    [121.20, 13.84],
+                ]],
+            },
+            source_agency="Test geographic authority",
+            source_url="https://example.test/boundary",
+            dataset_version="test-1",
+            source_sha256="a" * 64,
+        )
+        authoritative_payload = self.client.get(
+            reverse("farm_parcels:map_data"), {"barangay": "Bulihan"}
+        ).json()
+        self.assertEqual(
+            authoritative_payload["focus_basis"],
+            "authoritative_barangay_boundary",
+        )
+        self.assertEqual(
+            authoritative_payload["focus_bounds"],
+            [[13.84, 121.2], [13.85, 121.21]],
         )
         parcel_page = self.client.get(
             reverse("farm_parcels:map_parcels"), {"barangay": "Bulihan"}
@@ -2380,6 +2428,39 @@ class FMISRequirementTests(TestCase):
             coordinates="13.8469000, 121.2062000",
             remarks="FMIS-DEMO-DATA: test record",
         )
+        ParcelCoordinateReview.objects.create(
+            parcel=verification_parcel,
+            original_coordinates=verification_parcel.coordinates,
+            proposed_coordinates="13.8470000, 121.2063000",
+            submitted_by=self.staff,
+        )
+        panel_all = self.client.get(
+            reverse("farm_parcels:map_parcels"), {"barangay": "Bulihan"}
+        )
+        panel_results = panel_all.json()["results"]
+        panel_by_id = {result["id"]: result for result in panel_results}
+        self.assertEqual(panel_by_id[verification_parcel.pk]["pin_status"], "PINNED")
+        self.assertNotIn("pending_review", panel_by_id[verification_parcel.pk])
+        pinned_panel = self.client.get(
+            reverse("farm_parcels:map_parcels"),
+            {"barangay": "Bulihan", "pin_status": "PINNED"},
+        ).json()["results"]
+        unpinned_panel = self.client.get(
+            reverse("farm_parcels:map_parcels"),
+            {"barangay": "Bulihan", "pin_status": "UNPINNED"},
+        ).json()["results"]
+        self.assertIn(verification_parcel.pk, {result["id"] for result in pinned_panel})
+        self.assertEqual(
+            {result["id"] for result in unpinned_panel},
+            {unpinned_parcel.pk},
+        )
+        self.assertEqual(
+            self.client.get(
+                reverse("farm_parcels:map_parcels"),
+                {"barangay": "Bulihan", "pin_status": "NEEDS_VERIFICATION"},
+            ).status_code,
+            400,
+        )
         map_search = self.client.get(
             reverse("farm_parcels:map_search"), {"q": self.farmer.record_id}
         )
@@ -2392,6 +2473,9 @@ class FMISRequirementTests(TestCase):
         selected_result = next(
             result for result in search_results if result["id"] == self.parcel.pk
         )
+        self.assertEqual(selected_result["parcel"], self.parcel.display_name)
+        self.assertEqual(selected_result["farmer"], self.farmer.full_name)
+        self.assertEqual(selected_result["farmer_id"], self.farmer.record_id)
         self.assertEqual(selected_result["livelihood"], "Farmer")
         self.assertEqual(selected_result["livelihood_code"], "FARMER")
         self.assertEqual(selected_result["activities"], "FARMER_CROPS")
@@ -2408,6 +2492,14 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(verification_result["pin_status"], "NEEDS_VERIFICATION")
         self.assertIn("NEEDS VERIFICATION —", verification_result["label"])
         self.assertEqual(search_results[1]["id"], verification_parcel.pk)
+        rice_search = self.client.get(
+            reverse("farm_parcels:map_search"),
+            {"q": self.farmer.last_name, "commodity": "Rice"},
+        ).json()["results"]
+        self.assertEqual(
+            {result["id"] for result in rice_search},
+            {self.parcel.pk},
+        )
         unpinned_search = self.client.get(
             reverse("farm_parcels:map_search"),
             {"q": self.farmer.record_id, "pin_status": "UNPINNED", "barangay": "Bulihan"},
@@ -2431,11 +2523,35 @@ class FMISRequirementTests(TestCase):
         )
         self.assertContains(map_response, 'id="mapBarangayFilter"')
         self.assertContains(map_response, 'id="mapCommodityFilter"')
-        self.assertContains(map_response, reverse("farm_parcels:map_search"))
+        self.assertContains(map_response, "Find Farm Parcel")
+        self.assertContains(map_response, 'id="mapParcelSearch"')
+        self.assertContains(
+            map_response, 'placeholder="Search farmer name or parcel ID..."'
+        )
+        self.assertContains(map_response, 'id="clearMapFilters"')
+        self.assertNotContains(map_response, 'id="parcelSearchStatus"')
+        self.assertNotContains(map_response, 'id="parcelSearchBarangay"')
         self.assertContains(map_response, reverse("farm_parcels:map_data"))
         self.assertContains(map_response, reverse("farm_parcels:map_parcels"))
+        self.assertContains(map_response, reverse("farm_parcels:map_search"))
         self.assertContains(map_response, 'id="parcelSidePanel"')
-        self.assertContains(map_response, 'id="backToOverview"')
+        self.assertNotContains(map_response, 'id="backToOverview"')
+        self.assertNotContains(map_response, "map-parcel-table-link")
+        self.assertContains(map_response, 'id="parcelPanelSearch"')
+        self.assertContains(map_response, 'id="parcelPanelStatus"')
+        self.assertContains(map_response, 'id="parcelMobileSheet"')
+        self.assertContains(map_response, 'id="parcelMobileSheetContent"')
+        self.assertContains(map_response, 'id="parcelMobileSheetExpand"')
+        self.assertContains(map_response, 'id="parcelMobileSheetClose"')
+        self.assertContains(map_response, "@media(max-width:768px)")
+        self.assertContains(map_response, ".parcel-side-panel{position:static;order:-1")
+        self.assertContains(map_response, "bottom:38px")
+        self.assertContains(map_response, '<option value="">All parcels</option>', html=True)
+        self.assertNotContains(
+            map_response,
+            '<option value="NEEDS_VERIFICATION">Needs verification</option>',
+            html=True,
+        )
         self.assertContains(map_response, "farm-parcel-map.")
         self.assertNotContains(map_response, 'id="farmer-map-markers"')
         self.assertNotContains(map_response, 'name="map_layer"')
@@ -2469,7 +2585,23 @@ class FMISRequirementTests(TestCase):
         self.assertIn("clusterLayer.clearLayers();", map_script)
         self.assertIn("AbortController", map_script)
         self.assertIn("No field photo available", map_script)
-        self.assertIn("map.panTo", map_script)
+        self.assertIn('empty.textContent = "No parcels found."', map_script)
+        self.assertIn('window.matchMedia("(max-width: 768px)")', map_script)
+        self.assertIn("const showMobileSheet", map_script)
+        self.assertIn("const toggleMobileSheet", map_script)
+        self.assertIn("mobileSheetContent.replaceChildren(popupNode(item))", map_script)
+        self.assertIn("map.invalidateSize({pan: false})", map_script)
+        self.assertIn("const searchMapParcels", map_script)
+        self.assertIn("const chooseMapSearchResult", map_script)
+        self.assertIn('map.on("zoomend"', map_script)
+        self.assertIn("mapParcelSearch.value = \"\"", map_script)
+        self.assertIn("commodityFilter.value = \"\"", map_script)
+        self.assertNotIn('status.textContent = item.pending_review', map_script)
+        self.assertIn("map.flyToBounds", map_script)
+        self.assertIn("map.flyTo(latLng, targetZoom", map_script)
+        self.assertIn("const BARANGAY_MAX_ZOOM = 15", map_script)
+        self.assertIn("const FARM_MIN_ZOOM = 17", map_script)
+        self.assertIn('if (state.barangay) selectBarangay(state.barangay)', map_script)
         self.assertNotIn("markerClusterGroup", map_script)
         self.assertNotIn("barangay-marker", map_script)
         self.assertNotIn("spatial-cluster-marker", map_script)
@@ -2498,6 +2630,47 @@ class FMISRequirementTests(TestCase):
         duplicate.refresh_from_db()
         self.assertEqual(self.parcel.coordinates, original)
         self.assertEqual(duplicate.coordinates, original)
+
+    def test_coordinate_audit_reports_missing_and_invalid_rows_without_personal_data(self):
+        self.parcel.coordinates = "not-a-coordinate"
+        self.parcel.save(update_fields=["coordinates"])
+        missing = FarmParcel.objects.create(
+            farmer=self.farmer,
+            parcel_name="Missing coordinate",
+            barangay="Tulos",
+            area_hectares=Decimal("0.50"),
+            ownership_type="OWNED",
+            coordinates="",
+        )
+
+        report = build_coordinate_audit()
+        rows = {row["parcel_id"]: row for row in report["flagged_records"]}
+
+        self.assertIn(self.parcel.display_name, rows)
+        self.assertIn(missing.display_name, rows)
+        self.assertIn("invalid", rows[self.parcel.display_name]["issue_codes"])
+        self.assertIn("missing", rows[missing.display_name]["issue_codes"])
+        self.assertEqual(rows[missing.display_name]["barangay_psgc"], "0401021048")
+        self.assertFalse(report["metadata"]["contains_personal_information"])
+        self.assertNotIn("farmer", rows[missing.display_name])
+
+    def test_boundary_import_requires_all_official_psgc_name_pairs(self):
+        ring = [[121.20, 13.75], [121.21, 13.75], [121.21, 13.76], [121.20, 13.75]]
+        payload = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"psgc_code": code, "barangay_name": name},
+                    "geometry": {"type": "Polygon", "coordinates": [ring]},
+                }
+                for name, code in ROSARIO_BARANGAY_PSGC.items()
+            ],
+        }
+        self.assertEqual(len(validate_feature_collection(payload)), 48)
+        payload["features"][0]["properties"]["barangay_name"] = "Invented Barangay"
+        with self.assertRaises(CommandError):
+            validate_feature_collection(payload)
 
     def test_parcel_map_side_panel_is_server_paginated_to_twenty_five_rows(self):
         FarmParcel.objects.bulk_create(
@@ -2560,7 +2733,7 @@ class FMISRequirementTests(TestCase):
         self.parcel.refresh_from_db()
         self.assertEqual(self.parcel.coordinates, "")
 
-    def test_staff_can_move_parcel_pin_and_change_is_audited(self):
+    def test_staff_coordinate_move_requires_approval_and_is_audited(self):
         self.parcel.coordinates = "13.8467000, 121.2060000"
         self.parcel.remarks = "FMIS-DEMO-DATA: generated location"
         self.parcel.save(update_fields=["coordinates", "remarks"])
@@ -2576,21 +2749,34 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, "13.8467000, 121.2060000")
+        review = ParcelCoordinateReview.objects.get(pk=response.json()["review_id"])
+        self.assertEqual(review.status, "PENDING")
+        approval = self.client.post(
+            reverse("farm_parcels:coordinate_review_approve", args=[review.pk]),
+            {"decision_notes": "Compared with the field GPS record."},
+        )
+        self.assertEqual(approval.status_code, 200)
+        self.parcel.refresh_from_db()
+        review.refresh_from_db()
+        self.assertEqual(review.status, "APPROVED")
         self.assertEqual(self.parcel.coordinates, "13.8501000, 121.2102000")
         self.assertTrue(self.parcel.remarks.startswith("FMIS-DEMO-VERIFIED:"))
         activity = ActivityLog.objects.get(
-            title="Farm Parcel Map Pin Moved",
-            target_label=f"{self.farmer.record_id} - {self.parcel.display_name}",
+            title="Farm Parcel Coordinate Approved",
+            target_label=self.parcel.display_name,
         )
         self.assertEqual(activity.actor, self.staff)
         self.assertEqual(activity.details[0]["before"], "13.8467000, 121.2060000")
         self.assertEqual(activity.details[0]["after"], "13.8501000, 121.2102000")
+        history = ParcelCoordinateHistory.objects.get(review=review, action="APPROVED")
+        self.assertEqual(history.before_coordinates, "13.8467000, 121.2060000")
 
         map_response = self.client.get(reverse("farm_parcels:map"))
         self.assertContains(map_response, "Remove pin")
         self.assertContains(map_response, "Save New Location")
 
-    def test_staff_can_remove_parcel_pin_and_change_is_audited(self):
+    def test_staff_pin_removal_requires_approval(self):
         self.parcel.coordinates = "13.8467000, 121.2060000"
         self.parcel.save(update_fields=["coordinates"])
         self.client.force_login(self.staff)
@@ -2600,12 +2786,138 @@ class FMISRequirementTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, "13.8467000, 121.2060000")
+        review = ParcelCoordinateReview.objects.get(pk=response.json()["review_id"])
+        approval = self.client.post(
+            reverse("farm_parcels:coordinate_review_approve", args=[review.pk]),
+            {"decision_notes": "Verified that the old point belongs to another parcel."},
+        )
+        self.assertEqual(approval.status_code, 200)
+        self.parcel.refresh_from_db()
         self.assertEqual(self.parcel.coordinates, "")
         activity = ActivityLog.objects.get(
-            title="Farm Parcel Map Pin Removed",
-            target_label=f"{self.farmer.record_id} - {self.parcel.display_name}",
+            title="Farm Parcel Coordinate Approved",
+            target_label=self.parcel.display_name,
         )
         self.assertEqual(activity.details[0]["after"], "Not pinned")
+
+    def test_approved_coordinate_can_be_reversed_only_if_it_is_still_current(self):
+        self.parcel.coordinates = "13.8467000, 121.2060000"
+        self.parcel.save(update_fields=["coordinates"])
+        self.client.force_login(self.staff)
+        proposal = self.client.post(
+            reverse("farm_parcels:pin_farmer"),
+            {"parcel_id": self.parcel.pk, "operation": "move", "latitude": "13.8501", "longitude": "121.2102"},
+        ).json()
+        approval = self.client.post(
+            reverse("farm_parcels:coordinate_review_approve", args=[proposal["review_id"]]),
+            {"decision_notes": "Field GPS verified."},
+        ).json()
+
+        reversal = self.client.post(
+            reverse("farm_parcels:coordinate_history_reverse", args=[approval["history_id"]]),
+            {"reason": "Survey correction was withdrawn."},
+        )
+
+        self.assertEqual(reversal.status_code, 200)
+        self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, "13.8467000, 121.2060000")
+        self.assertTrue(ParcelCoordinateHistory.objects.filter(action="REVERSED").exists())
+
+    def test_stale_coordinate_proposal_cannot_overwrite_newer_value(self):
+        self.parcel.coordinates = "13.8467000, 121.2060000"
+        self.parcel.save(update_fields=["coordinates"])
+        self.client.force_login(self.staff)
+        proposal = self.client.post(
+            reverse("farm_parcels:pin_farmer"),
+            {"parcel_id": self.parcel.pk, "operation": "move", "latitude": "13.8501", "longitude": "121.2102"},
+        ).json()
+        self.parcel.coordinates = "13.8510000, 121.2110000"
+        self.parcel.save(update_fields=["coordinates"])
+
+        approval = self.client.post(
+            reverse("farm_parcels:coordinate_review_approve", args=[proposal["review_id"]])
+        )
+
+        self.assertEqual(approval.status_code, 409)
+        self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, "13.8510000, 121.2110000")
+
+    def test_approval_refresh_endpoints_return_only_the_new_coordinate(self):
+        self.parcel.coordinates = "13.8467000, 121.2060000"
+        self.parcel.save(update_fields=["coordinates"])
+        self.client.force_login(self.staff)
+        proposal = self.client.post(
+            reverse("farm_parcels:pin_farmer"),
+            {"parcel_id": self.parcel.pk, "operation": "move", "latitude": "13.8501", "longitude": "121.2102"},
+        ).json()
+
+        before = self.client.get(reverse("farm_parcels:map_detail", args=[self.parcel.pk])).json()
+        self.assertEqual(before["coordinates"], "13.8467000, 121.2060000")
+        self.assertEqual(before["pending_review"]["id"], proposal["review_id"])
+
+        approved = self.client.post(
+            reverse("farm_parcels:coordinate_review_approve", args=[proposal["review_id"]]),
+            {"decision_notes": "Field evidence checked."},
+        )
+        after = self.client.get(reverse("farm_parcels:map_detail", args=[self.parcel.pk])).json()
+        panel = self.client.get(
+            reverse("farm_parcels:map_parcels"), {"barangay": self.parcel.barangay}
+        ).json()["results"]
+
+        self.assertEqual(approved.status_code, 200)
+        self.assertEqual(after["coordinates"], "13.8501000, 121.2102000")
+        self.assertIsNone(after["pending_review"])
+        self.assertEqual(next(row for row in panel if row["id"] == self.parcel.pk)["lat"], 13.8501)
+
+    def test_map_data_query_count_stays_bounded_above_five_thousand_parcels(self):
+        FarmParcel.objects.bulk_create(
+            [
+                FarmParcel(
+                    farmer=self.farmer,
+                    parcel_name=f"Scale parcel {index}",
+                    barangay="Bulihan",
+                    area_hectares=Decimal("0.25"),
+                    ownership_type="OWNED",
+                    coordinates="",
+                )
+                for index in range(5001)
+            ],
+            batch_size=500,
+        )
+        self.client.force_login(self.staff)
+
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.get(reverse("farm_parcels:map_data"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(response.json()["unmapped_count"], 5001)
+        self.assertLessEqual(len(captured), 10)
+
+        with CaptureQueriesContext(connection) as selected_captured:
+            selected_response = self.client.get(
+                reverse("farm_parcels:map_data"), {"barangay": "Bulihan"}
+            )
+
+        self.assertEqual(selected_response.status_code, 200)
+        self.assertEqual(selected_response.json()["barangay"], "Bulihan")
+        selected_data_queries = [
+            query["sql"]
+            for query in selected_captured.captured_queries
+            if "farm_parcels_" in query["sql"] or "crops_croprecord" in query["sql"]
+        ]
+        self.assertLessEqual(len(selected_captured), 15)
+        self.assertLessEqual(len(selected_data_queries), 5, selected_data_queries)
+
+        with CaptureQueriesContext(connection) as search_captured:
+            search_response = self.client.get(
+                reverse("farm_parcels:map_search"),
+                {"q": "Scale parcel 4999", "compact": "1"},
+            )
+        self.assertEqual(search_response.status_code, 200)
+        self.assertEqual(search_response.json()["counts"], {})
+        self.assertLessEqual(len(search_response.json()["results"]), 40)
+        self.assertLessEqual(len(search_captured), 8)
 
     def test_parcel_form_is_land_only_and_crops_are_managed_separately(self):
         self.client.force_login(self.staff)

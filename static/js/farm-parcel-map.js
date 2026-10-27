@@ -6,16 +6,21 @@
   const byId = (id) => document.getElementById(id);
   const mapDataUrl = mapNode.dataset.mapUrl;
   const parcelListUrl = mapNode.dataset.parcelsUrl;
+  const parcelSearchUrl = mapNode.dataset.searchUrl;
   const pinUrl = mapNode.dataset.pinUrl;
   const rosarioBoundary = JSON.parse(byId("rosario-map-boundary").textContent);
   const rosarioBounds = L.latLngBounds(rosarioBoundary);
   const rosarioPanBounds = rosarioBounds.pad(0.18);
+  const BARANGAY_MAX_ZOOM = 15;
+  const FARM_MIN_ZOOM = 17;
+  const FARM_MAX_ZOOM = 18;
   const csrfToken = document.querySelector("#pinForm [name=csrfmiddlewaretoken]")?.value || "";
 
   const barangayFilter = byId("mapBarangayFilter");
   const commodityFilter = byId("mapCommodityFilter");
   const clearFilters = byId("clearMapFilters");
-  const backToOverview = byId("backToOverview");
+  const mapParcelSearch = byId("mapParcelSearch");
+  const mapParcelSearchResults = byId("mapParcelSearchResults");
   const mapFilterSummary = byId("mapFilterSummary");
   const visibleMappedCount = byId("visibleMappedCount");
   const unmappedParcelCount = byId("unmappedParcelCount");
@@ -42,6 +47,12 @@
   const pinEditFarmer = byId("pinEditFarmer");
   const cancelPinMove = byId("cancelPinMove");
   const savePinMove = byId("savePinMove");
+  const mobileSheet = byId("parcelMobileSheet");
+  const mobileSheetContent = byId("parcelMobileSheetContent");
+  const mobileSheetHandle = byId("parcelMobileSheetHandle");
+  const mobileSheetExpand = byId("parcelMobileSheetExpand");
+  const mobileSheetClose = byId("parcelMobileSheetClose");
+  const mobilePopupQuery = window.matchMedia("(max-width: 768px)");
 
   const state = {
     barangay: "",
@@ -51,9 +62,12 @@
     dataRequest: null,
     listRequest: null,
     detailRequest: null,
+    searchRequest: null,
     pinning: false,
     moving: null,
     selectedParcel: null,
+    mapMode: "overview",
+    zoomTransition: false,
   };
 
   const map = L.map(mapNode, {
@@ -86,13 +100,13 @@
   const redPinIcon = (contextClass = "") => L.divIcon({
     className: `farmer-pin-shell ${contextClass}`.trim(),
     html: '<span class="farmer-pin" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>',
-    iconSize: [30, 32], iconAnchor: [15, 28], popupAnchor: [0, -27], tooltipAnchor: [0, -25],
+    iconSize: [28, 28], iconAnchor: [14, 23], popupAnchor: [0, -22], tooltipAnchor: [0, -20],
   });
   const farmerIcon = redPinIcon("parcel-location-pin");
   const movingIcon = L.divIcon({
     className: "farmer-pin-shell is-moving",
     html: '<span class="farmer-pin" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>',
-    iconSize: [30, 32], iconAnchor: [15, 28], popupAnchor: [0, -27],
+    iconSize: [28, 28], iconAnchor: [14, 23], popupAnchor: [0, -22],
   });
 
   const setLoading = (message = "", isError = false) => {
@@ -117,7 +131,31 @@
     headers: {"X-CSRFToken": csrfToken, "X-Requested-With": "XMLHttpRequest"},
     body: new URLSearchParams(data),
   });
+  const decideReview = async (review, approve) => {
+    const url = approve ? review.approve_url : review.reject_url;
+    const payload = await requestJson(url, {
+      method: "POST",
+      headers: {"X-CSRFToken": csrfToken, "X-Requested-With": "XMLHttpRequest"},
+      body: new URLSearchParams({decision_notes: approve ? "Verified on the farm parcel map." : "Returned for field verification."}),
+    });
+    map.closePopup();
+    if (state.barangay) await selectBarangay(state.barangay);
+    else await loadOverview();
+    if (approve && payload.parcel_id) await openParcel(payload.parcel_id);
+    feedback(payload.message, "success");
+  };
   const statusClass = (value) => String(value || "unpinned").toLowerCase().replaceAll("_", "-");
+  const hideMobileSheet = () => {
+    if (!mobileSheet) return;
+    mobileSheet.hidden = true;
+    mobileSheet.classList.remove("is-expanded");
+    mobileSheetContent.replaceChildren();
+    mobileSheetExpand.setAttribute("aria-expanded", "false");
+    mobileSheetExpand.setAttribute("aria-label", "Expand farm parcel details");
+    mobileSheetHandle.setAttribute("aria-label", "Expand farm parcel details");
+    mobileSheetExpand.querySelector("i").className = "bi bi-chevron-up";
+    window.setTimeout(() => map.invalidateSize({pan: false}), 0);
+  };
 
   const clearMapLayers = () => {
     barangayLayer.clearLayers();
@@ -125,6 +163,7 @@
     parcelLayer.clearLayers();
     markerByParcel.clear();
     map.closePopup();
+    hideMobileSheet();
   };
   const showPanel = (show = true) => {
     sidePanel.hidden = !show;
@@ -142,27 +181,71 @@
     values.forEach((value) => select.add(new Option(value, value)));
     if ([...select.options].some((option) => option.value === current)) select.value = current;
   };
-  const boundsFor = (items) => {
-    const points = items.flatMap((item) => item.bounds || (item.lat != null ? [[item.lat, item.lng]] : []));
-    return points.length ? L.latLngBounds(points) : null;
+  const flyToBounds = (bounds, options = {}) => {
+    const target = bounds instanceof L.LatLngBounds ? bounds : L.latLngBounds(bounds || []);
+    if (!target.isValid()) return false;
+    map.stop();
+    map.flyToBounds(target.pad(options.pad ?? 0.1), {
+      paddingTopLeft: options.paddingTopLeft || [38, 38],
+      paddingBottomRight: options.paddingBottomRight || [38, 38],
+      maxZoom: options.maxZoom,
+      animate: true,
+      duration: options.duration ?? 0.65,
+    });
+    return true;
+  };
+  const focusOverview = () => flyToBounds(rosarioBounds, {
+    pad: 0.02,
+    paddingTopLeft: [14, 14],
+    paddingBottomRight: [14, 14],
+    maxZoom: 13,
+    duration: 0.65,
+  });
+  const focusFarm = (point) => new Promise((resolve) => {
+    const latLng = L.latLng(point);
+    const targetZoom = Math.min(FARM_MAX_ZOOM, Math.max(FARM_MIN_ZOOM, map.getZoom() + 1));
+    const alreadyFocused = map.getCenter().distanceTo(latLng) < 4 && map.getZoom() >= targetZoom;
+    if (alreadyFocused) {
+      resolve();
+      return;
+    }
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+    map.once("moveend", finish);
+    map.stop();
+    map.flyTo(latLng, targetZoom, {animate: true, duration: 0.55});
+    window.setTimeout(finish, 900);
+  });
+  const selectPanelParcel = (parcelId) => {
+    panelList.querySelectorAll(".parcel-panel-item").forEach((row) => {
+      const selected = row.dataset.parcelId === String(parcelId);
+      row.classList.toggle("is-selected", selected);
+      row.setAttribute("aria-current", selected ? "true" : "false");
+    });
   };
 
   const summaryIcon = () => redPinIcon("barangay-location-pin");
   const clusterIcon = () => redPinIcon("cluster-location-pin");
 
-  const loadOverview = async () => {
+  const loadOverview = async ({resetBarangay = true, preservePanel = false, focus = true} = {}) => {
     state.dataRequest?.abort();
     state.listRequest?.abort();
     state.dataRequest = new AbortController();
-    state.barangay = "";
+    if (resetBarangay) state.barangay = "";
     state.cluster = "";
+    state.mapMode = "overview";
     state.page = 1;
-    barangayFilter.value = "";
-    backToOverview.hidden = true;
+    if (resetBarangay) barangayFilter.value = "";
     backToBarangay.hidden = true;
-    panelSearch.value = "";
-    panelStatus.value = "";
-    showPanel(false);
+    if (!preservePanel) {
+      panelSearch.value = "";
+      panelStatus.value = "";
+      showPanel(false);
+    }
     clearMapLayers();
     setLoading("Loading Rosario barangay summaries…");
     try {
@@ -176,34 +259,36 @@
         L.marker([item.lat, item.lng], {icon: summaryIcon(), keyboard: true, riseOnHover: true})
           .addTo(barangayLayer)
           .bindTooltip(`${item.name}: ${item.mapped} mapped, ${item.unmapped} not pinned`)
-          .on("click", () => selectBarangay(item.name, item.bounds));
+          .on("click", () => selectBarangay(item.name));
       });
-      map.fitBounds(rosarioBounds, {padding: [14, 14]});
+      if (focus) window.requestAnimationFrame(focusOverview);
       mapEmpty.style.display = payload.count ? "none" : "grid";
       mapFilterSummary.textContent = commodityFilter.value
         ? `Barangay overview for ${commodityFilter.value}. Select a barangay to see its map groups.`
         : "Barangay overview. Select a barangay marker to review its farm parcels.";
-      mapBreadcrumb.textContent = "Rosario Municipality · Barangay overview";
+      mapBreadcrumb.textContent = state.barangay && preservePanel
+        ? `Rosario Municipality · Barangay overview · ${state.barangay} filter retained`
+        : "Rosario Municipality · Barangay overview";
       setLoading("");
     } catch (error) {
       if (error.name !== "AbortError") setLoading(error.message, true);
     }
   };
 
-  const selectBarangay = async (barangay, preferredBounds = null) => {
+  const selectBarangay = async (barangay, {focus = true} = {}) => {
     state.dataRequest?.abort();
     state.listRequest?.abort();
     state.dataRequest = new AbortController();
     state.barangay = barangay;
     state.cluster = "";
+    state.mapMode = "barangay";
     state.page = 1;
     barangayFilter.value = barangay;
-    backToOverview.hidden = false;
     backToBarangay.hidden = true;
     showPanel(true);
     clearMapLayers();
     panelTitle.textContent = `${barangay} Farm Parcels`;
-    panelScope.textContent = "Select a numbered map group or search all parcels in this barangay.";
+    panelScope.textContent = "Select a red map group pin or search all parcels in this barangay.";
     mapBreadcrumb.textContent = `Rosario Municipality · ${barangay}`;
     setLoading(`Loading ${barangay} parcel groups…`);
     try {
@@ -218,10 +303,20 @@
           .bindTooltip(`${item.count} mapped parcel${item.count === 1 ? "" : "s"}. Click to inspect.`)
           .on("click", () => selectCluster(item));
       });
-      const groupBounds = boundsFor(payload.clusters || []) || (preferredBounds ? L.latLngBounds(preferredBounds) : null);
-      if (groupBounds?.isValid()) map.fitBounds(groupBounds.pad(0.12), {padding: [35, 35], maxZoom: 15});
+      const focused = focus && payload.focus_bounds
+        ? flyToBounds(payload.focus_bounds, {
+            pad: payload.focus_basis === "authoritative_barangay_boundary" ? 0.04 : 0.12,
+            paddingTopLeft: [42, 42],
+            paddingBottomRight: [42, 42],
+            maxZoom: BARANGAY_MAX_ZOOM,
+            duration: 0.7,
+          })
+        : false;
       mapEmpty.style.display = payload.count ? "none" : "grid";
-      mapFilterSummary.textContent = `Showing ${payload.count} mapped parcel${payload.count === 1 ? "" : "s"} in ${barangay}, grouped by location.`;
+      const focusNote = focused
+        ? " The map is focused on the barangay while keeping its reliable locations visible."
+        : ` ${payload.focus_message || "No reliable geographic extent is available, so the previous map view was kept."}`;
+      mapFilterSummary.textContent = `Showing ${payload.count} mapped parcel${payload.count === 1 ? "" : "s"} in ${barangay}, grouped by location.${focusNote}`;
       await loadParcelPage(1, false);
       setLoading("");
     } catch (error) {
@@ -231,6 +326,7 @@
 
   const selectCluster = async (cluster) => {
     state.cluster = cluster.id;
+    state.mapMode = "cluster";
     state.page = 1;
     clusterLayer.clearLayers();
     parcelLayer.clearLayers();
@@ -238,8 +334,13 @@
     backToBarangay.hidden = false;
     panelScope.textContent = `${cluster.count} parcel${cluster.count === 1 ? "" : "s"} in this map group`;
     mapBreadcrumb.textContent = `Rosario Municipality · ${state.barangay} · ${cluster.count}-parcel map group`;
-    const clusterBounds = L.latLngBounds(cluster.bounds);
-    if (clusterBounds.isValid()) map.fitBounds(clusterBounds.pad(0.25), {padding: [45, 45], maxZoom: 18});
+    flyToBounds(cluster.bounds, {
+      pad: 0.25,
+      paddingTopLeft: [45, 45],
+      paddingBottomRight: [45, 45],
+      maxZoom: 16,
+      duration: 0.55,
+    });
     await loadParcelPage(1, true);
   };
 
@@ -286,6 +387,7 @@
       (payload.results || []).forEach((item) => {
         const row = document.createElement("article");
         row.className = "parcel-panel-item";
+        row.dataset.parcelId = String(item.id);
         const title = document.createElement("strong");
         title.textContent = `${item.parcel} · ${item.farmer}`;
         const identity = document.createElement("small");
@@ -308,7 +410,7 @@
       if (!(payload.results || []).length) {
         const empty = document.createElement("p");
         empty.className = "parcel-panel-empty";
-        empty.textContent = "No farm parcels match these filters.";
+        empty.textContent = "No parcels found.";
         panelList.append(empty);
       }
     } catch (error) {
@@ -370,6 +472,24 @@
       facts.append(fact);
     });
     popup.append(facts);
+    if (item.pending_review) {
+      const pending = document.createElement("div");
+      pending.className = "parcel-coordinate-review";
+      const message = document.createElement("p");
+      message.textContent = `Proposed coordinate: ${item.pending_review.proposed_coordinates}`;
+      const approve = document.createElement("button");
+      approve.type = "button";
+      approve.className = "btn btn-success";
+      approve.textContent = "Approve correction";
+      approve.addEventListener("click", () => decideReview(item.pending_review, true));
+      const reject = document.createElement("button");
+      reject.type = "button";
+      reject.className = "btn btn-outline-secondary";
+      reject.textContent = "Reject";
+      reject.addEventListener("click", () => decideReview(item.pending_review, false));
+      pending.append(message, approve, reject);
+      popup.append(pending);
+    }
     const crops = document.createElement("div");
     crops.className = "parcel-popup-crops";
     crops.innerHTML = "<strong>Commodities</strong>";
@@ -396,16 +516,55 @@
     return popup;
   };
 
+  const adjustMapForMobileSheet = (marker) => {
+    window.requestAnimationFrame(() => {
+      map.invalidateSize({pan: false});
+      if (!marker || mobileSheet.hidden) return;
+      const point = map.latLngToContainerPoint(marker.getLatLng());
+      const visibleBottom = map.getSize().y - mobileSheet.offsetHeight - 18;
+      const desiredY = Math.max(72, visibleBottom * 0.48);
+      const offset = point.y - desiredY;
+      if (offset > 0) map.panBy([0, offset], {animate: true, duration: 0.25});
+    });
+  };
+  const showMobileSheet = (item, marker) => {
+    map.closePopup();
+    mobileSheetContent.replaceChildren(popupNode(item));
+    mobileSheet.hidden = false;
+    mobileSheetContent.scrollTop = 0;
+    adjustMapForMobileSheet(marker);
+  };
+  const toggleMobileSheet = () => {
+    if (mobileSheet.hidden) return;
+    const expanded = mobileSheet.classList.toggle("is-expanded");
+    mobileSheetExpand.setAttribute("aria-expanded", String(expanded));
+    mobileSheetExpand.setAttribute("aria-label", `${expanded ? "Collapse" : "Expand"} farm parcel details`);
+    mobileSheetHandle.setAttribute("aria-label", `${expanded ? "Collapse" : "Expand"} farm parcel details`);
+    mobileSheetExpand.querySelector("i").className = expanded
+      ? "bi bi-chevron-down"
+      : "bi bi-chevron-up";
+    adjustMapForMobileSheet(markerByParcel.get(String(state.selectedParcel?.id)));
+  };
+
   const openParcel = async (parcelId, marker = null) => {
     state.detailRequest?.abort();
     state.detailRequest = new AbortController();
     try {
       const item = await requestJson(`${mapDataUrl}${parcelId}/`, {signal: state.detailRequest.signal});
       state.selectedParcel = item;
+      state.mapMode = "farm";
       let exactMarker = marker || markerByParcel.get(String(parcelId));
       if (!exactMarker && item.lat != null) exactMarker = createParcelMarker(item, false);
       if (!exactMarker) return;
-      map.panTo(exactMarker.getLatLng(), {animate: true, duration: 0.2});
+      selectPanelParcel(parcelId);
+      markerByParcel.forEach((candidate) => candidate.getElement()?.classList.remove("is-selected"));
+      exactMarker.getElement()?.classList.add("is-selected");
+      await focusFarm(exactMarker.getLatLng());
+      if (mobilePopupQuery.matches) {
+        showMobileSheet(item, exactMarker);
+        return;
+      }
+      hideMobileSheet();
       exactMarker.bindPopup(popupNode(item), {
         maxWidth: 330, minWidth: 250, maxHeight: 450, autoPan: true, keepInView: true,
         autoPanPaddingTopLeft: [20, 90], autoPanPaddingBottomRight: [20, 30],
@@ -417,14 +576,78 @@
 
   const focusPanelParcel = async (item) => {
     if (item.lat == null || item.lng == null) {
-      farmerSelect.value = String(item.id);
+      const option = new Option(`${item.parcel} · ${item.farmer}`, String(item.id), true, true);
+      option.dataset.barangay = item.barangay || state.barangay;
+      option.dataset.pinStatus = "UNPINNED";
+      farmerSelect.replaceChildren(option);
       startPin.disabled = false;
       startPin.click();
       return;
     }
     const marker = createParcelMarker(item, false);
-    map.setView([item.lat, item.lng], Math.max(map.getZoom(), 17), {animate: true});
     await openParcel(item.id, marker);
+  };
+
+  const hideMapSearchResults = () => {
+    mapParcelSearchResults.hidden = true;
+    mapParcelSearchResults.replaceChildren();
+    mapParcelSearch.setAttribute("aria-expanded", "false");
+  };
+  const chooseMapSearchResult = async (item) => {
+    mapParcelSearch.value = `${item.parcel} · ${item.farmer_id}`;
+    hideMapSearchResults();
+    if (item.barangay && state.barangay !== item.barangay) await selectBarangay(item.barangay);
+    if (item.is_pinned) {
+      await openParcel(item.id);
+      return;
+    }
+    showPanel(true);
+    panelStatus.value = "";
+    panelSearch.value = item.parcel || item.farmer_id;
+    await loadParcelPage(1, false);
+    selectPanelParcel(item.id);
+    feedback(`${item.parcel} is unpinned. Use Select to pin in the Farm Parcels panel.`, "info");
+  };
+  const searchMapParcels = async () => {
+    const query = mapParcelSearch.value.trim();
+    state.searchRequest?.abort();
+    if (query.length < 2) {
+      hideMapSearchResults();
+      return;
+    }
+    state.searchRequest = new AbortController();
+    const url = new URL(parcelSearchUrl, window.location.origin);
+    url.searchParams.set("q", query);
+    url.searchParams.set("compact", "1");
+    if (barangayFilter.value) url.searchParams.set("barangay", barangayFilter.value);
+    if (commodityFilter.value) url.searchParams.set("commodity", commodityFilter.value);
+    try {
+      const payload = await requestJson(url, {signal: state.searchRequest.signal});
+      mapParcelSearchResults.replaceChildren();
+      (payload.results || []).forEach((item) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "map-search-result";
+        option.setAttribute("role", "option");
+        const title = document.createElement("strong");
+        title.textContent = `${item.parcel} · ${item.farmer}`;
+        const detail = document.createElement("small");
+        detail.textContent = `${item.pin_status_label} · ${item.farmer_id} · ${item.barangay}`;
+        option.append(title, detail);
+        option.addEventListener("click", () => chooseMapSearchResult(item));
+        mapParcelSearchResults.append(option);
+      });
+      if (!(payload.results || []).length) {
+        const empty = document.createElement("p");
+        empty.className = "map-search-message";
+        empty.textContent = "No farm parcels match your search.";
+        mapParcelSearchResults.append(empty);
+      }
+      mapParcelSearchResults.hidden = false;
+      mapParcelSearch.setAttribute("aria-expanded", "true");
+    } catch (error) {
+      if (error.name !== "AbortError") feedback(error.message, "error");
+    }
   };
 
   const confirmRemove = (item) => {
@@ -470,7 +693,7 @@
     savePinMove.disabled = true;
     try {
       const payload = await postPin({parcel_id: item.id, operation: "move", latitude: point.lat, longitude: point.lng});
-      endMove(false);
+      endMove(true);
       await selectBarangay(item.barangay || state.barangay);
       feedback(payload.message, "success");
     } catch (error) { feedback(error.message, "error"); }
@@ -524,10 +747,23 @@
 
   barangayFilter.addEventListener("change", () => barangayFilter.value ? selectBarangay(barangayFilter.value) : loadOverview());
   commodityFilter.addEventListener("change", () => state.barangay ? selectBarangay(state.barangay) : loadOverview());
-  clearFilters.addEventListener("click", () => { commodityFilter.value = ""; loadOverview(); });
-  backToOverview.addEventListener("click", loadOverview);
-  backToBarangay.addEventListener("click", () => selectBarangay(state.barangay));
+  clearFilters.addEventListener("click", () => {
+    state.searchRequest?.abort();
+    mapParcelSearch.value = "";
+    commodityFilter.value = "";
+    panelSearch.value = "";
+    panelStatus.value = "";
+    hideMapSearchResults();
+    loadOverview();
+  });
+  backToBarangay.addEventListener("click", () => {
+    if (state.barangay) selectBarangay(state.barangay);
+    else loadOverview();
+  });
   closePanel.addEventListener("click", () => showPanel(false));
+  mobileSheetClose.addEventListener("click", hideMobileSheet);
+  mobileSheetExpand.addEventListener("click", toggleMobileSheet);
+  mobileSheetHandle.addEventListener("click", toggleMobileSheet);
   pagePrevious.addEventListener("click", () => loadParcelPage(state.page - 1, Boolean(state.cluster)));
   pageNext.addEventListener("click", () => loadParcelPage(state.page + 1, Boolean(state.cluster)));
   panelStatus.addEventListener("change", () => loadParcelPage(1, Boolean(state.cluster)));
@@ -536,7 +772,41 @@
     window.clearTimeout(searchTimer);
     searchTimer = window.setTimeout(() => loadParcelPage(1, Boolean(state.cluster)), 250);
   });
-  window.addEventListener("resize", () => map.invalidateSize());
+  let mapSearchTimer = null;
+  mapParcelSearch.addEventListener("input", () => {
+    window.clearTimeout(mapSearchTimer);
+    mapSearchTimer = window.setTimeout(searchMapParcels, 250);
+  });
+  mapParcelSearch.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") hideMapSearchResults();
+    if (event.key === "Enter") {
+      const firstResult = mapParcelSearchResults.querySelector(".map-search-result");
+      if (firstResult && !mapParcelSearchResults.hidden) {
+        event.preventDefault();
+        firstResult.click();
+      }
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".map-search-field")) hideMapSearchResults();
+  });
+  map.on("zoomend", async () => {
+    if (state.zoomTransition || !state.barangay) return;
+    if (state.mapMode === "farm" && map.getZoom() <= 16) {
+      state.zoomTransition = true;
+      try { await selectBarangay(state.barangay, {focus: false}); }
+      finally { state.zoomTransition = false; }
+    } else if (state.mapMode === "barangay" && map.getZoom() <= 12) {
+      state.zoomTransition = true;
+      try { await loadOverview({resetBarangay: false, preservePanel: true, focus: false}); }
+      finally { state.zoomTransition = false; }
+    }
+  });
+  mobilePopupQuery.addEventListener("change", () => {
+    map.closePopup();
+    hideMobileSheet();
+  });
+  window.addEventListener("resize", () => map.invalidateSize({pan: false}));
   startPin.disabled = true;
   loadOverview();
 })();

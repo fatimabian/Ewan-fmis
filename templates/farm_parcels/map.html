@@ -20,40 +20,56 @@
           margin-inline:-32px
       }
   }
-  .map-toolbar{
-      display:grid;
-      grid-template-columns:minmax(300px,1.4fr) minmax(145px,.55fr) minmax(165px,.65fr) auto auto;
-      gap:10px;
-      align-items:end;
-      margin-bottom:14px
-  }
-  .map-toolbar label{
-      display:grid;
-      gap:5px;
-      font-weight:700;
-      font-size:12px
-  }
-  .map-toolbar select{
-      height:46px
-  }
+  .map-pin-form{display:none}
   .map-counts{
       display:flex;
+      align-items:center;
       gap:8px;
       flex-wrap:wrap
   }
   .map-filters{
       display:grid;
-      grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) auto auto;
-      gap:10px;
+      grid-template-columns:minmax(260px,1.6fr) minmax(170px,1fr) minmax(170px,1fr) auto;
+      gap:12px;
       align-items:end;
       margin:0 0 14px;
-      padding:13px;
-      border:1px solid var(--ag-border,#dce7e0);
-      background:var(--surface,#fff)
   }
   .map-filters label{display:grid;gap:5px;font-size:12px;font-weight:700}
-  .map-filters select{height:44px}
-  .map-filter-summary{grid-column:1/-1;margin:0;color:#52645a;font-size:12px}
+  .map-filters input,.map-filters select{width:100%;height:44px}
+  .map-clear-filters{min-height:44px;white-space:nowrap}
+  .map-filter-summary{margin:-4px 0 14px;color:#52645a;font-size:12px}
+  .map-search-field{position:relative;display:grid;min-width:0;gap:5px;font-size:12px;font-weight:700}
+  .map-search-results{
+      position:absolute;
+      top:calc(100% + 5px);
+      right:0;
+      left:0;
+      z-index:1100;
+      max-height:280px;
+      overflow-y:auto;
+      border:1px solid var(--ag-border,#dce7e0);
+      border-radius:9px;
+      background:var(--surface,#fff);
+      box-shadow:0 10px 24px rgba(18,48,31,.16)
+  }
+  .map-search-results[hidden]{display:none}
+  .map-search-result{
+      display:block;
+      width:100%;
+      padding:10px 12px;
+      border:0;
+      border-bottom:1px solid var(--ag-border,#e5ece8);
+      background:transparent;
+      color:inherit;
+      font:inherit;
+      text-align:left;
+      cursor:pointer
+  }
+  .map-search-result:last-child{border-bottom:0}
+  .map-search-result:hover,.map-search-result:focus{background:#eff8f2;outline:0}
+  .map-search-result strong,.map-search-result small{display:block}
+  .map-search-result strong{font-size:11px}.map-search-result small{margin-top:3px;color:#607064;font-size:10px}
+  .map-search-message{margin:0;padding:13px;color:#607064;font-size:11px;text-align:center}
   .map-scope-note{
       display:flex;
       align-items:center;
@@ -131,7 +147,7 @@
   }
   .map-explorer{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
   .map-explorer.has-panel{grid-template-columns:minmax(0,1fr) minmax(280px,350px)}
-  .map-canvas-shell{min-width:0}
+  .map-canvas-shell{position:relative;min-width:0}
   .parcel-side-panel{
       position:sticky;
       top:12px;
@@ -152,11 +168,15 @@
   .parcel-panel-back button{width:100%}
   .parcel-panel-list{max-height:calc(clamp(600px,78vh,920px) - 245px);overflow:auto;padding:8px}
   .parcel-panel-item{display:grid;gap:5px;padding:10px;border-bottom:1px solid var(--ag-border,#e6ece8)}
+  .parcel-panel-item.is-selected{border-left:3px solid #087a3d;background:#f1faf5}
   .parcel-panel-item:last-child{border-bottom:0}.parcel-panel-item strong{font-size:12px}.parcel-panel-item small{color:#657287;font-size:10px}
   .parcel-panel-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}
   .parcel-status{display:inline-flex;padding:3px 7px;border:1px solid currentColor;border-radius:999px;font-size:8px;font-weight:800}
-  .parcel-status.status-pinned{color:#087a3d}.parcel-status.status-unpinned{color:#9b4f00}.parcel-status.status-needs-verification{color:#b42318}
+  .parcel-status.status-pinned,.parcel-status.status-unpinned{color:#087a3d}
   .parcel-panel-item button{justify-self:start;min-height:32px;padding:5px 10px;font-size:10px}
+  .parcel-coordinate-review{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:10px 0;padding:9px;border-left:3px solid #d78b18;background:#fff7e8}
+  .parcel-coordinate-review p{width:100%;margin:0;font-size:12px;font-weight:700}
+  .parcel-coordinate-review .btn{min-height:32px;padding:5px 9px;font-size:10px}
   .parcel-panel-empty{margin:0;padding:18px 10px;color:#657287;font-size:11px;text-align:center}
   .parcel-panel-pagination{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-top:1px solid var(--ag-border,#dce7e0);font-size:10px}
   .parcel-panel-pagination button{min-width:76px;min-height:34px;padding:5px 9px}
@@ -312,6 +332,9 @@
       font-weight:700;
       cursor:pointer
   }
+  #farmerMap .leaflet-popup-content-wrapper{max-height:min(70vh,560px);overflow:hidden}
+  #farmerMap .leaflet-popup-content{max-height:min(62vh,500px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+  .parcel-mobile-sheet{display:none}
   .unmapped-panel{
       margin-top:16px;
       padding:16px;
@@ -354,7 +377,7 @@
   .farmer-pin{
       display:block;
       color:#e11937;
-      font-size:24px;
+      font-size:18px;
       line-height:1;
       filter:drop-shadow(0 0 1px #fff) drop-shadow(0 2px 1px rgba(48,10,16,.38))
   }
@@ -409,32 +432,100 @@
       color:#ffe7bd
   }
   body[data-theme="dark"] .parcel-side-panel{background:#18231e;color:#f0f7f2}
+  body[data-theme="dark"] .map-search-results{background:#18231e;color:#f0f7f2}
+  body[data-theme="dark"] .map-search-result:hover,body[data-theme="dark"] .map-search-result:focus{background:#20382c}
+  body[data-theme="dark"] .parcel-panel-item.is-selected{background:#20382c}
+  body[data-theme="dark"] .parcel-coordinate-review{background:#3c301d;color:#ffe8bd}
   body[data-theme="dark"] .parcel-popup-photo-empty,body[data-theme="dark"] .parcel-popup-fact{border-color:#43564a;background:#25342c;color:#e8f0eb}
   @media(max-width:850px){
+      .map-filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+      .map-search-field{grid-column:1/-1}
       .map-explorer.has-panel{grid-template-columns:minmax(0,1fr)}
-      .parcel-side-panel{position:static;max-height:none}.parcel-panel-list{max-height:420px}
-      .map-toolbar{
-          grid-template-columns:1fr 1fr
-      }
-      .map-toolbar label{
-          grid-column:1/-1
-      }
+      .parcel-side-panel{position:static;order:-1;max-height:none}.parcel-panel-list{max-height:420px}
       .unmapped-list{
           grid-template-columns:1fr 1fr
       }
   }
+  @media(max-width:768px){
+      .parcel-mobile-sheet{
+          position:absolute;
+          right:0;
+          bottom:38px;
+          left:0;
+          z-index:750;
+          display:flex;
+          height:min(58%,440px);
+          min-height:230px;
+          flex-direction:column;
+          overflow:hidden;
+          border:1px solid var(--ag-border,#dce7e0);
+          border-bottom:0;
+          border-radius:18px 18px 0 0;
+          background:var(--surface,#fff);
+          box-shadow:0 -8px 28px rgba(14,42,27,.2);
+          color:var(--text-color,#172033)
+      }
+      .parcel-mobile-sheet[hidden]{display:none!important}
+      .parcel-mobile-sheet.is-expanded{height:calc(100% - 56px)}
+      .parcel-mobile-sheet-bar{
+          display:flex;
+          min-height:47px;
+          align-items:center;
+          gap:8px;
+          padding:5px 10px 6px 14px;
+          border-bottom:1px solid var(--ag-border,#dce7e0)
+      }
+      .parcel-mobile-sheet-handle{
+          position:absolute;
+          top:7px;
+          left:50%;
+          width:42px;
+          height:4px;
+          padding:0;
+          transform:translateX(-50%);
+          border:0;
+          border-radius:999px;
+          background:#9cb5a6;
+          cursor:pointer
+      }
+      .parcel-mobile-sheet-title{margin:8px auto 0 0;font-size:13px}
+      .parcel-mobile-sheet-control{
+          display:grid;
+          width:36px;
+          height:36px;
+          place-items:center;
+          flex:0 0 36px;
+          padding:0;
+          border:1px solid #9bcbb0;
+          border-radius:9px;
+          background:var(--surface,#fff);
+          color:#174b30;
+          cursor:pointer
+      }
+      .parcel-mobile-sheet-content{
+          min-height:0;
+          flex:1;
+          overflow-y:auto;
+          overflow-x:hidden;
+          overscroll-behavior:contain;
+          padding:12px 14px calc(16px + env(safe-area-inset-bottom))
+      }
+      .parcel-mobile-sheet .farmer-popup{width:100%;max-width:none;max-height:none;overflow:visible}
+      .parcel-mobile-sheet .parcel-popup-facts{grid-template-columns:1fr}
+      .parcel-mobile-sheet .parcel-popup-photo{height:auto;max-height:210px;aspect-ratio:16/9}
+      .parcel-mobile-sheet .parcel-popup-photo-empty{height:100px}
+      .parcel-mobile-sheet .farmer-popup h3,
+      .parcel-mobile-sheet .parcel-popup-fact span{overflow-wrap:anywhere}
+      .parcel-mobile-sheet .farmer-popup-actions{align-items:stretch;flex-direction:column}
+      .parcel-mobile-sheet .farmer-popup-actions a,
+      .parcel-mobile-sheet .farmer-popup-actions button{justify-content:center;min-height:42px}
+      body[data-theme="dark"] .parcel-mobile-sheet,
+      body[data-theme="dark"] .parcel-mobile-sheet-control{border-color:#43564a;background:#18231e;color:#eef6f1}
+  }
   @media(max-width:560px){
-      .map-toolbar{
-          grid-template-columns:1fr
-      }
-      .map-toolbar label{
-          grid-column:auto
-      }
-      .map-toolbar .btn{
-          width:100%
-      }
       .map-filters{grid-template-columns:1fr}
-      .map-filter-summary{grid-column:auto}
+      .map-search-field{grid-column:auto}
+      .map-clear-filters{width:100%}
       .unmapped-list{
           grid-template-columns:1fr
       }
@@ -474,42 +565,19 @@
   }
   </style>
   <div class="content farmer-map-page">
-    <form id="pinForm" class="map-toolbar">
+    <form id="pinForm" class="map-pin-form" aria-hidden="true">
       {% csrf_token %}
-      <label>
-        Find Farm Parcel<select id="pinFarmer"
-        name="parcel_id"
-        required
-        data-farmer-picker="true"
-        data-search-url="{% url 'farm_parcels:map_search' %}"
-        data-extra-filter-ids="parcelSearchStatus,parcelSearchBarangay"
-        data-search-placeholder="Search parcel — Not pinned records are listed first">
+      <select id="pinFarmer" name="parcel_id" tabindex="-1">
         <option value="">Select a farm parcel</option>
-        </select>
-      </label>
-      <label>Pin Status
-        <select id="parcelSearchStatus" name="pin_status">
-          <option value="">All parcels</option>
-          <option value="UNPINNED">Unpinned</option>
-          <option value="PINNED">Pinned</option>
-          <option value="NEEDS_VERIFICATION">Needs verification</option>
-        </select>
-      </label>
-      <label>Parcel Barangay
-        <select id="parcelSearchBarangay" name="barangay">
-          <option value="">All barangays</option>
-          {% for barangay in rosario_barangays %}<option value="{{ barangay }}">{{ barangay }}</option>{% endfor %}
-        </select>
-      </label>
-      <button class="btn btn-success" id="startPin" type="button">
-        <i class="bi bi-pin-map">
-        </i> Pin Farm Parcel
-      </button>
-      <a class="btn btn-outline-success" href="{% url 'farm_parcels:list' %}">
-        <i class="bi bi-table">
-        </i> Parcel Table</a>
-      </form>
+      </select>
+      <button id="startPin" type="button" tabindex="-1">Pin Farm Parcel</button>
+    </form>
       <section class="map-filters" aria-label="Farm parcel map filters">
+        <div class="map-search-field">
+          <label for="mapParcelSearch">Find Farm Parcel</label>
+          <input id="mapParcelSearch" type="search" placeholder="Search farmer name or parcel ID..." autocomplete="off" aria-controls="mapParcelSearchResults" aria-expanded="false">
+          <div class="map-search-results" id="mapParcelSearchResults" role="listbox" hidden></div>
+        </div>
         <label>Barangay
           <select id="mapBarangayFilter">
             <option value="">All barangays</option>
@@ -520,10 +588,9 @@
             <option value="">All commodities</option>
           </select>
         </label>
-        <button class="btn btn-outline-success" id="clearMapFilters" type="button">Clear Filters</button>
-        <button class="btn btn-outline-success" id="backToOverview" type="button" hidden>Back to All Barangays</button>
-        <p class="map-filter-summary" id="mapFilterSummary" aria-live="polite">Showing all mapped farm parcels.</p>
+        <button class="btn btn-outline-success map-clear-filters" id="clearMapFilters" type="button">Clear Filters</button>
       </section>
+      <p class="map-filter-summary" id="mapFilterSummary" aria-live="polite">Showing all mapped farm parcels.</p>
       <div class="map-counts">
         <span class="map-count">
           <strong id="visibleMappedCount">{{ mapped_count }}</strong> mapped parcels shown</span>
@@ -531,6 +598,9 @@
           <strong id="unmappedParcelCount">{{ unmapped_count }}</strong> parcels need a pin</span>
         <span class="map-count">
           <strong id="verificationParcelCount">{{ verification_count }}</strong> pins need verification</span>
+        <a class="btn btn-outline-success" href="{% url 'farm_parcels:coordinate_verification' %}">
+          <i class="bi bi-shield-check"></i> Review coordinates ({{ pending_coordinate_reviews }})
+        </a>
       </div>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
@@ -562,6 +632,7 @@
           <div id="farmerMap"
                data-map-url="{% url 'farm_parcels:map_data' %}"
                data-parcels-url="{% url 'farm_parcels:map_parcels' %}"
+               data-search-url="{% url 'farm_parcels:map_search' %}"
                data-pin-url="{% url 'farm_parcels:pin_farmer' %}"
                aria-label="Interactive map of agricultural parcel locations"></div>
           <div class="map-empty" id="mapEmpty">
@@ -571,6 +642,15 @@
               <p>Choose another barangay or return to the Rosario overview.</p>
             </div>
           </div>
+          <section class="parcel-mobile-sheet" id="parcelMobileSheet" aria-labelledby="parcelMobileSheetTitle" hidden>
+            <button class="parcel-mobile-sheet-handle" id="parcelMobileSheetHandle" type="button" aria-label="Expand farm parcel details"></button>
+            <div class="parcel-mobile-sheet-bar">
+              <strong class="parcel-mobile-sheet-title" id="parcelMobileSheetTitle">Farm parcel details</strong>
+              <button class="parcel-mobile-sheet-control" id="parcelMobileSheetExpand" type="button" aria-label="Expand farm parcel details" aria-expanded="false"><i class="bi bi-chevron-up"></i></button>
+              <button class="parcel-mobile-sheet-control" id="parcelMobileSheetClose" type="button" aria-label="Close farm parcel details"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="parcel-mobile-sheet-content" id="parcelMobileSheetContent"></div>
+          </section>
         </div>
         <aside class="parcel-side-panel" id="parcelSidePanel" aria-labelledby="parcelPanelTitle" hidden>
           <div class="parcel-panel-head">
@@ -580,7 +660,7 @@
           <div class="parcel-panel-controls">
             <input id="parcelPanelSearch" type="search" placeholder="Farmer name or parcel ID" aria-label="Search parcels in selected barangay">
             <select id="parcelPanelStatus" aria-label="Filter parcel pin status">
-              <option value="">All pin statuses</option><option value="PINNED">Pinned</option><option value="UNPINNED">Unpinned</option><option value="NEEDS_VERIFICATION">Needs verification</option>
+              <option value="">All parcels</option><option value="PINNED">Pinned</option><option value="UNPINNED">Unpinned</option>
             </select>
           </div>
           <div class="parcel-panel-back"><button class="btn btn-outline-success" id="backToBarangay" type="button" hidden><i class="bi bi-arrow-left"></i> Back to barangay clusters</button></div>
@@ -597,7 +677,7 @@
     {{ rosario_map_center|json_script:"rosario-map-center" }}
     {{ rosario_boundary|json_script:"rosario-map-boundary" }}
     <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
-    <script src="{% static 'js/farm-parcel-map.js' %}?v=1"></script>
+    <script src="{% static 'js/farm-parcel-map.js' %}?v=4"></script>
     <script>
         (() => {
             if (window.FMIS_PROGRESSIVE_MAP) return;

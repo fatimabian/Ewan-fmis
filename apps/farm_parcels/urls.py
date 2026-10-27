@@ -15,6 +15,10 @@ from .views import (
     FarmParcelPhotoView,
     FarmParcelPhotoUploadView,
     FarmParcelUpdateView,
+    CoordinateVerificationListView,
+    CoordinateReviewApproveView,
+    CoordinateReviewRejectView,
+    CoordinateHistoryReverseView,
 )
 
 app_name = "farm_parcels"
@@ -26,6 +30,26 @@ urlpatterns = [
     path("map/parcels/", FarmParcelMapParcelListView.as_view(), name="map_parcels"),
     path("map/search/", FarmParcelMapSearchView.as_view(), name="map_search"),
     path("map/pin/", FarmerLocationPinView.as_view(), name="pin_farmer"),
+    path(
+        "map/verification/",
+        CoordinateVerificationListView.as_view(),
+        name="coordinate_verification",
+    ),
+    path(
+        "map/verification/<int:pk>/approve/",
+        CoordinateReviewApproveView.as_view(),
+        name="coordinate_review_approve",
+    ),
+    path(
+        "map/verification/<int:pk>/reject/",
+        CoordinateReviewRejectView.as_view(),
+        name="coordinate_review_reject",
+    ),
+    path(
+        "map/verification/history/<int:pk>/reverse/",
+        CoordinateHistoryReverseView.as_view(),
+        name="coordinate_history_reverse",
+    ),
     path("new/", FarmParcelCreateView.as_view(), name="create"),
     path("<int:pk>/", FarmParcelDetailView.as_view(), name="detail"),
     path("<int:pk>/history/", FarmParcelHistoryView.as_view(), name="history"),

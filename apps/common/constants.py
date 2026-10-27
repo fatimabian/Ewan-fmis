@@ -262,3 +262,12 @@ ROSARIO_BARANGAYS = (
 ROSARIO_BARANGAY_CHOICES = (("", "Select barangay"),) + tuple(
     (name, name) for name in ROSARIO_BARANGAYS
 )
+
+# PSA Philippine Standard Geographic Code identifiers for Rosario, Batangas.
+# Names and codes are kept together so boundary imports never rely on a fuzzy
+# barangay-name match. Source: PSA PSGC municipality code 0401021000.
+ROSARIO_PSGC_CODE = "0401021000"
+ROSARIO_BARANGAY_PSGC = {
+    name: f"0401021{index:03d}"
+    for index, name in enumerate(ROSARIO_BARANGAYS, start=1)
+}

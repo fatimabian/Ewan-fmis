@@ -1,9 +1,12 @@
 import re
 import mimetypes
+from collections import Counter
 from math import floor
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.core.cache import cache
+from django.db import DatabaseError
 from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.http import FileResponse, JsonResponse
 from django.db import transaction
@@ -31,7 +34,21 @@ from apps.common.record_history import activity_rows, farmer_update_rows
 from apps.farmers.history import farmer_snapshot, record_farmer_update
 from apps.crops.models import CropRecord
 from .forms import FarmParcelForm, FarmParcelPhotoUploadForm
-from .models import FarmParcel, FarmParcelPhoto
+from .geojson import geojson_bounds
+from .coordinate_services import (
+    approve_coordinate_review,
+    format_coordinates,
+    propose_coordinate_change,
+    reject_coordinate_review,
+    reverse_coordinate_history,
+)
+from .models import (
+    FarmParcel,
+    FarmParcelPhoto,
+    ParcelCoordinateHistory,
+    ParcelCoordinateReview,
+    RosarioBarangayBoundary,
+)
 from .rosario_boundary import ROSARIO_BOUNDARY
 
 
@@ -232,6 +249,9 @@ class FarmParcelMapView(
         context["rosario_map_center"] = ROSARIO_MAP_CENTER
         context["rosario_boundary"] = ROSARIO_BOUNDARY
         context["rosario_barangays"] = ROSARIO_BARANGAYS
+        context["pending_coordinate_reviews"] = ParcelCoordinateReview.objects.filter(
+            status=ParcelCoordinateReview.STATUS_PENDING
+        ).count()
         return context
 
 
@@ -243,21 +263,34 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         if requested_barangay and requested_barangay not in ROSARIO_BARANGAYS:
             return JsonResponse({"message": "Choose a valid Rosario barangay."}, status=400)
         requested_commodity = request.GET.get("commodity", "").strip()
+        crop_records = CropRecord.objects.filter(is_active=True)
+        if requested_barangay:
+            crop_records = crop_records.filter(
+                parcel__barangay=requested_barangay,
+                parcel__is_active=True,
+                parcel__farmer__is_active=True,
+            )
         commodity_parcels = {}
-        for crop_row in CropRecord.objects.filter(is_active=True).values(
+        for crop_row in crop_records.values(
             "parcel_id", "crop_type"
         ).iterator(chunk_size=1000):
             group = commodity_group(crop_row["crop_type"])
             commodity_parcels.setdefault(group, set()).add(crop_row["parcel_id"])
-        if requested_commodity and requested_commodity not in commodity_parcels:
+        if (
+            requested_commodity
+            and requested_commodity not in commodity_parcels
+            and not requested_barangay
+        ):
             return JsonResponse({"message": "Choose a valid commodity."}, status=400)
         active_parcels = FarmParcel.objects.filter(
             is_active=True,
             farmer__is_active=True,
         )
+        if requested_barangay:
+            active_parcels = active_parcels.filter(barangay=requested_barangay)
         if requested_commodity:
             active_parcels = active_parcels.filter(
-                pk__in=commodity_parcels[requested_commodity]
+                pk__in=commodity_parcels.get(requested_commodity, set())
             )
         totals_by_barangay = dict(
             active_parcels.values("barangay")
@@ -267,11 +300,22 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         coordinate_rows = active_parcels.values(
             "pk", "coordinates", "barangay", "remarks"
         ).iterator(chunk_size=1000)
+        pending_review_ids = set(
+            ParcelCoordinateReview.objects.filter(
+                status=ParcelCoordinateReview.STATUS_PENDING,
+                parcel__in=active_parcels,
+            ).values_list("parcel_id", flat=True)
+        )
         points_by_barangay = {}
+        focus_candidates_by_barangay = {}
         mapped_by_barangay = {}
         verification_by_barangay = {}
         for row in coordinate_rows:
-            pin_status = parcel_pin_status(row["coordinates"], row["remarks"])
+            pin_status = (
+                "NEEDS_VERIFICATION"
+                if row["pk"] in pending_review_ids
+                else parcel_pin_status(row["coordinates"], row["remarks"])
+            )
             if pin_status == "NEEDS_VERIFICATION":
                 verification_by_barangay[row["barangay"]] = (
                     verification_by_barangay.get(row["barangay"], 0) + 1
@@ -282,6 +326,16 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             points_by_barangay.setdefault(row["barangay"], []).append(
                 {"id": row["pk"], "lat": point[0], "lng": point[1]}
             )
+            reference_point = ROSARIO_BARANGAY_CENTERS.get(row["barangay"])
+            is_reference_point = bool(
+                reference_point
+                and abs(point[0] - reference_point[0]) <= 0.00003
+                and abs(point[1] - reference_point[1]) <= 0.00003
+            )
+            if pin_status == "PINNED" and not is_reference_point:
+                focus_candidates_by_barangay.setdefault(row["barangay"], []).append(
+                    {"id": row["pk"], "lat": point[0], "lng": point[1]}
+                )
             mapped_by_barangay[row["barangay"]] = (
                 mapped_by_barangay.get(row["barangay"], 0) + 1
             )
@@ -350,6 +404,51 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 }
             )
         else:
+            focus_bounds = None
+            focus_basis = "unavailable"
+            try:
+                boundary = (
+                    RosarioBarangayBoundary.objects.filter(
+                        barangay_name=requested_barangay,
+                        is_active=True,
+                    )
+                    .values_list("geometry", flat=True)
+                    .first()
+                )
+            except DatabaseError:
+                boundary = None
+            if boundary:
+                focus_bounds = geojson_bounds(boundary)
+                if focus_bounds:
+                    focus_basis = "authoritative_barangay_boundary"
+
+            if not focus_bounds:
+                candidates = focus_candidates_by_barangay.get(requested_barangay, [])
+                coordinate_counts = Counter(
+                    (round(point["lat"], 7), round(point["lng"], 7))
+                    for point in candidates
+                )
+                reliable_points = [
+                    point
+                    for point in candidates
+                    if coordinate_counts[
+                        (round(point["lat"], 7), round(point["lng"], 7))
+                    ]
+                    == 1
+                ]
+                if reliable_points:
+                    focus_bounds = [
+                        [
+                            min(point["lat"] for point in reliable_points),
+                            min(point["lng"] for point in reliable_points),
+                        ],
+                        [
+                            max(point["lat"] for point in reliable_points),
+                            max(point["lng"] for point in reliable_points),
+                        ],
+                    ]
+                    focus_basis = "non_flagged_parcel_coordinates"
+
             cluster_groups = {}
             for point in points_by_barangay.get(requested_barangay, []):
                 key = parcel_cluster_key(point["lat"], point["lng"])
@@ -384,6 +483,14 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     "markers": [],
                     "barangays": [],
                     "clusters": clusters,
+                    "focus_bounds": focus_bounds,
+                    "focus_basis": focus_basis,
+                    "focus_message": (
+                        "The map view was kept unchanged because this barangay has no "
+                        "authoritative boundary or reliable saved farm coordinates."
+                        if not focus_bounds
+                        else ""
+                    ),
                 }
             )
         response = JsonResponse(
@@ -404,7 +511,7 @@ class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, Vi
         query = request.GET.get("q", "").strip()
         commodity = request.GET.get("commodity", "").strip()
         requested_status = request.GET.get("pin_status", "").strip().upper()
-        if requested_status not in {"", "PINNED", "UNPINNED", "NEEDS_VERIFICATION"}:
+        if requested_status not in {"", "PINNED", "UNPINNED"}:
             return JsonResponse({"message": "Choose a valid pin status."}, status=400)
         try:
             page = max(1, int(request.GET.get("page", 1)))
@@ -419,9 +526,12 @@ class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, Vi
         if commodity:
             matching_ids = [
                 row["parcel_id"]
-                for row in CropRecord.objects.filter(is_active=True).values(
-                    "parcel_id", "crop_type"
-                )
+                for row in CropRecord.objects.filter(
+                    is_active=True,
+                    parcel__is_active=True,
+                    parcel__farmer__is_active=True,
+                    parcel__barangay=barangay,
+                ).values("parcel_id", "crop_type")
                 if commodity_group(row["crop_type"]) == commodity
             ]
             parcels = parcels.filter(pk__in=matching_ids)
@@ -440,15 +550,15 @@ class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, Vi
 
         rows = []
         for parcel in parcels.only(
-            "pk", "parcel_name", "barangay", "coordinates", "remarks", "created_at",
+            "pk", "parcel_name", "barangay", "coordinates", "created_at",
             "farmer__id", "farmer__first_name", "farmer__middle_name",
             "farmer__last_name", "farmer__extension_name",
         ).order_by("-created_at", "-pk"):
-            status = parcel_pin_status(parcel.coordinates, parcel.remarks)
-            if requested_status and status != requested_status:
-                continue
             point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
             valid_point = point if point and is_within_rosario(*point) else None
+            status = "PINNED" if valid_point else "UNPINNED"
+            if requested_status and status != requested_status:
+                continue
             if cluster_id:
                 if not valid_point or parcel_cluster_key(*valid_point) != cluster_id:
                     continue
@@ -517,7 +627,14 @@ class FarmParcelMapDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             }
         )
         point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
-        pin_status = parcel_pin_status(parcel.coordinates, parcel.remarks)
+        pending = parcel.coordinate_reviews.filter(
+            status=ParcelCoordinateReview.STATUS_PENDING
+        ).first()
+        pin_status = (
+            "NEEDS_VERIFICATION"
+            if pending
+            else parcel_pin_status(parcel.coordinates, parcel.remarks)
+        )
         return JsonResponse(
             {
                 "id": parcel.pk,
@@ -543,6 +660,7 @@ class FarmParcelMapDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     else ""
                 ),
                 "edit_url": reverse("farm_parcels:detail", args=[parcel.pk]),
+                "pending_review": coordinate_review_payload(pending),
             }
         )
 
@@ -553,25 +671,49 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
     def get(self, request):
         query = request.GET.get("q", "").strip()
         barangay = request.GET.get("barangay", "").strip()
+        requested_commodity = request.GET.get("commodity", "").strip()
         requested_status = request.GET.get("pin_status", "").strip().upper()
+        compact = request.GET.get("compact") == "1"
         parcels = FarmParcel.objects.filter(
             is_active=True,
             farmer__is_active=True,
         ).select_related("farmer")
         if barangay in ROSARIO_BARANGAYS:
             parcels = parcels.filter(barangay=barangay)
-        count_cache_key = f"farm-parcel-pin-counts:{barangay or 'all'}"
-        status_counts = cache.get(count_cache_key)
-        if status_counts is None:
+        if requested_commodity:
+            commodity_parcel_ids = {
+                row["parcel_id"]
+                for row in CropRecord.objects.filter(
+                    is_active=True,
+                    parcel__is_active=True,
+                    parcel__farmer__is_active=True,
+                ).values("parcel_id", "crop_type").iterator(chunk_size=1000)
+                if commodity_group(row["crop_type"]) == requested_commodity
+            }
+            parcels = parcels.filter(pk__in=commodity_parcel_ids)
+        pending_review_ids = set(
+            ParcelCoordinateReview.objects.filter(
+                status=ParcelCoordinateReview.STATUS_PENDING,
+                parcel__in=parcels,
+            ).values_list("parcel_id", flat=True)
+        )
+        count_cache_key = (
+            f"farm-parcel-pin-counts:{barangay or 'all'}:"
+            f"{requested_commodity or 'all'}"
+        )
+        status_counts = {} if compact else cache.get(count_cache_key)
+        if not compact and status_counts is None:
             status_counts = {
                 "ALL": 0,
                 "PINNED": 0,
                 "UNPINNED": 0,
                 "NEEDS_VERIFICATION": 0,
             }
-            for coordinate_row in parcels.values("coordinates", "remarks").iterator(chunk_size=1000):
-                status = parcel_pin_status(
-                    coordinate_row["coordinates"], coordinate_row["remarks"]
+            for coordinate_row in parcels.values("pk", "coordinates", "remarks").iterator(chunk_size=1000):
+                status = (
+                    "NEEDS_VERIFICATION"
+                    if coordinate_row["pk"] in pending_review_ids
+                    else parcel_pin_status(coordinate_row["coordinates"], coordinate_row["remarks"])
                 )
                 status_counts["ALL"] += 1
                 status_counts[status] += 1
@@ -593,13 +735,18 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         # which records still need a location. The final validity check below
         # also catches malformed/out-of-bound legacy coordinate strings.
         if requested_status == "UNPINNED":
-            parcels = parcels.filter(Q(coordinates="") | Q(coordinates__isnull=True))
+            parcels = parcels.filter(Q(coordinates="") | Q(coordinates__isnull=True)).exclude(
+                pk__in=pending_review_ids
+            )
         elif requested_status == "PINNED":
             parcels = parcels.exclude(coordinates="").exclude(
                 remarks__startswith="FMIS-DEMO-DATA:"
-            )
+            ).exclude(pk__in=pending_review_ids)
         elif requested_status == "NEEDS_VERIFICATION":
-            parcels = parcels.exclude(coordinates="")
+            parcels = parcels.filter(
+                Q(pk__in=pending_review_ids)
+                | ~Q(coordinates="")
+            )
 
         parcels = parcels.annotate(
             pin_order=Case(
@@ -611,7 +758,11 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         ).order_by("pin_order", "-created_at", "-pk")[:400]
         results = []
         for parcel in parcels:
-            pin_status = parcel_pin_status(parcel.coordinates, parcel.remarks)
+            pin_status = (
+                "NEEDS_VERIFICATION"
+                if parcel.pk in pending_review_ids
+                else parcel_pin_status(parcel.coordinates, parcel.remarks)
+            )
             if requested_status and pin_status != requested_status:
                 continue
             is_pinned = pin_status != "UNPINNED"
@@ -619,6 +770,9 @@ class FarmParcelMapSearchView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             results.append(
                 {
                     "id": parcel.pk,
+                    "parcel": parcel.display_name,
+                    "farmer": parcel.farmer.full_name,
+                    "farmer_id": parcel.farmer.record_id,
                     "label": (
                         f"{status_label} — {parcel.farmer.record_id} — "
                         f"{parcel.farmer.full_name} / {parcel.display_name} "
@@ -650,30 +804,32 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         )
         operation = request.POST.get("operation", "create")
         if operation == "remove":
-            previous_coordinates = parcel.coordinates.strip()
-            parcel.coordinates = ""
-            parcel.save(update_fields=["coordinates"])
-            cache.delete_many([
-                "farm-parcel-pin-counts:all",
-                f"farm-parcel-pin-counts:{parcel.barangay}",
-            ])
+            review = propose_coordinate_change(
+                parcel=parcel,
+                actor=request.user,
+                operation=ParcelCoordinateReview.OPERATION_REMOVE,
+                issue_codes=["staff_reported_incorrect"],
+                notes="Requested removal of an incorrect or no longer applicable pin.",
+            )
             record_request_event(
                 request,
-                title="Farm Parcel Map Pin Removed",
+                title="Farm Parcel Coordinate Review Submitted",
                 module="Farm Parcels",
-                description=f"{request.user.display_name} removed an incorrect farm parcel map pin.",
+                description=f"{request.user.display_name} submitted a map-pin removal for review.",
                 target_label=f"{parcel.farmer.record_id} - {parcel.display_name}",
-                reason="Cleared an incorrect or no longer applicable parcel location.",
+                reason="The existing pin remains unchanged until an authorized staff member approves the proposal.",
                 details=[{
                     "field": "Farm parcel coordinates",
-                    "before": previous_coordinates or "Not previously pinned",
-                    "after": "Not pinned",
+                    "before": parcel.coordinates.strip() or "Not previously pinned",
+                    "after": "Proposed: Not pinned",
                 }],
             )
             return JsonResponse(
                 {
                     "ok": True,
-                    "message": f"{parcel.display_name}'s map pin was removed.",
+                    "pending": True,
+                    "review_id": review.pk,
+                    "message": f"{parcel.display_name}'s pin removal is awaiting approval.",
                 }
             )
         try:
@@ -699,26 +855,22 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 status=400,
             )
         previous_coordinates = parcel.coordinates.strip()
-        new_coordinates = f"{latitude:.7f}, {longitude:.7f}"
-        parcel.coordinates = new_coordinates
-        update_fields = ["coordinates"]
-        if parcel.remarks.startswith("FMIS-DEMO-DATA:"):
-            parcel.remarks = parcel.remarks.replace(
-                "FMIS-DEMO-DATA:", "FMIS-DEMO-VERIFIED:", 1
-            )
-            update_fields.append("remarks")
-        parcel.save(update_fields=update_fields)
-        cache.delete_many([
-            "farm-parcel-pin-counts:all",
-            f"farm-parcel-pin-counts:{parcel.barangay}",
-        ])
+        new_coordinates = format_coordinates(latitude, longitude)
+        review = propose_coordinate_change(
+            parcel=parcel,
+            actor=request.user,
+            operation=ParcelCoordinateReview.OPERATION_SET,
+            proposed_coordinates=new_coordinates,
+            issue_codes=["staff_map_correction" if previous_coordinates else "missing"],
+            notes=request.POST.get("notes", "").strip(),
+        )
         record_request_event(
             request,
-            title="Farm Parcel Map Pin Moved" if operation == "move" else "Farm Parcel Map Pin Saved",
+            title="Farm Parcel Coordinate Review Submitted",
             module="Farm Parcels",
-            description=f"{request.user.display_name} recorded a farm parcel location within Rosario.",
+            description=f"{request.user.display_name} submitted a farm parcel coordinate for review.",
             target_label=f"{parcel.farmer.record_id} - {parcel.display_name}",
-            reason="Recorded or corrected the agricultural parcel location.",
+            reason="The saved coordinate remains unchanged until this proposal is approved.",
             details=[{
                 "field": "Farm parcel coordinates",
                 "before": previous_coordinates or "Not previously pinned",
@@ -728,12 +880,97 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         return JsonResponse(
             {
                 "ok": True,
-                "message": (
-                    f"{parcel.display_name}'s map pin was moved and recorded in activity history."
-                    if operation == "move"
-                    else f"{parcel.display_name}'s farm location was saved."
-                ),
+                "pending": True,
+                "review_id": review.pk,
+                "message": f"{parcel.display_name}'s proposed location is awaiting approval.",
             }
+        )
+
+
+def coordinate_review_payload(review):
+    if review is None:
+        return None
+    return {
+        "id": review.pk,
+        "operation": review.operation,
+        "original_coordinates": review.original_coordinates or "Not pinned",
+        "proposed_coordinates": review.proposed_coordinates or "Not pinned",
+        "evidence_source": review.evidence_source,
+        "notes": review.staff_notes,
+        "approve_url": reverse("farm_parcels:coordinate_review_approve", args=[review.pk]),
+        "reject_url": reverse("farm_parcels:coordinate_review_reject", args=[review.pk]),
+    }
+
+
+class CoordinateVerificationListView(
+    FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareParcelMixin, TemplateView
+):
+    template_name = "farm_parcels/coordinate_verification.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["pending_reviews"] = (
+            ParcelCoordinateReview.objects.filter(status=ParcelCoordinateReview.STATUS_PENDING)
+            .select_related("parcel", "submitted_by")[:200]
+        )
+        context["coordinate_history"] = (
+            ParcelCoordinateHistory.objects.select_related("parcel", "changed_by", "review")[:100]
+        )
+        return context
+
+
+class CoordinateReviewDecisionView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    decision = ""
+
+    def post(self, request, pk):
+        try:
+            if self.decision == "approve":
+                review, history = approve_coordinate_review(
+                    review_id=pk,
+                    actor=request.user,
+                    decision_notes=request.POST.get("decision_notes", "").strip(),
+                )
+                return JsonResponse(
+                    {
+                        "ok": True,
+                        "parcel_id": review.parcel_id,
+                        "history_id": history.pk,
+                        "message": "Coordinate change approved and the map record was refreshed.",
+                    }
+                )
+            review = reject_coordinate_review(
+                review_id=pk,
+                actor=request.user,
+                decision_notes=request.POST.get("decision_notes", "").strip(),
+            )
+            return JsonResponse(
+                {"ok": True, "parcel_id": review.parcel_id, "message": "Coordinate proposal rejected."}
+            )
+        except (ParcelCoordinateReview.DoesNotExist, ValidationError) as error:
+            message = error.messages[0] if isinstance(error, ValidationError) else "Coordinate proposal not found."
+            return JsonResponse({"ok": False, "message": message}, status=409)
+
+
+class CoordinateReviewApproveView(CoordinateReviewDecisionView):
+    decision = "approve"
+
+
+class CoordinateReviewRejectView(CoordinateReviewDecisionView):
+    decision = "reject"
+
+
+class CoordinateHistoryReverseView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    def post(self, request, pk):
+        reason = request.POST.get("reason", "").strip()
+        if not reason:
+            return JsonResponse({"ok": False, "message": "Enter a reason for the reversal."}, status=400)
+        try:
+            reversal = reverse_coordinate_history(history_id=pk, actor=request.user, reason=reason)
+        except (ParcelCoordinateHistory.DoesNotExist, ValidationError) as error:
+            message = error.messages[0] if isinstance(error, ValidationError) else "Coordinate history not found."
+            return JsonResponse({"ok": False, "message": message}, status=409)
+        return JsonResponse(
+            {"ok": True, "parcel_id": reversal.parcel_id, "message": "Coordinate change safely reversed."}
         )
 
 
