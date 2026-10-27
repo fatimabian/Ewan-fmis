@@ -263,9 +263,7 @@
       });
       if (focus) window.requestAnimationFrame(focusOverview);
       mapEmpty.style.display = payload.count ? "none" : "grid";
-      mapFilterSummary.textContent = commodityFilter.value
-        ? `Barangay overview for ${commodityFilter.value}. Select a barangay to see its map groups.`
-        : "Barangay overview. Select a barangay marker to review its farm parcels.";
+      mapFilterSummary.hidden = true;
       mapBreadcrumb.textContent = state.barangay && preservePanel
         ? `Rosario Municipality · Barangay overview · ${state.barangay} filter retained`
         : "Rosario Municipality · Barangay overview";
@@ -316,6 +314,7 @@
       const focusNote = focused
         ? " The map is focused on the barangay while keeping its reliable locations visible."
         : ` ${payload.focus_message || "No reliable geographic extent is available, so the previous map view was kept."}`;
+      mapFilterSummary.hidden = false;
       mapFilterSummary.textContent = `Showing ${payload.count} mapped parcel${payload.count === 1 ? "" : "s"} in ${barangay}, grouped by location.${focusNote}`;
       await loadParcelPage(1, false);
       setLoading("");

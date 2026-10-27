@@ -25,7 +25,8 @@
       display:flex;
       align-items:center;
       gap:8px;
-      flex-wrap:wrap
+      flex-wrap:wrap;
+      margin-top:12px
   }
   .map-filters{
       display:grid;
@@ -369,9 +370,12 @@
   .farmer-map-label:before{
       border-top-color:rgba(255,255,255,.94)!important
   }
-  .farmer-pin-shell{
-      border:0;
+  #farmerMap .leaflet-marker-icon.farmer-pin-shell{
+      border:0!important;
+      border-radius:0!important;
+      outline:0!important;
       background:transparent!important;
+      box-shadow:none!important;
       transition:filter .15s ease,transform .15s ease
   }
   .farmer-pin{
@@ -591,17 +595,6 @@
         <button class="btn btn-outline-success map-clear-filters" id="clearMapFilters" type="button">Clear Filters</button>
       </section>
       <p class="map-filter-summary" id="mapFilterSummary" aria-live="polite">Showing all mapped farm parcels.</p>
-      <div class="map-counts">
-        <span class="map-count">
-          <strong id="visibleMappedCount">{{ mapped_count }}</strong> mapped parcels shown</span>
-        <span class="map-count">
-          <strong id="unmappedParcelCount">{{ unmapped_count }}</strong> parcels need a pin</span>
-        <span class="map-count">
-          <strong id="verificationParcelCount">{{ verification_count }}</strong> pins need verification</span>
-        <a class="btn btn-outline-success" href="{% url 'farm_parcels:coordinate_verification' %}">
-          <i class="bi bi-shield-check"></i> Review coordinates ({{ pending_coordinate_reviews }})
-        </a>
-      </div>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
         Red map pins are saved farm parcel locations. The green line marks the Rosario municipal boundary. Zoom in, then click a pin for details or right-click it to move the pin.
@@ -671,6 +664,14 @@
             <button class="btn btn-outline-success" id="parcelPageNext" type="button">Next</button>
           </div>
         </aside>
+      </div>
+      <div class="map-counts" aria-label="Farm parcel map totals">
+        <span class="map-count">
+          <strong id="visibleMappedCount">{{ mapped_count }}</strong> mapped parcels shown</span>
+        <span class="map-count">
+          <strong id="unmappedParcelCount">{{ unmapped_count }}</strong> parcels need a pin</span>
+        <span class="map-count">
+          <strong id="verificationParcelCount">{{ verification_count }}</strong> pins need verification</span>
       </div>
     </div>
     {{ rosario_map_bounds|json_script:"rosario-map-bounds" }}
