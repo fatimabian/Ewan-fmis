@@ -425,7 +425,7 @@
     }
   };
 
-  const popupNode = (item) => {
+  const popupNode = (item, parcelMarker = null) => {
     const popup = document.createElement("div");
     popup.className = "farmer-popup";
     if (item.photo_url) {
@@ -508,11 +508,23 @@
     const open = document.createElement("a");
     open.href = item.edit_url;
     open.textContent = "Open farm parcel";
+    const move = document.createElement("button");
+    move.type = "button";
+    move.className = "parcel-popup-move";
+    move.textContent = "Move pin";
+    move.addEventListener("click", () => {
+      const marker = parcelMarker || markerByParcel.get(String(item.id));
+      if (!marker) return feedback("The selected farm pin is not available on the map.", "error");
+      map.closePopup();
+      hideMobileSheet();
+      beginMove(item, marker);
+    });
     const remove = document.createElement("button");
     remove.type = "button";
+    remove.className = "parcel-popup-remove";
     remove.textContent = "Remove pin";
     remove.addEventListener("click", () => confirmRemove(item));
-    actions.append(open, remove);
+    actions.append(open, move, remove);
     popup.append(actions);
     return popup;
   };
@@ -530,7 +542,7 @@
   };
   const showMobileSheet = (item, marker) => {
     map.closePopup();
-    mobileSheetContent.replaceChildren(popupNode(item));
+    mobileSheetContent.replaceChildren(popupNode(item, marker));
     mobileSheet.hidden = false;
     mobileSheetContent.scrollTop = 0;
     adjustMapForMobileSheet(marker);
@@ -566,7 +578,7 @@
         return;
       }
       hideMobileSheet();
-      exactMarker.bindPopup(popupNode(item), {
+      exactMarker.bindPopup(popupNode(item, exactMarker), {
         maxWidth: 390, minWidth: 290, maxHeight: 450, autoPan: true, keepInView: true,
         autoPanPaddingTopLeft: [20, 90], autoPanPaddingBottomRight: [20, 30],
       }).openPopup();

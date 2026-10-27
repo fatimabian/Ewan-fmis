@@ -2349,6 +2349,11 @@ class FMISRequirementTests(TestCase):
             self.parcel.pk: self.parcel.coordinates,
             second_pinned_parcel.pk: second_pinned_parcel.coordinates,
         }
+        # Exercise the coordinate-derived focus fallback separately from the
+        # authoritative-boundary branch configured by the shared test fixture.
+        RosarioBarangayBoundary.objects.filter(
+            psgc_code=ROSARIO_BARANGAY_PSGC["Bulihan"]
+        ).delete()
         barangay_data = self.client.get(
             reverse("farm_parcels:map_data"), {"barangay": "Bulihan"}
         )
@@ -2608,7 +2613,9 @@ class FMISRequirementTests(TestCase):
         self.assertIn('window.matchMedia("(max-width: 768px)")', map_script)
         self.assertIn("const showMobileSheet", map_script)
         self.assertIn("const toggleMobileSheet", map_script)
-        self.assertIn("mobileSheetContent.replaceChildren(popupNode(item))", map_script)
+        self.assertIn("mobileSheetContent.replaceChildren(popupNode(item, marker))", map_script)
+        self.assertIn('move.textContent = "Move pin"', map_script)
+        self.assertIn("beginMove(item, marker)", map_script)
         self.assertIn("map.invalidateSize({pan: false})", map_script)
         self.assertIn("const searchMapParcels", map_script)
         self.assertIn("const chooseMapSearchResult", map_script)

@@ -105,10 +105,30 @@
   .request-coverage-cell,
   .request-beneficiary-cell{
       min-width:0;
+      overflow:hidden!important;
       white-space:normal!important;
-      overflow-wrap:anywhere;
+      overflow-wrap:break-word!important;
       word-break:normal;
       line-height:1.4
+  }
+  .request-cell-text{
+      display:block!important;
+      width:100%!important;
+      min-width:0!important;
+      max-width:100%!important;
+      overflow:hidden!important;
+      white-space:normal!important;
+      overflow-wrap:break-word!important;
+      word-break:normal!important;
+      text-overflow:clip!important
+  }
+  body:not(.nav-collapsed) .app-shell .request-table td>.request-cell-text{
+      display:block!important;
+      overflow:hidden!important;
+      white-space:normal!important;
+      overflow-wrap:break-word!important;
+      word-break:normal!important;
+      text-overflow:clip!important
   }
   .priority-badge,.request-status{
       display:inline-block;
@@ -296,9 +316,9 @@
                 <td>
                   <a class="record-cell-link" href="{% url 'service_requests:detail' item.pk %}">{{ item.request_id }}</a>
                 </td>
-                <td class="request-type-cell">{{ item.service.name }}</td>
-                <td class="request-coverage-cell">{{ item.beneficiary_reference }}</td>
-                <td class="request-beneficiary-cell">{{ item.beneficiary_label }}</td>
+                <td class="request-type-cell"><span class="request-cell-text">{{ item.service.name }}</span></td>
+                <td class="request-coverage-cell"><span class="request-cell-text">{{ item.beneficiary_reference }}</span></td>
+                <td class="request-beneficiary-cell"><span class="request-cell-text">{{ item.beneficiary_label }}</span></td>
                 <td>
                   <span class="priority-badge {{ item.priority|lower }}">{{ item.get_priority_display }}</span>
                 </td>
