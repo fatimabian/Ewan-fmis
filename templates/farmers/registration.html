@@ -17,7 +17,7 @@
     .rsbsa-record-files{display:grid;gap:7px;padding-left:42px}
     .rsbsa-file-picker{display:flex;align-items:center;gap:10px}
     .rsbsa-file-picker input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-    .rsbsa-file-actions{display:flex;align-items:center;flex:0 0 auto;gap:7px}
+    .rsbsa-file-actions{display:flex;align-items:center;flex:0 0 auto;gap:7px;margin-left:auto}
     .rsbsa-file-selection{display:flex;min-width:0;flex:1;align-items:center;flex-wrap:wrap;gap:6px}
     .rsbsa-file-action{display:inline-flex!important;align-items:center;justify-content:center;gap:6px;min-height:36px!important;margin:0;padding:7px 11px!important;border-radius:7px!important;font-size:.74rem!important;line-height:1!important;white-space:nowrap}
     .rsbsa-file-summary{margin-left:2px;color:#52675b;font-size:.72rem;font-weight:600}
@@ -66,16 +66,16 @@
             </div>
             <div class="rsbsa-record-files{% if profile_form.rsbsa_form.errors %} has-error{% endif %}">
               <div class="rsbsa-file-picker">
+                <div class="rsbsa-file-selection">
+                  <span class="rsbsa-file-summary" id="rsbsaFileSummary">No files selected</span>
+                  <ul class="rsbsa-file-list" id="rsbsaFileList" aria-live="polite"></ul>
+                </div>
                 <div class="rsbsa-file-actions">
                   {{ profile_form.rsbsa_form }}
                   <label class="btn btn-add-outline rsbsa-file-action" for="{{ profile_form.rsbsa_form.id_for_label }}"><i class="bi bi-upload" aria-hidden="true"></i> Choose files</label>
                   <button type="button" class="btn btn-add-outline rsbsa-file-action" id="rsbsaCameraOpen">
                     <i class="bi bi-camera-fill" aria-hidden="true"></i> Use camera
                   </button>
-                </div>
-                <div class="rsbsa-file-selection">
-                  <span class="rsbsa-file-summary" id="rsbsaFileSummary">No files selected</span>
-                  <ul class="rsbsa-file-list" id="rsbsaFileList" aria-live="polite"></ul>
                 </div>
               </div>
               {{ profile_form.rsbsa_form.errors }}
