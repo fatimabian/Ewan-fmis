@@ -86,6 +86,7 @@
   const cards = [...carousel.querySelectorAll("article")];
   let carouselTimer = 0;
   let centerFrame = 0;
+  let currentServiceIndex = 0;
   const updateCenteredService = () => {
     centerFrame = 0;
     const carouselBox = carousel.getBoundingClientRect();
@@ -100,10 +101,13 @@
         centeredCard = card;
       }
     });
-    cards.forEach((card) => {
+    cards.forEach((card, index) => {
       const active = card === centeredCard;
       card.classList.toggle("is-centered", active);
-      if (active) card.setAttribute("aria-current", "true");
+      if (active) {
+        currentServiceIndex = index;
+        card.setAttribute("aria-current", "true");
+      }
       else card.removeAttribute("aria-current");
     });
   };
@@ -113,20 +117,21 @@
   carousel.addEventListener("scroll", scheduleCenteredService, { passive: true });
   window.addEventListener("resize", scheduleCenteredService, { passive: true });
 
-  const scrollServices = (direction) => {
-    const firstCard = cards[0];
-    if (!firstCard) return;
-    carousel.scrollBy({
-      left: (firstCard.getBoundingClientRect().width + 18) * direction,
-      behavior: prefersReducedMotion ? "auto" : "smooth",
+  const centerService = (index, behavior = prefersReducedMotion ? "auto" : "smooth") => {
+    if (!cards.length) return;
+    currentServiceIndex = (index + cards.length) % cards.length;
+    const card = cards[currentServiceIndex];
+    const target = card.offsetLeft - (carousel.clientWidth - card.offsetWidth) / 2;
+    const maximum = Math.max(0, carousel.scrollWidth - carousel.clientWidth);
+    carousel.scrollTo({
+      left: Math.max(0, Math.min(target, maximum)),
+      behavior,
     });
+    window.setTimeout(scheduleCenteredService, prefersReducedMotion ? 0 : 350);
   };
+  const scrollServices = (direction) => centerService(currentServiceIndex + direction);
   const stopCarousel = () => window.clearInterval(carouselTimer);
-  const advanceServices = () => {
-    const reachedEnd = carousel.scrollLeft + carousel.clientWidth >= carousel.scrollWidth - 8;
-    if (reachedEnd) carousel.scrollTo({ left: 0, behavior: "smooth" });
-    else scrollServices(1);
-  };
+  const advanceServices = () => centerService(currentServiceIndex + 1);
   const startCarousel = () => {
     stopCarousel();
     if (prefersReducedMotion || document.hidden) return;
@@ -145,6 +150,6 @@
   carousel.addEventListener("focusin", stopCarousel);
   carousel.addEventListener("focusout", startCarousel);
   document.addEventListener("visibilitychange", startCarousel);
-  updateCenteredService();
+  window.requestAnimationFrame(() => centerService(0, "auto"));
   startCarousel();
 })();

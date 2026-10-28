@@ -2594,6 +2594,7 @@ class FMISRequirementTests(TestCase):
         self.assertIn("const chooseMapSearchResult", map_script)
         self.assertIn('map.on("zoomend"', map_script)
         self.assertIn("state.programmaticMove", map_script)
+        self.assertNotIn('state.mapMode === "barangay" && map.getZoom() <= 12', map_script)
         self.assertIn("mapParcelSearch.value = \"\"", map_script)
         self.assertIn("commodityFilter.value = \"\"", map_script)
         self.assertNotIn('status.textContent = item.pending_review', map_script)

@@ -824,10 +824,6 @@
       state.zoomTransition = true;
       try { await selectBarangay(state.barangay, {focus: false}); }
       finally { state.zoomTransition = false; }
-    } else if (state.mapMode === "barangay" && map.getZoom() <= 12) {
-      state.zoomTransition = true;
-      try { await loadOverview({resetBarangay: false, preservePanel: true, focus: false}); }
-      finally { state.zoomTransition = false; }
     }
   });
   mobilePopupQuery.addEventListener("change", () => {

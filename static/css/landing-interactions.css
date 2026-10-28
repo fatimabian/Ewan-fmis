@@ -1,0 +1,51 @@
+.service-carousel{
+    padding-inline:max(8px,calc((100% - min(390px,82vw))/2));
+    scroll-padding-inline:max(8px,calc((100% - min(390px,82vw))/2))
+}
+
+.service-photo-card img{
+    object-position:center center
+}
+
+.capability-card{
+    box-shadow:0 5px 16px rgba(22,61,37,.04);
+    cursor:default;
+    transition:transform .24s ease,background-color .24s ease,border-color .24s ease,box-shadow .24s ease
+}
+
+.capability-card:is(:hover,:focus-within){
+    border-color:#63ad7d;
+    background:#f0faf3;
+    box-shadow:0 18px 34px rgba(17,83,46,.14);
+    transform:translateY(-7px)
+}
+
+.capability-card>i,
+.capability-number,
+.capability-card h3{
+    transition:transform .24s ease,background-color .24s ease,color .24s ease
+}
+
+.capability-card:is(:hover,:focus-within)>i{
+    background:#d4efdc;
+    color:#086c3b;
+    transform:scale(1.08)
+}
+
+.capability-card:is(:hover,:focus-within) .capability-number{
+    color:#087a45;
+    transform:translateY(-2px)
+}
+
+.capability-card:is(:hover,:focus-within) h3{
+    color:#086c3b
+}
+
+@media(prefers-reduced-motion:reduce){
+    .capability-card,
+    .capability-card>i,
+    .capability-number,
+    .capability-card h3{
+        transition:none
+    }
+}

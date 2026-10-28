@@ -8,6 +8,8 @@
 {% block content %}
   <style>
   .request-page{
+      width:100%;
+      min-width:0;
       max-width:1450px;
       margin:auto
   }
@@ -42,6 +44,9 @@
       font-weight:700
   }
   .request-table-wrap{
+      width:100%;
+      min-width:0;
+      max-width:100%;
       background:var(--surface);
       border:1px solid var(--border);
       border-radius:12px;
@@ -49,9 +54,22 @@
       overflow-y:hidden;
       box-shadow:var(--shadow)
   }
+  body:not(.nav-collapsed) .app-shell .workspace-scroll-region,
+  body:not(.nav-collapsed) .app-shell .request-page{
+      min-width:0!important;
+      max-width:100%!important
+  }
+  body:not(.nav-collapsed) .app-shell .request-table-wrap{
+      width:100%!important;
+      min-width:0!important;
+      max-width:100%!important;
+      overflow-x:auto!important;
+      overflow-y:hidden!important;
+      -webkit-overflow-scrolling:touch
+  }
   .request-table{
       width:100%;
-      min-width:1400px;
+      min-width:1230px;
       border-collapse:collapse;
       table-layout:fixed!important
   }
@@ -59,30 +77,27 @@
       width:80px!important
   }
   .request-table :is(th,td):nth-child(2){
-      width:240px!important;
+      width:260px!important;
       min-width:0
   }
   .request-table :is(th,td):nth-child(3){
-      width:140px!important
+      width:170px!important
   }
   .request-table :is(th,td):nth-child(4){
-      width:260px!important
-  }
-  .request-table :is(th,td):nth-child(5){
       width:110px!important;
       text-align:center!important
   }
-  .request-table :is(th,td):nth-child(6){
+  .request-table :is(th,td):nth-child(5){
       width:130px!important;
       text-align:center!important
   }
-  .request-table :is(th,td):nth-child(7){
-      width:220px!important
+  .request-table :is(th,td):nth-child(6){
+      width:260px!important
   }
-  .request-table :is(th,td):nth-child(8){
+  .request-table :is(th,td):nth-child(7){
       width:140px!important
   }
-  .request-table :is(th,td):nth-child(9){
+  .request-table :is(th,td):nth-child(8){
       width:80px!important;
       text-align:center!important
   }
@@ -103,7 +118,7 @@
   }
   .request-type-cell,
   .request-coverage-cell,
-  .request-beneficiary-cell{
+  .request-timing-cell{
       min-width:0;
       overflow:hidden!important;
       white-space:normal!important;
@@ -166,12 +181,18 @@
       background:#ffe0e0;
       color:#d32626
   }
-  .timing-indicator{display:inline-grid;gap:3px;color:#111827;font-size:11px;font-weight:800}
+  .request-timing-cell,
+  .request-timing-cell>*{
+      max-width:100%!important;
+      white-space:normal!important;
+      overflow-wrap:break-word!important
+  }
+  .timing-indicator{display:grid;gap:3px;width:100%;color:#111827;font-size:11px;font-weight:800;white-space:normal!important}
   .timing-indicator .timing-label{display:block}
   .timing-indicator.overdue .timing-label{color:#b42318!important}
   .timing-indicator.due-soon .timing-label{color:#9a6700!important}
   .timing-indicator.on-time .timing-label{color:#087f49!important}
-  .timing-indicator small{display:block;max-width:190px;color:#111827!important;font-size:10px;font-weight:600;line-height:1.35}
+  .timing-indicator small{display:block;max-width:100%;color:#111827!important;font-size:10px;font-weight:600;line-height:1.35;white-space:normal!important;overflow-wrap:break-word!important}
   .request-actions{
       display:grid;
       grid-template-columns:24px 24px;
@@ -300,7 +321,6 @@
               <th>ID</th>
               <th>Request Type</th>
               <th>Coverage</th>
-              <th>Beneficiary</th>
               <th>Priority</th>
               <th>Status</th>
               <th>Service Timing</th>
@@ -318,14 +338,13 @@
                 </td>
                 <td class="request-type-cell"><span class="request-cell-text">{{ item.service.name }}</span></td>
                 <td class="request-coverage-cell"><span class="request-cell-text">{{ item.beneficiary_reference }}</span></td>
-                <td class="request-beneficiary-cell"><span class="request-cell-text">{{ item.beneficiary_label }}</span></td>
                 <td>
                   <span class="priority-badge {{ item.priority|lower }}">{{ item.get_priority_display }}</span>
                 </td>
                 <td>
                   <span class="request-status {{ item.status|lower }}">{{ item.get_status_display }}</span>
                 </td>
-                <td>
+                <td class="request-timing-cell">
                   <span class="timing-indicator {{ item.timing_indicator|slugify }}">
                     <span class="timing-label">{{ item.timing_indicator }}</span>
                     {% if item.overdue_text %}<small>{{ item.overdue_text }}</small>{% endif %}
@@ -366,7 +385,7 @@
               </tr>
             {% empty %}
               <tr>
-                <td colspan="9" class="text-center py-5">No service requests matched your filters.</td>
+                <td colspan="8" class="text-center py-5">No service requests matched your filters.</td>
               </tr>
             {% endfor %}
           </tbody>

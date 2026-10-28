@@ -214,7 +214,9 @@ class ServiceRequest(models.Model):
 
     @property
     def beneficiary_reference(self):
-        return self.farmer.record_id if self.farmer_id else "Barangay"
+        if self.scope == "BARANGAY":
+            return f"Brgy. {self.target_barangay}"
+        return self.farmer.record_id if self.farmer_id else "Not specified"
 
     def __str__(self):
         return f"{self.request_id} - {self.subject}"

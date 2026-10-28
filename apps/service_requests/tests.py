@@ -194,3 +194,18 @@ class ServiceManagementTests(TestCase):
         response = self.client.get(reverse("service_requests:list"), {"overdue": "yes"})
         self.assertContains(response, overdue.request_id)
         self.assertEqual(len(response.context["object_list"]), 1)
+
+    def test_list_uses_barangay_as_coverage_and_omits_beneficiary_column(self):
+        item = self.request(
+            farmer=None,
+            scope="BARANGAY",
+            target_barangay="Bagong Pook",
+        )
+        self.client.force_login(self.staff)
+
+        response = self.client.get(reverse("service_requests:list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Brgy. Bagong Pook")
+        self.assertNotContains(response, "<th>Beneficiary</th>", html=True)
+        self.assertContains(response, item.request_id)
