@@ -536,7 +536,10 @@
     remove.className = "parcel-popup-remove";
     remove.textContent = "Remove pin";
     remove.addEventListener("click", () => confirmRemove(item));
-    actions.append(open, move, remove);
+    const pinActions = document.createElement("span");
+    pinActions.className = "parcel-popup-pin-actions";
+    pinActions.append(move, remove);
+    actions.append(open, pinActions);
     popup.append(actions);
     return popup;
   };
@@ -655,11 +658,10 @@
         option.type = "button";
         option.className = "map-search-result";
         option.setAttribute("role", "option");
-        const title = document.createElement("strong");
-        title.textContent = `${item.parcel} · ${item.farmer}`;
-        const detail = document.createElement("small");
-        detail.textContent = `${item.pin_status_label} · ${item.farmer_id} · ${item.barangay}`;
-        option.append(title, detail);
+        const label = document.createElement("span");
+        label.className = "map-search-result-label";
+        label.textContent = `${item.parcel} / ${item.farmer_id} - ${item.farmer} (${item.barangay})`;
+        option.append(label);
         option.addEventListener("click", () => chooseMapSearchResult(item));
         mapParcelSearchResults.append(option);
       });

@@ -57,19 +57,27 @@
   .map-search-result{
       display:block;
       width:100%;
-      padding:10px 12px;
+      min-height:52px;
+      padding:12px 14px;
       border:0;
       border-bottom:1px solid var(--ag-border,#e5ece8);
       background:transparent;
       color:inherit;
-      font:inherit;
+      font-family:var(--font-ui,"Segoe UI",Arial,sans-serif)!important;
+      font-size:14px!important;
+      font-weight:400!important;
+      line-height:1.45!important;
       text-align:left;
       cursor:pointer
   }
   .map-search-result:last-child{border-bottom:0}
   .map-search-result:hover,.map-search-result:focus{background:#eff8f2;outline:0}
-  .map-search-result strong,.map-search-result small{display:block}
-  .map-search-result strong{font-size:11px}.map-search-result small{margin-top:3px;color:#607064;font-size:10px}
+  .map-search-result-label{
+      display:block;
+      white-space:normal;
+      overflow-wrap:normal;
+      word-break:normal
+  }
   .map-search-message{margin:0;padding:13px;color:#607064;font-size:11px;text-align:center}
   .map-scope-note{
       display:flex;
@@ -340,6 +348,12 @@
       cursor:pointer
   }
   .farmer-popup-actions .parcel-popup-remove{color:#b42318}
+  .parcel-popup-pin-actions{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      margin-left:auto
+  }
   #farmerMap .leaflet-popup-content-wrapper{max-height:min(70vh,560px);overflow:hidden}
   #farmerMap .leaflet-popup-content{max-height:min(62vh,500px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
   .parcel-mobile-sheet{display:none}
@@ -405,43 +419,68 @@
       filter:drop-shadow(0 0 1px #fff) drop-shadow(0 0 6px rgba(225,132,29,.7))
   }
   .pin-edit-panel{
+      position:absolute;
+      top:16px;
+      left:50%;
+      z-index:1200;
       display:none;
       align-items:center;
-      justify-content:space-between;
-      gap:14px;
-      margin:0 0 12px;
-      padding:11px 13px;
-      border:1px solid #e2b36f;
-      border-radius:10px;
-      background:#fff8e9;
-      color:#523617
+      gap:10px;
+      transform:translateX(-50%);
+      pointer-events:none
   }
   .pin-edit-panel.is-visible{
       display:flex
   }
-  .pin-edit-panel strong{
-      display:block;
-      margin-bottom:2px;
-      font-size:13px
-  }
-  .pin-edit-panel span{
-      font-size:12px
-  }
   .pin-edit-actions{
       display:flex;
-      gap:8px;
-      flex:0 0 auto
+      gap:10px;
+      pointer-events:auto
+  }
+  .pin-move-control{
+      display:inline-grid!important;
+      width:46px!important;
+      min-width:46px!important;
+      height:46px!important;
+      min-height:46px!important;
+      place-items:center;
+      padding:0!important;
+      border:2px solid currentColor!important;
+      border-radius:10px!important;
+      background:#fff!important;
+      box-shadow:0 2px 8px rgba(18,42,29,.18)!important;
+      font-size:23px!important;
+      line-height:1!important;
+      transition:background .15s ease,transform .15s ease!important
+  }
+  .pin-move-control:hover,
+  .pin-move-control:focus-visible{
+      transform:translateY(-1px)
+  }
+  .pin-move-cancel{color:#c62828!important}
+  .pin-move-cancel:hover,.pin-move-cancel:focus-visible{background:#fff1f1!important}
+  .pin-move-save{color:#087a3d!important}
+  .pin-move-save:hover,.pin-move-save:focus-visible{background:#edf9f1!important}
+  .pin-move-control:disabled{cursor:wait;opacity:.62}
+  .pin-edit-label{
+      position:absolute!important;
+      width:1px!important;
+      height:1px!important;
+      padding:0!important;
+      margin:-1px!important;
+      overflow:hidden!important;
+      clip:rect(0,0,0,0)!important;
+      white-space:nowrap!important;
+      border:0!important
   }
   body[data-theme="dark"] .farmer-map-label{
       border-color:#607166;
       background:rgba(27,43,34,.96);
       color:#f0f7f2
   }
-  body[data-theme="dark"] .pin-edit-panel{
-      border-color:#906a36;
-      background:#382d1f;
-      color:#ffe7bd
-  }
+  body[data-theme="dark"] .pin-move-control{background:#18231e!important}
+  body[data-theme="dark"] .pin-move-cancel:hover,body[data-theme="dark"] .pin-move-cancel:focus-visible{background:#3b2222!important}
+  body[data-theme="dark"] .pin-move-save:hover,body[data-theme="dark"] .pin-move-save:focus-visible{background:#183828!important}
   body[data-theme="dark"] .parcel-side-panel{background:#18231e;color:#f0f7f2}
   body[data-theme="dark"] .map-search-results{background:#18231e;color:#f0f7f2}
   body[data-theme="dark"] .map-search-result:hover,body[data-theme="dark"] .map-search-result:focus{background:#20382c}
@@ -528,6 +567,7 @@
       .parcel-mobile-sheet .farmer-popup h3,
       .parcel-mobile-sheet .parcel-popup-fact span{overflow-wrap:anywhere}
       .parcel-mobile-sheet .farmer-popup-actions{align-items:stretch;flex-direction:column}
+      .parcel-mobile-sheet .parcel-popup-pin-actions{display:grid;grid-template-columns:1fr 1fr;width:100%;margin-left:0}
       .parcel-mobile-sheet .farmer-popup-actions a,
       .parcel-mobile-sheet .farmer-popup-actions button{justify-content:center;min-height:42px}
       body[data-theme="dark"] .parcel-mobile-sheet,
@@ -568,13 +608,7 @@
           font-size:12px;
           padding:7px 8px
       }
-      .pin-edit-panel{
-          align-items:stretch;
-          flex-direction:column
-      }
-      .pin-edit-actions .btn{
-          flex:1
-      }
+      .pin-edit-panel{top:12px}
   }
   </style>
   <div class="content farmer-map-page">
@@ -612,18 +646,6 @@
         <i class="bi bi-arrow-repeat"></i>
         <span>Loading farm parcel locations…</span>
       </p>
-      <div class="pin-edit-panel" id="pinEditPanel" role="status" aria-live="polite">
-        <div>
-          <strong id="pinEditFarmer">Moving farm parcel pin</strong>
-          <span>Drag the orange pin to the correct agricultural parcel, then save or cancel.</span>
-        </div>
-        <div class="pin-edit-actions">
-          <button class="btn btn-outline-secondary btn-cancel" id="cancelPinMove" type="button">Cancel</button>
-          <button class="btn btn-success" id="savePinMove" type="button">
-            <i class="bi bi-check2"></i> Save New Location
-          </button>
-        </div>
-      </div>
       <p class="pin-help" id="pinHelp">
         <i class="bi bi-crosshair">
         </i> Click the agricultural parcel on the map to save the pin.
@@ -637,6 +659,13 @@
                data-search-url="{% url 'farm_parcels:map_search' %}"
                data-pin-url="{% url 'farm_parcels:pin_farmer' %}"
                aria-label="Interactive map of agricultural parcel locations"></div>
+          <div class="pin-edit-panel" id="pinEditPanel" role="status" aria-live="polite">
+            <strong class="pin-edit-label" id="pinEditFarmer">Moving farm parcel pin</strong>
+            <div class="pin-edit-actions" aria-label="Move pin controls">
+              <button class="pin-move-control pin-move-cancel" id="cancelPinMove" type="button" title="Cancel moving pin" aria-label="Cancel moving pin"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+              <button class="pin-move-control pin-move-save" id="savePinMove" type="button" title="Save new pin location" aria-label="Save new pin location"><i class="bi bi-check-lg" aria-hidden="true"></i></button>
+            </div>
+          </div>
           <div class="map-empty" id="mapEmpty">
             <div>
               <i class="bi bi-geo-alt"></i>
@@ -689,7 +718,7 @@
     {{ rosario_map_center|json_script:"rosario-map-center" }}
     {{ rosario_boundary|json_script:"rosario-map-boundary" }}
     <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
-    <script src="{% static 'js/farm-parcel-map.js' %}?v=7"></script>
+    <script src="{% static 'js/farm-parcel-map.js' %}?v=9"></script>
     <script>
         (() => {
             if (window.FMIS_PROGRESSIVE_MAP) return;
@@ -835,7 +864,18 @@
                 const edit = make('a', '', 'Open farm parcel');
                 edit.href = item.edit_url;
                 actions.appendChild(edit);
+                const pinActions = make('span', 'parcel-popup-pin-actions');
+                const move = make('button', 'parcel-popup-move', 'Move pin');
+                move.type = 'button';
+                move.addEventListener('click', () => {
+                    const marker = markerByFarmer.get(String(item.id));
+                    if (!marker) return;
+                    map.closePopup();
+                    beginMoveMarker(marker)
+                });
+                pinActions.appendChild(move);
                 const unpin = make('button', '', 'Remove pin');
+                unpin.className = 'parcel-popup-remove';
                 unpin.type = 'button';
                 unpin.addEventListener('click', () => {
                     window.fmisFeedback?.(
@@ -864,7 +904,8 @@
                         }
                     )
                 });
-                actions.appendChild(unpin);
+                pinActions.appendChild(unpin);
+                actions.appendChild(pinActions);
                 popup.appendChild(actions);
                 const mobilePopup = window.matchMedia('(max-width:560px)').matches;
                 const popupWidth = Math.max(190, Math.min(mobilePopup ? 244 : 300, map.getSize().x - 54));

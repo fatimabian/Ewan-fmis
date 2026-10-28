@@ -7,7 +7,14 @@ html body .app-shell table :is(th,td):not(#fmis-table-specificity){
     text-align:left!important
 }
 
-html body .app-shell table.farmer-table th:last-child:not(#fmis-table-specificity){
+html body .app-shell table:is(
+    .farmer-table,
+    .parcel-table,
+    .crop-table,
+    .request-table,
+    .intervention-table,
+    .account-table
+) th:last-child:not(#fmis-table-specificity){
     text-align:center!important
 }
 
