@@ -560,84 +560,24 @@
       grid-template-columns:1fr;
       gap:8px
   }
-  .report-preview-empty{
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      min-height:420px;
-      gap:10px;
-      border:2px dashed #cfe3d6!important;
-      background:#f7fbf8!important
-  }
-  .report-preview-empty i{
-      font-size:38px;
-      color:var(--fmis-accent);
-      background:#e9f7ef;
-      padding:16px;
-      border-radius:50%
-  }
-  .report-preview-empty h3{
-      margin:4px 0 0
-  }
-  .report-preview-empty p{
-      max-width:340px;
-      color:#61718a
-  }
   .report-top:has(.report-preview-empty){align-items:stretch}
-  .report-top .report-preview-empty{
+  .report-top:has(.report-preview-empty) .report-filter-card{height:auto}
+  .report-preview-empty{
       min-height:0!important;
-      height:100%
-  }
-  .report-preview-empty{
+      height:100%;
       display:flex;
       flex-direction:column;
       align-items:center;
       justify-content:center;
-      text-align:center;
-      min-height:420px;
-      gap:10px;
+      gap:5px;
+      padding:18px 24px;
       border:2px dashed #cfe3d6!important;
-      background:#f7fbf8!important
+      background:#f7fbf8!important;
+      text-align:center
   }
-  .report-preview-empty i{
-      font-size:38px;
-      color:var(--fmis-accent);
-      background:#e9f7ef;
-      padding:16px;
-      border-radius:50%
-  }
-  .report-preview-empty h3{
-      margin:4px 0 0
-  }
+  .report-preview-empty h3{margin:0}
   .report-preview-empty p{
-      max-width:340px;
-      color:#61718a
-  }
-  .report-preview-empty{
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      min-height:420px;
-      gap:10px;
-      border:2px dashed #cfe3d6!important;
-      background:#f7fbf8!important
-  }
-  .report-preview-empty i{
-      font-size:38px;
-      color:var(--fmis-accent);
-      background:#e9f7ef;
-      padding:16px;
-      border-radius:50%
-  }
-  .report-preview-empty h3{
-      margin:4px 0 0
-  }
-  .report-preview-empty p{
-      max-width:340px;
+      max-width:440px;
       color:#61718a
   }
   .preview-heading{
@@ -1229,8 +1169,6 @@
         </article>
       {% else %}
         <article class="report-card report-preview-empty" id="filteredReport">
-          <i class="bi bi-bar-chart-line">
-          </i>
           <h3>No report selected yet</h3>
           <p>
             {% if request.user.is_admin %}

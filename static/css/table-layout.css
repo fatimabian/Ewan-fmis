@@ -388,7 +388,7 @@ html body .app-shell table :is(th,td):not(#fmis-table-specificity){
     max-width:none!important;
     overflow:visible!important;
     text-overflow:clip!important;
-    white-space:nowrap!important;
+    white-space:normal!important;
     overflow-wrap:normal!important;
     word-break:normal!important;
     vertical-align:middle
@@ -400,7 +400,7 @@ html body .app-shell table td:not(:last-child)>
     max-width:none!important;
     overflow:visible!important;
     text-overflow:clip!important;
-    white-space:nowrap!important;
+    white-space:normal!important;
     overflow-wrap:normal!important;
     word-break:normal!important
 }
@@ -423,4 +423,97 @@ html body .app-shell table :is(
     .intervention-status
 ){
     white-space:nowrap!important
+}
+
+/* Keep management columns readable when the desktop navigation is open.
+ * The table becomes wider than its viewport and uses the native scrollbar
+ * underneath instead of squeezing the Actions column against the right edge. */
+@media (min-width:1101px){
+    html body .app-shell table.farmer-table,
+    html body .app-shell table.request-table,
+    html body .app-shell table.intervention-table{
+        min-width:1680px!important
+    }
+    html body .app-shell table.parcel-table{
+        min-width:1720px!important
+    }
+    html body .app-shell table.crop-table{
+        min-width:1600px!important
+    }
+}
+
+html body .app-shell table :is(th:last-child,td:last-child):not(#fmis-table-specificity){
+    min-width:132px!important;
+    padding-right:26px!important
+}
+
+html body .app-shell table :is(
+    .farmer-actions,
+    .parcel-actions,
+    .crop-actions,
+    .request-actions,
+    .intervention-actions,
+    .table-actions
+){
+    width:max-content!important;
+    min-width:max-content!important;
+    margin-inline:auto!important
+}
+
+/* Final wrapping policy. Fixed table tracks give prose a real width so it can
+ * continue on the next line. Break only at normal word boundaries: never turn
+ * "Completed" into "Complete" + "d". Wider tables still scroll underneath. */
+html body .app-shell table:is(
+    .farmer-table,
+    .parcel-table,
+    .crop-table,
+    .request-table,
+    .intervention-table,
+    .universal-table
+){
+    table-layout:fixed!important
+}
+
+html body .app-shell table.request-table{
+    width:max(100%,1400px)!important;
+    min-width:1400px!important
+}
+
+html body .app-shell table :is(th,td):not(#fmis-table-specificity),
+html body .app-shell table td:not(:last-child)>
+    :is(a,p,span,strong,small,.cell-description,.request-cell-text),
+html body .app-shell table.request-table :is(
+    .request-type-cell,
+    .request-coverage-cell,
+    .request-timing-cell,
+    .request-cell-text,
+    .timing-indicator,
+    .timing-indicator small
+){
+    white-space:normal!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+    hyphens:none!important;
+    text-overflow:clip!important
+}
+
+html body .app-shell table :is(th:first-child,td:first-child),
+html body .app-shell table :is(
+    .badge,
+    .status,
+    .farmer-status,
+    .priority-badge,
+    .request-status,
+    .intervention-status,
+    .farmer-actions,
+    .parcel-actions,
+    .crop-actions,
+    .request-actions,
+    .intervention-actions,
+    .table-actions
+){
+    white-space:nowrap!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important;
+    hyphens:none!important
 }

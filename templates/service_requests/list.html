@@ -122,7 +122,7 @@
       min-width:0;
       overflow:hidden!important;
       white-space:normal!important;
-      overflow-wrap:break-word!important;
+      overflow-wrap:normal!important;
       word-break:normal;
       line-height:1.4
   }
@@ -133,7 +133,7 @@
       max-width:100%!important;
       overflow:hidden!important;
       white-space:normal!important;
-      overflow-wrap:break-word!important;
+      overflow-wrap:normal!important;
       word-break:normal!important;
       text-overflow:clip!important
   }
@@ -141,7 +141,7 @@
       display:block!important;
       overflow:hidden!important;
       white-space:normal!important;
-      overflow-wrap:break-word!important;
+      overflow-wrap:normal!important;
       word-break:normal!important;
       text-overflow:clip!important
   }
@@ -185,14 +185,14 @@
   .request-timing-cell>*{
       max-width:100%!important;
       white-space:normal!important;
-      overflow-wrap:break-word!important
+      overflow-wrap:normal!important
   }
   .timing-indicator{display:grid;gap:3px;width:100%;color:#111827;font-size:11px;font-weight:800;white-space:normal!important}
   .timing-indicator .timing-label{display:block}
   .timing-indicator.overdue .timing-label{color:#b42318!important}
   .timing-indicator.due-soon .timing-label{color:#9a6700!important}
   .timing-indicator.on-time .timing-label{color:#087f49!important}
-  .timing-indicator small{display:block;max-width:100%;color:#111827!important;font-size:10px;font-weight:600;line-height:1.35;white-space:normal!important;overflow-wrap:break-word!important}
+  .timing-indicator small{display:block;max-width:100%;color:#111827!important;font-size:10px;font-weight:600;line-height:1.35;white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none!important}
   .request-actions{
       display:grid;
       grid-template-columns:24px 24px;

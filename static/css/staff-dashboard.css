@@ -3051,3 +3051,29 @@ body[data-theme="dark"] .staff-operations-weather-grid .weather-card{background:
 .staff-operations-weather-grid .season-reference>i{font-size:16px}
 .staff-operations-weather-grid .season-reference small{font-size:8px;letter-spacing:.05em}
 .staff-operations-weather-grid .season-reference b{font-size:11px;line-height:1.3}
+
+/* Fill the Request Pipeline column with four equal dashboard tiles. */
+.staff-operations-weather-grid .request-column{
+    display:flex;
+    flex-direction:column
+}
+.staff-operations-weather-grid .request-column .request-overview-grid{
+    min-height:0;
+    flex:1;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-rows:repeat(2,minmax(78px,1fr));
+    align-content:stretch
+}
+.staff-operations-weather-grid .request-column .request-overview-grid>a{
+    min-height:0;
+    height:100%;
+    align-content:center;
+    border-radius:3px
+}
+@media(max-width:520px){
+    .staff-operations-weather-grid .request-column .request-overview-grid{
+        grid-template-columns:1fr;
+        grid-template-rows:none;
+        grid-auto-rows:minmax(72px,auto)
+    }
+}

@@ -3,7 +3,7 @@
     {% for name, value in preserved_fields %}
       {% if name != 'per_page' %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endif %}
     {% endfor %}
-    <label for="fmisPageSize">Rows</label>
+    <label for="fmisPageSize">Rows per page:</label>
     <select id="fmisPageSize" name="per_page" onchange="this.form.submit()">
       {% for size in page_size_choices %}
         <option value="{{ size }}"{% if page_size == size %} selected{% endif %}>{{ size }}</option>

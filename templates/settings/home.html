@@ -157,33 +157,27 @@
       gap:0 30px
   }
   #profile .settings-grid-reference{
-      align-items:stretch
+      align-items:stretch;
+      grid-template-columns:repeat(2,minmax(0,1fr))
   }
   #profile .settings-grid-reference>div{
-      display:contents
+      display:grid;
+      min-width:0;
+      gap:16px
   }
   #profile .appearance-settings-card{
-      grid-column:1/-1;
       order:1
   }
   #profile .profile-details-card{
-      order:2
+      height:100%;
+      order:1
   }
   #profile .notification-settings-card{
       height:100%;
-      order:3
+      order:2
   }
-  .profile-edit-button{
-      width:34px;
-      height:34px;
-      display:grid;
-      place-items:center;
-      margin-left:auto;
-      border:1px solid #9fc9b1;
-      border-radius:8px;
-      background:#fff;
-      color:#087346;
-      cursor:pointer
+  #profile .settings-grid-reference>div:last-child{
+      grid-template-rows:auto minmax(0,1fr)
   }
   .account-settings-list{
       display:grid;
@@ -198,7 +192,7 @@
       align-items:center;
       gap:11px;
       width:100%;
-      padding:10px 13px;
+      padding:13px 16px;
       border:0;
       border-bottom:1px solid #dce6e0;
       background:#fff;
@@ -208,7 +202,14 @@
   }
   .account-settings-row:last-child{border-bottom:0}
   .account-settings-row>i:first-child{color:#087346;font-size:16px}
-  .account-settings-row>span{min-width:0;display:grid;gap:1px}
+  .account-settings-row>span{
+      min-width:0;
+      flex:1;
+      display:grid;
+      justify-items:start;
+      gap:3px;
+      text-align:left
+  }
   .account-settings-row strong{font-size:13px}
   .account-settings-row small{
       overflow:hidden;
@@ -218,6 +219,9 @@
       white-space:nowrap
   }
   .account-settings-row>i:last-child{margin-left:auto;color:#76847c}
+  @media(max-width:900px){
+      #profile .settings-grid-reference{grid-template-columns:1fr}
+  }
   .settings-modal{
       position:fixed;
       inset:0;
@@ -648,9 +652,6 @@
               <h3>
                 <i class="bi bi-person">
                 </i> Profile Details
-                <button class="profile-edit-button" type="button" data-settings-modal-open="contact" aria-label="Edit contact information">
-                  <i class="bi bi-pencil-square"></i>
-                </button>
               </h3>
               <div class="profile-summary">
                 <div class="profile-photo-stage">
@@ -670,7 +671,7 @@
               <div class="account-settings-list">
                 <button class="account-settings-row" type="button" data-settings-modal-open="contact">
                   <i class="bi bi-pencil-square"></i>
-                  <span><strong>Contact info</strong><small>{{ request.user.email|default:'Add an email address' }}{% if request.user.phone_number %} · {{ request.user.phone_number }}{% endif %}</small></span>
+                  <span><strong>Edit profile</strong><small>Update your personal information and profile photo</small></span>
                   <i class="bi bi-chevron-right"></i>
                 </button>
                 <button class="account-settings-row" type="button" data-settings-modal-open="password">
@@ -800,10 +801,10 @@
         </section>
       {% endif %}
       <div class="settings-modal" data-settings-modal="contact" {% if not profile_modal_open %}hidden{% endif %} aria-hidden="{% if profile_modal_open %}false{% else %}true{% endif %}">
-        <button class="settings-modal-backdrop" type="button" data-settings-modal-close aria-label="Close contact information dialog"></button>
+        <button class="settings-modal-backdrop" type="button" data-settings-modal-close aria-label="Close edit profile dialog"></button>
         <section class="settings-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle">
           <header class="settings-modal-header">
-            <h3 id="contactModalTitle">Edit contact information</h3>
+            <h3 id="contactModalTitle">Edit profile</h3>
             <button class="settings-modal-close" type="button" data-settings-modal-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
           </header>
           <div class="settings-modal-body">

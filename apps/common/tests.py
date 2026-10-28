@@ -4565,6 +4565,7 @@ class FMISRequirementTests(TestCase):
             stale_page.context["page_obj"].paginator.num_pages,
         )
         self.assertContains(default_page, 'name="per_page"')
+        self.assertContains(default_page, "Rows per page:")
         self.assertContains(default_page, '<option value="100">100</option>', html=True)
 
         smaller_page = self.client.get(
