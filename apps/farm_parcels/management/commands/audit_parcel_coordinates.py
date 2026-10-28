@@ -7,13 +7,11 @@ from collections import Counter
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db import DatabaseError
 from django.utils import timezone
 
 from apps.common.constants import ROSARIO_BARANGAY_PSGC, ROSARIO_PSGC_CODE
 from apps.farm_parcels.demo_locations import ROSARIO_BARANGAY_CENTERS
-from apps.farm_parcels.geojson import point_in_geojson
-from apps.farm_parcels.models import FarmParcel, RosarioBarangayBoundary
+from apps.farm_parcels.models import FarmParcel
 from apps.farm_parcels.views import is_within_rosario
 
 
@@ -55,8 +53,6 @@ def recommended_action(issue_codes):
         return "Do not use this pin; field-verify it and submit a corrected coordinate proposal."
     if "synthetic_demo" in issue_codes or "reference_center" in issue_codes:
         return "Confirm the actual farm location; never substitute the barangay reference point."
-    if "outside_assigned_barangay" in issue_codes:
-        return "Compare the assigned barangay with field evidence and submit a reviewed correction."
     if "duplicate" in issue_codes:
         return "Confirm whether parcels genuinely share this location; correct only verified records."
     return "No coordinate action recommended."
@@ -71,16 +67,6 @@ def build_coordinate_audit(barangay="", using="default"):
         .values("pk", "barangay", "coordinates", "remarks")
         .order_by("pk")
     )
-    try:
-        boundaries = {
-            boundary.barangay_name: boundary.geometry
-            for boundary in RosarioBarangayBoundary.objects.using(using).filter(is_active=True)
-        }
-    except DatabaseError:
-        # Keeps the read-only audit usable before the optional boundary-storage
-        # migration is applied. Municipality checks still run normally.
-        boundaries = {}
-    barangay_boundaries_available = len(boundaries) == len(ROSARIO_BARANGAY_PSGC)
     coordinate_counts = Counter()
     parsed_rows = []
     audit_rows = []
@@ -138,13 +124,6 @@ def build_coordinate_audit(barangay="", using="default"):
         if not is_within_rosario(*point):
             reasons.append("outside Rosario reference boundary")
             issue_codes.append("outside_rosario")
-        if (
-            barangay_boundaries_available
-            and row["barangay"] in boundaries
-            and not point_in_geojson(point[0], point[1], boundaries[row["barangay"]])
-        ):
-            reasons.append("outside assigned barangay boundary")
-            issue_codes.append("outside_assigned_barangay")
         if key in duplicate_pairs:
             reasons.append(f"shared by {duplicate_pairs[key]} parcels")
             issue_codes.append("duplicate")
@@ -185,11 +164,7 @@ def build_coordinate_audit(barangay="", using="default"):
             "generated_at": timezone.now().isoformat(),
             "municipality": "Rosario, Batangas",
             "municipality_psgc": ROSARIO_PSGC_CODE,
-            "barangay_boundary_check": (
-                "performed using installed PSGC-matched authoritative polygons"
-                if barangay_boundaries_available
-                else "not performed; complete authoritative barangay polygons not installed"
-            ),
+            "barangay_boundary_check": "disabled; coordinates are limited only to Rosario municipality",
             "contains_personal_information": False,
         },
         "flagged_records": flagged,

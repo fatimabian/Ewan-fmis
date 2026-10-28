@@ -2371,35 +2371,6 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(
             sum(cluster["count"] for cluster in barangay_payload["clusters"]), 2
         )
-        RosarioBarangayBoundary.objects.create(
-            psgc_code="0401021001",
-            barangay_name="Bulihan",
-            geometry={
-                "type": "Polygon",
-                "coordinates": [[
-                    [121.20, 13.84],
-                    [121.21, 13.84],
-                    [121.21, 13.85],
-                    [121.20, 13.85],
-                    [121.20, 13.84],
-                ]],
-            },
-            source_agency="Test geographic authority",
-            source_url="https://example.test/boundary",
-            dataset_version="test-1",
-            source_sha256="a" * 64,
-        )
-        authoritative_payload = self.client.get(
-            reverse("farm_parcels:map_data"), {"barangay": "Bulihan"}
-        ).json()
-        self.assertEqual(
-            authoritative_payload["focus_basis"],
-            "authoritative_barangay_boundary",
-        )
-        self.assertEqual(
-            authoritative_payload["focus_bounds"],
-            [[13.84, 121.2], [13.85, 121.21]],
-        )
         parcel_page = self.client.get(
             reverse("farm_parcels:map_parcels"), {"barangay": "Bulihan"}
         )
@@ -2593,7 +2564,8 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "L.svg")
         self.assertNotContains(map_response, "barangay-focus-label")
         self.assertNotContains(map_response, "barangayBounds.getCenter()")
-        self.assertContains(map_response, "Red map pins are saved farm parcel locations")
+        self.assertContains(map_response, "Red map pins show map groups")
+        self.assertContains(map_response, "Rosario municipal boundary")
         self.assertNotContains(map_response, "_updateParcelPin")
         self.assertContains(map_response, "keepInView: true")
         self.assertNotContains(map_response, "setTimeout(() => window.location.reload(), 700)")
@@ -2601,6 +2573,7 @@ class FMISRequirementTests(TestCase):
             Path(__file__).resolve().parents[2] / "static" / "js" / "farm-parcel-map.js"
         ).read_text(encoding="utf-8")
         self.assertIn("const barangayLayer", map_script)
+        self.assertNotIn("barangayBoundaryLayer", map_script)
         self.assertIn("const clusterLayer", map_script)
         self.assertIn("const parcelLayer", map_script)
         self.assertIn("const redPinIcon", map_script)
@@ -2620,6 +2593,7 @@ class FMISRequirementTests(TestCase):
         self.assertIn("const searchMapParcels", map_script)
         self.assertIn("const chooseMapSearchResult", map_script)
         self.assertIn('map.on("zoomend"', map_script)
+        self.assertIn("state.programmaticMove", map_script)
         self.assertIn("mapParcelSearch.value = \"\"", map_script)
         self.assertIn("commodityFilter.value = \"\"", map_script)
         self.assertNotIn('status.textContent = item.pending_review', map_script)
@@ -2807,7 +2781,7 @@ class FMISRequirementTests(TestCase):
         self.parcel.refresh_from_db()
         self.assertEqual(self.parcel.coordinates, "")
 
-    def test_parcel_map_rejects_pin_outside_assigned_barangay(self):
+    def test_parcel_map_allows_pin_without_barangay_polygon_restriction(self):
         self.client.force_login(self.staff)
         response = self.client.post(
             reverse("farm_parcels:pin_farmer"),
@@ -2818,13 +2792,12 @@ class FMISRequirementTests(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("outside Bulihan", response.json()["message"])
-        self.assertFalse(
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
             ParcelCoordinateReview.objects.filter(parcel=self.parcel).exists()
         )
 
-    def test_parcel_map_rejects_pin_when_verified_barangay_boundary_is_missing(self):
+    def test_parcel_map_allows_pin_when_barangay_boundary_is_missing(self):
         self.parcel.barangay = "Tulos"
         self.parcel.save(update_fields=["barangay"])
         self.client.force_login(self.staff)
@@ -2838,8 +2811,10 @@ class FMISRequirementTests(TestCase):
             },
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("verified barangay boundary has not been loaded", response.json()["message"])
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            ParcelCoordinateReview.objects.filter(parcel=self.parcel).exists()
+        )
 
     def test_staff_coordinate_move_requires_approval_and_is_audited(self):
         self.parcel.coordinates = "13.8467000, 121.2060000"

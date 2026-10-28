@@ -68,6 +68,8 @@
     selectedParcel: null,
     mapMode: "overview",
     zoomTransition: false,
+    programmaticMove: false,
+    programmaticMoveToken: 0,
   };
 
   const map = L.map(mapNode, {
@@ -184,6 +186,12 @@
   const flyToBounds = (bounds, options = {}) => {
     const target = bounds instanceof L.LatLngBounds ? bounds : L.latLngBounds(bounds || []);
     if (!target.isValid()) return false;
+    state.programmaticMove = true;
+    const moveToken = ++state.programmaticMoveToken;
+    const finishProgrammaticMove = () => {
+      if (state.programmaticMoveToken === moveToken) state.programmaticMove = false;
+    };
+    map.once("moveend", finishProgrammaticMove);
     map.stop();
     map.flyToBounds(target.pad(options.pad ?? 0.1), {
       paddingTopLeft: options.paddingTopLeft || [38, 38],
@@ -192,6 +200,7 @@
       animate: true,
       duration: options.duration ?? 0.65,
     });
+    window.setTimeout(finishProgrammaticMove, 1200);
     return true;
   };
   const focusOverview = () => flyToBounds(rosarioBounds, {
@@ -210,11 +219,14 @@
       return;
     }
     let settled = false;
+    const moveToken = ++state.programmaticMoveToken;
     const finish = () => {
       if (settled) return;
       settled = true;
+      if (state.programmaticMoveToken === moveToken) state.programmaticMove = false;
       resolve();
     };
+    state.programmaticMove = true;
     map.once("moveend", finish);
     map.stop();
     map.flyTo(latLng, targetZoom, {animate: true, duration: 0.55});
@@ -303,7 +315,7 @@
       });
       const focused = focus && payload.focus_bounds
         ? flyToBounds(payload.focus_bounds, {
-            pad: payload.focus_basis === "authoritative_barangay_boundary" ? 0.04 : 0.12,
+            pad: 0.12,
             paddingTopLeft: [42, 42],
             paddingBottomRight: [42, 42],
             maxZoom: BARANGAY_MAX_ZOOM,
@@ -807,7 +819,7 @@
     if (!event.target.closest(".map-search-field")) hideMapSearchResults();
   });
   map.on("zoomend", async () => {
-    if (state.zoomTransition || !state.barangay) return;
+    if (state.zoomTransition || state.programmaticMove || !state.barangay) return;
     if (state.mapMode === "farm" && map.getZoom() <= 16) {
       state.zoomTransition = true;
       try { await selectBarangay(state.barangay, {focus: false}); }

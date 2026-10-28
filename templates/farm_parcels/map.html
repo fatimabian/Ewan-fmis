@@ -603,7 +603,7 @@
       <p class="map-filter-summary" id="mapFilterSummary" aria-live="polite">Showing all mapped farm parcels.</p>
       <p class="map-legend">
         <i class="bi bi-info-circle-fill"></i>
-        Red map pins are saved farm parcel locations. The green line marks the Rosario municipal boundary. Click a farm pin for details, then choose Move pin to reposition it.
+        Red map pins show map groups and saved farm parcel locations. The green line marks the Rosario municipal boundary. Click a group pin to reveal its parcels, then click a parcel pin for details.
       </p>
       <p class="map-loading-status" id="mapLoadingStatus" role="status" aria-live="polite">
         <i class="bi bi-arrow-repeat"></i>
@@ -684,7 +684,7 @@
     {{ rosario_map_center|json_script:"rosario-map-center" }}
     {{ rosario_boundary|json_script:"rosario-map-boundary" }}
     <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
-    <script src="{% static 'js/farm-parcel-map.js' %}?v=5"></script>
+    <script src="{% static 'js/farm-parcel-map.js' %}?v=6"></script>
     <script>
         (() => {
             if (window.FMIS_PROGRESSIVE_MAP) return;

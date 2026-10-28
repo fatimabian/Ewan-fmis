@@ -34,7 +34,6 @@ from apps.common.record_history import activity_rows, farmer_update_rows
 from apps.farmers.history import farmer_snapshot, record_farmer_update
 from apps.crops.models import CropRecord
 from .forms import FarmParcelForm, FarmParcelPhotoUploadForm
-from .geojson import geojson_bounds
 from .coordinate_services import (
     approve_coordinate_review,
     format_coordinates,
@@ -47,7 +46,6 @@ from .models import (
     FarmParcelPhoto,
     ParcelCoordinateHistory,
     ParcelCoordinateReview,
-    RosarioBarangayBoundary,
 )
 from .rosario_boundary import ROSARIO_BOUNDARY
 
@@ -426,48 +424,31 @@ class FarmParcelMapDataView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         else:
             focus_bounds = None
             focus_basis = "unavailable"
-            try:
-                boundary = (
-                    RosarioBarangayBoundary.objects.filter(
-                        barangay_name=requested_barangay,
-                        is_active=True,
-                    )
-                    .values_list("geometry", flat=True)
-                    .first()
-                )
-            except DatabaseError:
-                boundary = None
-            if boundary:
-                focus_bounds = geojson_bounds(boundary)
-                if focus_bounds:
-                    focus_basis = "authoritative_barangay_boundary"
-
-            if not focus_bounds:
-                candidates = focus_candidates_by_barangay.get(requested_barangay, [])
-                coordinate_counts = Counter(
+            candidates = focus_candidates_by_barangay.get(requested_barangay, [])
+            coordinate_counts = Counter(
+                (round(point["lat"], 7), round(point["lng"], 7))
+                for point in candidates
+            )
+            reliable_points = [
+                point
+                for point in candidates
+                if coordinate_counts[
                     (round(point["lat"], 7), round(point["lng"], 7))
-                    for point in candidates
-                )
-                reliable_points = [
-                    point
-                    for point in candidates
-                    if coordinate_counts[
-                        (round(point["lat"], 7), round(point["lng"], 7))
-                    ]
-                    == 1
                 ]
-                if reliable_points:
-                    focus_bounds = [
-                        [
-                            min(point["lat"] for point in reliable_points),
-                            min(point["lng"] for point in reliable_points),
-                        ],
-                        [
-                            max(point["lat"] for point in reliable_points),
-                            max(point["lng"] for point in reliable_points),
-                        ],
-                    ]
-                    focus_basis = "non_flagged_parcel_coordinates"
+                == 1
+            ]
+            if reliable_points:
+                focus_bounds = [
+                    [
+                        min(point["lat"] for point in reliable_points),
+                        min(point["lng"] for point in reliable_points),
+                    ],
+                    [
+                        max(point["lat"] for point in reliable_points),
+                        max(point["lng"] for point in reliable_points),
+                    ],
+                ]
+                focus_basis = "non_flagged_parcel_coordinates"
 
             cluster_groups = {}
             for point in points_by_barangay.get(requested_barangay, []):

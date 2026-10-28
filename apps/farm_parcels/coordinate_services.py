@@ -4,14 +4,10 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.activity_logs.services import record_event
-from apps.common.constants import ROSARIO_BARANGAY_PSGC
-
-from .geojson import point_in_geojson
 from .models import (
     FarmParcel,
     ParcelCoordinateHistory,
     ParcelCoordinateReview,
-    RosarioBarangayBoundary,
 )
 
 
@@ -34,26 +30,14 @@ def parse_coordinates(value):
 
 
 def validate_coordinate_for_barangay(*, barangay, latitude, longitude):
-    """Fail closed unless an approved PSGC boundary contains the point."""
-    psgc_code = ROSARIO_BARANGAY_PSGC.get((barangay or "").strip())
-    if not psgc_code:
-        raise ValidationError("Select a valid Rosario barangay before saving coordinates.")
-    boundary = RosarioBarangayBoundary.objects.filter(
-        psgc_code=psgc_code,
-        is_active=True,
-    ).first()
-    if boundary is None:
-        raise ValidationError(
-            f"Pinning is unavailable for {barangay} because its verified barangay "
-            "boundary has not been loaded. Ask an administrator to load the approved "
-            "PSGC boundary dataset."
-        )
-    if not point_in_geojson(latitude, longitude, boundary.geometry):
-        raise ValidationError(
-            f"That location is outside {barangay}. Choose a point inside the farm "
-            "parcel's assigned barangay boundary."
-        )
-    return boundary
+    """Validate a WGS84 point without restricting it to a barangay polygon.
+
+    The public function name is retained for form and review compatibility. The
+    map save endpoint separately enforces Rosario's municipal boundary.
+    """
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        raise ValidationError("Enter coordinates as latitude, longitude.")
+    return latitude, longitude
 
 
 def validate_coordinate_text_for_barangay(*, barangay, coordinates):
