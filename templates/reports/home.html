@@ -614,7 +614,7 @@
   .report-table-wrap{
       overflow-x:scroll!important;
       overflow-y:auto!important;
-      max-height:460px;
+      max-height:270px;
       border:1px solid #dce5e8;
       border-radius:7px
   }
@@ -646,6 +646,7 @@
       z-index:1
   }
   .report-preview-table th,.report-preview-table td{
+      height:43px;
       padding:8px 10px;
       border-bottom:1px solid #e2eaed;
       white-space:nowrap
@@ -1081,9 +1082,6 @@
             </div>
           {% endif %}
           {% if report_preview.rows %}
-            <div class="report-horizontal-controls" aria-label="Scroll report columns">
-              <span><i class="bi bi-arrows"></i> Scroll to view all columns</span>
-            </div>
             <div class="report-table-wrap{% if report_preview.is_farmer_master %} farmer-master-table-wrap{% endif %}">
               <table class="report-preview-table{% if report_preview.is_farmer_master %} farmer-master-preview{% endif %}">
                 <thead>
