@@ -251,6 +251,115 @@ html body .app-shell table.farmer-table th:last-child:not(#fmis-table-specificit
     }
 }
 
+/* Balanced production column tracks. Each management table is sized from its
+ * real column count and content: identifiers and actions stay compact, while
+ * names and descriptive fields receive the remaining room. */
+@media (min-width:1101px){
+    html body .app-shell table:is(
+        .farmer-table,
+        .parcel-table,
+        .crop-table,
+        .request-table,
+        .intervention-table
+    ) :is(th,td):not(#fmis-table-specificity){
+        padding-inline:10px!important
+    }
+
+    html body .app-shell .farmer-table :is(th,td):nth-child(1){width:8%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(2){width:17%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(3){width:11%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(4){width:12%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(5){width:16%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(6){width:14%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(7){width:10%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(8){width:12%!important}
+
+    html body .app-shell .parcel-table :is(th,td):nth-child(1){width:8%!important}
+    html body .app-shell .parcel-table :is(th,td):nth-child(2){width:18%!important}
+    html body .app-shell .parcel-table :is(th,td):nth-child(3){width:10%!important}
+    html body .app-shell .parcel-table :is(th,td):nth-child(4){width:8%!important}
+    html body .app-shell .parcel-table :is(th,td):nth-child(5){width:16%!important}
+    html body .app-shell .parcel-table :is(th,td):nth-child(6){width:10%!important}
+    html body .app-shell .parcel-table :is(th,td):nth-child(7){width:11%!important}
+    html body .app-shell .parcel-table :is(th,td):nth-child(8){width:9%!important}
+    html body .app-shell .parcel-table :is(th,td):nth-child(9){width:10%!important}
+
+    html body .app-shell .crop-table :is(th,td):nth-child(1){width:10%!important}
+    html body .app-shell .crop-table :is(th,td):nth-child(2){width:25%!important}
+    html body .app-shell .crop-table :is(th,td):nth-child(3){width:20%!important}
+    html body .app-shell .crop-table :is(th,td):nth-child(4){width:20%!important}
+    html body .app-shell .crop-table :is(th,td):nth-child(5){width:12%!important}
+    html body .app-shell .crop-table :is(th,td):nth-child(6){width:13%!important}
+
+    html body .app-shell .request-table :is(th,td):nth-child(1){width:7%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(2){width:20%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(3){width:11%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(4){width:8%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(5){width:9%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(6){width:22%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(7){width:13%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(8){width:10%!important}
+
+    html body .app-shell .intervention-table :is(th,td):nth-child(1){width:8%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(2){width:10%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(3){width:15%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(4){width:15%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(5){width:20%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(6){width:10%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(7){width:12%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(8){width:10%!important}
+
+    html body .app-shell .account-table :is(th,td):nth-child(1){width:20%!important}
+    html body .app-shell .account-table :is(th,td):nth-child(2){width:16%!important}
+    html body .app-shell .account-table :is(th,td):nth-child(3){width:25%!important}
+    html body .app-shell .account-table :is(th,td):nth-child(4){width:11%!important}
+    html body .app-shell .account-table :is(th,td):nth-child(5){width:12%!important}
+    html body .app-shell .account-table :is(th,td):nth-child(6){width:16%!important}
+
+    html body .app-shell :is(.audit-change-table,.history-change-table,.notification-change-table)
+        :is(th,td):nth-child(1){width:24%!important}
+    html body .app-shell :is(.audit-change-table,.history-change-table,.notification-change-table)
+        :is(th,td):nth-child(2){width:38%!important}
+    html body .app-shell :is(.audit-change-table,.history-change-table,.notification-change-table)
+        :is(th,td):nth-child(3){width:38%!important}
+
+    html body .app-shell .farmer-crops-table:has(th:nth-child(6)) :is(th,td):nth-child(1){width:15%!important}
+    html body .app-shell .farmer-crops-table:has(th:nth-child(6)) :is(th,td):nth-child(2){width:22%!important}
+    html body .app-shell .farmer-crops-table:has(th:nth-child(6)) :is(th,td):nth-child(3){width:18%!important}
+    html body .app-shell .farmer-crops-table:has(th:nth-child(6)) :is(th,td):nth-child(4){width:11%!important}
+    html body .app-shell .farmer-crops-table:has(th:nth-child(6)) :is(th,td):nth-child(5){width:23%!important}
+    html body .app-shell .farmer-crops-table:has(th:nth-child(6)) :is(th,td):nth-child(6){width:11%!important}
+
+    html body .app-shell .farmer-crops-table:not(:has(th:nth-child(6))) :is(th,td):nth-child(1){width:18%!important}
+    html body .app-shell .farmer-crops-table:not(:has(th:nth-child(6))) :is(th,td):nth-child(2){width:27%!important}
+    html body .app-shell .farmer-crops-table:not(:has(th:nth-child(6))) :is(th,td):nth-child(3){width:23%!important}
+    html body .app-shell .farmer-crops-table:not(:has(th:nth-child(6))) :is(th,td):nth-child(4){width:17%!important}
+    html body .app-shell .farmer-crops-table:not(:has(th:nth-child(6))) :is(th,td):nth-child(5){width:15%!important}
+}
+
+/* Report previews can have a variable number of columns. Preserve their
+ * readable intrinsic widths and expose the browser's native scrollbar. */
+html body .app-shell .report-table-wrap:not(#fmis-table-specificity){
+    max-height:460px!important;
+    overflow-x:scroll!important;
+    overflow-y:auto!important
+}
+
+html body .app-shell .report-table-wrap>.report-preview-table:not(#fmis-table-specificity){
+    width:max-content!important;
+    min-width:100%!important;
+    table-layout:auto!important
+}
+
+html body .app-shell .report-preview-table :is(th,td):not(#fmis-table-specificity){
+    width:auto!important;
+    min-width:120px!important;
+    padding-inline:10px!important;
+    white-space:nowrap!important;
+    overflow-wrap:normal!important;
+    word-break:normal!important
+}
+
 /* Expanded desktop navigation leaves less horizontal workspace. Keep every
  * authenticated table inside that workspace and shorten only overflowing
  * labels. The final action column and compact status controls stay intact. */

@@ -457,10 +457,10 @@
   /* Client-requested DRRMIS-style vertical filters, limited to Rosario fields. */
   .report-top{
       grid-template-columns:minmax(280px,.42fr) 1fr;
-      align-items:stretch
+      align-items:start
   }
   .report-filter-card{
-      height:100%;
+      height:auto;
       border-top:4px solid var(--fmis-accent)!important;
       background:linear-gradient(180deg,#fff 0%,#f8fbf9 100%)!important
   }
@@ -611,39 +611,9 @@
       color:#153c2a;
       font-size:11px
   }
-  .preview-chart{
-      display:grid;
-      gap:10px;
-      margin:16px 0
-  }
-  .preview-chart-row{
-      display:grid;
-      grid-template-columns:minmax(120px,190px) 1fr 90px;
-      gap:10px;
-      align-items:center;
-      font-size:12px
-  }
-  .preview-chart-row>span:first-child{
-      font-weight:700;
-      overflow-wrap:anywhere
-  }
-  .preview-chart-track{
-      height:22px;
-      background:#e8f0eb;
-      border-radius:5px;
-      overflow:hidden
-  }
-  .preview-chart-track i{
-      display:block;
-      height:100%;
-      background:linear-gradient(90deg,var(--ag-green-deep),var(--fmis-accent));
-      border-radius:5px
-  }
-  .preview-chart-row strong{
-      text-align:right
-  }
   .report-table-wrap{
-      overflow:auto;
+      overflow-x:scroll!important;
+      overflow-y:auto!important;
       max-height:460px;
       border:1px solid #dce5e8;
       border-radius:7px
@@ -703,11 +673,6 @@
   }
   body[data-theme="dark"] .report-filter-row .selected-report{
       background:#111b28!important
-  }
-  @media(max-width:760px){
-      .preview-chart-row{
-          grid-template-columns:100px 1fr 70px
-      }
   }
   .admin-report-library{
       margin-top:16px
@@ -1097,9 +1062,9 @@
                 {% if report_preview.is_farmer_master %}
                   Farmer records show the commodities that matched the selected farm filters.
                 {% elif request.user.is_admin %}
-                  The graph and table use the selected system report, period, role, account status, and module filters.
+                  The table uses the selected system report, period, role, account status, and module filters.
                 {% else %}
-                  The graph and table use only the filters relevant to this report.
+                  The table uses only the filters relevant to this report.
                 {% endif %}
               </p>
             </div>
@@ -1114,29 +1079,6 @@
                 <span class="applied-report-filter"><b>{{ filter.label }}:</b> {{ filter.value }}</span>
               {% endfor %}
             </div>
-          {% endif %}
-          {% if report_preview.show_chart %}
-            {% if report_preview.chart %}
-              <div class="preview-chart"
-                   role="img"
-                   aria-label="{{ report_preview.title }} chart based on {{ report_preview.total_rows }} matching database rows">
-                {% for item in report_preview.chart %}
-                  <div class="preview-chart-row">
-                    <span>{{ item.label }}</span>
-                    <span class="preview-chart-track">
-                      <i style="width:{{ item.width }}%">
-                      </i>
-                    </span>
-                    <strong>{{ item.value }} {{ report_preview.value_label|lower }}</strong>
-                  </div>
-                {% endfor %}
-              </div>
-            {% else %}
-              <p class="staff-chart-empty">
-                <i class="bi bi-info-circle">
-                </i> No records match the selected filters.
-              </p>
-            {% endif %}
           {% endif %}
           {% if report_preview.rows %}
             <div class="report-horizontal-controls" aria-label="Scroll report columns">
@@ -1162,6 +1104,10 @@
                 </tbody>
               </table>
             </div>
+          {% else %}
+            <p class="staff-chart-empty">
+              <i class="bi bi-info-circle"></i> No records match the selected filters.
+            </p>
           {% endif %}
           {% if report_preview.truncated %}
             <p class="filtered-note">Showing the first 50 rows on screen. Download the report for the complete result.</p>

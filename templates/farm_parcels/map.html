@@ -168,8 +168,9 @@
   .parcel-panel-head button{min-width:34px;min-height:34px;padding:5px}
   .parcel-panel-controls{display:grid;gap:8px;padding:12px;border-bottom:1px solid var(--ag-border,#dce7e0)}
   .parcel-panel-controls input,.parcel-panel-controls select{width:100%;height:40px}
-  .parcel-panel-back{display:flex;gap:7px;padding:0 12px 10px}
-  .parcel-panel-back button{width:100%}
+  .parcel-panel-filter-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:8px}
+  .parcel-panel-back{display:flex;min-width:0}
+  .parcel-panel-back button{width:auto;min-height:40px;padding-inline:12px;white-space:nowrap}
   .parcel-panel-list{min-height:0;flex:1 1 auto;overflow:auto;padding:8px}
   .parcel-panel-item{display:grid;gap:5px;padding:10px;border-bottom:1px solid var(--ag-border,#e6ece8)}
   .parcel-panel-item.is-selected{border-left:3px solid #087a3d;background:#f1faf5}
@@ -539,6 +540,8 @@
       .unmapped-list{
           grid-template-columns:1fr
       }
+      .parcel-panel-filter-row{grid-template-columns:1fr}
+      .parcel-panel-back button{width:100%}
       #farmerMap{
           min-height:360px;
           height:58vh
@@ -658,11 +661,13 @@
           </div>
           <div class="parcel-panel-controls">
             <input id="parcelPanelSearch" type="search" placeholder="Farmer name, parcel, or farmer number" aria-label="Search pinned parcels in selected barangay">
-            <select id="parcelPanelStatus" aria-label="Filter parcel pin status">
-              <option value="">All parcels</option><option value="PINNED">Pinned</option><option value="UNPINNED">Unpinned</option>
-            </select>
+            <div class="parcel-panel-filter-row">
+              <select id="parcelPanelStatus" aria-label="Filter parcel pin status">
+                <option value="">All parcels</option><option value="PINNED">Pinned</option><option value="UNPINNED">Unpinned</option>
+              </select>
+              <div class="parcel-panel-back"><button class="btn btn-outline-success" id="backToBarangay" type="button" hidden><i class="bi bi-arrow-left"></i> Back to clusters</button></div>
+            </div>
           </div>
-          <div class="parcel-panel-back"><button class="btn btn-outline-success" id="backToBarangay" type="button" hidden><i class="bi bi-arrow-left"></i> Back to barangay clusters</button></div>
           <div class="parcel-panel-list" id="parcelPanelList" aria-live="polite"></div>
           <div class="parcel-panel-pagination">
             <button class="btn btn-outline-success" id="parcelPagePrevious" type="button">Previous</button>
