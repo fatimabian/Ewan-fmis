@@ -388,8 +388,8 @@ html body .app-shell table :is(th,td):not(#fmis-table-specificity){
     max-width:none!important;
     overflow:visible!important;
     text-overflow:clip!important;
-    white-space:normal!important;
-    overflow-wrap:break-word!important;
+    white-space:nowrap!important;
+    overflow-wrap:normal!important;
     word-break:normal!important;
     vertical-align:middle
 }
@@ -400,8 +400,8 @@ html body .app-shell table td:not(:last-child)>
     max-width:none!important;
     overflow:visible!important;
     text-overflow:clip!important;
-    white-space:normal!important;
-    overflow-wrap:break-word!important;
+    white-space:nowrap!important;
+    overflow-wrap:normal!important;
     word-break:normal!important
 }
 

@@ -11,7 +11,7 @@
     </title>
     <link rel="icon" type="image/webp" href="{% static 'images/brand/fmis-logo-display.webp' %}">
     <link rel="preload" href="{% static 'vendor/bootstrap-icons/fonts/bootstrap-icons.woff2' %}" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="{% static 'css/fmis-core.min.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'css/fmis-core.min.css' %}?v=4">
     {% block extra_css %}{% endblock %}
     <style>
     :root{
@@ -327,7 +327,7 @@
     </script>
     <div class="app-shell">
       <aside class="sidebar {% if not request.user.is_admin %}staff-sidebar{% endif %}">
-        <a class="brand" href="{% url 'dashboard:home' %}" aria-label="FMIS Dashboard">
+        <a class="brand" href="{% if user.is_admin %}{% url 'dashboard:admin_home' %}{% else %}{% url 'dashboard:staff_home' %}{% endif %}" aria-label="FMIS Dashboard">
           <span class="brand-logo-shell">{% include "shared/brand_logo.html" with logo_class="brand-logo" %}</span>
           <span class="brand-copy">
             <strong>FMIS</strong>
@@ -335,7 +335,7 @@
           </span>
         </a>
         <nav>
-          <a href="{% url 'dashboard:home' %}">
+          <a href="{% if user.is_admin %}{% url 'dashboard:admin_home' %}{% else %}{% url 'dashboard:staff_home' %}{% endif %}">
             <i class="bi bi-house-door">
             </i>
             <span>Home</span>

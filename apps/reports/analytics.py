@@ -1,5 +1,7 @@
 from collections import defaultdict
 
+from django.conf import settings
+from django.core.cache import cache
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
@@ -11,6 +13,9 @@ from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
 from .export import _filter_period, build_report, build_system_report
+
+
+REPORT_METRICS_CACHE_KEY = "fmis:reports:metrics:all:v1"
 
 
 def _apply_report_filters(queryset, model_name, date_range, filters):
@@ -174,7 +179,7 @@ def report_preview(report_type, date_range, filters, system_report=False):
     }
 
 
-def report_metrics(date_range="all", filters=None):
+def _build_report_metrics(date_range="all", filters=None):
     filters = filters or {}
     farmers = _apply_report_filters(
         Farmer.objects.filter(is_active=True), "farmer", date_range, filters
@@ -351,9 +356,11 @@ def report_metrics(date_range="all", filters=None):
         "intervention_total": intervention_totals["total"],
         "intervention_farmers": intervention_totals["farmers"] or 0,
         "intervention_summary": intervention_summary,
-        "activity_summary": ActivityLog.objects.values("module")
-        .annotate(total=Count("id"))
-        .order_by("-total")[:5],
+        "activity_summary": list(
+            ActivityLog.objects.values("module")
+            .annotate(total=Count("id"))
+            .order_by("-total")[:5]
+        ),
         "farmer_statistics": farmer_statistics,
         "total_accounts": account_totals["total"],
         "active_accounts": account_totals["active"],
@@ -364,3 +371,24 @@ def report_metrics(date_range="all", filters=None):
         "total_activities": activity_totals["total"],
         "failed_activities": activity_totals["failed"],
     }
+
+
+def report_metrics(date_range="all", filters=None):
+    """Return report-dashboard metrics, caching only the unfiltered baseline.
+
+    Filtered reports must always reflect their exact criteria. The initial
+    Reports screen, however, performs the same aggregate queries for every
+    visitor, so its short-lived result can safely be reused until a relevant
+    model signal invalidates it.
+    """
+    filters = filters or {}
+    is_baseline = date_range == "all" and not any(filters.values())
+    timeout = settings.DASHBOARD_CACHE_SECONDS
+    if not is_baseline or timeout <= 0:
+        return _build_report_metrics(date_range, filters)
+    cached = cache.get(REPORT_METRICS_CACHE_KEY)
+    if cached is not None:
+        return cached
+    result = _build_report_metrics(date_range, filters)
+    cache.set(REPORT_METRICS_CACHE_KEY, result, timeout)
+    return result

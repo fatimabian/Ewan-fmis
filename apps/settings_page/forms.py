@@ -73,3 +73,20 @@ class ProfileForm(InlineValidationMixin, forms.Form):
 
 class SettingsPasswordChangeForm(InlineValidationMixin, PasswordChangeForm):
     """Server-rendered password validation with the shared inline treatment."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        placeholders = {
+            "old_password": "Current password",
+            "new_password1": "New password",
+            "new_password2": "Re-type new password",
+        }
+        for name, placeholder in placeholders.items():
+            self.fields[name].widget.attrs.update(
+                {
+                    "placeholder": placeholder,
+                    "autocomplete": (
+                        "current-password" if name == "old_password" else "new-password"
+                    ),
+                }
+            )

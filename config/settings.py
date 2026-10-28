@@ -147,7 +147,7 @@ PUBLIC_PAGE_CACHE_SECONDS = max(
 )
 DASHBOARD_CACHE_SECONDS = max(
     0,
-    int(os.getenv("DASHBOARD_CACHE_SECONDS", "30" if not DEBUG else "0")),
+    int(os.getenv("DASHBOARD_CACHE_SECONDS", "300" if not DEBUG else "0")),
 )
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "FMIS <noreply@fmis.local>")
 STATIC_ROOT = BASE_DIR / "staticfiles"

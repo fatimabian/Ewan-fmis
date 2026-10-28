@@ -21,13 +21,13 @@ from .export import (
     DATE_RANGES,
     REPORT_TEMPLATES,
     SYSTEM_REPORT_TEMPLATES,
-    build_report,
-    build_system_report,
+    date_range_label,
     farmers_csv,
     generate_report,
     generate_system_report,
     generate_table_export,
     normalize_report_filters,
+    resolve_date_range,
 )
 
 
@@ -50,7 +50,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
 
     @staticmethod
     def _active_filters(report_type, date_range, filters):
-        active = [{"label": "Period", "value": DATE_RANGES[date_range]}]
+        active = [{"label": "Period", "value": date_range_label(date_range)}]
         for key, label in (
             ("year", "Year"),
             ("barangay", "Barangay"),
@@ -58,7 +58,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
         ):
             if filters.get(key):
                 active.append({"label": label, "value": filters[key]})
-        if report_type in {"service_status", "service_effectiveness"} and filters.get("status"):
+        if report_type == "service_effectiveness" and filters.get("status"):
             active.append(
                 {
                     "label": "Status",
@@ -85,13 +85,16 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
         source = kwargs.pop("form_data", self.request.GET)
         selected_report_type = source.get("report_type", "")
         filters = self._filters(source, selected_report_type)
-        date_range = source.get("date_range", "all")
-        if date_range not in DATE_RANGES:
-            date_range = "all"
+        date_range_choice = source.get("date_range", "all")
+        if date_range_choice not in DATE_RANGES:
+            date_range_choice = "all"
+        date_from = source.get("date_from", "")
+        date_to = source.get("date_to", "")
         system_report = self.request.user.is_admin
         preview = None
         report_error = ""
         try:
+            date_range = resolve_date_range(date_range_choice, date_from, date_to)
             if selected_report_type:
                 preview = report_preview(
                     selected_report_type,
@@ -99,11 +102,6 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
                     filters,
                     system_report=system_report,
                 )
-            else:
-                if system_report:
-                    build_system_report("system_overview", date_range, filters)
-                else:
-                    build_report("farmer_master", date_range, filters)
         except ValueError as error:
             report_error = str(error)
             filters = {
@@ -146,7 +144,9 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
                 "first_name", "last_name", "username"
             ),
             "selected_report_type": selected_report_type,
-            "selected_date_range": date_range,
+            "selected_date_range": date_range_choice,
+            "selected_date_from": date_from,
+            "selected_date_to": date_to,
             "selected_filters": filters,
             "active_report_filters": self._active_filters(
                 selected_report_type, date_range, filters
@@ -160,10 +160,15 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         try:
             generator = generate_system_report if request.user.is_admin else generate_report
+            date_range = resolve_date_range(
+                request.POST.get("date_range", ""),
+                request.POST.get("date_from", ""),
+                request.POST.get("date_to", ""),
+            )
             response = generator(
                 request.POST.get("report_type", ""),
                 request.POST.get("format", ""),
-                request.POST.get("date_range", ""),
+                date_range,
                 {
                     "year": request.POST.get("year", ""),
                     "barangay": request.POST.get("barangay", ""),

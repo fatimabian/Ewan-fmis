@@ -14,6 +14,9 @@ from apps.settings_page.models import BackupRun
 from .services import ADMIN_DASHBOARD_CACHE_KEY, STAFF_DASHBOARD_CACHE_KEY
 
 
+REPORT_METRICS_CACHE_KEY = "fmis:reports:metrics:all:v1"
+
+
 @receiver(
     (post_save, post_delete),
     sender=ActivityLog,
@@ -31,10 +34,12 @@ from .services import ADMIN_DASHBOARD_CACHE_KEY, STAFF_DASHBOARD_CACHE_KEY
 )
 def clear_admin_dashboard_cache(**kwargs):
     cache.delete(ADMIN_DASHBOARD_CACHE_KEY)
+    cache.delete(REPORT_METRICS_CACHE_KEY)
 
 
 def _clear_staff_cache(**kwargs):
     cache.delete(STAFF_DASHBOARD_CACHE_KEY)
+    cache.delete(REPORT_METRICS_CACHE_KEY)
 
 
 for model in (

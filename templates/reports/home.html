@@ -42,8 +42,9 @@
       border-bottom:1px solid #eef2f5
   }
   #filteredReport{
-      align-self:start;
-      min-height:0
+      align-self:stretch;
+      min-height:0;
+      height:100%
   }
   #filteredReport .report-table-wrap{
       height:auto!important;
@@ -456,9 +457,10 @@
   /* Client-requested DRRMIS-style vertical filters, limited to Rosario fields. */
   .report-top{
       grid-template-columns:minmax(280px,.42fr) 1fr;
-      align-items:start
+      align-items:stretch
   }
   .report-filter-card{
+      height:100%;
       border-top:4px solid var(--fmis-accent)!important;
       background:linear-gradient(180deg,#fff 0%,#f8fbf9 100%)!important
   }
@@ -582,6 +584,11 @@
   .report-preview-empty p{
       max-width:340px;
       color:#61718a
+  }
+  .report-top:has(.report-preview-empty){align-items:stretch}
+  .report-top .report-preview-empty{
+      min-height:0!important;
+      height:100%
   }
   .report-preview-empty{
       display:flex;
@@ -714,17 +721,6 @@
       font-size:11px;
       font-weight:700
   }
-  .report-scroll-button{
-      width:34px;
-      height:32px;
-      display:grid;
-      place-items:center;
-      border:1px solid #a9bbb1;
-      border-radius:6px;
-      background:#fff;
-      color:#153d29;
-      cursor:pointer
-  }
   .farmer-master-preview{min-width:1180px}
   .report-preview-table{
       width:100%;
@@ -833,6 +829,28 @@
       width:100%;
       max-width:220px;
       justify-self:start
+  }
+  .custom-date-fields{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px
+  }
+  .custom-date-fields[hidden]{display:none}
+  .custom-date-fields label{
+      display:grid;
+      gap:4px;
+      color:#526176;
+      font-size:11px;
+      font-weight:700
+  }
+  .custom-date-fields input,
+  .report-filter-row input[type="date"]{
+      width:100%;
+      min-width:0;
+      border:1px solid #cbd9d1;
+      background:#fff;
+      color:#172033;
+      padding:11px 12px
   }
   .admin-report-buttons{
       justify-self:end
@@ -962,11 +980,15 @@
                 {% csrf_token %}
                 <input type="hidden" name="report_type" value="{{ template.key }}">
                 <div class="admin-report-fields">
-                  <select name="date_range" aria-label="Report period">
+                  <select name="date_range" aria-label="Report period" data-date-range>
                     {% for value,label in date_ranges.items %}
                       <option value="{{ value }}"{% if template.key == 'staff_accomplishment' and value == 'month' %} selected{% elif template.key != 'staff_accomplishment' and value == 'all' %} selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                   </select>
+                  <div class="custom-date-fields" data-custom-date-fields hidden>
+                    <label>From <input type="date" name="date_from" disabled></label>
+                    <label>To <input type="date" name="date_to" disabled></label>
+                  </div>
                   {% if template.key == 'staff_accomplishment' %}
                     <select name="staff" aria-label="Staff member">
                       <option value="">All staff</option>
@@ -1043,11 +1065,19 @@
           {% endif %}
           <div class="report-filter-row"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
             <label>Period</label>
-            <select name="date_range" required>
+            <select name="date_range" required data-date-range>
               {% for value,label in date_ranges.items %}
                 <option value="{{ value }}" {% if selected_date_range == value %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
+          </div>
+          <div class="report-filter-row" data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
+            <label>From date</label>
+            <input type="date" name="date_from" value="{{ selected_date_from }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
+          </div>
+          <div class="report-filter-row" data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
+            <label>To date</label>
+            <input type="date" name="date_to" value="{{ selected_date_to }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
           </div>
           {% if request.user.is_admin %}
             <div class="report-filter-row">
@@ -1078,7 +1108,7 @@
               </select>
             </div>
           {% else %}
-            <div class="report-filter-row" data-filter-row="status"{% if selected_report_type != 'service_status' and selected_report_type != 'service_effectiveness' %} hidden{% endif %}>
+            <div class="report-filter-row" data-filter-row="status"{% if selected_report_type != 'service_effectiveness' %} hidden{% endif %}>
               <label>Status</label>
               <select name="status">
                 <option value="">All request statuses</option>
@@ -1171,8 +1201,6 @@
           {% if report_preview.rows %}
             <div class="report-horizontal-controls" aria-label="Scroll report columns">
               <span><i class="bi bi-arrows"></i> Scroll to view all columns</span>
-              <button class="report-scroll-button" type="button" data-report-scroll="-1" aria-label="Scroll report left"><i class="bi bi-chevron-left"></i></button>
-              <button class="report-scroll-button" type="button" data-report-scroll="1" aria-label="Scroll report right"><i class="bi bi-chevron-right"></i></button>
             </div>
             <div class="report-table-wrap{% if report_preview.is_farmer_master %} farmer-master-table-wrap{% endif %}">
               <table class="report-preview-table{% if report_preview.is_farmer_master %} farmer-master-preview{% endif %}">
@@ -1393,8 +1421,9 @@
           function updateRelevantFilters() {
               const selected = type.value;
               const hasSelection = Boolean(selected);
-              const isService = selected === 'service_status' || selected === 'service_effectiveness';
+              const isServiceEffectiveness = selected === 'service_effectiveness';
               const isIntervention = ['intervention_summary', 'intervention_registry'].includes(selected);
+              const customDate = form.querySelector('[name="date_range"]')?.value === 'custom';
               const supportsCommodity = [
                   'farmer_master',
                   'farm_area_by_barangay',
@@ -1405,19 +1434,29 @@
               const rules = {
                   common: hasSelection,
                   commodity: supportsCommodity,
-                  status: isService,
+                  status: isServiceEffectiveness,
+                  'custom-date': hasSelection && customDate,
                   intervention: isIntervention
               };
               Object.entries(rules).forEach(([name, visible]) => {
                   form.querySelectorAll(`[data-filter-row="${name}"]`).forEach(row => {
                       row.hidden = !visible;
-                      row.querySelectorAll('select,input,button').forEach(field => field.disabled = !visible)
+                      row.querySelectorAll('select,input,button').forEach(field => {
+                          field.disabled = !visible;
+                          if (field.type === 'date') field.required = visible
+                      })
                   })
               });
           }
 
           async function refreshPreview() {
               if (!type.value) return;
+              const period = form.querySelector('[name="date_range"]');
+              if (period?.value === 'custom') {
+                  const from = form.querySelector('[name="date_from"]')?.value;
+                  const to = form.querySelector('[name="date_to"]')?.value;
+                  if (!from || !to) return
+              }
               const params = new URLSearchParams(new FormData(form));
               params.delete('csrfmiddlewaretoken');
               params.delete('format');
@@ -1449,23 +1488,29 @@
               }
           }
 
-          form.addEventListener('change', event => {
-              const el = event.target;
-              if (el.tagName !== 'SELECT' || el.name === 'format') return;
-              if (el === type) updateRelevantFilters();
-              refreshPreview();
-          });
-
-          document.addEventListener('click', event => {
-              const button = event.target.closest('[data-report-scroll]');
-              if (!button) return;
-              const controls = button.closest('.report-horizontal-controls');
-              const tableWrap = controls?.nextElementSibling;
-              if (!tableWrap?.classList.contains('report-table-wrap')) return;
-              tableWrap.scrollBy({
-                  left: Number(button.dataset.reportScroll) * Math.max(320, tableWrap.clientWidth * .75),
-                  behavior: 'smooth'
+          if (form && type) {
+              form.addEventListener('change', event => {
+                  const el = event.target;
+                  if (!['SELECT', 'INPUT'].includes(el.tagName) || el.name === 'format') return;
+                  if (el === type || el.name === 'date_range') updateRelevantFilters();
+                  refreshPreview();
               })
+          }
+
+          document.querySelectorAll('[data-download-form]').forEach(downloadForm => {
+              const period = downloadForm.querySelector('[data-date-range]');
+              const customFields = downloadForm.querySelector('[data-custom-date-fields]');
+              if (!period || !customFields) return;
+              const syncCustomDates = () => {
+                  const visible = period.value === 'custom';
+                  customFields.hidden = !visible;
+                  customFields.querySelectorAll('input').forEach(input => {
+                      input.disabled = !visible;
+                      input.required = visible
+                  })
+              };
+              period.addEventListener('change', syncCustomDates);
+              syncCustomDates()
           });
 
           async function downloadReport(event) {
@@ -1531,7 +1576,7 @@
           document.querySelectorAll('#reportGenerator,[data-download-form]').forEach(downloadForm => {
               downloadForm.addEventListener('submit', downloadReport)
           });
-          updateRelevantFilters();
+          if (form && type) updateRelevantFilters();
       })();
   </script>
 {% endblock %}

@@ -49,6 +49,18 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        context.setdefault(
+            "password_form",
+            SettingsPasswordChangeForm(user=self.request.user),
+        )
+        context.setdefault(
+            "profile_modal_open",
+            self.request.GET.get("modal") == "contact",
+        )
+        context.setdefault(
+            "password_modal_open",
+            self.request.GET.get("modal") == "password",
+        )
         if self.request.user.is_admin:
             last_backup = BackupRun.objects.first()
             context.update(
@@ -65,6 +77,30 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
                 }
             )
         return context
+
+    def post(self, request, *args, **kwargs):
+        if request.POST.get("settings_action") == "password":
+            password_form = SettingsPasswordChangeForm(
+                user=request.user,
+                data=request.POST,
+            )
+            if password_form.is_valid():
+                user = password_form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, "Password changed successfully.")
+                return redirect("settings_page:home")
+            profile_form = self.form_class(
+                user=request.user,
+                initial=self.get_initial(),
+            )
+            return self.render_to_response(
+                self.get_context_data(
+                    form=profile_form,
+                    password_form=password_form,
+                    password_modal_open=True,
+                )
+            )
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
         user_fields = ["first_name", "last_name", "email", "phone_number"]
@@ -93,8 +129,17 @@ class SettingsView(FMISLoginRequiredMixin, FormView):
             system_setting = SystemSetting.load()
             system_setting.automated_backups = form.cleaned_data["automated_backups"]
             system_setting.save(update_fields=("automated_backups", "updated_at"))
-        messages.success(self.request, "Settings saved successfully.")
+        action = self.request.POST.get("settings_action")
+        if action == "profile":
+            messages.success(self.request, "Contact information updated successfully.")
+        elif action != "preferences":
+            messages.success(self.request, "Settings saved successfully.")
         return redirect("settings_page:home")
+
+    def form_invalid(self, form):
+        return self.render_to_response(
+            self.get_context_data(form=form, profile_modal_open=True)
+        )
 
 
 class ChangePasswordView(FMISLoginRequiredMixin, FormView):

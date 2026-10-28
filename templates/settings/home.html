@@ -82,8 +82,8 @@
       text-align:center
   }
   .profile-avatar{
-      width:96px;
-      height:96px;
+      width:72px;
+      height:72px;
       border-radius:50%;
       display:grid;
       place-items:center;
@@ -100,13 +100,11 @@
   }
   .profile-details-card{
       width:100%;
+      height:100%;
       padding-bottom:14px
   }
   .profile-details-card .profile-summary{
-      margin-top:12px!important
-  }
-  .profile-details-card hr{
-      margin:12px 0 4px
+      margin-top:10px!important
   }
   .profile-photo-controls{
       display:flex;
@@ -158,6 +156,154 @@
       grid-template-columns:repeat(2,1fr);
       gap:0 30px
   }
+  #profile .settings-grid-reference{
+      align-items:stretch
+  }
+  #profile .settings-grid-reference>div{
+      display:contents
+  }
+  #profile .appearance-settings-card{
+      grid-column:1/-1;
+      order:1
+  }
+  #profile .profile-details-card{
+      order:2
+  }
+  #profile .notification-settings-card{
+      height:100%;
+      order:3
+  }
+  .profile-edit-button{
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      margin-left:auto;
+      border:1px solid #9fc9b1;
+      border-radius:8px;
+      background:#fff;
+      color:#087346;
+      cursor:pointer
+  }
+  .account-settings-list{
+      display:grid;
+      margin-top:10px;
+      border:1px solid #dce6e0;
+      border-radius:10px;
+      overflow:hidden
+  }
+  .account-settings-row{
+      min-height:54px;
+      display:flex;
+      align-items:center;
+      gap:11px;
+      width:100%;
+      padding:10px 13px;
+      border:0;
+      border-bottom:1px solid #dce6e0;
+      background:#fff;
+      color:#17251d;
+      text-align:left;
+      cursor:pointer
+  }
+  .account-settings-row:last-child{border-bottom:0}
+  .account-settings-row>i:first-child{color:#087346;font-size:16px}
+  .account-settings-row>span{min-width:0;display:grid;gap:1px}
+  .account-settings-row strong{font-size:13px}
+  .account-settings-row small{
+      overflow:hidden;
+      color:#68776f;
+      font-size:10px;
+      text-overflow:ellipsis;
+      white-space:nowrap
+  }
+  .account-settings-row>i:last-child{margin-left:auto;color:#76847c}
+  .settings-modal{
+      position:fixed;
+      inset:0;
+      z-index:1200;
+      display:grid;
+      place-items:center;
+      padding:20px
+  }
+  .settings-modal[hidden]{display:none!important}
+  .settings-modal-backdrop{
+      position:absolute;
+      inset:0;
+      border:0;
+      background:rgba(10,24,17,.58);
+      cursor:default
+  }
+  .settings-modal-dialog{
+      position:relative;
+      z-index:1;
+      width:min(680px,100%);
+      max-height:calc(100vh - 40px);
+      overflow:auto;
+      border:1px solid #cfddd5;
+      border-radius:14px;
+      background:#fff;
+      box-shadow:0 24px 70px rgba(11,32,21,.28)
+  }
+  .settings-modal-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:17px 20px;
+      border-bottom:1px solid #dde7e1
+  }
+  .settings-modal-header h3{margin:0;color:#17251d;font-size:18px}
+  .settings-modal-close{
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      border:0;
+      border-radius:50%;
+      background:#eef5f1;
+      color:#264638;
+      cursor:pointer
+  }
+  .settings-modal-body{padding:20px}
+  .settings-modal-photo{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:15px;
+      margin-bottom:8px;
+      padding:12px 14px;
+      border:1px solid #dce7e0;
+      border-radius:10px;
+      background:#f7faf8
+  }
+  .settings-modal-photo>span{display:grid;gap:2px}
+  .settings-modal-photo small{color:#68776f;font-size:10px}
+  .settings-modal-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      padding:14px 20px;
+      border-top:1px solid #dde7e1;
+      background:#fafcfb
+  }
+  .settings-modal-actions .btn{margin:0;min-width:110px}
+  .password-fields{display:grid;gap:14px}
+  .password-field{display:grid;gap:6px}
+  .password-field label{font-size:12px;font-weight:800}
+  .password-field input{
+      width:100%;
+      min-height:54px;
+      padding:13px 15px;
+      border:1px solid #cfd9d3;
+      border-radius:12px;
+      background:#fff;
+      color:#17251d;
+      font:inherit
+  }
+  .password-field .helptext{color:#68776f;font-size:10px;line-height:1.45}
+  .password-recovery-link{display:inline-block;margin-top:13px;color:#0875d1;font-weight:700}
+  body.settings-modal-open{overflow:hidden}
   .settings-form-fields label,.system-form label{
       display:grid;
       gap:7px;
@@ -324,6 +470,7 @@
       .settings-form-fields{
           grid-template-columns:1fr
       }
+      #profile .appearance-settings-card{grid-column:auto}
   }
   @media(max-width:560px){
       .settings-tabs{
@@ -465,10 +612,20 @@
   body[data-theme="dark"] .settings-card h3{
       color:#f1f5f2
   }
+  body[data-theme="dark"] :is(.account-settings-row,.settings-modal-dialog,.password-field input){
+      border-color:#454f49;
+      background:#1f2421;
+      color:#f1f5f2
+  }
+  body[data-theme="dark"] :is(.account-settings-list,.settings-modal-header,.settings-modal-actions,.settings-modal-photo){border-color:#454f49}
+  body[data-theme="dark"] .settings-modal-actions,
+  body[data-theme="dark"] .settings-modal-photo{background:#252b27}
+  body[data-theme="dark"] .settings-modal-header h3{color:#f1f5f2}
   </style>
   <div class="content settings-page{% if not request.user.is_admin %} staff-profile-only{% endif %}">
     <form method="post" enctype="multipart/form-data" novalidate>
       {% csrf_token %}
+      <input type="hidden" name="settings_action" value="preferences" data-settings-action>
       {% if form.non_field_errors %}
         <div class="form-validation-alert" data-inline-validation>{{ form.non_field_errors }}</div>
       {% endif %}
@@ -491,6 +648,9 @@
               <h3>
                 <i class="bi bi-person">
                 </i> Profile Details
+                <button class="profile-edit-button" type="button" data-settings-modal-open="contact" aria-label="Edit contact information">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
               </h3>
               <div class="profile-summary">
                 <div class="profile-photo-stage">
@@ -501,33 +661,28 @@
                       <span>{{ request.user.display_name|slice:':1' }}</span>
                     {% endif %}
                   </div>
-                  <div class="profile-photo-controls">
-                    <label class="btn btn-outline-success" for="{{ form.profile_photo.id_for_label }}">Change photo</label>
-                    {{ form.profile_photo }}
-                    {% if user_preference.profile_photo %}
-                      <label class="btn btn-outline-secondary" for="{{ form.remove_profile_photo.id_for_label }}">Remove photo</label>
-                      {{ form.remove_profile_photo }}
-                    {% endif %}
-                  </div>
-                  {{ form.profile_photo.errors }}
                 </div>
                 <div class="profile-summary-copy">
                   <strong>{{ request.user.display_name }}</strong>
                   <p class="mb-1 text-muted">{{ request.user.get_role_display }}</p>
-                  <small>{{ request.user.email|default:'No email address added' }}</small>
                 </div>
               </div>
-              <hr>
-              <div class="settings-form-fields">
-                <label>First Name{{ form.first_name }}{{ form.first_name.errors }}</label>
-                <label>Last Name{{ form.last_name }}{{ form.last_name.errors }}</label>
-                <label>Email Address{{ form.email }}{{ form.email.errors }}</label>
-                <label>Phone Number{{ form.phone_number }}{{ form.phone_number.errors }}</label>
+              <div class="account-settings-list">
+                <button class="account-settings-row" type="button" data-settings-modal-open="contact">
+                  <i class="bi bi-pencil-square"></i>
+                  <span><strong>Contact info</strong><small>{{ request.user.email|default:'Add an email address' }}{% if request.user.phone_number %} · {{ request.user.phone_number }}{% endif %}</small></span>
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+                <button class="account-settings-row" type="button" data-settings-modal-open="password">
+                  <i class="bi bi-shield-lock"></i>
+                  <span><strong>Change password</strong><small>Update the password used to access FMIS</small></span>
+                  <i class="bi bi-chevron-right"></i>
+                </button>
               </div>
             </article>
           </div>
           <div>
-            <article class="settings-card">
+            <article class="settings-card appearance-settings-card">
               <h3>
                 <i class="bi bi-palette">
                 </i> Global Appearance
@@ -552,7 +707,7 @@
               </div>
               <input type="hidden" name="primary_color" value="#2f7d5c">
             </article>
-            <article class="settings-card">
+            <article class="settings-card notification-settings-card">
               <h3>
                 <i class="bi bi-bell">
                 </i> Notifications
@@ -565,14 +720,6 @@
                   </span>{{ form.in_app_notifications }}
                 </label>
               </div>
-            </article>
-            <article class="settings-card">
-              <h3>
-                <i class="bi bi-shield-lock">
-                </i> Security &amp; Accounts
-              </h3>
-              <p class="text-muted">Protect your account with a strong, unique password and secure first-time email activation.</p>
-              <a class="btn btn-outline-success" href="{% url 'settings_page:change_password' %}">Change Password</a>
             </article>
           </div>
         </div>
@@ -652,11 +799,70 @@
           </div>
         </section>
       {% endif %}
-      <div class="settings-save" data-profile-actions>
-        <a class="btn btn-outline-secondary btn-cancel" href="{% url 'dashboard:home' %}">Cancel</a>
-        <button class="btn btn-success" type="submit">Save Changes</button>
+      <div class="settings-modal" data-settings-modal="contact" {% if not profile_modal_open %}hidden{% endif %} aria-hidden="{% if profile_modal_open %}false{% else %}true{% endif %}">
+        <button class="settings-modal-backdrop" type="button" data-settings-modal-close aria-label="Close contact information dialog"></button>
+        <section class="settings-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle">
+          <header class="settings-modal-header">
+            <h3 id="contactModalTitle">Edit contact information</h3>
+            <button class="settings-modal-close" type="button" data-settings-modal-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+          </header>
+          <div class="settings-modal-body">
+            <div class="settings-modal-photo">
+              <span><strong>Profile photo</strong><small>PNG, JPEG, or WebP</small></span>
+              <div class="profile-photo-controls">
+                <label class="btn btn-outline-success" for="{{ form.profile_photo.id_for_label }}">Change photo</label>
+                {{ form.profile_photo }}
+                {% if user_preference.profile_photo %}
+                  <label class="btn btn-outline-secondary" for="{{ form.remove_profile_photo.id_for_label }}">Remove photo</label>
+                  {{ form.remove_profile_photo }}
+                {% endif %}
+              </div>
+            </div>
+            {{ form.profile_photo.errors }}
+            <div class="settings-form-fields">
+              <label>First Name{{ form.first_name }}{{ form.first_name.errors }}</label>
+              <label>Last Name{{ form.last_name }}{{ form.last_name.errors }}</label>
+              <label>Email Address{{ form.email }}{{ form.email.errors }}</label>
+              <label>Phone Number{{ form.phone_number }}{{ form.phone_number.errors }}</label>
+            </div>
+          </div>
+          <footer class="settings-modal-actions">
+            <button class="btn btn-outline-secondary btn-cancel" type="button" data-settings-modal-close>Cancel</button>
+            <button class="btn btn-success" type="submit" data-profile-save>Save</button>
+          </footer>
+        </section>
       </div>
     </form>
+
+    <div class="settings-modal" data-settings-modal="password" {% if not password_modal_open %}hidden{% endif %} aria-hidden="{% if password_modal_open %}false{% else %}true{% endif %}">
+      <button class="settings-modal-backdrop" type="button" data-settings-modal-close aria-label="Close password dialog"></button>
+      <form class="settings-modal-dialog" method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="settings_action" value="password">
+        <header class="settings-modal-header">
+          <h3 id="passwordModalTitle">Change password</h3>
+          <button class="settings-modal-close" type="button" data-settings-modal-close aria-label="Close"><i class="bi bi-x-lg"></i></button>
+        </header>
+        <div class="settings-modal-body">
+          {% if password_form.non_field_errors %}<div class="form-validation-alert">{{ password_form.non_field_errors }}</div>{% endif %}
+          <div class="password-fields">
+            {% for field in password_form %}
+              <div class="password-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {{ field.errors }}
+                {% if field.help_text %}<span class="helptext">{{ field.help_text|safe }}</span>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+          <a class="password-recovery-link" href="{% url 'authentication:password_reset' %}">Forgot your password?</a>
+        </div>
+        <footer class="settings-modal-actions">
+          <button class="btn btn-outline-secondary btn-cancel" type="button" data-settings-modal-close>Cancel</button>
+          <button class="btn btn-success" type="submit">Save</button>
+        </footer>
+      </form>
+    </div>
   </div>
   <script>
       (() => {
@@ -666,12 +872,72 @@
           function openTab(id) {
               tabs.forEach(tab => tab.classList.toggle('active', tab.dataset.tab === id));
               panes.forEach(pane => pane.classList.toggle('active', pane.id === id));
-              const actions = document.querySelector('[data-profile-actions]');
-              if (actions) actions.hidden = id !== 'profile'
           }
           tabs.forEach(button => button.addEventListener('click', () => openTab(button.dataset.tab)));
           const errorPane = panes.find(pane => pane.querySelector('.errorlist,.is-invalid'));
           if (errorPane) openTab(errorPane.id)
+      })();
+      (() => {
+          const modals = [...document.querySelectorAll('[data-settings-modal]')];
+
+          function updateModalState() {
+              document.body.classList.toggle(
+                  'settings-modal-open',
+                  modals.some(modal => !modal.hidden)
+              )
+          }
+
+          function setModal(name, open) {
+              const modal = modals.find(item => item.dataset.settingsModal === name);
+              if (!modal) return;
+              modal.hidden = !open;
+              modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+              updateModalState();
+              if (open) {
+                  window.setTimeout(() => modal.querySelector('input:not([type="hidden"]),button')?.focus(), 0)
+              }
+          }
+
+          document.querySelectorAll('[data-settings-modal-open]').forEach(button => {
+              button.addEventListener('click', () => setModal(button.dataset.settingsModalOpen, true))
+          });
+          document.querySelectorAll('[data-settings-modal-close]').forEach(button => {
+              button.addEventListener('click', () => {
+                  const modal = button.closest('[data-settings-modal]');
+                  if (modal) setModal(modal.dataset.settingsModal, false)
+              })
+          });
+          document.addEventListener('keydown', event => {
+              if (event.key !== 'Escape') return;
+              const openModal = modals.find(modal => !modal.hidden);
+              if (openModal) setModal(openModal.dataset.settingsModal, false)
+          });
+          updateModalState()
+      })();
+      (() => {
+          const form = document.querySelector('.settings-page>form');
+          const action = form?.querySelector('[data-settings-action]');
+          if (!form || !action) return;
+
+          form.querySelector('[data-profile-save]')?.addEventListener('click', () => {
+              action.value = 'profile'
+          });
+
+          form.querySelectorAll('input[name="theme"],input[name="in_app_notifications"],input[name="automated_backups"]').forEach(input => {
+              input.addEventListener('change', () => {
+                  action.value = 'preferences';
+                  if (input.name === 'theme') {
+                      const preference = input.value;
+                      const resolved = preference === 'system'
+                          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                          : preference;
+                      document.body.dataset.themePreference = preference;
+                      document.body.dataset.theme = resolved;
+                      document.documentElement.style.colorScheme = resolved
+                  }
+                  form.requestSubmit()
+              })
+          })
       })();
       (() => {
           const input = document.getElementById('{{ form.profile_photo.id_for_label }}');

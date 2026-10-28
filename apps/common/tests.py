@@ -6,7 +6,7 @@ import tempfile
 import time
 from io import BytesIO
 from unittest.mock import Mock, patch
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -22,6 +22,7 @@ from django.http import HttpResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.activity_logs.models import ActivityLog
 from apps.activity_logs.middleware import ActivityLogMiddleware
@@ -57,7 +58,13 @@ from apps.farmers.models import Farmer, FarmerDocument, FarmerUpdateHistory
 from apps.farmers.views import build_farmer_qr_token
 from apps.interventions.forms import InterventionForm
 from apps.interventions.models import Intervention
-from apps.reports.export import build_report, build_system_report
+from apps.reports.export import (
+    _pdf_response,
+    build_report,
+    build_system_report,
+    date_range_label,
+    resolve_date_range,
+)
 from apps.service_catalog.models import ServiceCatalog
 from apps.service_requests.forms import ServiceRequestForm
 from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
@@ -155,7 +162,8 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(landing, 'id="heroCarousel"')
         self.assertNotContains(landing, "data-carousel-next")
         self.assertNotContains(landing, "scope-carousel")
-        self.assertContains(landing, "data-service-next")
+        self.assertNotContains(landing, "data-service-next")
+        self.assertNotContains(landing, "data-service-previous")
         self.assertNotContains(landing, "feature-toggle")
         self.assertContains(landing, "landingProgress")
         self.assertContains(landing, "js/landing.min")
@@ -2162,8 +2170,9 @@ class FMISRequirementTests(TestCase):
         self.assertContains(parcel_form, "Use Update Record for verified parcel and land changes")
         self.assertNotContains(parcel_form, "Crops and Commodities")
         self.assertNotContains(parcel_form, 'name="field_photos"')
+        self.assertNotContains(parcel_form, "gpx_status")
+        self.assertNotContains(parcel_form, "georef_id")
         for field_name in (
-            "gpx_status",
             "rotational_tiller",
             "land_owner_rsbsa_number",
             "ownership_document_other",
@@ -3308,6 +3317,45 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(row[3], self.farmer.barangay)
         self.assertEqual(row[5], request_item.subject)
 
+    def test_service_request_pdf_keeps_status_and_priority_words_whole(self):
+        from pypdf import PdfReader
+
+        response = _pdf_response(
+            "Service Request Status",
+            [
+                "Request ID",
+                "Coverage",
+                "Beneficiary",
+                "Barangay",
+                "Request Type",
+                "Request",
+                "Status",
+                "Priority",
+                "Date Requested",
+                "Assigned Staff",
+            ],
+            [[
+                "SR-0001",
+                "F-0001",
+                "Sample Farmer",
+                "Bagong Pook",
+                "Other Agricultural Concern",
+                "Agricultural service request",
+                "Completed",
+                "Medium",
+                "2026-10-28",
+                "Unassigned",
+            ]],
+            "all",
+        )
+        exported_text = "\n".join(
+            page.extract_text() or "" for page in PdfReader(BytesIO(response.content)).pages
+        )
+        self.assertIn("Completed", exported_text)
+        self.assertIn("Medium", exported_text)
+        self.assertNotIn("Complete\nd", exported_text)
+        self.assertNotIn("Mediu\nm", exported_text)
+
     def test_farmer_master_list_orders_newest_records_first(self):
         Farmer.objects.create(
             first_name="Zena",
@@ -3411,10 +3459,21 @@ class FMISRequirementTests(TestCase):
             },
         )
         self.assertContains(service_report, 'data-filter-row="status"')
-        self.assertNotContains(service_report, 'data-filter-row="status" hidden')
+        self.assertContains(service_report, 'data-filter-row="status" hidden')
         self.assertContains(service_report, 'data-filter-row="intervention" hidden')
         self.assertContains(service_report, 'data-filter-row="commodity" hidden')
         self.assertEqual(service_report.context["selected_filters"]["commodity"], "")
+
+        effectiveness_report = self.client.get(
+            reverse("reports:home"),
+            {"report_type": "service_effectiveness", "date_range": "all"},
+        )
+        self.assertNotContains(
+            effectiveness_report, 'data-filter-row="status" hidden'
+        )
+        self.assertContains(effectiveness_report, "Custom date range")
+        self.assertContains(effectiveness_report, 'name="date_from"')
+        self.assertContains(effectiveness_report, 'name="date_to"')
 
         intervention_report = self.client.get(
             reverse("reports:home"),
@@ -4382,10 +4441,95 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(settings_page, "Profile &amp; Account")
         self.assertContains(settings_page, "Profile Details")
 
+    def test_admin_and_staff_settings_use_profile_and_password_modals(self):
+        for user in (self.staff, self.admin):
+            self.client.force_login(user)
+            response = self.client.get(reverse("settings_page:home"))
+            self.assertContains(response, 'data-settings-modal="contact"')
+            self.assertContains(response, 'data-settings-modal="password"')
+            self.assertContains(response, 'data-settings-modal-open="contact"')
+            self.assertContains(response, 'data-settings-modal-open="password"')
+            self.assertNotContains(response, "Security &amp; Accounts")
+
+    def test_settings_modals_save_profile_and_password_with_confirmation(self):
+        self.client.force_login(self.staff)
+        profile_response = self.client.post(
+            reverse("settings_page:home"),
+            {
+                "settings_action": "profile",
+                "first_name": "Updated",
+                "last_name": "Staff",
+                "email": "updated.staff@example.com",
+                "phone_number": "09181234567",
+                "theme": "light",
+                "primary_color": "#2f7d5c",
+                "in_app_notifications": "on",
+            },
+            follow=True,
+        )
+        self.assertContains(profile_response, "Contact information updated successfully.")
+        self.staff.refresh_from_db()
+        self.assertEqual(self.staff.first_name, "Updated")
+
+        password_response = self.client.post(
+            reverse("settings_page:home"),
+            {
+                "settings_action": "password",
+                "old_password": "StrongPass123!",
+                "new_password1": "NewStrongPass456!",
+                "new_password2": "NewStrongPass456!",
+            },
+            follow=True,
+        )
+        self.assertContains(password_response, "Password changed successfully.")
+        self.staff.refresh_from_db()
+        self.assertTrue(self.staff.check_password("NewStrongPass456!"))
+        self.assertEqual(self.client.get(reverse("settings_page:home")).status_code, 200)
+
     def test_report_query_count_remains_bounded(self):
         with CaptureQueriesContext(connection) as captured:
             build_report("farmer_master", "all", {"commodity": "Rice"})
         self.assertLessEqual(len(captured), 5)
+
+    def test_custom_report_date_range_filters_rows_inclusively(self):
+        old_farmer = Farmer.objects.create(
+            first_name="Older",
+            last_name="Record",
+            barangay="Alupay",
+            consent_given=True,
+        )
+        Farmer.objects.filter(pk=old_farmer.pk).update(
+            created_at=timezone.now() - timedelta(days=30)
+        )
+        today = timezone.localdate().isoformat()
+        date_range = resolve_date_range("custom", today, today)
+
+        _title, _headers, rows = build_report(
+            "farmer_master", date_range, {}, compact=True
+        )
+
+        record_ids = {row[0] for row in rows}
+        self.assertIn(self.farmer.record_id, record_ids)
+        self.assertNotIn(old_farmer.record_id, record_ids)
+        self.assertIn(str(timezone.localdate().year), date_range_label(date_range))
+        with self.assertRaisesMessage(ValueError, "cannot be later"):
+            resolve_date_range("custom", "2026-10-29", "2026-10-28")
+
+    def test_empty_reports_screen_does_not_build_a_full_report(self):
+        self.client.force_login(self.staff)
+        with patch("apps.reports.views.report_preview") as preview:
+            response = self.client.get(reverse("reports:home"))
+
+        self.assertEqual(response.status_code, 200)
+        preview.assert_not_called()
+        self.assertIsNone(response.context["report_preview"])
+
+    def test_navigation_links_directly_to_the_role_dashboard(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("reports:home"))
+
+        self.assertContains(response, f'href="{reverse("dashboard:staff_home")}"')
+        self.assertNotContains(response, f'href="{reverse("dashboard:home")}"')
 
     def test_management_lists_use_bounded_configurable_database_pagination(self):
         Farmer.objects.bulk_create(

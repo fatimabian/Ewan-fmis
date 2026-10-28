@@ -118,6 +118,7 @@ DATE_RANGES = {
     "3": "Last 3 Months",
     "6": "Last 6 Months",
     "12": "Last 12 Months",
+    "custom": "Custom date range",
 }
 FORMATS = {"csv", "pdf"}
 FILTER_LABELS = {
@@ -142,7 +143,60 @@ FILTER_LABELS = {
 }
 
 
+def resolve_date_range(value, date_from="", date_to=""):
+    """Validate a preset/custom selection and return its effective range token."""
+    value = str(value or "").strip()
+    if value != "custom":
+        if value not in DATE_RANGES:
+            raise ValueError("Choose a valid report date range.")
+        return value
+    try:
+        start = datetime.strptime(str(date_from).strip(), "%Y-%m-%d").date()
+        end = datetime.strptime(str(date_to).strip(), "%Y-%m-%d").date()
+    except ValueError as error:
+        raise ValueError("Choose both From and To dates for the custom range.") from error
+    if start > end:
+        raise ValueError("The From date cannot be later than the To date.")
+    return f"custom:{start.isoformat()}:{end.isoformat()}"
+
+
+def _custom_range(value):
+    if not str(value).startswith("custom:"):
+        return None
+    try:
+        _prefix, start, end = str(value).split(":", 2)
+        return (
+            datetime.strptime(start, "%Y-%m-%d").date(),
+            datetime.strptime(end, "%Y-%m-%d").date(),
+        )
+    except (TypeError, ValueError) as error:
+        raise ValueError("Choose a valid custom report date range.") from error
+
+
+def date_range_label(value):
+    custom = _custom_range(value)
+    if custom:
+        start, end = custom
+        return f"{start.strftime('%b %d, %Y')} to {end.strftime('%b %d, %Y')}"
+    if value not in DATE_RANGES:
+        raise ValueError("Choose a valid report date range.")
+    return DATE_RANGES[value]
+
+
+def _valid_date_range(value):
+    try:
+        date_range_label(value)
+    except ValueError:
+        return False
+    return True
+
+
 def _cutoff(months):
+    custom = _custom_range(months)
+    if custom:
+        start, _end = custom
+        now = timezone.localtime(timezone.now())
+        return timezone.make_aware(datetime.combine(start, time.min), now.tzinfo)
     if months == "all":
         return None
     now = timezone.localtime(timezone.now())
@@ -160,6 +214,15 @@ def _cutoff(months):
 
 
 def _filter_period(queryset, field_name, months, date_only=False):
+    custom = _custom_range(months)
+    if custom:
+        start, end = custom
+        if date_only:
+            return queryset.filter(**{f"{field_name}__range": (start, end)})
+        now = timezone.localtime(timezone.now())
+        start_value = timezone.make_aware(datetime.combine(start, time.min), now.tzinfo)
+        end_value = timezone.make_aware(datetime.combine(end, time.max), now.tzinfo)
+        return queryset.filter(**{f"{field_name}__range": (start_value, end_value)})
     cutoff = _cutoff(months)
     if cutoff is None:
         return queryset
@@ -184,7 +247,7 @@ def normalize_report_filters(report_type, filters=None):
     normalized = dict(filters or {})
     if report_type not in COMMODITY_REPORT_KEYS:
         normalized["commodity"] = ""
-    if report_type not in {"service_status", "service_effectiveness"}:
+    if report_type != "service_effectiveness":
         normalized["status"] = ""
     if report_type not in {"intervention_summary", "intervention_registry"}:
         normalized["intervention_type"] = ""
@@ -201,7 +264,7 @@ def _commodity_names(crops, selected=""):
 
 
 def build_report(report_type, date_range, filters=None, compact=False):
-    if report_type not in REPORT_KEYS or date_range not in DATE_RANGES:
+    if report_type not in REPORT_KEYS or not _valid_date_range(date_range):
         raise ValueError("Choose a valid report template and date range.")
     filters = normalize_report_filters(report_type, filters)
     year = str(filters.get("year", "")).strip()
@@ -215,7 +278,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
         raise ValueError("Choose a valid Rosario barangay.")
     if commodity and len(commodity) > 100:
         raise ValueError("Choose a valid commodity.")
-    if report_type in {"service_status", "service_effectiveness"} and status and status not in dict(ServiceRequest.STATUS_CHOICES):
+    if report_type == "service_effectiveness" and status and status not in dict(ServiceRequest.STATUS_CHOICES):
         raise ValueError("Choose a valid request status.")
     if (
         report_type in {"intervention_summary", "intervention_registry"}
@@ -579,6 +642,9 @@ def build_report(report_type, date_range, filters=None, compact=False):
         request_queryset = ServiceRequest.objects.filter(
             Q(farmer__is_active=True) | Q(scope="BARANGAY")
         )
+        request_queryset = _filter_period(
+            request_queryset, "created_at", date_range
+        )
         if year:
             request_queryset = request_queryset.filter(created_at__year=int(year))
         if barangay:
@@ -660,7 +726,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
 
 
 def build_system_report(report_type, date_range, filters=None):
-    if report_type not in SYSTEM_REPORT_KEYS or date_range not in DATE_RANGES:
+    if report_type not in SYSTEM_REPORT_KEYS or not _valid_date_range(date_range):
         raise ValueError("Choose a valid system report and date range.")
 
     filters = filters or {}
@@ -894,7 +960,7 @@ def _csv_response(title, headers, rows, date_range, filters=None):
     response.write("\ufeff")
     writer = csv.writer(response)
     writer.writerow([title])
-    writer.writerow(["Date Range", DATE_RANGES[date_range]])
+    writer.writerow(["Date Range", date_range_label(date_range)])
     for label, value in _active_filter_rows(filters):
         writer.writerow([label, value])
     writer.writerow(["Generated", timezone.localtime().strftime("%B %d, %Y %I:%M %p")])
@@ -985,6 +1051,7 @@ def _pdf_response(title, headers, rows, date_range, filters=None):
         leading=9,
         textColor=colors.white,
         alignment=TA_LEFT,
+        splitLongWords=False,
     )
     cell_style = ParagraphStyle(
         "TableCell",
@@ -994,11 +1061,12 @@ def _pdf_response(title, headers, rows, date_range, filters=None):
         leading=9.2,
         textColor=colors.HexColor("#17231d"),
         alignment=TA_LEFT,
+        splitLongWords=False,
     )
 
     summary = Table(
         [[
-            [Paragraph("DATE RANGE", meta_label_style), Paragraph(escape(DATE_RANGES[date_range]), meta_value_style)],
+            [Paragraph("DATE RANGE", meta_label_style), Paragraph(escape(date_range_label(date_range)), meta_value_style)],
             [Paragraph("RECORDS", meta_label_style), Paragraph(f"{len(rows):,}", meta_value_style)],
             [Paragraph("GENERATED", meta_label_style), Paragraph(generated_at.strftime("%b %d, %Y - %I:%M %p"), meta_value_style)],
         ]],
@@ -1034,11 +1102,23 @@ def _pdf_response(title, headers, rows, date_range, filters=None):
             + [Paragraph("", cell_style)] * (len(headers) - 1)
         )
 
+    minimum_column_weights = {
+        "request id": 11,
+        "coverage": 9,
+        "barangay": 12,
+        "status": 12,
+        "priority": 10,
+        "date requested": 14,
+        "assigned staff": 14,
+    }
     lengths = []
     for index, header in enumerate(headers):
         values = [str(row[index]) for row in string_rows if index < len(row)]
         sample_length = max([len(str(header)), *(min(len(value), 42) for value in values)] or [8])
-        lengths.append(max(7, min(sample_length, 30)))
+        calculated_weight = max(7, min(sample_length, 30))
+        lengths.append(
+            max(calculated_weight, minimum_column_weights.get(str(header).casefold(), 7))
+        )
     total_weight = sum(lengths) or 1
     column_widths = [document.width * weight / total_weight for weight in lengths]
     table = Table(table_data, colWidths=column_widths, repeatRows=1, hAlign="LEFT")
@@ -1200,7 +1280,7 @@ def _farmer_master_pdf_response(title, headers, rows, date_range, filters=None):
         Paragraph(escape(title), title_style),
         Paragraph(
             f"Complete active farmer records · {len(rows):,} farmer(s) · "
-            f"Date range: {escape(DATE_RANGES[date_range])}",
+            f"Date range: {escape(date_range_label(date_range))}",
             subtitle_style,
         ),
         Spacer(1, 10),

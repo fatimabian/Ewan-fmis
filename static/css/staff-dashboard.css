@@ -3019,15 +3019,35 @@ body[data-theme="dark"] .staff-operations-weather-grid .weather-card{background:
     .staff-production-card .commodity-donut{width:180px;height:180px}
 }
 
-/* Keep the planning reference close to the weather details (v26). */
-.staff-operations-weather-grid{align-items:start}
-.staff-operations-weather-grid>.staff-card{height:auto}
+/* Keep workload and weather equally tall without empty dashboard space (v27). */
+.staff-operations-weather-grid{align-items:stretch}
+.staff-operations-weather-grid>.staff-card{height:100%}
+.staff-operations-weather-grid .staff-support-card{padding:16px 18px}
+.staff-operations-weather-grid .staff-support-card .operations-dashboard-grid{margin-top:10px}
+.staff-operations-weather-grid .operations-column{padding:11px 13px}
+.staff-operations-weather-grid .operations-column .ranked-summary-heading{margin-bottom:7px}
+.staff-operations-weather-grid .request-overview-grid{gap:6px}
+.staff-operations-weather-grid .request-overview-grid>a{
+    min-height:44px;
+    padding:7px 9px
+}
+.staff-operations-weather-grid .intervention-delivery-summary{gap:8px}
+.staff-operations-weather-grid .intervention-total{
+    gap:3px;
+    padding:10px 12px
+}
+.staff-operations-weather-grid .intervention-total b{font-size:24px}
+.staff-operations-weather-grid .intervention-status-list{gap:3px}
+.staff-operations-weather-grid .intervention-status-list>span{
+    min-height:23px;
+    padding:2px 6px
+}
 .staff-operations-weather-grid .weather-card .weather-content{margin-bottom:0}
 .staff-operations-weather-grid .season-reference{
-    margin-top:16px;
-    padding:13px 14px;
-    gap:11px
+    margin-top:auto;
+    padding:10px 12px;
+    gap:9px
 }
-.staff-operations-weather-grid .season-reference>i{font-size:19px}
-.staff-operations-weather-grid .season-reference small{font-size:9px;letter-spacing:.05em}
-.staff-operations-weather-grid .season-reference b{font-size:13px;line-height:1.35}
+.staff-operations-weather-grid .season-reference>i{font-size:16px}
+.staff-operations-weather-grid .season-reference small{font-size:8px;letter-spacing:.05em}
+.staff-operations-weather-grid .season-reference b{font-size:11px;line-height:1.3}
