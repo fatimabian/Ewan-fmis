@@ -109,10 +109,6 @@ header{
     background:var(--surface-muted)!important;
     border:1px solid var(--border)!important
 }
-/* Keep the farmer ID visible; only the phone/contact column is hidden. */
-.farmer-table thead th:nth-child(4),.farmer-table tbody td:not([colspan]):nth-child(4){
-    display:none
-}
 @media(max-width:900px){
     .content{
         padding:24px

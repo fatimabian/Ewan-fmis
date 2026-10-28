@@ -425,28 +425,6 @@ html body .app-shell table :is(
     white-space:nowrap!important
 }
 
-/* Keep management columns readable when the desktop navigation is open.
- * The table becomes wider than its viewport and uses the native scrollbar
- * underneath instead of squeezing the Actions column against the right edge. */
-@media (min-width:1101px){
-    html body .app-shell table.farmer-table,
-    html body .app-shell table.request-table,
-    html body .app-shell table.intervention-table{
-        min-width:1680px!important
-    }
-    html body .app-shell table.parcel-table{
-        min-width:1720px!important
-    }
-    html body .app-shell table.crop-table{
-        min-width:1600px!important
-    }
-}
-
-html body .app-shell table :is(th:last-child,td:last-child):not(#fmis-table-specificity){
-    min-width:132px!important;
-    padding-right:26px!important
-}
-
 html body .app-shell table :is(
     .farmer-actions,
     .parcel-actions,
@@ -472,11 +450,6 @@ html body .app-shell table:is(
     .universal-table
 ){
     table-layout:fixed!important
-}
-
-html body .app-shell table.request-table{
-    width:max(100%,1400px)!important;
-    min-width:1400px!important
 }
 
 html body .app-shell table :is(th,td):not(#fmis-table-specificity),
@@ -516,4 +489,108 @@ html body .app-shell table :is(
     overflow-wrap:normal!important;
     word-break:normal!important;
     hyphens:none!important
+}
+
+/* Desktop management tables always fit the available workspace. The same
+ * percentage tracks expand naturally when the navigation is collapsed. */
+@media (min-width:1101px){
+    html body .app-shell :is(
+        .farmer-table-wrap,
+        .parcel-table-wrap,
+        .crop-table-wrap,
+        .request-table-wrap,
+        .intervention-table-wrap
+    ){
+        overflow-x:auto!important;
+        overflow-y:hidden!important;
+        -webkit-overflow-scrolling:touch
+    }
+
+    html body .app-shell table:is(
+        .farmer-table,
+        .parcel-table,
+        .crop-table,
+        .request-table,
+        .intervention-table
+    ){
+        width:100%!important;
+        min-width:0!important;
+        max-width:100%!important;
+        table-layout:fixed!important
+    }
+
+    html body .app-shell table:is(
+        .farmer-table,
+        .parcel-table,
+        .crop-table,
+        .request-table,
+        .intervention-table
+    ) :is(th,td):not(#fmis-table-specificity){
+        min-width:0!important;
+        max-width:none!important;
+        padding-inline:11px!important;
+        overflow:visible!important;
+        white-space:normal!important;
+        overflow-wrap:normal!important;
+        word-break:normal!important;
+        hyphens:none!important;
+        text-overflow:clip!important
+    }
+
+    html body .app-shell .farmer-table :is(th,td):nth-child(1){width:8%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(2){width:20%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(3){width:10%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(4){width:12%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(5){width:13%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(6){width:15%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(7){width:10%!important}
+    html body .app-shell .farmer-table :is(th,td):nth-child(8){width:12%!important}
+
+    html body .app-shell .request-table :is(th,td):nth-child(1){width:7%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(2){width:22%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(3){width:12%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(4){width:8%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(5){width:9%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(6){width:25%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(7){width:9%!important}
+    html body .app-shell .request-table :is(th,td):nth-child(8){width:8%!important}
+
+    html body .app-shell .intervention-table :is(th,td):nth-child(1){width:8%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(2){width:10%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(3){width:17%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(4){width:17%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(5){width:21%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(6){width:8%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(7){width:10%!important}
+    html body .app-shell .intervention-table :is(th,td):nth-child(8){width:9%!important}
+
+    html body .app-shell table :is(
+        th:last-child,
+        td:last-child,
+        .farmer-actions,
+        .parcel-actions,
+        .crop-actions,
+        .request-actions,
+        .intervention-actions,
+        .table-actions
+    ){
+        overflow:visible!important;
+        white-space:nowrap!important
+    }
+}
+
+/* Smaller viewports retain a native scrollbar rather than crushing columns. */
+@media (max-width:1100px){
+    html body .app-shell table:is(
+        .farmer-table,
+        .parcel-table,
+        .crop-table,
+        .request-table,
+        .intervention-table
+    ){
+        width:1100px!important;
+        min-width:1100px!important;
+        max-width:none!important;
+        table-layout:fixed!important
+    }
 }
