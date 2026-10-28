@@ -11,6 +11,7 @@ from apps.activity_logs.services import record_request_event
 from apps.activity_logs.models import ActivityLog
 from apps.common.record_history import activity_rows
 from apps.common.mixins import FMISLoginRequiredMixin
+from apps.common.filters import parse_inclusive_date_range
 from apps.common.permissions import StaffRequiredMixin
 from apps.farmers.models import Farmer
 from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
@@ -206,11 +207,18 @@ class InterventionListView(InterventionAccessMixin, ListView):
     def get_queryset(self):
         queryset = (
             Intervention.objects.select_related("farmer", "service_request", "recorded_by")
-            .annotate(beneficiary_count=Count("recipients", filter=Q(recipients__is_active=True)))
+            .annotate(
+                beneficiary_count=Count(
+                    "recipients", filter=Q(recipients__is_active=True), distinct=True
+                )
+            )
         )
         query = self.request.GET.get("q", "").strip()
         kind = self.request.GET.get("type", "").strip()
         status = self.request.GET.get("status", "")
+        barangay = self.request.GET.get("barangay", "").strip()
+        date_range = parse_inclusive_date_range(self.request.GET, label="intervention")
+        self.filter_date_error = date_range.error
         if query:
             filters = Q(description__icontains=query) | Q(farmer__first_name__icontains=query) | Q(farmer__last_name__icontains=query) | Q(farmer__rsbsa_number__icontains=query) | Q(recipients__farmer__first_name__icontains=query) | Q(recipients__farmer__last_name__icontains=query) | Q(recipients__farmer__rsbsa_number__icontains=query) | Q(target_barangay__icontains=query)
             reference = query.upper().removeprefix("INT-")
@@ -226,12 +234,27 @@ class InterventionListView(InterventionAccessMixin, ListView):
             valid_statuses = {value for value, _label in Intervention.STATUS_CHOICES}
             if status in valid_statuses:
                 queryset = queryset.filter(status=status)
+        if barangay:
+            queryset = queryset.filter(
+                Q(target_barangay=barangay)
+                | Q(farmer__barangay=barangay)
+                | Q(recipients__farmer__barangay=barangay)
+            ).distinct()
+        if not date_range.error:
+            if date_range.start:
+                queryset = queryset.filter(intervention_date__gte=date_range.start)
+            if date_range.end:
+                queryset = queryset.filter(intervention_date__lte=date_range.end)
         return queryset.order_by("-intervention_date", "-created_at", "-pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["type_choices"] = Intervention.TYPE_CHOICES
         context["status_choices"] = Intervention.STATUS_CHOICES
+        context["barangays"] = (
+            Farmer.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
+        )
+        context["filter_date_error"] = getattr(self, "filter_date_error", "")
         return context
 
 

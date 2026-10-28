@@ -24,6 +24,7 @@ from django.views.generic import (
 )
 
 from apps.common.mixins import FMISLoginRequiredMixin
+from apps.common.filters import parse_inclusive_date_range
 from apps.common.permissions import StaffRequiredMixin
 from apps.common.constants import ROSARIO_BARANGAYS, commodity_group
 from apps.farm_parcels.demo_locations import ROSARIO_BARANGAY_CENTERS
@@ -154,6 +155,10 @@ class FarmParcelListView(
         ownership = self.request.GET.get("ownership", "").strip()
         area = self.request.GET.get("area", "").strip()
         status = self.request.GET.get("status", "all").strip()
+        date_range = parse_inclusive_date_range(
+            self.request.GET, label="parcel registration"
+        )
+        self.filter_date_error = date_range.error
         if query:
             queryset = queryset.filter(
                 parcel_search_filter(query) | Q(farmer__barangay__icontains=query)
@@ -172,6 +177,11 @@ class FarmParcelListView(
             queryset = queryset.filter(is_active=False)
         elif status != "all":
             queryset = queryset.filter(is_active=True)
+        if not date_range.error:
+            if date_range.start:
+                queryset = queryset.filter(created_at__date__gte=date_range.start)
+            if date_range.end:
+                queryset = queryset.filter(created_at__date__lte=date_range.end)
         # Show every saved parcel by default, including inactive records, with
         # the most recently registered parcel first for immediate verification.
         return queryset.order_by("-created_at", "-pk")
@@ -182,6 +192,7 @@ class FarmParcelListView(
             FarmParcel.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
         )
         context["ownership_choices"] = FarmParcel._meta.get_field("ownership_type").choices
+        context["filter_date_error"] = getattr(self, "filter_date_error", "")
         return context
 
 

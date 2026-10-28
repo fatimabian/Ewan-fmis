@@ -9,10 +9,13 @@ from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from apps.common.mixins import FMISLoginRequiredMixin
+from apps.common.filters import parse_inclusive_date_range
 from apps.common.permissions import AdminRequiredMixin, StaffRequiredMixin
 from apps.activity_logs.services import record_request_event
 from apps.common.record_history import service_request_rows
 from apps.interventions.services import complete_registered_request_intervention
+from apps.authentication.models import CustomUser
+from apps.service_catalog.models import ServiceCatalog
 from .forms import ServiceLevelPolicyForm, ServiceRequestForm
 from .models import ServiceLevelPolicy, ServiceRequest, ServiceRequestHistory
 from .services import ensure_service_level_policies, recalculate_open_deadlines
@@ -86,8 +89,8 @@ class ServiceRequestListView(
         priority = self.request.GET.get("priority", "").strip()
         assigned_to = self.request.GET.get("assigned_to", "").strip()
         overdue = self.request.GET.get("overdue", "").strip()
-        date_from = self.request.GET.get("date_from", "").strip()
-        date_to = self.request.GET.get("date_to", "").strip()
+        date_range = parse_inclusive_date_range(self.request.GET, label="request submission")
+        self.filter_date_error = date_range.error
 
         if query:
             request_id = query.upper().removeprefix("SR-")
@@ -132,16 +135,24 @@ class ServiceRequestListView(
             queryset = queryset.exclude(status__in=("COMPLETED", "CANCELLED")).filter(overdue_filter)
         elif overdue == "no":
             queryset = queryset.exclude(overdue_filter)
-        if date_from:
-            queryset = queryset.filter(created_at__date__gte=date_from)
-        if date_to:
-            queryset = queryset.filter(created_at__date__lte=date_to)
+        if not date_range.error:
+            if date_range.start:
+                queryset = queryset.filter(created_at__date__gte=date_range.start)
+            if date_range.end:
+                queryset = queryset.filter(created_at__date__lte=date_range.end)
         return queryset.order_by("-created_at", "-pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["status_choices"] = ServiceRequest.STATUS_CHOICES
         context["priority_choices"] = ServiceRequest.PRIORITY_CHOICES
+        context["request_type_choices"] = ServiceCatalog.objects.filter(
+            servicerequest__isnull=False
+        ).distinct().order_by("name")
+        context["assigned_staff_choices"] = CustomUser.objects.filter(
+            deleted_at__isnull=True, is_active=True, role="STAFF"
+        ).order_by("first_name", "last_name", "username")
+        context["filter_date_error"] = getattr(self, "filter_date_error", "")
         return context
 
 

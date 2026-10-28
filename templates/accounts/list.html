@@ -144,11 +144,16 @@
     <section class="panel table-panel account-table-panel">
         <div class="accounts-table-header">
           <h3>All Accounts</h3>
-          <a class="btn btn-success btn-add-outline new-account-button" href="{% url 'accounts:create' %}">
-            <i class="bi bi-plus-lg"></i>
-            New Account
-          </a>
         </div>
+        <form class="fmis-table-toolbar" method="get" data-table-toolbar>
+          <label class="fmis-toolbar-search"><span>Search Accounts</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search name, username, or email..."></label>
+          <div class="fmis-toolbar-actions"><button class="fmis-toolbar-button{% if request.GET.role or request.GET.status %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="accountFilters"><i class="bi bi-funnel"></i> Filter Accounts <span class="fmis-filter-active">Active</span></button><a class="btn btn-success btn-add-outline new-account-button" href="{% url 'accounts:create' %}"><i class="bi bi-plus-lg"></i> New Account</a></div>
+          <section class="fmis-filter-popover" id="accountFilters" data-filter-popover hidden aria-labelledby="accountFiltersTitle"><div class="fmis-filter-heading"><h2 id="accountFiltersTitle">Filter Accounts</h2><button class="fmis-filter-close" type="button" data-filter-close aria-label="Close account filters"><i class="bi bi-x-lg"></i></button></div><div class="fmis-filter-grid">
+            <label class="fmis-filter-field">Role<select name="role"><option value="">All roles</option><option value="ADMIN" {% if request.GET.role == 'ADMIN' %}selected{% endif %}>Administrator</option><option value="STAFF" {% if request.GET.role == 'STAFF' %}selected{% endif %}>Staff</option></select></label>
+            <label class="fmis-filter-field">Account status<select name="status"><option value="">All statuses</option><option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option><option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending activation</option><option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option></select></label>
+            <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'accounts:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
+          </div></section>
+        </form>
         <div class="universal-table-wrap">
         <table class="account-table universal-table">
           <thead>

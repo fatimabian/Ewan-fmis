@@ -25,6 +25,7 @@ CORE_SOURCES = (
     "css/human-ui.css",
     "css/date-picker.css",
     "css/table-layout.css",
+    "css/table-toolbar.css",
 )
 
 CORE_JS_SOURCES = (
@@ -32,6 +33,7 @@ CORE_JS_SOURCES = (
     "js/password-toggle.js",
     "js/form-validation.js",
     "js/date-picker.js",
+    "js/table-toolbar.js",
 )
 
 

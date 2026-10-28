@@ -2,6 +2,7 @@ from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.contrib import messages
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from uuid import uuid4
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -19,9 +20,28 @@ class AccountListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
     template_name = "accounts/list.html"
 
     def get_queryset(self):
-        return CustomUser.objects.filter(deleted_at__isnull=True).order_by(
-            "-date_joined", "-pk"
-        )
+        queryset = CustomUser.objects.filter(deleted_at__isnull=True)
+        query = self.request.GET.get("q", "").strip()
+        role = self.request.GET.get("role", "").strip()
+        status = self.request.GET.get("status", "").strip()
+        if query:
+            queryset = queryset.filter(
+                Q(first_name__icontains=query)
+                | Q(last_name__icontains=query)
+                | Q(username__icontains=query)
+                | Q(email__icontains=query)
+            )
+        if role == "ADMIN":
+            queryset = queryset.filter(Q(role="ADMIN") | Q(is_superuser=True))
+        elif role == "STAFF":
+            queryset = queryset.filter(role="STAFF", is_superuser=False)
+        if status == "active":
+            queryset = queryset.filter(is_active=True, activation_pending=False)
+        elif status == "pending":
+            queryset = queryset.filter(activation_pending=True)
+        elif status == "inactive":
+            queryset = queryset.filter(is_active=False, activation_pending=False)
+        return queryset.order_by("-date_joined", "-pk")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

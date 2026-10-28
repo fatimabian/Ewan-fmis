@@ -150,14 +150,14 @@
   }
   </style>
   <div class="content crop-page">
-    <form class="crop-toolbar" method="get">
-      <label>
-        Search<input name="q"
+    <form class="fmis-table-toolbar" method="get" data-table-toolbar>
+      <label class="fmis-toolbar-search"><span>Search Commodity</span><input type="search" name="q"
        value="{{ request.GET.q }}"
        placeholder="Search commodity, Farmer ID, or farmer name...">
       </label>
-      <label>
-        Commodity<select name="crop_type" onchange="this.form.submit()">
+      <div class="fmis-toolbar-actions"><button class="fmis-toolbar-button{% if request.GET.crop_type or request.GET.status or request.GET.barangay or request.GET.date_from or request.GET.date_to %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="commodityFilters"><i class="bi bi-funnel"></i> Filter Commodities <span class="fmis-filter-active">Active</span></button><a class="btn btn-success btn-add-outline" href="{% url 'crops:create' %}"><i class="bi bi-plus-lg"></i> Add Commodity</a></div>
+      <section class="fmis-filter-popover" id="commodityFilters" data-filter-popover hidden aria-labelledby="commodityFiltersTitle"><div class="fmis-filter-heading"><h2 id="commodityFiltersTitle">Filter Commodities</h2><button class="fmis-filter-close" type="button" data-filter-close aria-label="Close commodity filters"><i class="bi bi-x-lg"></i></button></div><div class="fmis-filter-grid">
+      <label class="fmis-filter-field">Commodity<select name="crop_type">
         <option value="">All Commodities</option>
         {% for crop_type in crop_types %}
           <option value="{{ crop_type }}"
@@ -165,16 +165,18 @@
         {% endfor %}
         </select>
       </label>
-      <label>
-        Record Status<select name="status" onchange="this.form.submit()">
+      <label class="fmis-filter-field">Record Status<select name="status">
         <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
         <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
         <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All</option>
         </select>
       </label>
-      <a class="btn btn-success btn-add-outline" href="{% url 'crops:create' %}">
-        <i class="bi bi-plus-lg">
-        </i> Add Commodity</a>
+      <label class="fmis-filter-field is-wide">Farmer barangay<select name="barangay"><option value="">All barangays</option>{% for barangay in barangays %}<option value="{{ barangay }}" {% if request.GET.barangay == barangay %}selected{% endif %}>{{ barangay }}</option>{% endfor %}</select></label>
+      <label class="fmis-filter-field">Planted from<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+      <label class="fmis-filter-field">Planted to<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+      {% if filter_date_error %}<p class="fmis-filter-error" role="alert">{{ filter_date_error }}</p>{% endif %}
+      <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'crops:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
+      </div></section>
       </form>
       <div class="crop-table-wrap universal-table-wrap">
         <table class="crop-table universal-table">

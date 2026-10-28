@@ -223,40 +223,25 @@
   }
   </style>
   <div class="content farmer-page">
-    <form class="farmer-toolbar" method="get">
-      <label>
-        Search Farmer<input name="q"
-       value="{{ request.GET.q }}"
-       placeholder="Search ID, name, or RSBSA number...">
-      </label>
-      <label>
-        Barangay<select name="barangay" onchange="this.form.submit()">
-        <option value="">All</option>
-        {% for barangay in barangays %}
-          <option value="{{ barangay }}"
-                  {% if request.GET.barangay == barangay %}selected{% endif %}>{{ barangay }}</option>
-        {% endfor %}
-        </select>
-      </label>
-      <label>
-        Registration Status<select name="registration_status" onchange="this.form.submit()">
-        <option value="">All</option>
-        {% for value,label in registration_status_choices %}
-          <option value="{{ value }}" {% if request.GET.registration_status == value %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-        </select>
-      </label>
-      <label>
-        Active Status<select name="status" onchange="this.form.submit()">
-        <option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option>
-        <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
-        <option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All Records</option>
-        </select>
-      </label>
-      <a class="btn btn-success btn-add-outline" href="{% url 'farmers:create' %}">
-        <i class="bi bi-plus-lg">
-        </i> Add Farmer</a>
-      </form>
+    <form class="fmis-table-toolbar" method="get" data-table-toolbar>
+      <label class="fmis-toolbar-search"><span>Search Farmer</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search ID, name, or RSBSA number..."></label>
+      <div class="fmis-toolbar-actions">
+        <button class="fmis-toolbar-button{% if request.GET.barangay or request.GET.registration_status or request.GET.status or request.GET.date_from or request.GET.date_to %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="farmerFilters"><i class="bi bi-funnel"></i> Filter Farmers <span class="fmis-filter-active">Active</span></button>
+        <a class="btn btn-success btn-add-outline" href="{% url 'farmers:create' %}"><i class="bi bi-plus-lg"></i> Add Farmer</a>
+      </div>
+      <section class="fmis-filter-popover" id="farmerFilters" data-filter-popover hidden aria-labelledby="farmerFiltersTitle">
+        <div class="fmis-filter-heading"><h2 id="farmerFiltersTitle">Filter Farmers</h2><button class="fmis-filter-close" type="button" data-filter-close aria-label="Close farmer filters"><i class="bi bi-x-lg"></i></button></div>
+        <div class="fmis-filter-grid">
+          <label class="fmis-filter-field">Barangay<select name="barangay"><option value="">All barangays</option>{% for barangay in barangays %}<option value="{{ barangay }}" {% if request.GET.barangay == barangay %}selected{% endif %}>{{ barangay }}</option>{% endfor %}</select></label>
+          <label class="fmis-filter-field">Registration status<select name="registration_status"><option value="">All statuses</option>{% for value,label in registration_status_choices %}<option value="{{ value }}" {% if request.GET.registration_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+          <label class="fmis-filter-field is-wide">Active status<select name="status"><option value="active" {% if request.GET.status != 'inactive' and request.GET.status != 'all' %}selected{% endif %}>Active</option><option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option><option value="all" {% if request.GET.status == 'all' %}selected{% endif %}>All records</option></select></label>
+          <label class="fmis-filter-field">Registered from<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+          <label class="fmis-filter-field">Registered to<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+          {% if filter_date_error %}<p class="fmis-filter-error" role="alert">{{ filter_date_error }}</p>{% endif %}
+          <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'farmers:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
+        </div>
+      </section>
+    </form>
       <div class="farmer-table-wrap universal-table-wrap">
         <table class="farmer-table universal-table">
           <thead>

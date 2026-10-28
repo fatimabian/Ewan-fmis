@@ -9,6 +9,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 from urllib.parse import urlencode
 
 from apps.common.mixins import FMISLoginRequiredMixin
+from apps.common.filters import parse_inclusive_date_range
 from apps.common.permissions import StaffRequiredMixin
 from apps.activity_logs.services import record_request_event
 from apps.activity_logs.models import ActivityLog
@@ -37,6 +38,9 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
         query = self.request.GET.get("q", "").strip()
         crop_type = self.request.GET.get("crop_type", "").strip()
         status = self.request.GET.get("status", "active").strip()
+        barangay = self.request.GET.get("barangay", "").strip()
+        date_range = parse_inclusive_date_range(self.request.GET, label="planting")
+        self.filter_date_error = date_range.error
 
         if query:
             farmer_id = query.upper().removeprefix("F-")
@@ -53,10 +57,17 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
             crops = crops.filter(filters)
         if crop_type:
             crops = crops.filter(crop_type=crop_type)
+        if barangay:
+            crops = crops.filter(parcel__farmer__barangay=barangay)
         if status in {"inactive", "archived"}:
             crops = crops.filter(is_active=False)
         elif status != "all":
             crops = crops.filter(is_active=True)
+        if not date_range.error:
+            if date_range.start:
+                crops = crops.filter(planting_date__gte=date_range.start)
+            if date_range.end:
+                crops = crops.filter(planting_date__lte=date_range.end)
 
         parcel_queryset = FarmParcel.objects.order_by("-created_at", "-pk").prefetch_related(
             Prefetch(
@@ -85,6 +96,10 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
         context["crop_types"] = (
             CropRecord.objects.values_list("crop_type", flat=True).distinct().order_by("crop_type")
         )
+        context["barangays"] = (
+            Farmer.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
+        )
+        context["filter_date_error"] = getattr(self, "filter_date_error", "")
         for farmer in context["object_list"]:
             farmer.listed_crop_records = [
                 crop

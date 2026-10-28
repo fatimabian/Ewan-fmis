@@ -26,11 +26,18 @@ body[data-theme="dark"] .intervention-table th{background:#253244!important;colo
 @media(max-width:700px){.intervention-toolbar{grid-template-columns:1fr}.intervention-footer{align-items:flex-start;flex-direction:column;gap:12px}}
 </style>
 <div class="content intervention-page">
-  <form class="intervention-toolbar" method="get">
-    <label>Search Intervention<input name="q" value="{{ request.GET.q }}" placeholder="Reference, farmer, RSBSA or description"></label>
-    <label>Intervention Type<select name="type" onchange="this.form.submit()"><option value="">All types</option>{% for value,label in type_choices %}<option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-    <label>Status<select name="status" onchange="this.form.submit()"><option value="">All statuses</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}<option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived records</option></select></label>
-    <a class="btn btn-success btn-add-outline" href="{% url 'interventions:create' %}"><i class="bi bi-plus-lg"></i> New Intervention</a>
+  <form class="fmis-table-toolbar" method="get" data-table-toolbar>
+    <label class="fmis-toolbar-search"><span>Search Intervention</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Reference, farmer, RSBSA or description"></label>
+    <div class="fmis-toolbar-actions"><button class="fmis-toolbar-button{% if request.GET.type or request.GET.status or request.GET.barangay or request.GET.date_from or request.GET.date_to %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="interventionFilters"><i class="bi bi-funnel"></i> Filter Interventions <span class="fmis-filter-active">Active</span></button><a class="btn btn-success btn-add-outline" href="{% url 'interventions:create' %}"><i class="bi bi-plus-lg"></i> New Intervention</a></div>
+    <section class="fmis-filter-popover" id="interventionFilters" data-filter-popover hidden aria-labelledby="interventionFiltersTitle"><div class="fmis-filter-heading"><h2 id="interventionFiltersTitle">Filter Interventions</h2><button class="fmis-filter-close" type="button" data-filter-close aria-label="Close intervention filters"><i class="bi bi-x-lg"></i></button></div><div class="fmis-filter-grid">
+      <label class="fmis-filter-field">Intervention type<select name="type"><option value="">All types</option>{% for value,label in type_choices %}<option value="{{ value }}" {% if request.GET.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="fmis-filter-field">Status<select name="status"><option value="">All active statuses</option>{% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}<option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>Archived records</option></select></label>
+      <label class="fmis-filter-field is-wide">Beneficiary barangay<select name="barangay"><option value="">All barangays</option>{% for barangay in barangays %}<option value="{{ barangay }}" {% if request.GET.barangay == barangay %}selected{% endif %}>{{ barangay }}</option>{% endfor %}</select></label>
+      <label class="fmis-filter-field">Intervention from<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+      <label class="fmis-filter-field">Intervention to<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+      {% if filter_date_error %}<p class="fmis-filter-error" role="alert">{{ filter_date_error }}</p>{% endif %}
+      <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'interventions:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
+    </div></section>
   </form>
   <div class="intervention-table-wrap universal-table-wrap">
     <table class="intervention-table universal-table">

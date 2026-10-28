@@ -237,23 +237,17 @@
   }
   </style>
   <div class="content activity-page">
-    <form class="activity-filters" method="get">
-      <input name="q"
-             value="{{ request.GET.q }}"
-             placeholder="⌕  Search by activity details">
-      <select name="module" onchange="this.form.submit()">
-        <option value="">All Modules</option>
-        {% for module in modules %}
-          <option value="{{ module }}" {% if request.GET.module == module %}selected{% endif %}>{{ module }}</option>
-        {% endfor %}
-      </select>
-      <select name="user" onchange="this.form.submit()">
-        <option value="">All Users</option>
-        {% for user in users %}
-          <option value="{{ user.pk }}"
-                  {% if request.GET.user == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.display_name }} ({{ user.audit_username }}){% if user.is_deleted %} — Deleted account{% endif %}</option>
-        {% endfor %}
-      </select>
+    <form class="fmis-table-toolbar" method="get" data-table-toolbar>
+      <label class="fmis-toolbar-search"><span>Search Activity</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search activity details or action..."></label>
+      <div class="fmis-toolbar-actions"><button class="fmis-toolbar-button{% if request.GET.module or request.GET.user or request.GET.date_from or request.GET.date_to %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="activityFilters"><i class="bi bi-funnel"></i> Filter Activity <span class="fmis-filter-active">Active</span></button></div>
+      <section class="fmis-filter-popover" id="activityFilters" data-filter-popover hidden aria-labelledby="activityFiltersTitle"><div class="fmis-filter-heading"><h2 id="activityFiltersTitle">Filter Activity</h2><button class="fmis-filter-close" type="button" data-filter-close aria-label="Close activity filters"><i class="bi bi-x-lg"></i></button></div><div class="fmis-filter-grid">
+        <label class="fmis-filter-field">Module<select name="module"><option value="">All modules</option>{% for module in modules %}<option value="{{ module }}" {% if request.GET.module == module %}selected{% endif %}>{{ module }}</option>{% endfor %}</select></label>
+        <label class="fmis-filter-field">Authorized user<select name="user"><option value="">All users</option>{% for user in users %}<option value="{{ user.pk }}" {% if request.GET.user == user.pk|stringformat:'s' %}selected{% endif %}>{{ user.display_name }} ({{ user.audit_username }}){% if user.is_deleted %} — Deleted account{% endif %}</option>{% endfor %}</select></label>
+        <label class="fmis-filter-field">Activity from<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+        <label class="fmis-filter-field">Activity to<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+        {% if filter_date_error %}<p class="fmis-filter-error" role="alert">{{ filter_date_error }}</p>{% endif %}
+        <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'activity_logs:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
+      </div></section>
     </form>
     <section class="activity-table">
       {% for log in object_list %}

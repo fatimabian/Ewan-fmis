@@ -2,6 +2,7 @@ from django.db.models import Q
 from django.views.generic import ListView
 
 from apps.common.mixins import FMISLoginRequiredMixin
+from apps.common.filters import parse_inclusive_date_range
 from apps.common.permissions import AdminRequiredMixin
 from apps.authentication.models import CustomUser
 from .models import ActivityLog
@@ -15,6 +16,8 @@ class ActivityLogListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
         query = self.request.GET.get("q", "").strip()
         module = self.request.GET.get("module", "").strip()
         user_id = self.request.GET.get("user", "").strip()
+        date_range = parse_inclusive_date_range(self.request.GET, label="activity")
+        self.filter_date_error = date_range.error
         if query:
             queryset = queryset.filter(
                 Q(title__icontains=query)
@@ -23,8 +26,13 @@ class ActivityLogListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
             )
         if module:
             queryset = queryset.filter(module=module)
-        if user_id:
-            queryset = queryset.filter(actor_id=user_id)
+        if user_id.isdigit():
+            queryset = queryset.filter(actor_id=int(user_id))
+        if not date_range.error:
+            if date_range.start:
+                queryset = queryset.filter(created_at__date__gte=date_range.start)
+            if date_range.end:
+                queryset = queryset.filter(created_at__date__lte=date_range.end)
         return queryset
 
     def get_context_data(self, **kwargs):
@@ -40,4 +48,5 @@ class ActivityLogListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
             .distinct()
             .order_by("first_name", "last_name", "username")
         )
+        context["filter_date_error"] = getattr(self, "filter_date_error", "")
         return context

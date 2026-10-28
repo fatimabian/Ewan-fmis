@@ -19,6 +19,7 @@ from django.views import View
 from django.views.generic import DetailView, ListView, UpdateView
 
 from apps.common.mixins import FMISLoginRequiredMixin
+from apps.common.filters import parse_inclusive_date_range
 from apps.common.permissions import StaffRequiredMixin
 from apps.common.record_history import farmer_update_rows
 from apps.crops.models import CropRecord
@@ -119,6 +120,10 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
         barangay = self.request.GET.get("barangay", "").strip()
         registration_status = self.request.GET.get("registration_status", "").strip()
         status = self.request.GET.get("status", "active").strip()
+        date_range = parse_inclusive_date_range(
+            self.request.GET, label="farmer registration"
+        )
+        self.filter_date_error = date_range.error
         if query:
             farmer_id = query.upper().removeprefix("F-")
             filters = (
@@ -140,6 +145,11 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
             queryset = queryset.filter(is_active=False)
         elif status != "all":
             queryset = queryset.filter(is_active=True)
+        if not date_range.error:
+            if date_range.start:
+                queryset = queryset.filter(created_at__date__gte=date_range.start)
+            if date_range.end:
+                queryset = queryset.filter(created_at__date__lte=date_range.end)
         return queryset.order_by("-created_at", "-pk")
 
     def get_context_data(self, **kwargs):
@@ -149,6 +159,7 @@ class FarmerListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareTempla
             Farmer.objects.values_list("barangay", flat=True).distinct().order_by("barangay")
         )
         context["registration_status_choices"] = Farmer.REGISTRATION_STATUS_CHOICES
+        context["filter_date_error"] = getattr(self, "filter_date_error", "")
         return context
 
 

@@ -166,14 +166,21 @@
   }
   </style>
   <div class="content parcel-page">
-    <form class="parcel-toolbar" method="get">
-      <label>
-        Search Parcel<input name="q"
+      <form class="fmis-table-toolbar" method="get" data-table-toolbar>
+      <label class="fmis-toolbar-search">
+        <span>Search Parcel</span><input type="search" name="q"
        value="{{ request.GET.q }}"
        placeholder="Search parcel or farmer ID...">
       </label>
-      <label>
-        Barangay<select name="barangay" onchange="this.form.submit()">
+      <div class="fmis-toolbar-actions">
+        <button class="fmis-toolbar-button{% if request.GET.barangay or request.GET.ownership or request.GET.area or request.GET.status or request.GET.date_from or request.GET.date_to %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="parcelFilters"><i class="bi bi-funnel"></i> Filter Parcels <span class="fmis-filter-active">Active</span></button>
+        <a class="btn btn-outline-success" href="{% url 'farm_parcels:map' %}"><i class="bi bi-geo-alt"></i> Map View</a>
+        <a class="btn btn-success btn-add-outline" href="{% url 'farm_parcels:create' %}"><i class="bi bi-plus-lg"></i> Add Parcel</a>
+      </div>
+      <section class="fmis-filter-popover" id="parcelFilters" data-filter-popover hidden aria-labelledby="parcelFiltersTitle">
+        <div class="fmis-filter-heading"><h2 id="parcelFiltersTitle">Filter Parcels</h2><button class="fmis-filter-close" type="button" data-filter-close aria-label="Close parcel filters"><i class="bi bi-x-lg"></i></button></div>
+        <div class="fmis-filter-grid">
+      <label class="fmis-filter-field">Barangay<select name="barangay">
         <option value="">All</option>
         {% for barangay in barangays %}
           <option value="{{ barangay }}"
@@ -181,38 +188,33 @@
         {% endfor %}
         </select>
       </label>
-      <label>
-        Ownership<select name="ownership" onchange="this.form.submit()">
+      <label class="fmis-filter-field">Ownership<select name="ownership">
         <option value="">All</option>
         {% for value,label in ownership_choices %}
           <option value="{{ value }}" {% if request.GET.ownership == value %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
         </select>
       </label>
-      <label>
-        Area (ha)<select name="area" onchange="this.form.submit()">
+      <label class="fmis-filter-field">Area (ha)<select name="area">
         <option value="">All</option>
         <option value="under1" {% if request.GET.area == 'under1' %}selected{% endif %}>Below 1 ha</option>
         <option value="1to2" {% if request.GET.area == '1to2' %}selected{% endif %}>1–2 ha</option>
         <option value="over2" {% if request.GET.area == 'over2' %}selected{% endif %}>Above 2 ha</option>
         </select>
       </label>
-      <label>
-        Record Status<select name="status" onchange="this.form.submit()">
+      <label class="fmis-filter-field">Record Status<select name="status">
         <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option>
         <option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option>
         <option value="all" {% if not request.GET.status or request.GET.status == 'all' %}selected{% endif %}>All</option>
         </select>
       </label>
-      <div class="parcel-toolbar-actions">
-        <a class="btn btn-outline-success" href="{% url 'farm_parcels:map' %}">
-          <i class="bi bi-geo-alt">
-          </i> Map View</a>
-          <a class="btn btn-success btn-add-outline" href="{% url 'farm_parcels:create' %}">
-            <i class="bi bi-plus-lg">
-            </i> Add Parcel</a>
-          </div>
-        </form>
+      <label class="fmis-filter-field">Registered from<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+      <label class="fmis-filter-field">Registered to<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+      {% if filter_date_error %}<p class="fmis-filter-error" role="alert">{{ filter_date_error }}</p>{% endif %}
+      <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'farm_parcels:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
+        </div>
+      </section>
+      </form>
         <div class="parcel-table-wrap universal-table-wrap">
           <table class="parcel-table universal-table">
             <thead>
