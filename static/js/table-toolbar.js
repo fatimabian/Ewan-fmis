@@ -11,8 +11,7 @@
         const button = toolbar.querySelector('[data-filter-toggle]');
         const panel = toolbar.querySelector('[data-filter-popover]');
         if (!button || !panel) return;
-        button.addEventListener('click', event => {
-            event.stopPropagation();
+        button.addEventListener('click', () => {
             const opening = panel.hidden;
             document.querySelectorAll('[data-table-toolbar]').forEach(other => {
                 if (other !== toolbar) closeToolbar(other);
@@ -25,10 +24,6 @@
             closeToolbar(toolbar);
             button.focus();
         });
-        panel.addEventListener('click', event => event.stopPropagation());
-    });
-    document.addEventListener('click', () => {
-        document.querySelectorAll('[data-table-toolbar]').forEach(closeToolbar);
     });
     document.addEventListener('keydown', event => {
         if (event.key !== 'Escape') return;

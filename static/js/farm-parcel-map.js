@@ -22,11 +22,6 @@
   const applyFilters = byId("applyMapFilters");
   const toggleFilters = byId("toggleMapFilters");
   const filterPopover = byId("mapFilterPopover");
-  const toggleBarangayPicker = byId("toggleBarangayPicker");
-  const barangayPopover = byId("mapBarangayPopover");
-  const barangaySearch = byId("mapBarangaySearch");
-  const barangayOptions = byId("mapBarangayOptions");
-  const selectedBarangayLabel = byId("selectedBarangayLabel");
   const toggleParcelList = byId("toggleParcelList");
   const mapParcelSearch = byId("mapParcelSearch");
   const mapParcelSearchResults = byId("mapParcelSearchResults");
@@ -191,9 +186,7 @@
     toggleParcelList.classList.toggle("btn-outline-success", !show);
     if (show) {
       filterPopover.hidden = true;
-      barangayPopover.hidden = true;
       toggleFilters.setAttribute("aria-expanded", "false");
-      toggleBarangayPicker.setAttribute("aria-expanded", "false");
       hideMobileSheet();
     }
     window.setTimeout(() => map.invalidateSize({pan: false}), 0);
@@ -208,39 +201,6 @@
     select.replaceChildren(new Option(label, ""));
     values.forEach((value) => select.add(new Option(value, value)));
     if ([...select.options].some((option) => option.value === current)) select.value = current;
-  };
-  const updateBarangayLabel = () => {
-    selectedBarangayLabel.textContent = barangayFilter.value || "Barangay";
-  };
-  const renderBarangayOptions = (query = "") => {
-    const normalized = query.trim().toLocaleLowerCase();
-    const values = [...barangayFilter.options]
-      .map((option) => option.value)
-      .filter((value) => value && value.toLocaleLowerCase().includes(normalized));
-    barangayOptions.replaceChildren();
-    values.forEach((value) => {
-      const option = document.createElement("button");
-      option.type = "button";
-      option.className = "map-barangay-option";
-      option.classList.toggle("is-selected", value === barangayFilter.value);
-      option.setAttribute("role", "option");
-      option.setAttribute("aria-selected", String(value === barangayFilter.value));
-      option.textContent = value;
-      option.addEventListener("click", async () => {
-        barangayFilter.value = value;
-        updateBarangayLabel();
-        barangayPopover.hidden = true;
-        toggleBarangayPicker.setAttribute("aria-expanded", "false");
-        await selectBarangay(value);
-      });
-      barangayOptions.append(option);
-    });
-    if (!values.length) {
-      const empty = document.createElement("p");
-      empty.className = "map-search-message";
-      empty.textContent = "No Rosario barangays match your search.";
-      barangayOptions.append(empty);
-    }
   };
   const flyToBounds = (bounds, options = {}) => {
     const target = bounds instanceof L.LatLngBounds ? bounds : L.latLngBounds(bounds || []);
@@ -326,8 +286,6 @@
       updateCounts(payload);
       fillSelectOnce(barangayFilter, (payload.barangays || []).map((item) => item.name), "All barangays");
       fillSelectOnce(commodityFilter, payload.commodities || [], "All commodities");
-      updateBarangayLabel();
-      renderBarangayOptions(barangaySearch.value);
       (payload.barangays || []).forEach((item) => {
         L.marker([item.lat, item.lng], {icon: summaryIcon(), keyboard: true, riseOnHover: true})
           .addTo(barangayLayer)
@@ -355,8 +313,6 @@
     state.mapMode = "barangay";
     state.page = 1;
     barangayFilter.value = barangay;
-    updateBarangayLabel();
-    renderBarangayOptions(barangaySearch.value);
     backToBarangay.hidden = true;
     showPanel(true);
     clearMapLayers();
@@ -879,9 +835,7 @@
 
   const closeToolbarPopovers = () => {
     filterPopover.hidden = true;
-    barangayPopover.hidden = true;
     toggleFilters.setAttribute("aria-expanded", "false");
-    toggleBarangayPicker.setAttribute("aria-expanded", "false");
   };
   const toggleToolbarPopover = (target, trigger) => {
     const opening = target.hidden;
@@ -893,17 +847,7 @@
     trigger.setAttribute("aria-expanded", "true");
   };
   toggleFilters.addEventListener("click", () => toggleToolbarPopover(filterPopover, toggleFilters));
-  toggleBarangayPicker.addEventListener("click", () => {
-    toggleToolbarPopover(barangayPopover, toggleBarangayPicker);
-    if (!barangayPopover.hidden) {
-      barangaySearch.value = "";
-      renderBarangayOptions();
-      barangaySearch.focus();
-    }
-  });
-  barangaySearch.addEventListener("input", () => renderBarangayOptions(barangaySearch.value));
   applyFilters.addEventListener("click", async () => {
-    updateBarangayLabel();
     closeToolbarPopovers();
     if (barangayFilter.value) await selectBarangay(barangayFilter.value);
     else await loadOverview();
@@ -914,7 +858,6 @@
     panelSearch.value = "";
     panelStatus.value = "";
     hideMapSearchResults();
-    updateBarangayLabel();
     closeToolbarPopovers();
     loadOverview();
   });
@@ -962,7 +905,7 @@
   });
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".map-search-field")) hideMapSearchResults();
-    if (!event.target.closest(".map-toolbar-popover") && !event.target.closest("#toggleMapFilters") && !event.target.closest("#toggleBarangayPicker")) closeToolbarPopovers();
+    if (!event.target.closest(".map-toolbar-popover") && !event.target.closest("#toggleMapFilters")) closeToolbarPopovers();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;

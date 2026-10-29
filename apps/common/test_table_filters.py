@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from pathlib import Path
 
 from django.test import TestCase
 from django.urls import reverse
@@ -106,6 +107,14 @@ class TableToolbarFilterTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, "data-table-toolbar")
                 self.assertContains(response, f'id="{filter_id}"')
+
+    def test_filter_popovers_stay_open_until_explicitly_dismissed(self):
+        toolbar_script = (
+            Path(__file__).resolve().parents[2] / "static" / "js" / "table-toolbar.js"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("document.addEventListener('click'", toolbar_script)
+        self.assertIn("[data-filter-close]", toolbar_script)
+        self.assertIn("event.key !== 'Escape'", toolbar_script)
 
     def test_module_date_ranges_are_inclusive_and_use_the_documented_field(self):
         self.client.force_login(self.staff)
