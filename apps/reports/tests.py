@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from decimal import Decimal
+
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
@@ -6,6 +8,7 @@ from django.urls import reverse
 from unittest.mock import patch
 
 from apps.farmers.models import Farmer
+from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.reports.analytics import descriptive_analytics
 
 
@@ -70,7 +73,15 @@ class DescriptiveAnalyticsTests(TestCase):
 
     def test_every_descriptive_tab_renders(self):
         self.client.force_login(self.staff)
-        for tab in ("overview", "farmers", "parcels", "commodities", "requests", "interventions"):
+        for tab in (
+            "overview",
+            "farmers",
+            "parcels",
+            "commodities",
+            "requests",
+            "interventions",
+            "inventory",
+        ):
             with self.subTest(tab=tab):
                 response = self.client.get(
                     reverse("reports:home"),
@@ -78,6 +89,47 @@ class DescriptiveAnalyticsTests(TestCase):
                 )
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.context["analytics_tab"], tab)
+
+    def test_inventory_analytics_describes_stock_and_movements(self):
+        item = InventoryItem.objects.create(
+            item_code="SEED-001",
+            name="Certified Rice Seed",
+            category="SEEDS",
+            unit="bag",
+            stock_on_hand=Decimal("8.00"),
+            reorder_level=Decimal("10.00"),
+            storage_location="Municipal Warehouse",
+        )
+        InventoryMovement.objects.create(
+            item=item,
+            movement_type=InventoryMovement.RECEIPT,
+            quantity=Decimal("20.00"),
+            balance_after=Decimal("20.00"),
+            recorded_by=self.staff,
+        )
+        InventoryMovement.objects.create(
+            item=item,
+            movement_type=InventoryMovement.RELEASE,
+            quantity=Decimal("12.00"),
+            balance_after=Decimal("8.00"),
+            recorded_by=self.staff,
+        )
+
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            reverse("reports:home"),
+            {"analytics_tab": "inventory", "analytics_date_range": "all"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        descriptive = response.context["descriptive"]
+        self.assertEqual(descriptive["inventory_item_total"], 1)
+        self.assertEqual(descriptive["inventory_low_stock"], 1)
+        self.assertEqual(descriptive["inventory_movement_total"], 2)
+        self.assertEqual(descriptive["inventory_issued_items"][0]["value"], Decimal("12.00"))
+        self.assertContains(response, "Inventory Movement Over Time")
+        self.assertContains(response, "Current Stock Exceptions")
+        self.assertContains(response, "Certified Rice Seed")
 
     def test_unknown_role_cannot_access_confidential_analytics(self):
         self.staff.role = "UNAUTHORIZED"

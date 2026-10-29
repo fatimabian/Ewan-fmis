@@ -90,6 +90,12 @@
           <div class="request-field" data-request-recipient="barangay">
             <label>{{ form.target_barangay.label }}</label>{{ form.target_barangay }}<span class="request-errors">{{ form.target_barangay.errors }}</span>
           </div>
+          <div class="request-field" data-request-recipient="association">
+            <label>{{ form.target_association.label }}</label>{{ form.target_association }}<span class="request-errors">{{ form.target_association.errors }}</span>
+          </div>
+          <div class="request-field" data-request-recipient="walk-in">
+            <label>{{ form.walk_in_name.label }}</label>{{ form.walk_in_name }}<span class="request-errors">{{ form.walk_in_name.errors }}</span>
+          </div>
           <div class="request-field">
             <label>{{ form.service.label }}</label>{{ form.service }}
             {% if form.service.help_text %}
@@ -140,7 +146,7 @@
     if(!scope)return;
     const barangayOnlyValues=new Set((service?.dataset.barangayOnlyValues||"").split(",").filter(Boolean));
     const syncServiceOptions=()=>{
-      const barangayScope=scope.value==="BARANGAY";
+      const barangayScope=scope.value==="BARANGAY"||scope.value==="ASSOCIATION";
       service?.querySelectorAll("option").forEach(option=>{
         const barangayOnly=barangayOnlyValues.has(option.value);
         option.hidden=barangayOnly&&!barangayScope;
@@ -150,7 +156,8 @@
     };
     const syncRecipientFields=()=>{
       document.querySelectorAll("[data-request-recipient]").forEach(container=>{
-        const visible=container.dataset.requestRecipient===(scope.value==="BARANGAY"?"barangay":"individual");
+        const target=scope.value==="BARANGAY"?"barangay":(scope.value==="ASSOCIATION"?"association":(scope.value==="WALK_IN"?"walk-in":"individual"));
+        const visible=container.dataset.requestRecipient===target;
         container.hidden=!visible;
         container.querySelectorAll("input,select,textarea").forEach(field=>field.disabled=!visible);
       });

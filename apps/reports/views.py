@@ -14,6 +14,7 @@ from apps.activity_logs.models import ActivityLog
 from apps.activity_logs.services import record_request_event
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
+from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.service_requests.models import ServiceRequest
 from .analytics import ANALYTICS_TABS, descriptive_analytics, report_metrics, report_preview
 from .export import (
@@ -54,6 +55,7 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             "account_status": source.get("account_status", ""),
             "module": source.get("module", ""),
             "staff": source.get("staff", ""),
+            "association": source.get("association", ""),
         })
 
     @staticmethod
@@ -63,6 +65,7 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             ("year", "Year"),
             ("barangay", "Barangay"),
             ("commodity", "Commodity"),
+            ("association", "Association"),
         ):
             if filters.get(key):
                 active.append({"label": label, "value": filters[key]})
@@ -127,6 +130,10 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             "request_status": source.get("analytics_request_status", ""),
             "request_priority": source.get("analytics_request_priority", ""),
             "intervention_type": source.get("analytics_intervention_type", ""),
+            "inventory_category": source.get("analytics_inventory_category", ""),
+            "inventory_movement_type": source.get(
+                "analytics_inventory_movement_type", ""
+            ),
         }
         preview = None
         report_error = ""
@@ -168,6 +175,8 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             "status_choices": ServiceRequest.STATUS_CHOICES,
             "request_priority_choices": ServiceRequest.PRIORITY_CHOICES,
             "intervention_type_choices": Intervention.TYPE_CHOICES,
+            "inventory_category_choices": InventoryItem.CATEGORY_CHOICES,
+            "inventory_movement_choices": InventoryMovement.MOVEMENT_CHOICES,
             "role_choices": (("ADMIN", "Administrator"), ("STAFF", "Staff")),
             "account_status_choices": (
                 ("ACTIVE", "Active"),
@@ -181,6 +190,12 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             "staff_choices": get_user_model().objects.filter(role="STAFF").order_by(
                 "first_name", "last_name", "username"
             ),
+            "association_choices": Farmer.objects.filter(
+                is_active=True,
+                is_association_member=True,
+            ).exclude(fca_membership="").values_list(
+                "fca_membership", flat=True
+            ).distinct().order_by("fca_membership"),
             "selected_report_type": selected_report_type,
             "selected_date_range": date_range_choice,
             "selected_date_from": date_from,
@@ -235,6 +250,7 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                     "account_status": request.POST.get("account_status", ""),
                     "module": request.POST.get("module", ""),
                     "staff": request.POST.get("staff", ""),
+                    "association": request.POST.get("association", ""),
                 },
             )
             record_request_event(
@@ -318,7 +334,6 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     parcel.farmer.list_name,
                     parcel.area_hectares,
                     parcel.get_ownership_type_display(),
-                    parcel.get_land_type_display(),
                     parcel.get_farm_type_display(),
                     "Active" if parcel.is_active else "Inactive",
                 ]
@@ -343,7 +358,6 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     "Farmer Name",
                     "Area (ha)",
                     "Ownership",
-                    "Land Type",
                     "Farm Type",
                     "Status",
                 ],
@@ -400,8 +414,19 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                     item.service.name,
                     item.beneficiary_reference,
                     item.beneficiary_label,
-                    item.target_barangay if item.scope == "BARANGAY" else item.farmer.barangay,
-                    item.subject,
+                    (
+                        item.target_barangay
+                        if item.scope == "BARANGAY"
+                        else (
+                            item.target_association
+                            if item.scope == "ASSOCIATION"
+                            else (
+                                "Walk-In"
+                                if item.scope == "WALK_IN"
+                                else item.farmer.barangay
+                            )
+                        )
+                    ),
                     item.get_priority_display(),
                     item.get_status_display(),
                     timezone.localtime(item.created_at).strftime("%B %d, %Y %I:%M %p"),
@@ -433,10 +458,9 @@ class ManagementTableExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View
                 [
                     "Request ID",
                     "Request Type",
-                    "Farmer ID",
-                    "Farmer Name",
+                    "Coverage",
+                    "Name",
                     "Barangay",
-                    "Subject",
                     "Priority",
                     "Status",
                     "Date Requested",

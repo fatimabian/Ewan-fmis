@@ -7,6 +7,11 @@ from apps.farm_parcels.models import FarmParcel
 class CropRecord(models.Model):
     parcel = models.ForeignKey(FarmParcel, on_delete=models.CASCADE, related_name="crops")
     crop_type = models.CharField(max_length=100)
+    variety = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Specific variety or breed, for example Saba, Latundan, Native Chicken, or Broiler.",
+    )
     cropping_schedule = models.CharField(
         max_length=40,
         blank=True,

@@ -4,50 +4,6 @@
 {% endblock %}
 {% block content %}
   <style>
-  .accounts-overview{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(130px,1fr));
-      gap:10px;
-      margin:0 0 14px
-  }
-  .accounts-overview .metric-card{
-      display:grid;
-      grid-template-columns:38px minmax(0,1fr);
-      grid-template-rows:auto auto;
-      align-items:center;
-      column-gap:10px;
-      padding:11px 13px;
-      min-height:76px;
-      background:#fff;
-      border:1px solid #e7ebf0;
-      border-radius:12px;
-      box-shadow:0 3px 10px #2634510b
-  }
-  .accounts-overview .metric-card>i{
-      grid-row:1 / 3;
-      width:38px;
-      height:38px;
-      display:grid;
-      place-items:center;
-      background:var(--mint);
-      color:var(--green);
-      font-style:normal;
-      font-size:18px;
-      border-radius:9px
-  }
-  .accounts-overview small{
-      display:block;
-      color:var(--muted);
-      font-size:9px;
-      font-weight:800;
-      line-height:1.2
-  }
-  .accounts-overview b{
-      font-size:21px;
-      display:block;
-      margin-top:1px;
-      line-height:1
-  }
   .new-account-button{
       display:flex;
       width:max-content;
@@ -102,45 +58,8 @@
           white-space:nowrap!important
       }
   }
-  @media(max-width:1100px){
-      .accounts-overview{
-          grid-template-columns:repeat(4,minmax(130px,1fr))
-      }
-  }
-  @media(max-width:700px){
-      .accounts-overview{
-          grid-template-columns:repeat(2,minmax(0,1fr));
-          gap:8px
-      }
-  }
   </style>
   <div class="content">
-    <div class="accounts-overview">
-      <article class="metric-card">
-        <i class="bi bi-people">
-        </i>
-        <small>TOTAL ACCOUNTS</small>
-        <b>{{ total }}</b>
-      </article>
-      <article class="metric-card">
-        <i class="bi bi-person-check">
-        </i>
-        <small>ACTIVE ACCOUNTS</small>
-        <b>{{ active }}</b>
-      </article>
-      <article class="metric-card">
-        <i class="bi bi-shield-check">
-        </i>
-        <small>ADMIN ACCOUNTS</small>
-        <b>{{ admins }}</b>
-      </article>
-      <article class="metric-card">
-        <i class="bi bi-person-badge">
-        </i>
-        <small>STAFF ACCOUNTS</small>
-        <b>{{ staff }}</b>
-      </article>
-    </div>
     <section class="panel table-panel account-table-panel">
         <div class="accounts-table-header">
           <h3>All Accounts</h3>

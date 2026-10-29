@@ -13,6 +13,8 @@ class Intervention(models.Model):
         ("INDIVIDUAL", "One farmer"),
         ("SELECTED", "Selected farmers"),
         ("BARANGAY", "All active farmers in a barangay"),
+        ("ASSOCIATION", "All active members of an association"),
+        ("WALK_IN", "Walk-In recipient"),
         ("ALL", "All active farmers"),
     ]
     STATUS_CHOICES = [
@@ -38,6 +40,8 @@ class Intervention(models.Model):
     )
     scope = models.CharField(max_length=12, choices=SCOPE_CHOICES, default="INDIVIDUAL")
     target_barangay = models.CharField(max_length=100, blank=True)
+    target_association = models.CharField(max_length=180, blank=True)
+    walk_in_name = models.CharField(max_length=180, blank=True)
     status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="COMPLETED")
     service_request = models.ForeignKey(
         ServiceRequest,
@@ -94,6 +98,10 @@ class Intervention(models.Model):
             return self.farmer.list_name
         if self.scope == "BARANGAY":
             return f"{self.target_barangay} farmers"
+        if self.scope == "ASSOCIATION":
+            return f"{self.target_association} members"
+        if self.scope == "WALK_IN":
+            return self.walk_in_name
         return self.get_scope_display()
 
 

@@ -183,6 +183,8 @@
               {% include "farmers/registration_field.html" with field=profile_form.indigenous_group %}
               {% include "farmers/registration_field.html" with field=profile_form.is_pwd %}
               {% include "farmers/registration_field.html" with field=profile_form.is_four_ps %}
+              {% include "farmers/registration_field.html" with field=profile_form.is_association_member %}
+              {% include "farmers/registration_field.html" with field=profile_form.fca_membership %}
             </div>
           </div>
           <div class="step-actions">
@@ -605,9 +607,23 @@
               updateNextButtonState()
           }
 
+          function updateAssociationName() {
+              const choice = form.querySelector('[data-association-choice]');
+              const name = form.querySelector('[data-association-name]');
+              const wrapper = name?.closest('[data-field-name="fca_membership"]');
+              if (!choice || !name || !wrapper) return;
+              const applies = choice.value === 'True';
+              wrapper.hidden = !applies;
+              name.disabled = !applies;
+              name.required = applies;
+              if (!applies) name.value = '';
+              updateNextButtonState()
+          }
+
           document.addEventListener('change', event => {
               if (event.target.matches('[data-valid-id-type]')) updateIdNumberRule();
               if (event.target.matches('[data-indigenous-choice]')) updateIndigenousGroup();
+              if (event.target.matches('[data-association-choice]')) updateAssociationName();
               if (event.target.matches('[data-commodity-type]')) {
                   updateCommodityArea(event.target.closest('.formset-row'))
               }
@@ -651,6 +667,7 @@
           });
           updateIdNumberRule();
           updateIndigenousGroup();
+          updateAssociationName();
           activeRows('parcels').forEach(updateOwnershipFields);
           activeRows('crops').forEach(updateCommodityArea);
           syncParcelChoices();

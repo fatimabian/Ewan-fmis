@@ -7,7 +7,7 @@
       <a href="{% url 'service_requests:list' %}" data-history-back><i class="bi bi-arrow-left"></i> Back to Service Requests</a>
       <div class="record-detail-actions">
         <a class="btn btn-outline-success" href="{% url 'service_requests:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
-        <a class="btn btn-outline-success" href="{% url 'service_requests:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Update Service Request</a>
+        {% if can_manage_request %}<a class="btn btn-outline-success" href="{% url 'service_requests:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Update Service Request</a>{% endif %}
       </div>
     </div>
     <div class="record-single-card">
@@ -30,7 +30,7 @@
         <dl class="record-data">
           <div><dt>Scope</dt><dd>{{ object.get_scope_display }}</dd></div>
           <div><dt>Beneficiary</dt><dd>{{ object.beneficiary_label }}</dd></div>
-          <div><dt>Barangay</dt><dd>{% if object.scope == 'BARANGAY' %}{{ object.target_barangay }}{% else %}{{ object.farmer.barangay }}{% endif %}</dd></div>
+          <div><dt>Coverage</dt><dd>{% if object.scope == 'BARANGAY' %}Brgy. {{ object.target_barangay }}{% elif object.scope == 'ASSOCIATION' %}{{ object.target_association }}{% elif object.scope == 'WALK_IN' %}Walk-In{% else %}{{ object.farmer.barangay }}{% endif %}</dd></div>
           <div><dt>Priority</dt><dd>{{ object.get_priority_display }}</dd></div>
           <div><dt>Assigned Staff</dt><dd>{{ object.assigned_to.display_name|default:"Unassigned" }}</dd></div>
           <div><dt>Date Requested</dt><dd>{{ object.created_at|date:"M d, Y h:i A" }}</dd></div>

@@ -234,6 +234,11 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
     is_indigenous = YesNoNAField(label="Member of an Indigenous People / ICC")
     is_pwd = YesNoNAField(label="Person with Disability (PWD)")
     is_four_ps = YesNoNAField(label="4Ps beneficiary")
+    is_association_member = YesNoNAField(
+        required=False,
+        label="Association member",
+        choices=(("", "Select Yes or No"), ("True", "Yes"), ("False", "No")),
+    )
     philsys_registered = YesNoNAField(
         required=False,
         label="Registered in PhilSys / National ID",
@@ -277,6 +282,7 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "indigenous_group",
             "is_pwd",
             "is_four_ps",
+            "is_association_member",
             "fca_membership",
             "livelihood",
             "consent_given",
@@ -305,6 +311,8 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             "indigenous_group": "Indigenous group name",
             "is_pwd": "Person with Disability (PWD)",
             "is_four_ps": "4Ps beneficiary",
+            "is_association_member": "Association member",
+            "fca_membership": "Association name",
         }
 
     def __init__(self, *args, **kwargs):
@@ -355,6 +363,10 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             self.initial.setdefault("phone_number", "09")
         self.fields["is_indigenous"].widget.attrs["data-indigenous-choice"] = "true"
         self.fields["indigenous_group"].widget.attrs["data-indigenous-group"] = "true"
+        self.fields["is_association_member"].widget.attrs[
+            "data-association-choice"
+        ] = "true"
+        self.fields["fca_membership"].widget.attrs["data-association-name"] = "true"
         self.fields["valid_id_type"].widget.attrs["data-valid-id-type"] = "true"
         registration_only = not (self.instance and self.instance.pk)
         self.fields["valid_id_type"].required = registration_only
@@ -459,6 +471,13 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
                 )
         if cleaned.get("is_indigenous") and not cleaned.get("indigenous_group"):
             self.add_error("indigenous_group", "Enter the Indigenous People or ICC group name.")
+        association_name = (cleaned.get("fca_membership") or "").strip()
+        if cleaned.get("is_association_member") is None:
+            cleaned["is_association_member"] = False
+        if cleaned.get("is_association_member") and not association_name:
+            self.add_error("fca_membership", "Enter the farmer's association name.")
+        elif cleaned.get("is_association_member") is False:
+            cleaned["fca_membership"] = ""
         if (
             cleaned.get("civil_status") == "MARRIED"
             and not cleaned.get("spouse_name")
@@ -473,38 +492,14 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
 
 
 class FarmerProfileUpdateForm(FarmerRegistrationForm):
-    LETTER_FIELDS = FarmerRegistrationForm.LETTER_FIELDS + ("agriculturist_name",)
-    MIXED_FIELDS = FarmerRegistrationForm.MIXED_FIELDS + (
-        "transaction_code",
-    )
+    LETTER_FIELDS = FarmerRegistrationForm.LETTER_FIELDS
+    MIXED_FIELDS = FarmerRegistrationForm.MIXED_FIELDS
     activities = None
     consent_given = forms.BooleanField(required=False, widget=forms.HiddenInput)
-    transaction_code = forms.CharField(
-        max_length=80,
-        label="Transaction code",
-        help_text="Official update-record transaction code assigned by the encoder.",
-    )
-    change_reason = forms.ChoiceField(
-        choices=FarmerUpdateHistory.CHANGE_REASON_CHOICES,
-        label="Reason for change",
-    )
     update_remarks = forms.CharField(
         required=False,
         label="Update remarks",
         widget=forms.Textarea(attrs={"rows": 3}),
-    )
-    date_signed = forms.DateField(
-        required=False,
-        widget=forms.DateInput(attrs={"type": "date"}),
-    )
-    date_received = forms.DateField(
-        required=False,
-        widget=forms.DateInput(attrs={"type": "date"}),
-    )
-    agriculturist_name = forms.CharField(
-        max_length=180,
-        required=False,
-        label="City / Municipal Agriculturist",
     )
     registrant_declaration = forms.BooleanField(
         required=True,
@@ -526,13 +521,13 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
         self.fields.pop("rsbsa_form", None)
         # Older clients and saved drafts may omit the new tri-state fields.
         # Preserve the stored value on updates instead of silently replacing it.
-        for name in ("is_indigenous", "is_pwd", "is_four_ps"):
+        for name in ("is_indigenous", "is_pwd", "is_four_ps", "is_association_member"):
             self.fields[name].required = False
 
     def clean(self):
         cleaned = super().clean()
         if self.is_bound and self.instance and self.instance.pk:
-            for name in ("is_indigenous", "is_pwd", "is_four_ps"):
+            for name in ("is_indigenous", "is_pwd", "is_four_ps", "is_association_member"):
                 if self.add_prefix(name) not in self.data:
                     cleaned[name] = getattr(self.instance, name)
         return cleaned

@@ -41,11 +41,12 @@
       {% if current_crop_records %}
         <div class="parcel-crop-table-wrap universal-table-wrap">
           <table class="farmer-crops-table universal-table">
-            <thead><tr><th>Commodity</th><th>Farm Parcel</th><th>Schedule</th><th>Area</th><th>Production Details</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Commodity</th><th>Variety / Breed</th><th>Farm Parcel</th><th>Schedule</th><th>Area</th><th>Production Details</th><th>Actions</th></tr></thead>
             <tbody>
               {% for crop in current_crop_records %}
                 <tr class="record-row" tabindex="0" data-record-url="{% url 'crops:detail' crop.pk %}">
                   <td><a class="record-cell-link" href="{% url 'crops:detail' crop.pk %}">{{ crop.crop_type }}</a></td>
+                  <td>{{ crop.variety|default:'Not recorded' }}</td>
                   <td>{{ crop.parcel.display_name }} · {{ crop.parcel.barangay }}</td>
                   <td>{{ crop.cropping_schedule|default:'Not recorded' }}</td>
                   <td>{% if crop.area_hectares is not None %}{{ crop.area_hectares }} ha{% else %}Not applicable{% endif %}</td>
@@ -66,11 +67,12 @@
         <h3><i class="bi bi-clock-history"></i> Inactive Commodity Records</h3>
         <div class="parcel-crop-table-wrap universal-table-wrap">
           <table class="farmer-crops-table universal-table">
-            <thead><tr><th>Commodity</th><th>Farm Parcel</th><th>Schedule</th><th>Area</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Commodity</th><th>Variety / Breed</th><th>Farm Parcel</th><th>Schedule</th><th>Area</th><th>Actions</th></tr></thead>
             <tbody>
               {% for crop in archived_crop_records %}
                 <tr>
                   <td><a href="{% url 'crops:detail' crop.pk %}">{{ crop.crop_type }}</a></td>
+                  <td>{{ crop.variety|default:'Not recorded' }}</td>
                   <td>{{ crop.parcel.display_name }} · {{ crop.parcel.barangay }}</td>
                   <td>{{ crop.cropping_schedule|default:'Not recorded' }}</td>
                   <td>{% if crop.area_hectares is not None %}{{ crop.area_hectares }} ha{% else %}Not applicable{% endif %}</td>

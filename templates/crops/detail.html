@@ -29,6 +29,7 @@
         <h3><i class="bi bi-flower1"></i> Commodity &amp; Production Information</h3>
         <dl class="record-data">
           <div><dt>Commodity</dt><dd>{{ object.crop_type }}</dd></div>
+          <div><dt>Variety / Breed</dt><dd>{{ object.variety|default:'Not recorded' }}</dd></div>
           <div><dt>Area Used</dt><dd>{% if object.area_hectares is not None %}{{ object.area_hectares }} hectares{% else %}Not applicable to livestock{% endif %}</dd></div>
           <div><dt>Heads / Trees</dt><dd>{{ object.number_of_heads|default:'Not applicable' }}</dd></div>
           <div><dt>Organic Production</dt><dd>{{ object.is_organic|yesno:'Yes,No' }}</dd></div>

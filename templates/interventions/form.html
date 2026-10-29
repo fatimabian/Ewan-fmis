@@ -46,6 +46,8 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
         <div class="intervention-field" data-recipient-field="individual"><label>{{ form.farmer.label }}</label>{{ form.farmer }}<span class="intervention-errors">{{ form.farmer.errors }}</span></div>
         <div class="intervention-field full" data-recipient-field="selected"><label>{{ form.selected_farmers.label }}</label><input class="intervention-farmer-search" type="search" placeholder="Search by Farmer ID, RSBSA number, name, or barangay" autocomplete="off" data-selected-farmer-search data-search-url="{% url 'interventions:farmer_search' %}">{{ form.selected_farmers }}<small class="intervention-search-result" data-selected-farmer-result aria-live="polite"></small><small class="text-muted">{{ form.selected_farmers.help_text }}</small><span class="intervention-errors">{{ form.selected_farmers.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="barangay"><label>{{ form.target_barangay.label }}</label>{{ form.target_barangay }}<span class="intervention-errors">{{ form.target_barangay.errors }}</span></div>
+        <div class="intervention-field" data-recipient-field="association"><label>{{ form.target_association.label }}</label>{{ form.target_association }}<span class="intervention-errors">{{ form.target_association.errors }}</span></div>
+        <div class="intervention-field" data-recipient-field="walk-in"><label>{{ form.walk_in_name.label }}</label>{{ form.walk_in_name }}<span class="intervention-errors">{{ form.walk_in_name.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.status.label }}</label>{{ form.status }}<span class="intervention-errors">{{ form.status.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.intervention_type.label }}</label>{{ form.intervention_type }}<span class="intervention-errors">{{ form.intervention_type.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.intervention_date.label }}</label>{{ form.intervention_date }}<span class="intervention-errors">{{ form.intervention_date.errors }}</span></div>
@@ -68,13 +70,15 @@ document.addEventListener("DOMContentLoaded",()=>{
   const interventionType=document.querySelector('[name="intervention_type"]');
   const farmer=document.querySelector('[name="farmer"]');
   const targetBarangay=document.querySelector('[name="target_barangay"]');
+  const targetAssociation=document.querySelector('[name="target_association"]');
+  const walkInName=document.querySelector('[name="walk_in_name"]');
   const farmerSearch=document.querySelector('[data-selected-farmer-search]');
   const farmerResult=document.querySelector('[data-selected-farmer-result]');
   const farmerList=document.querySelector('.intervention-checkbox-list');
   if(!scope)return;
   const sync=()=>{
     document.querySelectorAll("[data-recipient-field]").forEach(el=>{
-      const visible=(scope.value==="INDIVIDUAL"&&el.dataset.recipientField==="individual")||(scope.value==="SELECTED"&&el.dataset.recipientField==="selected")||(scope.value==="BARANGAY"&&el.dataset.recipientField==="barangay");
+      const visible=(scope.value==="INDIVIDUAL"&&el.dataset.recipientField==="individual")||(scope.value==="SELECTED"&&el.dataset.recipientField==="selected")||(scope.value==="BARANGAY"&&el.dataset.recipientField==="barangay")||(scope.value==="ASSOCIATION"&&el.dataset.recipientField==="association")||(scope.value==="WALK_IN"&&el.dataset.recipientField==="walk-in");
       el.hidden=!visible;
     });
   };
@@ -92,6 +96,13 @@ document.addEventListener("DOMContentLoaded",()=>{
     if(scope.value==="BARANGAY"&&targetBarangay&&option.dataset.targetBarangay){
       targetBarangay.value=option.dataset.targetBarangay;
       targetBarangay.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+    if(scope.value==="ASSOCIATION"&&targetAssociation&&option.dataset.targetAssociation){
+      targetAssociation.value=option.dataset.targetAssociation;
+      targetAssociation.dispatchEvent(new Event("change",{bubbles:true}));
+    }
+    if(scope.value==="WALK_IN"&&walkInName&&option.dataset.walkInName){
+      walkInName.value=option.dataset.walkInName;
     }
     if(interventionType&&option.dataset.interventionType){
       interventionType.value=option.dataset.interventionType;

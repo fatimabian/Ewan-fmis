@@ -140,6 +140,7 @@ FILTER_LABELS = {
     "account_status": "Account Status",
     "module": "Activity Module",
     "staff": "Staff Member",
+    "association": "Association",
 }
 
 
@@ -251,6 +252,8 @@ def normalize_report_filters(report_type, filters=None):
         normalized["status"] = ""
     if report_type not in {"intervention_summary", "intervention_registry"}:
         normalized["intervention_type"] = ""
+    if report_type != "farmer_master":
+        normalized["association"] = ""
     return normalized
 
 
@@ -272,6 +275,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
     commodity = str(filters.get("commodity", "")).strip()
     status = str(filters.get("status", "")).strip()
     intervention_type = str(filters.get("intervention_type", "")).strip()
+    association = str(filters.get("association", "")).strip()
     if year and (not year.isdigit() or len(year) != 4):
         raise ValueError("Choose a valid report year.")
     if barangay and barangay not in ROSARIO_BARANGAYS:
@@ -299,6 +303,11 @@ def build_report(report_type, date_range, filters=None, compact=False):
             queryset = queryset.filter(created_at__year=int(year))
         if barangay:
             queryset = queryset.filter(barangay=barangay)
+        if association:
+            queryset = queryset.filter(
+                is_association_member=True,
+                fca_membership=association,
+            )
         if commodity:
             queryset = queryset.filter(
                 parcels__crops__crop_type=commodity,
@@ -314,7 +323,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
                 parcel_details.append(
                     f"{parcel.display_name}: {parcel.area_hectares} ha; {parcel.barangay}, "
                     f"{parcel.municipality}, {parcel.province}; tenure={parcel.get_ownership_type_display()}; "
-                    f"land={parcel.get_land_type_display()}; farm={parcel.get_farm_type_display() or 'Not recorded'}; "
+                    f"farm type={parcel.get_farm_type_display() or 'Not recorded'}; "
                     f"ancestral domain={_yes_no(parcel.within_ancestral_domain)}; ARB={_yes_no(parcel.agrarian_reform_beneficiary)}; "
                     f"ownership document={parcel.get_ownership_document_display() or parcel.ownership_document_other or 'Not recorded'}; "
                     f"land owner={parcel.land_owner_name or 'Not recorded'}; owner in RSBSA={_yes_no(parcel.land_owner_registered_rsbsa)}; "
@@ -323,23 +332,40 @@ def build_report(report_type, date_range, filters=None, compact=False):
                     f"rotational tiller={_yes_no(parcel.rotational_tiller)}; remarks={parcel.remarks or 'None'}"
                 )
             crop_details = [
-                f"{crop.crop_type} ({crop.parcel.display_name}): {crop.area_hectares} ha; "
+                f"{crop.crop_type} ({crop.variety or 'variety not recorded'}) ({crop.parcel.display_name}): {crop.area_hectares} ha; "
                 f"schedule={crop.cropping_schedule or 'Not recorded'}; heads={crop.number_of_heads or 'Not recorded'}; "
                 f"organic={_yes_no(crop.is_organic)}; intercrop={_yes_no(crop.is_intercrop)}; "
                 f"planted={crop.planting_date or 'Not recorded'}; harvest={crop.harvest_date or 'Not recorded'}"
                 for crop in crops
             ]
             if compact:
+                farm_municipalities = ", ".join(
+                    dict.fromkeys(parcel.municipality for parcel in parcels if parcel.municipality)
+                ) or "-"
+                farm_barangays = ", ".join(
+                    dict.fromkeys(parcel.barangay for parcel in parcels if parcel.barangay)
+                ) or "-"
                 rows.append([
-                    farmer.record_id,
-                    farmer.full_name,
+                    len(rows) + 1,
                     farmer.rsbsa_number or "Not assigned",
-                    farmer.get_registration_status_display(),
+                    farmer.last_name,
+                    farmer.first_name,
+                    farmer.middle_name or "-",
+                    farmer.extension_name or "-",
+                    farmer.birth_date or "-",
+                    farmer.city_municipality,
                     farmer.barangay,
+                    farm_municipalities,
+                    farm_barangays,
+                    "M" if farmer.sex == "MALE" else ("F" if farmer.sex == "FEMALE" else "-"),
+                    _yes_no(farmer.is_indigenous),
+                    "Yes" if farmer.age is not None and farmer.age >= 60 else "No",
+                    _yes_no(farmer.is_pwd),
+                    "Yes" if any(parcel.agrarian_reform_beneficiary for parcel in parcels) else "No",
+                    _yes_no(farmer.is_four_ps),
+                    farmer.fca_membership if farmer.is_association_member else "No",
+                    sum((parcel.area_hectares for parcel in parcels), 0),
                     farmer.phone_number or "-",
-                    farmer.get_livelihood_display(),
-                    f"{len(parcels)} parcel(s) · {len(crops)} crop(s)",
-                    _commodity_names(crops, commodity),
                 ])
                 continue
             document_details = [
@@ -375,8 +401,11 @@ def build_report(report_type, date_range, filters=None, compact=False):
             return (
                 "Farmer Master List",
                 [
-                    "Farmer ID", "Farmer Name", "RSBSA ID", "Registration Status", "Barangay",
-                    "Phone", "Livelihood", "Farm Records", "Commodities",
+                    "No.", "RSBSA No.", "Last Name", "First Name", "Middle Name",
+                    "Ext. Name", "Date of Birth", "Residence Municipality",
+                    "Residence Barangay", "Farm Municipality", "Farm Barangay",
+                    "Gender", "IP", "Senior Citizen", "PWD", "ARB", "4Ps",
+                    "Association", "Farm Area (ha)", "Contact No.",
                 ],
                 rows,
             )
@@ -491,10 +520,11 @@ def build_report(report_type, date_range, filters=None, compact=False):
             queryset = queryset.filter(crop_type=commodity)
         return (
             "Commodity Production Summary",
-            ["Commodity", "Farmer ID", "Farmer", "Barangay", "Parcel", "Area (ha)"],
+            ["Commodity", "Variety / Breed", "Farmer ID", "Farmer", "Barangay", "Parcel", "Area (ha)"],
             [
                 [
                     crop.crop_type,
+                    crop.variety or "-",
                     crop.parcel.farmer.record_id,
                     crop.parcel.farmer.full_name,
                     crop.parcel.barangay,
@@ -528,6 +558,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
                 crop.parcel.display_name,
                 crop.parcel.barangay,
                 crop.crop_type,
+                crop.variety or "-",
                 crop.area_hectares if crop.area_hectares is not None else "Not applicable",
             ]
             for crop in queryset.order_by(
@@ -542,6 +573,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
                 "Parcel",
                 "Barangay",
                 "Commodity",
+                "Variety / Breed",
                 "Area (ha)",
             ],
             rows,
@@ -549,8 +581,9 @@ def build_report(report_type, date_range, filters=None, compact=False):
 
     if report_type == "intervention_summary":
         queryset = _filter_period(
-            Intervention.objects.filter(
-                is_active=True, recipients__is_active=True, recipients__farmer__is_active=True
+            Intervention.objects.filter(is_active=True).filter(
+                Q(scope="WALK_IN")
+                | Q(recipients__is_active=True, recipients__farmer__is_active=True)
             ).distinct(),
             "intervention_date",
             date_range,
@@ -591,8 +624,9 @@ def build_report(report_type, date_range, filters=None, compact=False):
 
     if report_type == "intervention_registry":
         queryset = _filter_period(
-            Intervention.objects.filter(
-                is_active=True, recipients__is_active=True, recipients__farmer__is_active=True
+            Intervention.objects.filter(is_active=True).filter(
+                Q(scope="WALK_IN")
+                | Q(recipients__is_active=True, recipients__farmer__is_active=True)
             ).select_related("service_request", "recorded_by").prefetch_related("recipients__farmer").distinct(),
             "intervention_date",
             date_range,
@@ -611,6 +645,20 @@ def build_report(report_type, date_range, filters=None, compact=False):
             queryset = queryset.filter(intervention_type=intervention_type)
         rows = []
         for item in queryset.order_by("pk"):
+            if item.scope == "WALK_IN":
+                rows.append([
+                    item.reference_id,
+                    item.intervention_date,
+                    "Walk-In",
+                    item.walk_in_name,
+                    "-",
+                    item.get_intervention_type_display(),
+                    f"{item.quantity} {item.unit}".strip() if item.quantity is not None else "-",
+                    item.provider or "-",
+                    item.service_request.request_id if item.service_request else "-",
+                    item.recorded_by.display_name if item.recorded_by else "-",
+                ])
+                continue
             for recipient in item.recipients.all():
                 if not recipient.is_active or not recipient.farmer.is_active:
                     continue
@@ -623,7 +671,6 @@ def build_report(report_type, date_range, filters=None, compact=False):
                     recipient.farmer.full_name,
                     recipient.farmer.barangay,
                     item.get_intervention_type_display(),
-                    item.description,
                     f"{item.quantity} {item.unit}".strip() if item.quantity is not None else "-",
                     item.provider or "-",
                     item.service_request.request_id if item.service_request else "-",
@@ -633,14 +680,14 @@ def build_report(report_type, date_range, filters=None, compact=False):
             "Complete Intervention Register",
             [
                 "Reference", "Date", "Farmer ID", "Farmer", "Barangay", "Intervention Type",
-                "Description", "Quantity", "Provider", "Service Request", "Recorded By",
+                "Quantity", "Provider", "Service Request", "Recorded By",
             ],
             rows,
         )
 
     if report_type == "service_effectiveness":
         request_queryset = ServiceRequest.objects.filter(
-            Q(farmer__is_active=True) | Q(scope="BARANGAY")
+            Q(farmer__is_active=True) | Q(scope__in=("BARANGAY", "ASSOCIATION", "WALK_IN"))
         )
         request_queryset = _filter_period(
             request_queryset, "created_at", date_range
@@ -680,7 +727,7 @@ def build_report(report_type, date_range, filters=None, compact=False):
 
     queryset = _filter_period(
         ServiceRequest.objects.filter(
-            Q(farmer__is_active=True) | Q(scope="BARANGAY")
+            Q(farmer__is_active=True) | Q(scope__in=("BARANGAY", "ASSOCIATION", "WALK_IN"))
         ).select_related(
             "farmer", "service", "assigned_to"
         ),
@@ -704,17 +751,24 @@ def build_report(report_type, date_range, filters=None, compact=False):
     return (
         "Service Request Status",
         [
-            "Request ID", "Coverage", "Beneficiary", "Barangay", "Request Type",
-            "Request", "Status", "Priority", "Date Requested", "Assigned Staff",
+            "Request ID", "Coverage", "Name", "Barangay / Association", "Request Type",
+            "Status", "Priority", "Date Requested", "Assigned Staff",
         ],
         [
             [
                 item.request_id,
                 item.beneficiary_reference,
                 item.beneficiary_label,
-                item.target_barangay if item.scope == "BARANGAY" else item.farmer.barangay,
+                (
+                    item.target_barangay
+                    if item.scope == "BARANGAY"
+                    else (
+                        item.target_association
+                        if item.scope == "ASSOCIATION"
+                        else ("Walk-In" if item.scope == "WALK_IN" else item.farmer.barangay)
+                    )
+                ),
                 item.service.name,
-                item.subject,
                 item.get_status_display(),
                 item.get_priority_display(),
                 timezone.localtime(item.created_at).date(),
@@ -971,6 +1025,242 @@ def _csv_response(title, headers, rows, date_range, filters=None):
 
 
 def _pdf_response(title, headers, rows, date_range, filters=None):
+    """Render every FMIS PDF in one official, report-adaptive format."""
+    from pathlib import Path
+    from xml.sax.saxutils import escape
+
+    from django.conf import settings
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        KeepTogether,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
+    response = HttpResponse(content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{_filename(title, "pdf")}"'
+    page_size = landscape(A4)
+    document = SimpleDocTemplate(
+        response,
+        pagesize=page_size,
+        rightMargin=8 * mm,
+        leftMargin=8 * mm,
+        topMargin=35 * mm,
+        bottomMargin=24 * mm,
+        title=title,
+        author="Office for Agricultural Services - Rosario, Batangas",
+        subject="Official FMIS generated report",
+    )
+    styles = getSampleStyleSheet()
+    generated_at = timezone.localtime()
+
+    def safe_text(value):
+        text = str(value if value not in (None, "") else "-")
+        return (
+            text.replace("\u2013", "-")
+            .replace("\u2014", "-")
+            .replace("\u00b7", "-")
+        )
+
+    meta_style = ParagraphStyle(
+        "OfficialMeta",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=7,
+        leading=9,
+        textColor=colors.black,
+    )
+    meta_label_style = ParagraphStyle(
+        "OfficialMetaLabel",
+        parent=meta_style,
+        fontName="Helvetica-Bold",
+    )
+    column_count = max(1, len(headers))
+    header_font_size = 4.2 if column_count >= 16 else (5.2 if column_count >= 10 else 6.2)
+    cell_font_size = 4.4 if column_count >= 16 else (5.4 if column_count >= 10 else 6.4)
+    header_style = ParagraphStyle(
+        "OfficialTableHeader",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=header_font_size,
+        leading=header_font_size + 1.3,
+        alignment=TA_CENTER,
+        textColor=colors.black,
+        splitLongWords=False,
+    )
+    cell_style = ParagraphStyle(
+        "OfficialTableCell",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=cell_font_size,
+        leading=cell_font_size + 1.4,
+        alignment=TA_LEFT,
+        textColor=colors.black,
+        splitLongWords=False,
+    )
+    center_cell_style = ParagraphStyle(
+        "OfficialCenteredCell",
+        parent=cell_style,
+        alignment=TA_CENTER,
+    )
+    signature_label_style = ParagraphStyle(
+        "SignatureLabel",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=7,
+        leading=9,
+    )
+    signature_role_style = ParagraphStyle(
+        "SignatureRole",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=6.5,
+        leading=8,
+        alignment=TA_CENTER,
+    )
+
+    filters_text = "; ".join(
+        f"{label}: {value}" for label, value in _active_filter_rows(filters)
+    ) or "None"
+    metadata = Table(
+        [
+            [Paragraph("PROVINCE:", meta_label_style), Paragraph("BATANGAS", meta_style),
+             Paragraph("REPORT PERIOD:", meta_label_style), Paragraph(escape(date_range_label(date_range)), meta_style)],
+            [Paragraph("MUNICIPALITY:", meta_label_style), Paragraph("ROSARIO", meta_style),
+             Paragraph("RECORDS:", meta_label_style), Paragraph(f"{len(rows):,}", meta_style)],
+            [Paragraph("APPLIED FILTERS:", meta_label_style), Paragraph(escape(filters_text), meta_style),
+             Paragraph("GENERATED:", meta_label_style), Paragraph(generated_at.strftime("%B %d, %Y %I:%M %p"), meta_style)],
+        ],
+        colWidths=[24 * mm, document.width * .39, 27 * mm, document.width * .39],
+        hAlign="LEFT",
+    )
+    metadata.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+        ("SPAN", (1, 2), (1, 2)),
+    ]))
+
+    string_rows = [[safe_text(value) for value in row] for row in rows]
+    table_data = [[Paragraph(escape(safe_text(header)), header_style) for header in headers]]
+    centered_headers = {
+        "no.", "gender", "ip", "senior citizen", "pwd", "arb", "4ps",
+        "status", "priority", "records handled", "completed / successful",
+    }
+    for row in string_rows:
+        table_data.append([
+            Paragraph(
+                escape(value),
+                center_cell_style if str(headers[index]).casefold() in centered_headers else cell_style,
+            )
+            for index, value in enumerate(row)
+        ])
+    if not rows:
+        table_data.append(
+            [Paragraph("No records found for the selected report criteria.", cell_style)]
+            + [Paragraph("", cell_style)] * (len(headers) - 1)
+        )
+
+    official_weights = {
+        "no.": 3, "rsbsa no.": 10, "last name": 9, "first name": 9,
+        "middle name": 8, "ext. name": 5, "date of birth": 7,
+        "residence municipality": 9, "residence barangay": 8,
+        "farm municipality": 9, "farm barangay": 8, "gender": 4,
+        "ip": 3, "senior citizen": 5, "pwd": 3, "arb": 3, "4ps": 3,
+        "association": 10, "farm area (ha)": 6, "contact no.": 8,
+        "status": 8, "priority": 7, "date requested": 10,
+        "request id": 8, "assigned staff": 11,
+    }
+    weights = []
+    for index, header in enumerate(headers):
+        key = str(header).casefold()
+        if key in official_weights:
+            weights.append(official_weights[key])
+            continue
+        values = [row[index] for row in string_rows if index < len(row)]
+        sample = max([len(str(header)), *(min(len(value), 36) for value in values)] or [7])
+        weights.append(max(5, min(sample, 18)))
+    total_weight = sum(weights) or 1
+    column_widths = [document.width * weight / total_weight for weight in weights]
+    report_table = Table(
+        table_data,
+        colWidths=column_widths,
+        repeatRows=1,
+        hAlign="LEFT",
+        splitByRow=1,
+    )
+    report_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eeeeee")),
+        ("GRID", (0, 0), (-1, -1), .45, colors.HexColor("#333333")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 2),
+        ("TOPPADDING", (0, 0), (-1, 0), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+        ("TOPPADDING", (0, 1), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 1), (-1, -1), 3),
+        ("SPAN", (0, 1), (-1, 1)) if not rows else ("VALIGN", (0, 1), (-1, -1), "TOP"),
+    ]))
+
+    signature_data = [
+        [Paragraph("Prepared by:", signature_label_style), Paragraph("Approved by:", signature_label_style), Paragraph("Noted by:", signature_label_style)],
+        ["", "", ""],
+        [Paragraph("_______________________________", signature_role_style), Paragraph("_______________________________", signature_role_style), Paragraph("_______________________________", signature_role_style)],
+        [Paragraph("FMIS Staff / Report Preparer", signature_role_style), Paragraph("Municipal Agriculturist", signature_role_style), Paragraph("Office Head / Authorized Official", signature_role_style)],
+    ]
+    signatures = Table(signature_data, colWidths=[document.width / 3] * 3)
+    signatures.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 1), (-1, 1), 15),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+    ]))
+
+    story = [metadata, Spacer(1, 5 * mm), report_table, Spacer(1, 8 * mm), KeepTogether(signatures)]
+    logo_path = Path(settings.BASE_DIR) / "static" / "images" / "brand" / "fmis-logo.png"
+
+    def decorate_page(canvas, doc):
+        page_width, page_height = page_size
+        canvas.saveState()
+        if logo_path.exists():
+            canvas.drawImage(
+                str(logo_path), 47 * mm, page_height - 24 * mm, 18 * mm, 18 * mm,
+                preserveAspectRatio=True, anchor="c", mask="auto",
+            )
+        center_x = page_width / 2
+        canvas.setFillColor(colors.black)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.drawCentredString(center_x, page_height - 8 * mm, "Republic of the Philippines")
+        canvas.drawCentredString(center_x, page_height - 12 * mm, "Municipality of Rosario, Batangas")
+        canvas.drawCentredString(center_x, page_height - 16 * mm, "Office for Agricultural Services")
+        canvas.setFont("Helvetica-Bold", 10)
+        canvas.drawCentredString(center_x, page_height - 22 * mm, safe_text(title).upper())
+        canvas.setFont("Helvetica", 6.5)
+        canvas.drawCentredString(center_x, page_height - 26 * mm, "Farmer Management Information System")
+        canvas.setStrokeColor(colors.HexColor("#444444"))
+        canvas.setLineWidth(.5)
+        canvas.line(8 * mm, page_height - 29 * mm, page_width - 8 * mm, page_height - 29 * mm)
+        canvas.line(8 * mm, 15 * mm, page_width - 8 * mm, 15 * mm)
+        canvas.setFont("Helvetica", 6.5)
+        canvas.drawString(8 * mm, 10.5 * mm, "Confidential - For authorized municipal use only")
+        canvas.drawRightString(page_width - 8 * mm, 10.5 * mm, f"Page {doc.page}")
+        canvas.restoreState()
+
+    document.build(story, onFirstPage=decorate_page, onLaterPages=decorate_page)
+    return response
+
+
+def _legacy_pdf_response(title, headers, rows, date_range, filters=None):
     from pathlib import Path
     from xml.sax.saxutils import escape
 

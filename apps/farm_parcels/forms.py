@@ -14,6 +14,7 @@ from apps.common.constants import (
 )
 from apps.common.forms import (
     InlineValidationMixin,
+    MultipleFileInput,
     MultipleImageField,
     RequiredYesNoField,
     YesNoNAField,
@@ -34,10 +35,10 @@ class FarmParcelPhotoUploadForm(InlineValidationMixin, forms.Form):
 
     field_photo = MultipleImageField(
         required=True,
-        label="Upload field photo",
-        help_text="Select one current photo of the field.",
-        widget=forms.ClearableFileInput(
-            attrs={"accept": "image/png,image/jpeg,image/webp"}
+        label="Upload field photos",
+        help_text="Select one or more current photos of the field.",
+        widget=MultipleFileInput(
+            attrs={"accept": "image/png,image/jpeg,image/webp", "multiple": True}
         ),
     )
 
@@ -106,7 +107,6 @@ class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
             "province",
             "area_hectares",
             "ownership_type",
-            "land_type",
             "farm_type",
             "ownership_document",
             "ownership_document_other",

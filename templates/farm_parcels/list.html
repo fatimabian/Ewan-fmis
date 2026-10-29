@@ -224,7 +224,6 @@
                 <th>Farm Parcel</th>
                 <th>Area (ha)</th>
                 <th>Ownership</th>
-                <th>Land Type</th>
                 <th>Farm Type</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -242,7 +241,6 @@
                   <td>{{ parcel.display_name }}</td>
                   <td>{{ parcel.area_hectares }}</td>
                   <td>{{ parcel.get_ownership_type_display }}</td>
-                  <td>{{ parcel.get_land_type_display }}</td>
                   <td>{{ parcel.get_farm_type_display }}</td>
                   <td><span class="farmer-status {% if parcel.is_active %}status-completed{% else %}archived{% endif %}">{% if parcel.is_active %}Active{% else %}Inactive{% endif %}</span></td>
                   <td>
@@ -268,7 +266,7 @@
                 </tr>
               {% empty %}
                 <tr>
-                <td colspan="9" class="text-center py-5">No farm parcels matched your filters.</td>
+                <td colspan="8" class="text-center py-5">No farm parcels matched your filters.</td>
                 </tr>
               {% endfor %}
             </tbody>

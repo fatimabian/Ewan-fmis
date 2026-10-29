@@ -1,0 +1,14 @@
+<div class="analytics-line-chart analytics-dual-chart" role="img" aria-label="Inventory receipts and releases over time">
+  <div class="analytics-chart-heading">
+    <div><h3>Inventory Movement Over Time</h3><p>Recorded stock receipts and intervention releases per month.</p></div>
+    <span class="analytics-chart-legend"><i></i> Receipts <i></i> Releases</span>
+  </div>
+  {% if descriptive.inventory_movement_series.points %}
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="4" y1="91" x2="96" y2="91"></line><line x1="4" y1="53" x2="96" y2="53"></line><line x1="4" y1="15" x2="96" y2="15"></line>
+      <polyline class="received-line" points="{{ descriptive.inventory_movement_series.first_polyline }}"></polyline><polyline class="completed-line" points="{{ descriptive.inventory_movement_series.second_polyline }}"></polyline>
+      {% for point in descriptive.inventory_movement_series.points %}<circle class="received-point" cx="{{ point.x }}" cy="{{ point.first_y }}" r="1.2"><title>{{ point.label }} receipts: {{ point.first }}</title></circle><circle class="completed-point" cx="{{ point.x }}" cy="{{ point.second_y }}" r="1.2"><title>{{ point.label }} releases: {{ point.second }}</title></circle>{% endfor %}
+    </svg>
+    <div class="analytics-chart-axis">{% for point in descriptive.inventory_movement_series.points %}<span><b>{{ point.first }} / {{ point.second }}</b><small>{{ point.label }}</small></span>{% endfor %}</div>
+  {% else %}<div class="analytics-empty"><i class="bi bi-info-circle"></i> No dated inventory movements match the selected filters.</div>{% endif %}
+</div>

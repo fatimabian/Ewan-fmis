@@ -24,7 +24,7 @@
           <h3><i class="bi bi-person-vcard"></i> Registrant and personal information</h3>
           <div class="registration-grid three">
             {% for field in form %}
-              {% if field.name != 'transaction_code' and field.name != 'change_reason' and field.name != 'update_remarks' and field.name != 'date_signed' and field.name != 'date_received' and field.name != 'agriculturist_name' and field.name != 'registrant_declaration' %}
+              {% if field.name != 'update_remarks' and field.name != 'registrant_declaration' %}
                 {% if not field.is_hidden %}
                   {% include "farmers/registration_field.html" with field=field %}
                 {% else %}
@@ -35,13 +35,8 @@
           </div>
         </section>
         <section class="form-section">
-          <h3><i class="bi bi-journal-check"></i> Official Update Record details</h3>
-          <div class="registration-grid three">
-            {% include "farmers/registration_field.html" with field=form.transaction_code %}
-            {% include "farmers/registration_field.html" with field=form.change_reason %}
-            {% include "farmers/registration_field.html" with field=form.agriculturist_name %}
-            {% include "farmers/registration_field.html" with field=form.date_signed %}
-            {% include "farmers/registration_field.html" with field=form.date_received %}
+          <h3><i class="bi bi-journal-check"></i> Update remarks</h3>
+          <div class="registration-grid">
             {% include "farmers/registration_field.html" with field=form.update_remarks %}
           </div>
           <div class="registration-consent">

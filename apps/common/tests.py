@@ -1593,16 +1593,14 @@ class FMISRequirementTests(TestCase):
         self.assertContains(history_page, "Farmer name")
         self.assertContains(history_page, "Date created")
         self.assertContains(history_page, self.staff.display_name)
-        self.assertContains(history_page, "SLIP-A-001")
         self.assertContains(history_page, self.staff.display_name)
         self.assertContains(history_page, "Edited by")
         self.assertContains(history_page, "Account")
         self.assertContains(history_page, f"@{self.staff.username}")
         self.assertContains(history_page, "Date")
         self.assertContains(history_page, "Time")
-        self.assertContains(history_page, "Transaction code: SLIP-A-001")
         self.assertContains(history_page, "Update status: Completed")
-        self.assertEqual(history_page.context["history_entries"][0]["transaction_code"], "SLIP-A-001")
+        self.assertEqual(history_page.context["history_entries"][0]["transaction_code"], "")
         farmer_list = self.client.get(reverse("farmers:list"))
         self.assertNotContains(farmer_list, "Last Updated By")
         self.assertNotContains(farmer_list, "Latest Change")
@@ -3377,6 +3375,7 @@ class FMISRequirementTests(TestCase):
         exported_text = "\n".join(
             page.extract_text() or "" for page in PdfReader(BytesIO(response.content)).pages
         )
+        normalized_text = re.sub(r"\s+", " ", exported_text)
         self.assertIn("Completed", exported_text)
         self.assertIn("Medium", exported_text)
         self.assertNotIn("Complete\nd", exported_text)
@@ -3563,19 +3562,26 @@ class FMISRequirementTests(TestCase):
         exported_text = "\n".join(
             page.extract_text() or "" for page in PdfReader(BytesIO(response.content)).pages
         )
+        normalized_text = " ".join(exported_text.split())
         for heading in (
-            "Farmer ID",
-            "Farmer Name",
-            "RSBSA ID",
-            "Status",
-            "Barangay",
-            "Phone",
-            "Livelihood",
-            "Farm Records",
+            "RSBSA No.",
+            "Last Name",
+            "First Name",
+            "Date of Birth",
+            "Residence Barangay",
+            "Farm Barangay",
+            "Senior Citizen",
+            "Association",
+            "Farm Area (ha)",
+            "Contact No.",
+            "Prepared by:",
+            "Approved by:",
+            "Noted by:",
         ):
-            self.assertIn(heading, exported_text)
-        self.assertIn(self.farmer.record_id, exported_text)
-        self.assertIn(self.farmer.full_name, exported_text)
+            self.assertIn(heading, normalized_text)
+        self.assertIn(self.farmer.last_name, normalized_text)
+        self.assertIn(self.farmer.first_name, normalized_text)
+        self.assertIn("Republic of the Philippines", normalized_text)
         self.assertNotIn("FARMER INFORMATION", exported_text)
         self.assertNotIn("FARM PARCELS AND CROPS", exported_text)
 

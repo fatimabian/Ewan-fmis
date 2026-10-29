@@ -138,6 +138,7 @@ class Command(BaseCommand):
                     location_coordinates="",
                     philsys_registered=index % 3 != 0,
                     philsys_pcn=f"SYNPCN{index:012d}" if index % 3 != 0 else "",
+                    is_association_member=index % 5 == 0,
                     fca_membership="Rosario Farmers Association" if index % 5 == 0 else "",
                     is_active=index % 23 != 0,
                 )

@@ -46,6 +46,7 @@ class CropListView(FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareCropMixi
             farmer_id = query.upper().removeprefix("F-")
             filters = (
                 Q(crop_type__icontains=query)
+                | Q(variety__icontains=query)
                 | Q(parcel__parcel_name__icontains=query)
                 | Q(parcel__farmer__first_name__icontains=query)
                 | Q(parcel__farmer__last_name__icontains=query)

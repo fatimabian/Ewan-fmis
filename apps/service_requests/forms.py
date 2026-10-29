@@ -1,9 +1,11 @@
 from django import forms
+from django.db.models import Count
 from django.urls import reverse
 from apps.authentication.models import CustomUser
 from apps.common.constants import CANONICAL_AGRICULTURAL_SERVICES
 from apps.common.constants import ROSARIO_BARANGAY_CHOICES
 from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
+from apps.farmers.models import Farmer
 from apps.service_catalog.models import ServiceCatalog
 from apps.common.forms import InlineValidationMixin
 from .models import ServiceLevelPolicy, ServiceRequest
@@ -22,6 +24,9 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         required=False,
         label="Barangay",
     )
+    target_association = forms.ChoiceField(
+        choices=(), required=False, label="Association"
+    )
     service = ServiceCatalogChoiceField(
         queryset=ServiceCatalog.objects.none(),
         empty_label="Select an agricultural request type",
@@ -31,7 +36,8 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
     class Meta:
         model = ServiceRequest
         fields = [
-            "scope", "farmer", "target_barangay", "service",
+            "scope", "farmer", "target_barangay", "target_association",
+            "walk_in_name", "service",
             "priority", "status", "notes", "assigned_to",
             "satisfaction_rating", "satisfaction_feedback", "feedback_method",
         ]
@@ -39,6 +45,7 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
             "service": "Request Type",
             "assigned_to": "Assign to Staff",
             "notes": "Request Details",
+            "walk_in_name": "Walk-In requester name",
             "satisfaction_rating": "Farmer Satisfaction (Optional)",
             "satisfaction_feedback": "Farmer Feedback (Optional)",
             "feedback_method": "Feedback Collection Method",
@@ -71,6 +78,39 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         self.fields["farmer"].widget.attrs["data-search-url"] = reverse(
             "interventions:farmer_search"
         )
+        association_rows = (
+            Farmer.objects.filter(
+                is_active=True,
+                is_association_member=True,
+            )
+            .exclude(fca_membership="")
+            .values("fca_membership")
+            .annotate(member_count=Count("pk"))
+            .order_by("fca_membership")
+        )
+        association_choices = [
+            (
+                row["fca_membership"],
+                f'{row["fca_membership"]} ({row["member_count"]} active member'
+                f'{"s" if row["member_count"] != 1 else ""})',
+            )
+            for row in association_rows
+        ]
+        current_association = (
+            self.instance.target_association
+            if self.instance and self.instance.pk
+            else ""
+        )
+        if current_association and current_association not in {
+            value for value, _label in association_choices
+        }:
+            association_choices.append(
+                (current_association, f"{current_association} (no active members)")
+            )
+        self.fields["target_association"].choices = [
+            ("", "Select an association"),
+            *association_choices,
+        ]
         canonical_codes = [code for code, _name, _category in CANONICAL_AGRICULTURAL_SERVICES]
         services = ServiceCatalog.objects.filter(is_active=True, code__in=canonical_codes)
         if self.instance and self.instance.pk and self.instance.service_id:
@@ -100,18 +140,23 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
         cleaned["scope"] = scope
         farmer = cleaned.get("farmer")
         barangay = cleaned.get("target_barangay")
+        association = (cleaned.get("target_association") or "").strip()
         service = cleaned.get("service")
         if scope == "INDIVIDUAL":
             cleaned["target_barangay"] = ""
+            cleaned["target_association"] = ""
+            cleaned["walk_in_name"] = ""
             if not farmer:
                 self.add_error("farmer", "Choose the farmer requesting this service.")
             if service and service.code in self.BARANGAY_ONLY_SERVICE_CODES:
                 self.add_error(
                     "service",
-                    "This request type is for barangay recipients. Choose Barangay as the scope.",
+                    "This request type is for a group. Choose Barangay or Association as the scope.",
                 )
         elif scope == "BARANGAY":
             cleaned["farmer"] = None
+            cleaned["target_association"] = ""
+            cleaned["walk_in_name"] = ""
             if not barangay:
                 self.add_error("target_barangay", "Choose the barangay requesting this service.")
             elif not active_farmer_queryset().filter(barangay=barangay).exists():
@@ -119,6 +164,30 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
                     "target_barangay",
                     "This barangay has no active farmers. Choose a barangay with at least one active farmer.",
                 )
+        elif scope == "ASSOCIATION":
+            cleaned["farmer"] = None
+            cleaned["target_barangay"] = ""
+            cleaned["walk_in_name"] = ""
+            if not association:
+                self.add_error(
+                    "target_association",
+                    "Choose the association requesting this service.",
+                )
+            elif not Farmer.objects.filter(
+                is_active=True,
+                is_association_member=True,
+                fca_membership=association,
+            ).exists():
+                self.add_error(
+                    "target_association",
+                    "This association has no active farmer members.",
+                )
+        elif scope == "WALK_IN":
+            cleaned["farmer"] = None
+            cleaned["target_barangay"] = ""
+            cleaned["target_association"] = ""
+            if not (cleaned.get("walk_in_name") or "").strip():
+                self.add_error("walk_in_name", "Enter the walk-in requester's name.")
         rating = cleaned.get("satisfaction_rating")
         feedback = (cleaned.get("satisfaction_feedback") or "").strip()
         method = (cleaned.get("feedback_method") or "").strip()

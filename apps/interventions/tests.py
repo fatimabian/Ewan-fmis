@@ -11,6 +11,7 @@ from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 from apps.service_requests.models import ServiceRequest
+from apps.service_catalog.models import ServiceCatalog
 
 from .models import Intervention, InterventionRecipient
 
@@ -149,6 +150,70 @@ class InterventionModuleTests(TestCase):
         response = self.client.get(reverse("interventions:list"))
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("dashboard:home"))
+
+    def test_association_request_creates_fixed_member_recipient_snapshot(self):
+        self.farmer.is_association_member = True
+        self.farmer.fca_membership = "Hog Raisers Association"
+        self.farmer.save(update_fields=["is_association_member", "fca_membership"])
+        second = Farmer.objects.create(
+            first_name="Pedro",
+            last_name="Reyes",
+            barangay="Bagong Pook",
+            consent_given=True,
+            is_association_member=True,
+            fca_membership="Hog Raisers Association",
+        )
+        Farmer.objects.create(
+            first_name="Other",
+            last_name="Association",
+            barangay="Alupay",
+            is_association_member=True,
+            fca_membership="Mufai",
+        )
+        service, _ = ServiceCatalog.objects.get_or_create(
+            code="SEED",
+            defaults={
+                "name": "Seed Assistance",
+                "category": "Farm Inputs",
+                "description": "Seed support",
+                "processing_time": "Depends on assessment",
+            },
+        )
+        request = ServiceRequest.objects.create(
+            scope="ASSOCIATION",
+            target_association="Hog Raisers Association",
+            farmer=None,
+            service=service,
+            subject=service.name,
+            status="PENDING",
+            assigned_to=self.staff,
+        )
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("interventions:create"),
+            {
+                "service_request": request.pk,
+                "scope": "ASSOCIATION",
+                "target_association": "Hog Raisers Association",
+                "status": "SCHEDULED",
+                "intervention_type": "SEEDS",
+                "intervention_date": date.today().isoformat(),
+                "description": "Association seed distribution",
+                "provider": "Office for Agricultural Services",
+            },
+        )
+        self.assertRedirects(response, reverse("interventions:list"))
+        intervention = Intervention.objects.get(service_request=request)
+        self.assertEqual(intervention.scope, "ASSOCIATION")
+        self.assertEqual(intervention.target_association, "Hog Raisers Association")
+        self.assertEqual(
+            set(
+                intervention.recipients.filter(is_active=True).values_list(
+                    "farmer_id", flat=True
+                )
+            ),
+            {self.farmer.pk, second.pk},
+        )
 
     def test_demo_farmer_commands_are_repeatable_and_safely_removable(self):
         Farmer.objects.create(

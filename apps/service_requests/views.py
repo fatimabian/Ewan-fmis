@@ -44,6 +44,8 @@ def _request_changes(before, after, changed_fields):
         "farmer": "Farmer",
         "scope": "Scope",
         "target_barangay": "Barangay",
+        "target_association": "Association",
+        "walk_in_name": "Walk-In name",
         "service": "Request type",
         "subject": "Subject",
         "priority": "Priority",
@@ -76,6 +78,10 @@ class RoleAwareRequestMixin:
         return context
 
 
+def _can_manage_request(user, service_request):
+    return service_request.assigned_to_id in (None, user.pk)
+
+
 class ServiceRequestListView(
     FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, ListView
 ):
@@ -101,6 +107,8 @@ class ServiceRequestListView(
                 | Q(farmer__first_name__icontains=query)
                 | Q(farmer__last_name__icontains=query)
                 | Q(target_barangay__icontains=query)
+                | Q(target_association__icontains=query)
+                | Q(walk_in_name__icontains=query)
             )
             if request_id.isdigit():
                 filters |= Q(pk=int(request_id))
@@ -225,6 +233,13 @@ class ServiceRequestDetailView(
             "farmer", "service", "assigned_to"
         ).prefetch_related("history__actor", "interventions__recorded_by")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["can_manage_request"] = _can_manage_request(
+            self.request.user, self.object
+        )
+        return context
+
 
 class ServiceRequestHistoryView(
     FMISLoginRequiredMixin, StaffRequiredMixin, RoleAwareRequestMixin, DetailView
@@ -248,6 +263,16 @@ class ServiceRequestUpdateView(
     form_class = ServiceRequestForm
     template_name = "service_requests/form.html"
     success_url = reverse_lazy("service_requests:list")
+
+    def dispatch(self, request, *args, **kwargs):
+        service_request = self.get_object()
+        if not _can_manage_request(request.user, service_request):
+            messages.error(
+                request,
+                f"Only {service_request.assigned_to.display_name} can update this assigned request.",
+            )
+            return redirect("service_requests:detail", pk=service_request.pk)
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         before = ServiceRequest.objects.select_related(
@@ -362,6 +387,12 @@ class ServiceRequestDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View)
 
     def post(self, request, pk):
         service_request = get_object_or_404(ServiceRequest, pk=pk)
+        if not _can_manage_request(request.user, service_request):
+            messages.error(
+                request,
+                f"Only {service_request.assigned_to.display_name} can change this assigned request.",
+            )
+            return redirect("service_requests:detail", pk=service_request.pk)
         if service_request.status == "CANCELLED":
             if request.POST.get("action") != "restore":
                 messages.info(request, f"{service_request.request_id} is already cancelled.")

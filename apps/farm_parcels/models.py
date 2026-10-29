@@ -29,6 +29,8 @@ class FarmParcel(models.Model):
         ("Irrigated", "Irrigated"),
         ("Rainfed Upland", "Rainfed Upland"),
         ("Rainfed Lowland", "Rainfed Lowland"),
+        ("Urban/Peri-Urban", "Urban / Peri-Urban"),
+        ("Not Applicable (For Fisheries)", "N/A - Not Applicable (For Fisheries)"),
     ]
     GPX_STATUS_CHOICES = [
         ("KNOWN", "GPX / Georeference ID recorded"),

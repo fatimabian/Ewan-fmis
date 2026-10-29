@@ -30,6 +30,14 @@ def complete_registered_request_intervention(service_request, actor=None):
     intervention.target_barangay = (
         service_request.target_barangay if service_request.scope == "BARANGAY" else ""
     )
+    intervention.target_association = (
+        service_request.target_association
+        if service_request.scope == "ASSOCIATION"
+        else ""
+    )
+    intervention.walk_in_name = (
+        service_request.walk_in_name if service_request.scope == "WALK_IN" else ""
+    )
     intervention.status = "COMPLETED"
     intervention.intervention_type = INTERVENTION_TYPE_BY_SERVICE_CODE.get(
         service_request.service.code,
@@ -47,8 +55,16 @@ def complete_registered_request_intervention(service_request, actor=None):
             is_active=True,
             barangay=service_request.target_barangay,
         )
-    else:
+    elif service_request.scope == "ASSOCIATION":
+        recipients = Farmer.objects.filter(
+            is_active=True,
+            is_association_member=True,
+            fca_membership=service_request.target_association,
+        )
+    elif service_request.scope == "INDIVIDUAL":
         recipients = Farmer.objects.filter(pk=service_request.farmer_id)
+    else:
+        recipients = Farmer.objects.none()
     recipient_ids = list(recipients.values_list("pk", flat=True))
     intervention.recipients.exclude(farmer_id__in=recipient_ids).update(is_active=False)
     for farmer_id in recipient_ids:

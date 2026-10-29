@@ -14,6 +14,7 @@ from apps.reports.export import build_report
 from apps.service_catalog.models import ServiceCatalog
 
 from .models import ServiceLevelPolicy, ServiceRequest, ServiceRequestEscalation, ServiceRequestHistory
+from .forms import ServiceRequestForm
 from .services import ensure_service_level_policies, service_effectiveness_metrics
 
 
@@ -209,3 +210,54 @@ class ServiceManagementTests(TestCase):
         self.assertContains(response, "Brgy. Bagong Pook")
         self.assertNotContains(response, "<th>Beneficiary</th>", html=True)
         self.assertContains(response, item.request_id)
+
+    def test_association_scope_uses_active_farmer_registry_associations(self):
+        Farmer.objects.create(
+            first_name="Member",
+            last_name="One",
+            barangay="Alupay",
+            is_association_member=True,
+            fca_membership="Hog Raisers Association",
+        )
+        Farmer.objects.create(
+            first_name="Member",
+            last_name="Two",
+            barangay="Bagong Pook",
+            is_association_member=True,
+            fca_membership="Hog Raisers Association",
+        )
+        form = ServiceRequestForm(
+            data={
+                "scope": "ASSOCIATION",
+                "target_association": "Hog Raisers Association",
+                "service": self.service.pk,
+                "priority": "MEDIUM",
+                "status": "PENDING",
+                "notes": "Feed assistance request",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        request = form.save()
+        self.assertEqual(request.target_association, "Hog Raisers Association")
+        self.assertIsNone(request.farmer)
+        self.assertEqual(
+            dict(form.fields["target_association"].choices)["Hog Raisers Association"],
+            "Hog Raisers Association (2 active members)",
+        )
+
+    def test_walk_in_scope_records_unregistered_requester_name(self):
+        form = ServiceRequestForm(
+            data={
+                "scope": "WALK_IN",
+                "walk_in_name": "Juan Dela Cruz",
+                "service": self.service.pk,
+                "priority": "LOW",
+                "status": "PENDING",
+                "notes": "Seeds requested for a school research activity",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        service_request = form.save()
+        self.assertEqual(service_request.beneficiary_label, "Juan Dela Cruz")
+        self.assertEqual(service_request.beneficiary_reference, "Walk-In")
+        self.assertIsNone(service_request.farmer)

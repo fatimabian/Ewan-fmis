@@ -930,6 +930,7 @@
                   {% endif %}
                 </div>
                 <div class="admin-report-buttons">
+                  <button type="submit" formmethod="get" name="view" value="1"><i class="bi bi-eye"></i> View Only</button>
                   <button type="submit" name="format" value="pdf"><i class="bi bi-printer"></i> Print PDF</button>
                   <button type="submit" name="format" value="csv"><i class="bi bi-filetype-csv"></i> CSV</button>
                 </div>
@@ -937,6 +938,12 @@
             </article>
           {% endfor %}
         </div>
+        {% if report_preview %}
+          <article class="report-card" id="filteredReport">
+            <div class="preview-heading"><div><h3>{{ report_preview.title|upper }}</h3><p>View-only preview using the selected period and staff filter.</p></div><div><b>{{ report_preview.total_rows }}</b><p>matching rows</p></div></div>
+            <div class="report-table-wrap"><table class="report-preview-table"><thead><tr>{% for header in report_preview.headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>{% for row in report_preview.rows %}<tr>{% for cell in row %}<td>{{ cell|default:'-' }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="8">No records match the selected filters.</td></tr>{% endfor %}</tbody></table></div>
+          </article>
+        {% endif %}
       </section>
     {% elif analytics_tab == 'reports' %}
     <section class="report-top">
@@ -973,6 +980,13 @@
                 <option value="{{ year }}"
                         {% if selected_filters.year == year|stringformat:'s' %}selected{% endif %}>{{ year }}</option>
               {% endfor %}
+            </select>
+          </div>
+          <div class="report-filter-row" data-filter-row="association"{% if selected_report_type != 'farmer_master' %} hidden{% endif %}>
+            <label>Association</label>
+            <select name="association">
+              <option value="">All associations</option>
+              {% for association in association_choices %}<option value="{{ association }}"{% if selected_filters.association == association %} selected{% endif %}>{{ association }}</option>{% endfor %}
             </select>
           </div>
           <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
@@ -1070,6 +1084,9 @@
             </select>
           </div>
           <div class="report-actions"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
+            <button type="submit" formmethod="get" name="view" value="1" class="btn btn-outline-success">
+              <i class="bi bi-eye"></i> View Report
+            </button>
             <button type="submit" class="btn btn-success report-generate">
               <i class="bi bi-download">
               </i> Download Report
@@ -1345,6 +1362,7 @@
               const rules = {
                   common: hasSelection,
                   commodity: supportsCommodity,
+                  association: selected === 'farmer_master',
                   status: isServiceEffectiveness,
                   'custom-date': hasSelection && customDate,
                   intervention: isIntervention

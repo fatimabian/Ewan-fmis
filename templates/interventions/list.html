@@ -41,18 +41,18 @@ body[data-theme="dark"] .intervention-table th{background:#253244!important;colo
   </form>
   <div class="intervention-table-wrap universal-table-wrap">
     <table class="intervention-table universal-table">
-      <thead><tr><th>ID</th><th>Date</th><th>Coverage</th><th>Beneficiaries</th><th>Intervention</th><th title="Quantity">QTY</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th>ID</th><th>Date</th><th>Coverage</th><th>Name</th><th>Intervention</th><th title="Quantity">QTY</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
       {% for item in object_list %}
         <tr class="record-row" data-record-url="{% url 'interventions:detail' item.pk %}" tabindex="0">
           <td><a class="record-cell-link" href="{% url 'interventions:detail' item.pk %}">{{ item.reference_id }}</a></td>
           <td>{{ item.intervention_date|date:"M d, Y" }}</td>
-          <td><span class="coverage-label">{% if item.scope == 'BARANGAY' %}All farmers in Brgy.<br>{{ item.target_barangay }}{% elif item.scope == 'ALL' %}All active farmers{% else %}{{ item.get_scope_display }}{% endif %}</span></td>
-          <td><strong>{{ item.beneficiary_count }}</strong> farmer{{ item.beneficiary_count|pluralize }}</td>
+          <td><span class="coverage-label">{% if item.scope == 'BARANGAY' %}All farmers in Brgy.<br>{{ item.target_barangay }}{% elif item.scope == 'ASSOCIATION' %}All members of<br>{{ item.target_association }}{% elif item.scope == 'WALK_IN' %}Walk-In{% elif item.scope == 'ALL' %}All active farmers{% else %}{{ item.get_scope_display }}{% endif %}</span></td>
+          <td>{{ item.beneficiary_label }}{% if item.beneficiary_count %}<small>{{ item.beneficiary_count }} registered farmer{{ item.beneficiary_count|pluralize }}</small>{% endif %}</td>
           <td>{{ item.get_intervention_type_display }}</td>
           <td>{% if item.quantity != None %}{{ item.quantity|floatformat:2 }} {{ item.unit }}{% else %}—{% endif %}</td>
           <td><span class="intervention-status {% if item.is_active %}status-{{ item.status|lower }}{% else %}archived{% endif %}">{% if item.is_active %}{{ item.get_status_display }}{% else %}Archived{% endif %}</span></td>
-          <td><div class="intervention-actions"><a href="{% url 'interventions:edit' item.pk %}" title="Edit {{ item.reference_id }}"><i class="bi bi-pencil-square"></i></a><form method="post" action="{% url 'interventions:archive' item.pk %}" data-confirm="{% if item.is_active %}Archive{% else %}Restore{% endif %} {{ item.reference_id }}?">{% csrf_token %}<input type="hidden" name="action" value="{% if item.is_active %}archive{% else %}restore{% endif %}"><button type="submit" title="{% if item.is_active %}Archive{% else %}Restore{% endif %}"><i class="bi {% if item.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}"></i></button></form></div></td>
+          <td><div class="intervention-actions">{% if not item.service_request or item.service_request.assigned_to == request.user %}<a href="{% url 'interventions:edit' item.pk %}" title="Edit {{ item.reference_id }}"><i class="bi bi-pencil-square"></i></a><form method="post" action="{% url 'interventions:archive' item.pk %}" data-confirm="{% if item.is_active %}Archive{% else %}Restore{% endif %} {{ item.reference_id }}?">{% csrf_token %}<input type="hidden" name="action" value="{% if item.is_active %}archive{% else %}restore{% endif %}"><button type="submit" title="{% if item.is_active %}Archive{% else %}Restore{% endif %}"><i class="bi {% if item.is_active %}bi-archive{% else %}bi-arrow-counterclockwise{% endif %}"></i></button></form>{% else %}<span title="Assigned to {{ item.service_request.assigned_to.display_name }}">View only</span>{% endif %}</div></td>
         </tr>
       {% empty %}<tr><td colspan="8" class="text-center py-5">No interventions matched your filters.</td></tr>{% endfor %}
       </tbody>

@@ -62,6 +62,7 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
         fields = [
             "parcel",
             "crop_type",
+            "variety",
             "area_hectares",
             "number_of_heads",
             "is_organic",
@@ -70,6 +71,7 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
         labels = {
             "parcel": "Existing Farmer ID and Farm Parcel",
             "crop_type": "Commodity",
+            "variety": "Variety / breed",
             "area_hectares": "Size / Area Planted (ha)",
             "number_of_heads": "Number of heads / trees (if applicable)",
             "is_organic": "Organic production",
@@ -79,6 +81,9 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
             "crop_type": forms.TextInput(attrs={"placeholder": "e.g., Rice, Corn, Banana"}),
             "area_hectares": forms.NumberInput(attrs={"min": "0.01", "step": "0.01"}),
             "number_of_heads": forms.NumberInput(attrs={"min": "0"}),
+            "variety": forms.TextInput(
+                attrs={"placeholder": "e.g., Saba, Latundan, Native Chicken"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -137,6 +142,7 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
                 "parcel",
                 "crop_type",
                 "other_crop_name",
+                "variety",
                 "cropping_start_month",
                 "cropping_end_month",
             ]
@@ -148,6 +154,7 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
                     "parcel",
                     "crop_type",
                     "other_crop_name",
+                    "variety",
                     "cropping_start_month",
                     "cropping_end_month",
                 }

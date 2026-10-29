@@ -14,7 +14,7 @@
       <a href="{% url 'interventions:list' %}" data-history-back><i class="bi bi-arrow-left"></i> Back to Interventions</a>
       <div class="record-detail-actions">
         <a class="btn btn-outline-success" href="{% url 'interventions:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
-        {% if object.is_active %}<a class="btn btn-outline-success" href="{% url 'interventions:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Edit Intervention</a>{% endif %}
+        {% if object.is_active and can_manage_intervention %}<a class="btn btn-outline-success" href="{% url 'interventions:edit' object.pk %}"><i class="bi bi-pencil-square"></i> Edit Intervention</a>{% endif %}
       </div>
     </div>
     <div class="record-single-card">
@@ -30,9 +30,11 @@
       <section class="record-single-section">
         <h3><i class="bi bi-people"></i> Coverage &amp; Request Reference</h3>
         <dl class="record-data">
-          <div><dt>Coverage</dt><dd>{% if object.scope == 'BARANGAY' %}All farmers in Brgy. {{ object.target_barangay }}{% elif object.scope == 'ALL' %}All active farmers{% else %}{{ object.get_scope_display }}{% endif %}</dd></div>
+          <div><dt>Coverage</dt><dd>{% if object.scope == 'BARANGAY' %}All farmers in Brgy. {{ object.target_barangay }}{% elif object.scope == 'ASSOCIATION' %}All active members of {{ object.target_association }}{% elif object.scope == 'WALK_IN' %}Walk-In: {{ object.walk_in_name }}{% elif object.scope == 'ALL' %}All active farmers{% else %}{{ object.get_scope_display }}{% endif %}</dd></div>
           <div><dt>Beneficiaries</dt><dd>{{ object.active_recipients|length }} farmer{{ object.active_recipients|length|pluralize }}</dd></div>
           <div><dt>Barangay</dt><dd>{{ object.target_barangay|default:"Multiple / not limited" }}</dd></div>
+          {% if object.scope == 'ASSOCIATION' %}<div><dt>Association</dt><dd>{{ object.target_association }}</dd></div>{% endif %}
+          {% if object.scope == 'WALK_IN' %}<div><dt>Name</dt><dd>{{ object.walk_in_name }}</dd></div>{% endif %}
           <div><dt>Related Service Request</dt><dd>{% if object.service_request %}<a href="{% url 'service_requests:detail' object.service_request.pk %}">{{ object.service_request.request_id }} · {{ object.service_request.subject }}</a>{% else %}Not linked{% endif %}</dd></div>
         </dl>
       </section>

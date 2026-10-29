@@ -78,6 +78,7 @@
           <div><dt>Consent Given</dt><dd>{{ object.consent_given|yesno:'Yes,No' }}</dd></div>
           <div><dt>Indigenous</dt><dd>{{ object.is_indigenous|yesno:'Yes,No,N/A' }}{% if object.is_indigenous and object.indigenous_group %} · {{ object.indigenous_group }}{% endif %}</dd></div>
           <div><dt>PWD / 4Ps</dt><dd>{{ object.is_pwd|yesno:'PWD,Not PWD,N/A' }} · {{ object.is_four_ps|yesno:'4Ps member,Not a 4Ps member,N/A' }}</dd></div>
+          <div><dt>Association</dt><dd>{% if object.is_association_member %}{{ object.fca_membership }}{% else %}Not a member{% endif %}</dd></div>
         </dl>
       </section>
 

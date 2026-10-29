@@ -574,12 +574,8 @@ class FarmerUpdateView(
                 actor=self.request.user,
                 update_type="SLIP_A",
                 before=before,
-                transaction_code=form.cleaned_data["transaction_code"],
-                change_reason=form.cleaned_data["change_reason"],
+                change_reason="CORRECTION",
                 remarks=form.cleaned_data.get("update_remarks", ""),
-                date_signed=form.cleaned_data.get("date_signed"),
-                date_received=form.cleaned_data.get("date_received"),
-                agriculturist_name=form.cleaned_data.get("agriculturist_name", ""),
             )
         return response
 

@@ -110,16 +110,27 @@ def _symbol_choices(items):
     return tuple((value, f"{crop_symbol(value)} {label}") for value, label in items)
 
 
+_ROSARIO_COMMON_ANIMALS = tuple(
+    item for item in _ROSARIO_COMMON_COMMODITIES
+    if item[0] in {"Swine", "Poultry", "Dairy Carabao"}
+)
+_ROSARIO_COMMON_CROPS = tuple(
+    item for item in _ROSARIO_COMMON_COMMODITIES
+    if item[0] not in {"Swine", "Poultry", "Dairy Carabao"}
+)
+
 ROSARIO_CROP_CHOICES = (
     ("", "Select crop or commodity"),
-    ("Common in Rosario", _symbol_choices(_ROSARIO_COMMON_COMMODITIES)),
+    ("Crops", _symbol_choices(_ROSARIO_COMMON_CROPS + _ROSARIO_ADDITIONAL_CROPS)),
     (
-        "Not listed above",
+        "Livestock and poultry",
+        _symbol_choices(_ROSARIO_COMMON_ANIMALS + _ROSARIO_ADDITIONAL_ANIMALS),
+    ),
+    ("Fisheries and aquaculture", _symbol_choices(_ROSARIO_ADDITIONAL_FISHERIES)),
+    (
+        "Other",
         (("Other Crop / Commodity", f"{crop_symbol('Other Crop / Commodity')} Other Commodity"),),
     ),
-    ("Additional crops", _symbol_choices(_ROSARIO_ADDITIONAL_CROPS)),
-    ("Additional livestock and poultry", _symbol_choices(_ROSARIO_ADDITIONAL_ANIMALS)),
-    ("Fisheries and aquaculture", _symbol_choices(_ROSARIO_ADDITIONAL_FISHERIES)),
 )
 
 CROP_COMMODITIES = frozenset(

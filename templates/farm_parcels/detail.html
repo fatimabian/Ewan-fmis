@@ -87,7 +87,6 @@
         <dl class="record-data">
           <div><dt>Area</dt><dd>{{ object.area_hectares }} hectares</dd></div>
           <div><dt>Ownership</dt><dd>{{ object.get_ownership_type_display }}</dd></div>
-          <div><dt>Land Type</dt><dd>{{ object.get_land_type_display }}</dd></div>
           <div><dt>Farm Type</dt><dd>{{ object.get_farm_type_display }}</dd></div>
           <div><dt>RSBSA Parcel</dt><dd>{{ object.is_rsbsa_recorded|yesno:'Already recorded,New or additional parcel' }}</dd></div>
           <div><dt>Date Added</dt><dd>{{ object.created_at|date:'F d, Y' }}</dd></div>
@@ -124,9 +123,9 @@
               <label for="{{ photo_upload_form.field_photo.id_for_label }}">Office field documentation</label>
               {{ photo_upload_form.field_photo }}
               {{ photo_upload_form.field_photo.errors }}
-              <small>Keep one current field photo for parcel review. Uploading another photo replaces the visible one.</small>
+              <small>Select one or more photos. Existing field photos remain in the gallery.</small>
             </div>
-            <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> {% if parcel_photos %}Replace Photo{% else %}Upload Photo{% endif %}</button>
+            <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> Upload Photos</button>
           </form>
         {% endif %}
         {% if parcel_photos %}

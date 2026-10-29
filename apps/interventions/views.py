@@ -48,6 +48,8 @@ def _intervention_snapshot(intervention):
             intervention.scope, intervention.scope
         ),
         "Barangay": intervention.target_barangay or not_set,
+        "Association": intervention.target_association or not_set,
+        "Walk-In name": intervention.walk_in_name or not_set,
         "Recipients": _recipient_summary(intervention),
         "Related service request": (
             intervention.service_request.request_id
@@ -86,9 +88,16 @@ def _resolved_recipient_ids(form):
         return [form.cleaned_data["farmer"].pk]
     if scope == "SELECTED":
         return list(form.cleaned_data["selected_farmers"].values_list("pk", flat=True))
+    if scope == "WALK_IN":
+        return []
     queryset = Farmer.objects.filter(is_active=True)
     if scope == "BARANGAY":
         queryset = queryset.filter(barangay=form.cleaned_data["target_barangay"])
+    elif scope == "ASSOCIATION":
+        queryset = queryset.filter(
+            is_association_member=True,
+            fca_membership=form.cleaned_data["target_association"],
+        )
     return list(queryset.values_list("pk", flat=True))
 
 
@@ -206,7 +215,9 @@ class InterventionListView(InterventionAccessMixin, ListView):
     template_name = "interventions/list.html"
     def get_queryset(self):
         queryset = (
-            Intervention.objects.select_related("farmer", "service_request", "recorded_by")
+            Intervention.objects.select_related(
+                "farmer", "service_request", "service_request__assigned_to", "recorded_by"
+            )
             .annotate(
                 beneficiary_count=Count(
                     "recipients", filter=Q(recipients__is_active=True), distinct=True
@@ -220,7 +231,7 @@ class InterventionListView(InterventionAccessMixin, ListView):
         date_range = parse_inclusive_date_range(self.request.GET, label="intervention")
         self.filter_date_error = date_range.error
         if query:
-            filters = Q(description__icontains=query) | Q(farmer__first_name__icontains=query) | Q(farmer__last_name__icontains=query) | Q(farmer__rsbsa_number__icontains=query) | Q(recipients__farmer__first_name__icontains=query) | Q(recipients__farmer__last_name__icontains=query) | Q(recipients__farmer__rsbsa_number__icontains=query) | Q(target_barangay__icontains=query)
+            filters = Q(description__icontains=query) | Q(farmer__first_name__icontains=query) | Q(farmer__last_name__icontains=query) | Q(farmer__rsbsa_number__icontains=query) | Q(recipients__farmer__first_name__icontains=query) | Q(recipients__farmer__last_name__icontains=query) | Q(recipients__farmer__rsbsa_number__icontains=query) | Q(target_barangay__icontains=query) | Q(target_association__icontains=query) | Q(walk_in_name__icontains=query)
             reference = query.upper().removeprefix("INT-")
             if reference.isdigit():
                 filters |= Q(pk=int(reference))
@@ -275,7 +286,23 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
                     "Only a Pending or In Progress service request can proceed to an intervention.",
                 )
                 return redirect("service_requests:detail", pk=service_request.pk)
+            if service_request.assigned_to_id != request.user.pk:
+                assigned = (
+                    service_request.assigned_to.display_name
+                    if service_request.assigned_to_id
+                    else "no staff member"
+                )
+                messages.error(
+                    request,
+                    f"Only the assigned staff member can record this intervention. It is assigned to {assigned}.",
+                )
+                return redirect("service_requests:detail", pk=service_request.pk)
         return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     def get_initial(self):
         initial = super().get_initial()
@@ -291,6 +318,8 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
                         "service_request": service_request,
                         "farmer": service_request.farmer,
                         "target_barangay": service_request.target_barangay,
+                        "target_association": service_request.target_association,
+                        "walk_in_name": service_request.walk_in_name,
                         "intervention_type": INTERVENTION_TYPE_BY_SERVICE_CODE.get(
                             service_request.service.code,
                             "OTHER",
@@ -305,6 +334,14 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
         form.instance.farmer = form.cleaned_data.get("farmer") if scope == "INDIVIDUAL" else None
         form.instance.target_barangay = (
             form.cleaned_data.get("target_barangay", "") if scope == "BARANGAY" else ""
+        )
+        form.instance.target_association = (
+            form.cleaned_data.get("target_association", "")
+            if scope == "ASSOCIATION"
+            else ""
+        )
+        form.instance.walk_in_name = (
+            form.cleaned_data.get("walk_in_name", "") if scope == "WALK_IN" else ""
         )
         with transaction.atomic():
             response = super().form_valid(form)
@@ -344,6 +381,14 @@ class InterventionDetailView(InterventionAccessMixin, DetailView):
             "inventory_movements__recorded_by",
         )
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        linked = self.object.service_request
+        context["can_manage_intervention"] = (
+            not linked or linked.assigned_to_id == self.request.user.pk
+        )
+        return context
+
 
 class InterventionHistoryView(InterventionAccessMixin, DetailView):
     model = Intervention
@@ -363,6 +408,19 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
 
     success_url = reverse_lazy("interventions:list")
 
+    def dispatch(self, request, *args, **kwargs):
+        intervention = self.get_object()
+        linked = intervention.service_request
+        if linked and linked.assigned_to_id != request.user.pk:
+            messages.error(request, "Only the staff assigned to the linked request can update this intervention.")
+            return redirect("interventions:detail", pk=intervention.pk)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         before = Intervention.objects.select_related("service_request").get(
             pk=form.instance.pk
@@ -372,6 +430,8 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
         scope = form.cleaned_data["scope"]
         form.instance.farmer = form.cleaned_data.get("farmer") if scope == "INDIVIDUAL" else None
         form.instance.target_barangay = form.cleaned_data.get("target_barangay", "") if scope == "BARANGAY" else ""
+        form.instance.target_association = form.cleaned_data.get("target_association", "") if scope == "ASSOCIATION" else ""
+        form.instance.walk_in_name = form.cleaned_data.get("walk_in_name", "") if scope == "WALK_IN" else ""
         with transaction.atomic():
             response = super().form_valid(form)
             recipient_ids = _resolved_recipient_ids(form)
@@ -393,6 +453,9 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
 class InterventionArchiveView(InterventionAccessMixin, View):
     def post(self, request, pk):
         intervention = get_object_or_404(Intervention, pk=pk)
+        if intervention.service_request_id and intervention.service_request.assigned_to_id != request.user.pk:
+            messages.error(request, "Only the staff assigned to the linked request can change this intervention.")
+            return redirect("interventions:detail", pk=intervention.pk)
         previous_state = "Active" if intervention.is_active else "Archived"
         restoring = request.POST.get("action") == "restore"
         intervention.is_active = restoring

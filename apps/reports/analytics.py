@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
@@ -12,6 +13,7 @@ from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
+from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.service_requests.models import ServiceRequest
 from .export import _filter_period, build_report, build_system_report
 
@@ -25,6 +27,7 @@ ANALYTICS_TABS = (
     ("commodities", "Commodities"),
     ("requests", "Service Requests"),
     ("interventions", "Interventions"),
+    ("inventory", "Inventory"),
     ("reports", "Generate Reports"),
 )
 
@@ -135,6 +138,8 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
     request_status = str(filters.get("request_status", "")).strip()
     request_priority = str(filters.get("request_priority", "")).strip()
     intervention_type = str(filters.get("intervention_type", "")).strip()
+    inventory_category = str(filters.get("inventory_category", "")).strip()
+    inventory_movement_type = str(filters.get("inventory_movement_type", "")).strip()
 
     farmers = _filter_period(Farmer.objects.filter(is_active=True), "created_at", date_range)
     parcels = _filter_period(
@@ -150,7 +155,9 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         date_range,
     )
     requests = _filter_period(
-        ServiceRequest.objects.filter(Q(farmer__is_active=True) | Q(scope="BARANGAY")),
+        ServiceRequest.objects.filter(
+            Q(farmer__is_active=True) | Q(scope__in=("BARANGAY", "ASSOCIATION", "WALK_IN"))
+        ),
         "created_at",
         date_range,
     )
@@ -160,6 +167,20 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         date_range,
         date_only=True,
     )
+    if tab == "inventory":
+        inventory_items = InventoryItem.objects.filter(is_active=True)
+        inventory_movements = _filter_period(
+            InventoryMovement.objects.select_related(
+                "item", "intervention", "recorded_by"
+            ),
+            "created_at",
+            date_range,
+        )
+    else:
+        # Keep other analytics tabs bounded; inventory queries are evaluated
+        # only when the Inventory tab is actually requested.
+        inventory_items = InventoryItem.objects.none()
+        inventory_movements = InventoryMovement.objects.none()
 
     if barangay:
         farmers = farmers.filter(barangay=barangay)
@@ -181,6 +202,13 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         requests = requests.filter(priority=request_priority)
     if intervention_type:
         interventions = interventions.filter(intervention_type=intervention_type)
+    if inventory_category:
+        inventory_items = inventory_items.filter(category=inventory_category)
+        inventory_movements = inventory_movements.filter(item__category=inventory_category)
+    if inventory_movement_type:
+        inventory_movements = inventory_movements.filter(
+            movement_type=inventory_movement_type
+        )
 
     parcel_totals = parcels.aggregate(total=Count("pk"), area=Sum("area_hectares"))
     crop_totals = crops.aggregate(
@@ -295,6 +323,76 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         )
         .order_by("-total", "intervention_type")[:6]
     ]
+    expiring_cutoff = timezone.localdate() + timedelta(days=30)
+    not_expiring = Q(expiration_date__isnull=True) | Q(
+        expiration_date__gt=expiring_cutoff
+    )
+    low_stock_items = inventory_items.filter(
+        stock_on_hand__gt=0,
+        stock_on_hand__lte=F("reorder_level"),
+    ).filter(not_expiring)
+    out_of_stock_items = inventory_items.filter(stock_on_hand__lte=0)
+    expiring_items = inventory_items.filter(
+        stock_on_hand__gt=0,
+        expiration_date__isnull=False,
+        expiration_date__lte=expiring_cutoff,
+    )
+    inventory_status_rows = [
+        {
+            "label": "In stock",
+            "value": inventory_items.filter(
+                stock_on_hand__gt=F("reorder_level")
+            ).filter(not_expiring).count(),
+        },
+        {"label": "Low stock", "value": low_stock_items.count()},
+        {"label": "Out of stock", "value": out_of_stock_items.count()},
+        {"label": "Expiring within 30 days", "value": expiring_items.count()},
+    ]
+    inventory_category_labels = dict(InventoryItem.CATEGORY_CHOICES)
+    inventory_by_category = [
+        {
+            "label": inventory_category_labels.get(row["category"], row["category"]),
+            "value": row["total"],
+        }
+        for row in inventory_items.values("category")
+        .annotate(total=Count("pk"))
+        .order_by("-total", "category")
+    ]
+    inventory_by_location = [
+        {"label": row["storage_location"] or "Not recorded", "value": row["total"]}
+        for row in inventory_items.values("storage_location")
+        .annotate(total=Count("pk"))
+        .order_by("-total", "storage_location")[:8]
+    ]
+    issued_items = [
+        {
+            "label": row["item__name"],
+            "value": row["quantity"] or 0,
+            "unit": row["item__unit"],
+        }
+        for row in inventory_movements.filter(movement_type=InventoryMovement.RELEASE)
+        .values("item__name", "item__unit")
+        .annotate(quantity=Sum("quantity"))
+        .order_by("-quantity", "item__name")[:8]
+    ]
+    recent_inventory_movements = list(inventory_movements.order_by("-created_at", "-pk")[:8])
+    inventory_findings = []
+    if low_stock_items.exists():
+        inventory_findings.append(
+            f"{low_stock_items.count()} active inventory item(s) are at or below their reorder level."
+        )
+    if out_of_stock_items.exists():
+        inventory_findings.append(
+            f"{out_of_stock_items.count()} active inventory item(s) are out of stock."
+        )
+    if expiring_items.exists():
+        inventory_findings.append(
+            f"{expiring_items.count()} active inventory item(s) have an expiration date within 30 days."
+        )
+    if not inventory_findings:
+        inventory_findings.append(
+            "No current low-stock, out-of-stock, or near-expiration exceptions were found."
+        )
 
     return {
         "tab": tab,
@@ -341,6 +439,35 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         "intervention_farmers": intervention_totals["farmers"] or 0,
         "intervention_types": intervention_types,
         "intervention_barangays": len(reached_barangays),
+        "inventory_item_total": inventory_items.count(),
+        "inventory_low_stock": low_stock_items.count(),
+        "inventory_out_of_stock": out_of_stock_items.count(),
+        "inventory_expiring": expiring_items.count(),
+        "inventory_movement_total": inventory_movements.count(),
+        "inventory_intervention_releases": inventory_movements.filter(
+            movement_type=InventoryMovement.RELEASE,
+            intervention__isnull=False,
+        ).count(),
+        "inventory_adjustment_total": inventory_movements.filter(
+            movement_type__in=(
+                InventoryMovement.ADJUST_IN,
+                InventoryMovement.ADJUST_OUT,
+                InventoryMovement.DAMAGED,
+                InventoryMovement.EXPIRED,
+            )
+        ).count(),
+        "inventory_movement_series": _monthly_dual_series(
+            inventory_movements.filter(movement_type=InventoryMovement.RECEIPT),
+            "created_at",
+            inventory_movements.filter(movement_type=InventoryMovement.RELEASE),
+            "created_at",
+        ),
+        "inventory_status_rows": inventory_status_rows,
+        "inventory_by_category": inventory_by_category,
+        "inventory_by_location": inventory_by_location,
+        "inventory_issued_items": issued_items,
+        "recent_inventory_movements": recent_inventory_movements,
+        "inventory_findings": inventory_findings,
         "findings": findings[:3],
     }
 
@@ -527,7 +654,7 @@ def _build_report_metrics(date_range="all", filters=None):
     )
     requests = _apply_report_filters(
         ServiceRequest.objects.filter(
-            Q(farmer__is_active=True) | Q(scope="BARANGAY")
+            Q(farmer__is_active=True) | Q(scope__in=("BARANGAY", "ASSOCIATION", "WALK_IN"))
         ),
         "request",
         date_range,

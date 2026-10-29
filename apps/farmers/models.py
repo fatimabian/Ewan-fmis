@@ -56,6 +56,7 @@ class Farmer(models.Model):
     indigenous_group = models.CharField(max_length=120, blank=True)
     is_pwd = models.BooleanField(null=True, blank=True, default=None)
     is_four_ps = models.BooleanField(null=True, blank=True, default=None)
+    is_association_member = models.BooleanField(default=False)
     livelihood = models.CharField(max_length=20, choices=LIVELIHOOD_CHOICES, default="FARMER")
     activities = models.TextField(
         blank=True, help_text="Comma-separated RSBSA livelihood activities"

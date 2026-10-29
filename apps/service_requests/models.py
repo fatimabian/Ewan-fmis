@@ -45,6 +45,8 @@ class ServiceRequest(models.Model):
     SCOPE_CHOICES = [
         ("INDIVIDUAL", "One farmer"),
         ("BARANGAY", "Barangay"),
+        ("ASSOCIATION", "Association"),
+        ("WALK_IN", "Walk-In"),
     ]
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
@@ -62,6 +64,8 @@ class ServiceRequest(models.Model):
         blank=True,
     )
     target_barangay = models.CharField(max_length=100, blank=True)
+    target_association = models.CharField(max_length=180, blank=True)
+    walk_in_name = models.CharField(max_length=180, blank=True)
     service = models.ForeignKey(ServiceCatalog, on_delete=models.PROTECT)
     subject = models.CharField(max_length=180, default="Agricultural service request")
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="MEDIUM")
@@ -97,10 +101,35 @@ class ServiceRequest(models.Model):
                         scope="INDIVIDUAL",
                         farmer__isnull=False,
                         target_barangay="",
+                        target_association="",
+                        walk_in_name="",
                     )
                     | (
-                        models.Q(scope="BARANGAY", farmer__isnull=True)
+                        models.Q(
+                            scope="BARANGAY",
+                            farmer__isnull=True,
+                            target_association="",
+                            walk_in_name="",
+                        )
                         & ~models.Q(target_barangay="")
+                    )
+                    | (
+                        models.Q(
+                            scope="ASSOCIATION",
+                            farmer__isnull=True,
+                            target_barangay="",
+                            walk_in_name="",
+                        )
+                        & ~models.Q(target_association="")
+                    )
+                    | (
+                        models.Q(
+                            scope="WALK_IN",
+                            farmer__isnull=True,
+                            target_barangay="",
+                            target_association="",
+                        )
+                        & ~models.Q(walk_in_name="")
                     )
                 ),
                 name="service_request_scope_target_valid",
@@ -208,6 +237,10 @@ class ServiceRequest(models.Model):
     def beneficiary_label(self):
         if self.scope == "BARANGAY":
             return f"All active farmers in Brgy. {self.target_barangay}"
+        if self.scope == "ASSOCIATION":
+            return f"All active members of {self.target_association}"
+        if self.scope == "WALK_IN":
+            return self.walk_in_name
         if self.farmer_id:
             return self.farmer.list_name
         return "Beneficiary not specified"
@@ -216,6 +249,10 @@ class ServiceRequest(models.Model):
     def beneficiary_reference(self):
         if self.scope == "BARANGAY":
             return f"Brgy. {self.target_barangay}"
+        if self.scope == "ASSOCIATION":
+            return self.target_association
+        if self.scope == "WALK_IN":
+            return "Walk-In"
         return self.farmer.record_id if self.farmer_id else "Not specified"
 
     def __str__(self):

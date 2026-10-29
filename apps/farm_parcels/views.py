@@ -1105,48 +1105,36 @@ class FarmParcelPhotoUploadView(FMISLoginRequiredMixin, StaffRequiredMixin, View
         if not form.is_valid():
             error = next(
                 (message for messages_list in form.errors.values() for message in messages_list),
-                "Choose one valid field photo.",
+                "Choose one or more valid field photos.",
             )
             messages.error(request, error)
             return redirect("farm_parcels:detail", pk=parcel.pk)
 
-        upload = form.cleaned_data["field_photo"][0]
+        uploads = form.cleaned_data["field_photo"]
         with transaction.atomic():
             locked_parcel = FarmParcel.objects.select_for_update().get(pk=parcel.pk)
-            current_photos = FarmParcelPhoto.objects.filter(
-                parcel=locked_parcel,
-                is_active=True,
-            )
-            replaced_photo = current_photos.exists()
-            current_photos.update(
-                is_active=False,
-                archived_at=timezone.now(),
-                archived_by=request.user,
-            )
-            FarmParcelPhoto.objects.create(
-                parcel=locked_parcel,
-                image=upload,
-                uploaded_by=request.user,
-            )
+            for upload in uploads:
+                FarmParcelPhoto.objects.create(
+                    parcel=locked_parcel,
+                    image=upload,
+                    uploaded_by=request.user,
+                )
             record_request_event(
                 request,
-                title="Farm Parcel Photo Replaced" if replaced_photo else "Farm Parcel Photo Added",
+                title="Farm Parcel Photos Added",
                 module="Farm Parcels",
-                description=(
-                    f"{request.user.display_name} "
-                    f"{'replaced the' if replaced_photo else 'added an'} office field photo."
-                ),
+                description=f"{request.user.display_name} added {len(uploads)} office field photo(s).",
                 target_label=f"{parcel.farmer.record_id} - {parcel.display_name}",
                 reason="Office field documentation for parcel review and decision-making.",
                 details=[
                     {
                         "field": "Field photo gallery",
-                        "before": "Previous photo archived" if replaced_photo else "No current photo",
-                        "after": "One current photo",
+                        "before": "Existing gallery retained",
+                        "after": f"{len(uploads)} photo(s) added",
                     }
                 ],
             )
-        messages.success(request, "The field photo was replaced." if replaced_photo else "The field photo was uploaded.")
+        messages.success(request, f"{len(uploads)} field photo(s) were uploaded.")
         return redirect("farm_parcels:detail", pk=parcel.pk)
 
 

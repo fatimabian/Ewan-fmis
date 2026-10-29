@@ -1,5 +1,6 @@
 from django import forms
 from django.urls import reverse
+from django.db.models import Count
 
 from apps.common.forms import InlineValidationMixin
 from apps.common.constants import ROSARIO_BARANGAY_CHOICES
@@ -29,6 +30,8 @@ class RelatedServiceRequestSelect(forms.Select):
             option["attrs"]["data-scope"] = request.scope
             option["attrs"]["data-farmer-id"] = str(request.farmer_id or "")
             option["attrs"]["data-target-barangay"] = request.target_barangay
+            option["attrs"]["data-target-association"] = request.target_association
+            option["attrs"]["data-walk-in-name"] = request.walk_in_name
         return option
 
 
@@ -52,6 +55,9 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
     target_barangay = forms.ChoiceField(
         choices=ROSARIO_BARANGAY_CHOICES, required=False, label="Barangay"
     )
+    target_association = forms.ChoiceField(
+        choices=(), required=False, label="Association"
+    )
     service_request = ServiceRequestChoiceField(
         queryset=ServiceRequest.objects.none(),
         required=False,
@@ -63,7 +69,8 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
     class Meta:
         model = Intervention
         fields = [
-            "scope", "farmer", "selected_farmers", "target_barangay", "service_request",
+            "scope", "farmer", "selected_farmers", "target_barangay",
+            "target_association", "walk_in_name", "service_request",
             "status", "intervention_type", "intervention_date",
             "description", "quantity", "unit", "provider",
         ]
@@ -74,6 +81,7 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
         labels = {"service_request": "Related service request"}
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
         active_farmers = active_farmer_queryset()
         farmer_search_url = reverse("interventions:farmer_search")
@@ -82,6 +90,32 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
         self.fields["status"].required = True
         self.fields["status"].choices = [("", "---------"), *Intervention.STATUS_CHOICES]
         self.fields["scope"].initial = self.instance.scope or "INDIVIDUAL"
+        association_rows = (
+            Farmer.objects.filter(is_active=True, is_association_member=True)
+            .exclude(fca_membership="")
+            .values("fca_membership")
+            .annotate(member_count=Count("pk"))
+            .order_by("fca_membership")
+        )
+        association_choices = [
+            (
+                row["fca_membership"],
+                f'{row["fca_membership"]} ({row["member_count"]} active member'
+                f'{"s" if row["member_count"] != 1 else ""})',
+            )
+            for row in association_rows
+        ]
+        current_association = self.instance.target_association if self.instance.pk else ""
+        if current_association and current_association not in {
+            value for value, _label in association_choices
+        }:
+            association_choices.append(
+                (current_association, f"{current_association} (no active members)")
+            )
+        self.fields["target_association"].choices = [
+            ("", "Select an association"),
+            *association_choices,
+        ]
         if not self.instance.pk and not self.is_bound:
             self.initial["status"] = ""
         selected_ids = []
@@ -114,7 +148,12 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
             self.fields["farmer"].queryset = Farmer.objects.none()
         request_ids = ServiceRequest.objects.filter(
             status__in=("PENDING", "IN_PROGRESS")
-        ).values_list("pk", flat=True)
+        )
+        if self.user:
+            request_ids = request_ids.filter(
+                assigned_to=self.user
+            )
+        request_ids = request_ids.values_list("pk", flat=True)
         if self.instance and self.instance.pk and self.instance.service_request_id:
             request_ids = ServiceRequest.objects.filter(
                 pk__in=[*request_ids, self.instance.service_request_id]
@@ -157,6 +196,23 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
                     "target_barangay",
                     f"Barangay must remain {request.target_barangay} because it is set by the related service request.",
                 )
+            if (
+                request.scope == "ASSOCIATION"
+                and cleaned.get("target_association") != request.target_association
+            ):
+                self.add_error(
+                    "target_association",
+                    f"Association must remain {request.target_association} because it is set by the related service request.",
+                )
+            if (
+                request.scope == "WALK_IN"
+                and (cleaned.get("walk_in_name") or "").strip()
+                != request.walk_in_name
+            ):
+                self.add_error(
+                    "walk_in_name",
+                    f"Walk-in name must remain {request.walk_in_name} because it is set by the related service request.",
+                )
             if cleaned.get("intervention_type") != expected_type:
                 self.add_error(
                     "intervention_type",
@@ -167,11 +223,25 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
             cleaned["target_barangay"] = (
                 request.target_barangay if scope == "BARANGAY" else ""
             )
+            cleaned["target_association"] = (
+                request.target_association if scope == "ASSOCIATION" else ""
+            )
+            cleaned["walk_in_name"] = (
+                request.walk_in_name if scope == "WALK_IN" else ""
+            )
             cleaned["intervention_type"] = expected_type
         cleaned["scope"] = scope
         farmer = cleaned.get("farmer")
         selected = cleaned.get("selected_farmers")
         barangay = cleaned.get("target_barangay")
+        association = (cleaned.get("target_association") or "").strip()
+        walk_in_name = (cleaned.get("walk_in_name") or "").strip()
+        if scope != "BARANGAY":
+            cleaned["target_barangay"] = ""
+        if scope != "ASSOCIATION":
+            cleaned["target_association"] = ""
+        if scope != "WALK_IN":
+            cleaned["walk_in_name"] = ""
         if scope == "INDIVIDUAL" and not farmer:
             self.add_error("farmer", "Choose the farmer receiving this intervention.")
         if scope == "SELECTED" and not selected:
@@ -185,6 +255,21 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
                 "target_barangay",
                 "This barangay has no active farmers. Choose a barangay with at least one active farmer.",
             )
+        if scope == "ASSOCIATION" and not association:
+            self.add_error(
+                "target_association",
+                "Choose the association covered by this intervention.",
+            )
+        elif scope == "ASSOCIATION" and not active_farmer_queryset().filter(
+            is_association_member=True,
+            fca_membership=association,
+        ).exists():
+            self.add_error(
+                "target_association",
+                "This association has no active farmer members.",
+            )
+        if scope == "WALK_IN" and not walk_in_name:
+            self.add_error("walk_in_name", "Enter the walk-in recipient's name.")
         if scope == "ALL" and not active_farmer_queryset().exists():
             self.add_error(
                 "scope",
