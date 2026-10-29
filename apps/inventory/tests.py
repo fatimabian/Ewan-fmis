@@ -51,6 +51,30 @@ class InventoryModuleTests(TestCase):
         self.assertContains(response, "Filter Inventory")
         self.assertContains(response, "Stock Movements")
         self.assertContains(response, self.item.item_code)
+        self.assertContains(response, "Rows per page:")
+
+    def test_inventory_supports_bounded_rows_per_page_pagination(self):
+        InventoryItem.objects.bulk_create(
+            [
+                InventoryItem(
+                    item_code=f"ITEM-{index:03d}",
+                    name=f"Inventory Item {index:03d}",
+                    category="OTHER",
+                    unit="unit",
+                    reorder_level=0,
+                    storage_location="Main Stockroom",
+                )
+                for index in range(30)
+            ]
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            reverse("inventory:list"), {"per_page": "10", "page": "2"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_obj"].paginator.per_page, 10)
+        self.assertEqual(response.context["page_obj"].paginator.num_pages, 4)
+        self.assertContains(response, "of 4")
 
     def test_administrator_cannot_open_staff_inventory(self):
         self.client.force_login(self.admin)
