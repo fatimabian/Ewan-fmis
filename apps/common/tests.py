@@ -2538,7 +2538,11 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(map_response, 'id="toggleBarangayPicker"')
         self.assertContains(map_response, 'id="toggleParcelList"')
         self.assertContains(map_response, ".map-toolbar-control{position:relative")
-        self.assertContains(map_response, ".map-filter-popover{left:0")
+        self.assertContains(map_response, ".map-filter-popover{right:0")
+        self.assertContains(
+            map_response,
+            ".map-filter-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))",
+        )
         self.assertNotContains(map_response, 'id="parcelSearchStatus"')
         self.assertNotContains(map_response, 'id="parcelSearchBarangay"')
         self.assertContains(map_response, reverse("farm_parcels:map_data"))
