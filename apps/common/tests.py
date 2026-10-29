@@ -2605,10 +2605,11 @@ class FMISRequirementTests(TestCase):
         self.assertIn(
             "The saved pin will remain at its current location.", map_script
         )
-        self.assertIn("It will be submitted for verification", map_script)
+        self.assertIn("This will immediately replace its saved map pin.", map_script)
         self.assertIn("const positionPinEditPanel", map_script)
         self.assertIn("map.latLngToContainerPoint(marker.getLatLng())", map_script)
         self.assertIn('movingMarker.on("drag", positionPinEditPanel)', map_script)
+        self.assertIn("originalMarker.setLatLng(currentPoint)", map_script)
         self.assertIn("map.invalidateSize({pan: false})", map_script)
         self.assertIn("const searchMapParcels", map_script)
         self.assertIn("const chooseMapSearchResult", map_script)
@@ -2837,7 +2838,7 @@ class FMISRequirementTests(TestCase):
             ParcelCoordinateReview.objects.filter(parcel=self.parcel).exists()
         )
 
-    def test_staff_coordinate_move_requires_approval_and_is_audited(self):
+    def test_staff_coordinate_move_applies_immediately_and_is_audited(self):
         self.parcel.coordinates = "13.8467000, 121.2060000"
         self.parcel.remarks = "FMIS-DEMO-DATA: generated location"
         self.parcel.save(update_fields=["coordinates", "remarks"])
@@ -2852,36 +2853,32 @@ class FMISRequirementTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["pending"])
         self.parcel.refresh_from_db()
-        self.assertEqual(self.parcel.coordinates, "13.8467000, 121.2060000")
-        review = ParcelCoordinateReview.objects.get(pk=response.json()["review_id"])
-        self.assertEqual(review.status, "PENDING")
-        approval = self.client.post(
-            reverse("farm_parcels:coordinate_review_approve", args=[review.pk]),
-            {"decision_notes": "Compared with the field GPS record."},
-        )
-        self.assertEqual(approval.status_code, 200)
-        self.parcel.refresh_from_db()
-        review.refresh_from_db()
-        self.assertEqual(review.status, "APPROVED")
         self.assertEqual(self.parcel.coordinates, "13.8501000, 121.2102000")
+        review = ParcelCoordinateReview.objects.get(pk=response.json()["review_id"])
+        self.assertEqual(review.status, "APPROVED")
+        self.assertEqual(review.reviewed_by, self.staff)
         self.assertTrue(self.parcel.remarks.startswith("FMIS-DEMO-VERIFIED:"))
         activity = ActivityLog.objects.get(
-            title="Farm Parcel Coordinate Approved",
+            title="Farm Parcel Coordinate Updated",
             target_label=self.parcel.display_name,
         )
         self.assertEqual(activity.actor, self.staff)
         self.assertEqual(activity.details[0]["before"], "13.8467000, 121.2060000")
         self.assertEqual(activity.details[0]["after"], "13.8501000, 121.2102000")
-        history = ParcelCoordinateHistory.objects.get(review=review, action="APPROVED")
+        history = ParcelCoordinateHistory.objects.get(
+            pk=response.json()["history_id"], review=review, action="APPROVED"
+        )
         self.assertEqual(history.before_coordinates, "13.8467000, 121.2060000")
+        self.assertEqual(history.after_coordinates, "13.8501000, 121.2102000")
 
         map_response = self.client.get(reverse("farm_parcels:map"))
         self.assertContains(map_response, "Remove pin")
         self.assertContains(map_response, 'id="cancelPinMove"')
         self.assertContains(map_response, 'id="savePinMove"')
         self.assertContains(map_response, "The saved pin will remain at its current location.")
-        self.assertContains(map_response, "It will be submitted for verification")
+        self.assertContains(map_response, "This will immediately replace its saved map pin.")
         self.assertNotContains(map_response, "Drag the orange pin")
         self.assertNotContains(map_response, "Save New Location")
 

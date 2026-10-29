@@ -746,11 +746,11 @@
   });
   savePinMove.addEventListener("click", () => {
     if (!state.moving) return;
-    const {item, marker} = state.moving;
+    const {item, marker, originalMarker} = state.moving;
     const point = marker.getLatLng();
     if (!rosarioBounds.contains(point)) return feedback("Choose a point inside the Rosario boundary.", "error");
     confirmAction(
-      `Save this new location for ${item.parcel}? It will be submitted for verification, and the saved pin will remain unchanged until approved.`,
+      `Update ${item.parcel} to this new location now? This will immediately replace its saved map pin.`,
       async () => {
         if (!state.moving || state.moving.marker !== marker) return;
         savePinMove.disabled = true;
@@ -758,8 +758,10 @@
         try {
           const currentPoint = marker.getLatLng();
           const payload = await postPin({parcel_id: item.id, operation: "move", latitude: currentPoint.lat, longitude: currentPoint.lng});
+          originalMarker.setLatLng(currentPoint);
+          item.lat = currentPoint.lat;
+          item.lng = currentPoint.lng;
           endMove(true);
-          await selectBarangay(item.barangay || state.barangay);
           feedback(payload.message, "success");
         } catch (error) { feedback(error.message, "error"); }
         finally {

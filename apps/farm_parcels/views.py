@@ -36,6 +36,7 @@ from apps.farmers.history import farmer_snapshot, record_farmer_update
 from apps.crops.models import CropRecord
 from .forms import FarmParcelForm, FarmParcelPhotoUploadForm
 from .coordinate_services import (
+    apply_coordinate_change_immediately,
     approve_coordinate_review,
     format_coordinates,
     propose_coordinate_change,
@@ -871,6 +872,28 @@ class FarmerLocationPinView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             )
         previous_coordinates = parcel.coordinates.strip()
         new_coordinates = format_coordinates(latitude, longitude)
+        if operation == "move":
+            try:
+                review, history = apply_coordinate_change_immediately(
+                    parcel=parcel,
+                    actor=request.user,
+                    proposed_coordinates=new_coordinates,
+                    notes=request.POST.get("notes", "").strip(),
+                )
+            except ValidationError as error:
+                return JsonResponse(
+                    {"ok": False, "message": error.messages[0]},
+                    status=400,
+                )
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "pending": False,
+                    "review_id": review.pk,
+                    "history_id": history.pk,
+                    "message": f"{parcel.display_name}'s location was updated successfully.",
+                }
+            )
         try:
             review = propose_coordinate_change(
                 parcel=parcel,

@@ -95,6 +95,78 @@ def propose_coordinate_change(
 
 
 @transaction.atomic
+def apply_coordinate_change_immediately(
+    *, parcel, actor, proposed_coordinates, notes=""
+):
+    """Apply a staff-confirmed map move immediately and retain full history."""
+    locked = FarmParcel.objects.select_for_update().get(pk=parcel.pk)
+    validate_coordinate_text_for_barangay(
+        barangay=locked.barangay,
+        coordinates=proposed_coordinates,
+    )
+    before = (locked.coordinates or "").strip()
+    after = (proposed_coordinates or "").strip()
+    if before == after:
+        raise ValidationError("Move the pin to a different location before saving.")
+    now = timezone.now()
+    ParcelCoordinateReview.objects.filter(
+        parcel=locked, status=ParcelCoordinateReview.STATUS_PENDING
+    ).update(
+        status=ParcelCoordinateReview.STATUS_REJECTED,
+        reviewed_by=actor,
+        reviewed_at=now,
+        decision_notes="Superseded by a confirmed immediate map move.",
+    )
+    review = ParcelCoordinateReview.objects.create(
+        parcel=locked,
+        operation=ParcelCoordinateReview.OPERATION_SET,
+        original_coordinates=before,
+        proposed_coordinates=after,
+        issue_codes=["staff_map_correction"],
+        evidence_source="Staff-confirmed map move",
+        staff_notes=notes,
+        status=ParcelCoordinateReview.STATUS_APPROVED,
+        submitted_by=actor,
+        reviewed_by=actor,
+        reviewed_at=now,
+        decision_notes="Confirmed and applied immediately on the farm parcel map.",
+    )
+    locked.coordinates = after
+    update_fields = ["coordinates"]
+    if locked.remarks.startswith("FMIS-DEMO-DATA:"):
+        locked.remarks = locked.remarks.replace(
+            "FMIS-DEMO-DATA:", "FMIS-DEMO-VERIFIED:", 1
+        )
+        update_fields.append("remarks")
+    locked.save(update_fields=update_fields)
+    history = ParcelCoordinateHistory.objects.create(
+        parcel=locked,
+        review=review,
+        action=ParcelCoordinateHistory.ACTION_APPROVED,
+        before_coordinates=before,
+        after_coordinates=after,
+        reason=notes or "Staff confirmed the new pin location on the map.",
+        changed_by=actor,
+    )
+    clear_coordinate_caches(locked)
+    record_event(
+        actor=actor,
+        title="Farm Parcel Coordinate Updated",
+        module="Farm Parcels",
+        description=f"{actor.display_name} moved a farm parcel pin and confirmed its new location.",
+        path="/parcels/map/",
+        target_label=locked.display_name,
+        reason=history.reason,
+        details=[{
+            "field": "Farm parcel coordinates",
+            "before": before or "Not pinned",
+            "after": after,
+        }],
+    )
+    return review, history
+
+
+@transaction.atomic
 def approve_coordinate_review(*, review_id, actor, decision_notes=""):
     review = (
         ParcelCoordinateReview.objects.select_for_update()
