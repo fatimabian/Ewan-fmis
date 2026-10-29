@@ -338,7 +338,11 @@ class InterventionDetailView(InterventionAccessMixin, DetailView):
         active_recipients = InterventionRecipient.objects.filter(is_active=True).select_related("farmer")
         return Intervention.objects.select_related(
             "farmer", "service_request", "recorded_by"
-        ).prefetch_related(Prefetch("recipients", queryset=active_recipients, to_attr="active_recipients"))
+        ).prefetch_related(
+            Prefetch("recipients", queryset=active_recipients, to_attr="active_recipients"),
+            "inventory_movements__item",
+            "inventory_movements__recorded_by",
+        )
 
 
 class InterventionHistoryView(InterventionAccessMixin, DetailView):

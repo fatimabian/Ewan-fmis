@@ -6,6 +6,8 @@
   .intervention-status{display:inline-flex;align-items:center;justify-content:center;border:1px solid currentColor!important;border-radius:999px!important;padding:5px 11px;font-size:12px!important;font-weight:700;white-space:nowrap;background:#fff!important}
   .intervention-status.status-draft{color:#5f6b7a}.intervention-status.status-scheduled{color:#1769e0}.intervention-status.status-ongoing{color:#b66a00}.intervention-status.status-completed{color:#087f49}.intervention-status.status-cancelled{color:#c93232}.intervention-status.archived{color:#667085;background:#f4f5f6!important}
   .recipient-snapshot-table{margin-top:16px}
+  .record-section-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.record-section-heading h3{margin:0}
+  @media(max-width:600px){.record-section-heading{align-items:stretch;flex-direction:column}}
   </style>
   <div class="content record-detail">
     <div class="record-detail-nav">
@@ -41,6 +43,32 @@
           <div><dt>Quantity</dt><dd>{% if object.quantity != None %}{{ object.quantity|floatformat:2 }} {{ object.unit }}{% else %}Not recorded{% endif %}</dd></div>
           <div><dt>Provider</dt><dd>{{ object.provider }}</dd></div>
         </dl>
+      </section>
+      <section class="record-single-section">
+        <div class="record-section-heading">
+          <h3><i class="bi bi-box-seam"></i> Inventory Released</h3>
+          {% if object.is_active %}<a class="btn btn-outline-success" href="{% url 'inventory:movement_create' %}?intervention={{ object.pk }}"><i class="bi bi-box-seam"></i> Release Inventory</a>{% endif %}
+        </div>
+        <p class="text-muted">Stock movements linked to this intervention are shown here for traceability.</p>
+        <div class="universal-table-wrap recipient-snapshot-table">
+          <table class="universal-table">
+            <thead><tr><th>Movement ID</th><th>Inventory Item</th><th>Movement</th><th>Quantity</th><th>Date</th><th>Recorded By</th></tr></thead>
+            <tbody>
+              {% for movement in object.inventory_movements.all %}
+                <tr>
+                  <td><b>{{ movement.movement_id }}</b></td>
+                  <td><a href="{% url 'inventory:detail' movement.item.pk %}">{{ movement.item.item_code }} · {{ movement.item.name }}</a></td>
+                  <td>{{ movement.get_movement_type_display }}</td>
+                  <td>{{ movement.quantity|floatformat:2 }} {{ movement.item.unit }}</td>
+                  <td>{{ movement.created_at|date:"M d, Y h:i A" }}</td>
+                  <td>{% if movement.recorded_by %}{{ movement.recorded_by.display_name }}{% else %}System{% endif %}</td>
+                </tr>
+              {% empty %}
+                <tr><td colspan="6">No inventory has been linked to this intervention.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </section>
       <section class="record-single-section">
         <h3><i class="bi bi-journal-check"></i> Record Details</h3>

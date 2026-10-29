@@ -44,7 +44,9 @@
         <a class="landing-forgot" href="{% url 'authentication:password_reset' %}">Forgot password?</a>
       </div>
       <button class="landing-signin-submit" type="submit">Sign In</button>
+      <p class="staff-registration-return">New OAS staff member? <a href="{% url 'authentication:register_staff' %}">Request an FMIS account</a></p>
     </form>
+    <style>.staff-registration-return{margin:14px 0 0;text-align:center;color:#68776f;font-size:12px}.staff-registration-return a{color:#2f7d5c;font-weight:800}</style>
   </section>
 {% endblock %}
 {% block scripts %}

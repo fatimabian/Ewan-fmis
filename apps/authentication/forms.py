@@ -1,7 +1,11 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
-from apps.common.forms import InlineValidationMixin, normalize_phone_digits
+from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm, UserCreationForm
+from apps.common.forms import (
+    InlineValidationMixin,
+    normalize_person_name,
+    normalize_phone_digits,
+)
 
 
 class LoginForm(InlineValidationMixin, AuthenticationForm):
@@ -20,6 +24,88 @@ class LoginForm(InlineValidationMixin, AuthenticationForm):
     )
 
 
+class StaffRegistrationForm(InlineValidationMixin, UserCreationForm):
+    """Public application form; saving never grants FMIS access."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ("first_name", "last_name", "email", "phone_number"):
+            self.fields[name].required = True
+        self.fields["password1"].help_text = ""
+        self.fields["password2"].help_text = ""
+        placeholders = {
+            "username": "Choose a username",
+            "first_name": "First name",
+            "last_name": "Last name",
+            "email": "Office email address",
+            "phone_number": "09XXXXXXXXX",
+            "password1": "Create a password",
+            "password2": "Confirm password",
+        }
+        for name, field in self.fields.items():
+            field.widget.attrs.update(
+                {
+                    "class": "form-control",
+                    "placeholder": placeholders.get(name, field.label),
+                    "autocomplete": (
+                        "new-password" if name.startswith("password") else name
+                    ),
+                }
+            )
+
+    def clean_username(self):
+        username = self.cleaned_data.get("username", "").strip()
+        if get_user_model().objects.filter(username__iexact=username).exists():
+            raise forms.ValidationError("This username is already in use.")
+        return username
+
+    def clean_first_name(self):
+        return normalize_person_name(self.cleaned_data.get("first_name", ""))
+
+    def clean_last_name(self):
+        return normalize_person_name(self.cleaned_data.get("last_name", ""))
+
+    def clean_email(self):
+        email = self.cleaned_data.get("email", "").strip().lower()
+        if get_user_model().objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("This email address is already registered.")
+        return email
+
+    def clean_phone_number(self):
+        phone = self.cleaned_data.get("phone_number", "").strip()
+        if not phone.isdigit() or len(phone) != 11 or not phone.startswith("09"):
+            raise forms.ValidationError("Enter 11 digits beginning with 09.")
+        normalized = normalize_phone_digits(phone)
+        if any(
+            normalize_phone_digits(value) == normalized
+            for value in get_user_model().objects.exclude(phone_number="").values_list(
+                "phone_number", flat=True
+            )
+        ):
+            raise forms.ValidationError("This phone number is already registered.")
+        return phone
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.role = "STAFF"
+        user.is_active = False
+        user.activation_pending = False
+        user.approval_status = user.APPROVAL_PENDING
+        if commit:
+            user.save()
+        return user
+
+    class Meta:
+        model = get_user_model()
+        fields = (
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "phone_number",
+            "password1",
+            "password2",
+        )
 class ActivationOTPForm(InlineValidationMixin, forms.Form):
     code = forms.CharField(
         label="Six-digit verification code",

@@ -1,0 +1,61 @@
+{% extends base_template %}
+{% block page_title %}Inventory{% endblock %}
+{% block page_subtitle %}Monitor agricultural supplies, stock movements, and intervention releases{% endblock %}
+{% block content %}
+<style>
+.inventory-page{display:grid;gap:14px}.inventory-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.inventory-summary article{padding:13px 15px;border:1px solid #d7e2db;border-top:3px solid #536a7f;background:#fff}.inventory-summary article:first-child{border-top-color:#2f7d5c}.inventory-summary small{display:block;color:#657386;font-size:9px;font-weight:800;text-transform:uppercase}.inventory-summary b{display:block;margin-top:3px;color:#17233a;font-size:21px}.inventory-tabs{display:flex;border-bottom:1px solid #d7e2db;background:#fff}.inventory-tabs a{padding:12px 16px;border-bottom:3px solid transparent;color:#526276;font-size:12px;font-weight:800;text-decoration:none}.inventory-tabs a.active{border-bottom-color:#2f7d5c;background:#edf7f1;color:#17233a}.inventory-table :is(th,td){vertical-align:middle}.inventory-item-link{color:#17233a;font-weight:800;text-decoration:none}.inventory-item-link small{display:block;color:#6b7787;font-size:10px;font-weight:600}.inventory-stock{font-size:15px;font-weight:850}.inventory-stock small{font-size:9px;font-weight:700}.inventory-status{display:inline-flex;padding:5px 10px;border:1px solid currentColor;background:#fff;font-size:10px;font-weight:850;white-space:nowrap}.inventory-status.in-stock{color:#16834f}.inventory-status.low-stock,.inventory-status.expiring{color:#ad6500}.inventory-status.out-of-stock{color:#c93232}.inventory-actions{display:flex;align-items:center;justify-content:center;gap:12px}.inventory-actions a{color:#1378ee;font-size:18px}.movement-positive{color:#16834f;font-weight:850}.movement-negative{color:#b42318;font-weight:850}.inventory-date{white-space:nowrap}.inventory-filter-note{margin:0;color:#a72929;font-size:11px}@media(max-width:900px){.inventory-summary{grid-template-columns:repeat(3,1fr)}}@media(max-width:600px){.inventory-summary{grid-template-columns:repeat(2,1fr)}.inventory-tabs{overflow-x:auto}}
+</style>
+<div class="content inventory-page">
+  <section class="inventory-summary" aria-label="Inventory summary">
+    <article><small>Active items</small><b>{{ total_items }}</b></article>
+    <article><small>Low stock</small><b>{{ low_stock_count }}</b></article>
+    <article><small>Out of stock</small><b>{{ out_of_stock_count }}</b></article>
+    <article><small>Expiring soon</small><b>{{ expiring_count }}</b></article>
+    <article><small>Stock movements</small><b>{{ movement_count }}</b></article>
+  </section>
+  <nav class="inventory-tabs" aria-label="Inventory sections">
+    <a class="{% if tab == 'items' %}active{% endif %}" href="{% url 'inventory:list' %}?tab=items">Inventory Items</a>
+    <a class="{% if tab == 'movements' %}active{% endif %}" href="{% url 'inventory:list' %}?tab=movements">Stock Movements</a>
+  </nav>
+  <section class="panel table-panel inventory-table-panel">
+    <form class="fmis-table-toolbar" method="get" data-table-toolbar>
+      <input type="hidden" name="tab" value="{{ tab }}">
+      <label class="fmis-toolbar-search"><span>{% if tab == 'movements' %}Search Movements{% else %}Search Inventory{% endif %}</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="{% if tab == 'movements' %}Search movement, item, reference, or intervention...{% else %}Search item code, name, or location...{% endif %}"></label>
+      <div class="fmis-toolbar-actions">
+        <button class="fmis-toolbar-button{% if request.GET.category or request.GET.status or request.GET.location or request.GET.record_status or request.GET.movement_type or request.GET.item or request.GET.date_from or request.GET.date_to %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="inventoryFilters"><i class="bi bi-funnel"></i> Filter {% if tab == 'movements' %}Movements{% else %}Inventory{% endif %} <span class="fmis-filter-active">Active</span></button>
+        {% if tab == 'movements' %}<a class="btn btn-success btn-add-outline" href="{% url 'inventory:movement_create' %}"><i class="bi bi-arrow-repeat"></i> Record Movement</a>{% else %}<a class="btn btn-success btn-add-outline" href="{% url 'inventory:item_create' %}"><i class="bi bi-plus-lg"></i> Add Item</a>{% endif %}
+      </div>
+      <section class="fmis-filter-popover" id="inventoryFilters" data-filter-popover hidden aria-labelledby="inventoryFiltersTitle">
+        <div class="fmis-filter-heading"><h2 id="inventoryFiltersTitle">Filter {% if tab == 'movements' %}Stock Movements{% else %}Inventory{% endif %}</h2><button class="fmis-filter-close" type="button" data-filter-close aria-label="Close inventory filters"><i class="bi bi-x-lg"></i></button></div>
+        <div class="fmis-filter-grid">
+        {% if tab == 'movements' %}
+          <label class="fmis-filter-field">Movement type<select name="movement_type"><option value="">All movement types</option>{% for value,label in movement_choices %}<option value="{{ value }}"{% if request.GET.movement_type == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+          <label class="fmis-filter-field">Inventory item<select name="item"><option value="">All items</option>{% for item in inventory_items %}<option value="{{ item.pk }}"{% if request.GET.item == item.pk|stringformat:'s' %} selected{% endif %}>{{ item.item_code }} · {{ item.name }}</option>{% endfor %}</select></label>
+          <label class="fmis-filter-field">Recorded from<input type="date" name="date_from" value="{{ request.GET.date_from }}"></label>
+          <label class="fmis-filter-field">Recorded to<input type="date" name="date_to" value="{{ request.GET.date_to }}"></label>
+          {% if filter_date_error %}<p class="fmis-filter-error">{{ filter_date_error }}</p>{% endif %}
+        {% else %}
+          <label class="fmis-filter-field">Category<select name="category"><option value="">All categories</option>{% for value,label in category_choices %}<option value="{{ value }}"{% if request.GET.category == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+          <label class="fmis-filter-field">Stock status<select name="status"><option value="">All stock statuses</option><option value="in"{% if request.GET.status == 'in' %} selected{% endif %}>In stock</option><option value="low"{% if request.GET.status == 'low' %} selected{% endif %}>Low stock</option><option value="out"{% if request.GET.status == 'out' %} selected{% endif %}>Out of stock</option><option value="expiring"{% if request.GET.status == 'expiring' %} selected{% endif %}>Expiring soon</option></select></label>
+          <label class="fmis-filter-field">Storage location<select name="location"><option value="">All locations</option>{% for location in locations %}<option value="{{ location }}"{% if request.GET.location == location %} selected{% endif %}>{{ location }}</option>{% endfor %}</select></label>
+          <label class="fmis-filter-field">Record status<select name="record_status"><option value="active"{% if request.GET.record_status == 'active' or not request.GET.record_status %} selected{% endif %}>Active items</option><option value="archived"{% if request.GET.record_status == 'archived' %} selected{% endif %}>Archived items</option><option value="all"{% if request.GET.record_status == 'all' %} selected{% endif %}>All items</option></select></label>
+        {% endif %}
+          <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'inventory:list' %}?tab={{ tab }}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
+        </div>
+      </section>
+    </form>
+    <div class="universal-table-wrap inventory-table-wrap">
+    {% if tab == 'movements' %}
+      <table class="universal-table inventory-table movement-table"><thead><tr><th>Movement ID</th><th>Date</th><th>Inventory Item</th><th>Movement</th><th>Quantity</th><th>Balance</th><th>Intervention</th><th>Recorded By</th></tr></thead><tbody>
+      {% for movement in object_list %}<tr><td><b>{{ movement.movement_id }}</b></td><td class="inventory-date">{{ movement.created_at|date:"M d, Y" }}<small>{{ movement.created_at|date:"h:i A" }}</small></td><td><a class="inventory-item-link" href="{% url 'inventory:detail' movement.item.pk %}">{{ movement.item.name }}<small>{{ movement.item.item_code }}</small></a></td><td>{{ movement.get_movement_type_display }}</td><td class="{% if movement.movement_type == 'RECEIPT' or movement.movement_type == 'RETURN' or movement.movement_type == 'ADJUST_IN' %}movement-positive{% else %}movement-negative{% endif %}">{% if movement.movement_type == 'RECEIPT' or movement.movement_type == 'RETURN' or movement.movement_type == 'ADJUST_IN' %}+{% else %}−{% endif %}{{ movement.quantity|floatformat:2 }} {{ movement.item.unit }}</td><td>{{ movement.balance_after|floatformat:2 }} {{ movement.item.unit }}</td><td>{% if movement.intervention %}<a href="{% url 'interventions:detail' movement.intervention.pk %}">{{ movement.intervention.reference_id }}</a>{% else %}—{% endif %}</td><td>{% if movement.recorded_by %}{{ movement.recorded_by.display_name }}{% else %}System{% endif %}</td></tr>{% empty %}<tr><td colspan="8">No stock movements match the selected filters.</td></tr>{% endfor %}
+      </tbody></table>
+    {% else %}
+      <table class="universal-table inventory-table"><thead><tr><th>Item Code</th><th>Item Name</th><th>Category</th><th>On Hand</th><th>Reorder Level</th><th>Storage Location</th><th>Expiration</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+      {% for item in object_list %}<tr><td><b>{{ item.item_code }}</b></td><td><a class="inventory-item-link" href="{% url 'inventory:detail' item.pk %}">{{ item.name }}<small>{{ item.unit }}</small></a></td><td>{{ item.get_category_display }}</td><td class="inventory-stock">{{ item.stock_on_hand|floatformat:2 }} <small>{{ item.unit }}</small></td><td>{{ item.reorder_level|floatformat:2 }} {{ item.unit }}</td><td>{{ item.storage_location }}</td><td>{% if item.expiration_date %}{{ item.expiration_date|date:"M d, Y" }}{% else %}Not applicable{% endif %}</td><td><span class="inventory-status {{ item.stock_status_css }}">{{ item.stock_status_label }}</span>{% if not item.is_active %}<span class="inventory-status">Archived</span>{% endif %}</td><td><div class="inventory-actions"><a href="{% url 'inventory:detail' item.pk %}" title="View {{ item.name }}"><i class="bi bi-eye"></i></a>{% if item.is_active %}<a href="{% url 'inventory:item_edit' item.pk %}" title="Edit {{ item.name }}"><i class="bi bi-pencil-square"></i></a>{% endif %}</div></td></tr>{% empty %}<tr><td colspan="9">No inventory items match the selected filters.</td></tr>{% endfor %}
+      </tbody></table>
+    {% endif %}
+    </div>
+    {% if is_paginated %}{% include 'shared/pagination.html' %}{% endif %}
+  </section>
+</div>
+{% endblock %}

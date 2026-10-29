@@ -38,10 +38,76 @@ class AccountListView(FMISLoginRequiredMixin, AdminRequiredMixin, ListView):
         if status == "active":
             queryset = queryset.filter(is_active=True, activation_pending=False)
         elif status == "pending":
-            queryset = queryset.filter(activation_pending=True)
+            queryset = queryset.filter(
+                Q(approval_status=CustomUser.APPROVAL_PENDING) | Q(activation_pending=True)
+            )
+        elif status == "rejected":
+            queryset = queryset.filter(approval_status=CustomUser.APPROVAL_REJECTED)
         elif status == "inactive":
             queryset = queryset.filter(is_active=False, activation_pending=False)
         return queryset.order_by("-date_joined", "-pk")
+
+
+class AccountApprovalView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
+    def post(self, request, pk):
+        action = request.POST.get("action", "")
+        if action not in {"approve", "reject"}:
+            messages.error(request, "Choose whether to approve or reject the registration.")
+            return redirect("accounts:list")
+        with transaction.atomic():
+            account = (
+                CustomUser.objects.select_for_update()
+                .filter(
+                    pk=pk,
+                    role="STAFF",
+                    deleted_at__isnull=True,
+                    approval_status=CustomUser.APPROVAL_PENDING,
+                )
+                .first()
+            )
+            if not account:
+                messages.warning(request, "This registration has already been reviewed or is unavailable.")
+                return redirect("accounts:list")
+            approved = action == "approve"
+            account.approval_status = (
+                CustomUser.APPROVAL_APPROVED if approved else CustomUser.APPROVAL_REJECTED
+            )
+            account.approval_reviewed_by = request.user
+            account.approval_reviewed_at = timezone.now()
+            account.is_active = False
+            account.activation_pending = approved
+            account.save(
+                update_fields=(
+                    "approval_status",
+                    "approval_reviewed_by",
+                    "approval_reviewed_at",
+                    "is_active",
+                    "activation_pending",
+                )
+            )
+            record_request_event(
+                request,
+                title=f"Staff Registration {'Approved' if approved else 'Rejected'}",
+                module="User Accounts",
+                description=f"{request.user.display_name} reviewed a staff registration.",
+                target_label=account.display_name,
+                details=[
+                    {
+                        "field": "Registration status",
+                        "before": "Pending administrator approval",
+                        "after": "Approved" if approved else "Rejected",
+                    }
+                ],
+            )
+        messages.success(
+            request,
+            (
+                f"{account.display_name}'s registration was approved. The user can now sign in and complete email verification."
+                if approved
+                else f"{account.display_name}'s registration was rejected; no system access was granted."
+            ),
+        )
+        return redirect("accounts:list")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -157,6 +223,12 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
         requested_action = request.POST.get("action", "deactivate")
         restoring = requested_action == "restore"
         permanently_deleting = requested_action == "delete"
+        if restoring and account.approval_status != CustomUser.APPROVAL_APPROVED:
+            messages.error(
+                request,
+                "Review and approve this staff registration before activating access.",
+            )
+            return redirect("accounts:list")
         if account.pk == request.user.pk and not restoring:
             messages.error(request, "You cannot deactivate or delete the account you are currently using.")
             return redirect("accounts:list")

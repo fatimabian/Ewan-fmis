@@ -818,8 +818,35 @@
           min-height:0
       }
   }
+  .analytics-tabs{
+      display:flex;
+      overflow-x:auto;
+      margin-bottom:14px;
+      border-bottom:1px solid #d6e1da;
+      background:#fff;
+      scrollbar-width:thin
+  }
+  .analytics-tabs a{
+      flex:0 0 auto;
+      padding:12px 15px;
+      border-bottom:3px solid transparent;
+      color:#526276;
+      font-size:12px;
+      font-weight:800;
+      text-decoration:none;
+      white-space:nowrap
+  }
+  .analytics-tabs a:hover{color:#14243a;background:#f7f9f8}
+  .analytics-tabs a[aria-current="page"]{border-bottom-color:#148653;color:#14243a;background:#edf7f1}
   </style>
   <div class="content reports-page">
+    {% if not request.user.is_admin and analytics_tab != 'reports' %}
+      {% include 'reports/_descriptive_analytics.html' %}
+    {% elif not request.user.is_admin %}
+      <nav class="analytics-tabs" aria-label="Reports and analytics sections">
+        {% for key,label in analytics_tabs %}<a href="?analytics_tab={{ key }}"{% if analytics_tab == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+      </nav>
+    {% endif %}
     {% if request.user.is_admin %}
       <section class="report-metrics">
         <article class="report-metric">
@@ -852,7 +879,7 @@
         </article>
       </section>
     {% endif %}
-    {% if not request.user.is_admin %}
+    {% if not request.user.is_admin and analytics_tab == 'reports' %}
       <section class="farmer-statistics-strip" aria-label="Verified Rosario farmer statistics">
         <header class="farmer-statistics-heading">
           <h2>FARMER STATISTICS</h2>
@@ -911,7 +938,7 @@
           {% endfor %}
         </div>
       </section>
-    {% else %}
+    {% elif analytics_tab == 'reports' %}
     <section class="report-top">
       <article class="report-card report-filter-card">
         <h3>{% if request.user.is_admin %}System Report Builder{% else %}Report Filters{% endif %}</h3>
@@ -1125,6 +1152,7 @@
       {% endif %}
     </section>
     {% endif %}
+    {% if request.user.is_admin or analytics_tab == 'reports' %}
     <section class="analytics-grid">
       {% if request.user.is_admin %}
         <article class="report-card">
@@ -1294,6 +1322,7 @@
         </article>
       {% endif %}
     </section>
+    {% endif %}
   </div>
   <script>
       (() => {

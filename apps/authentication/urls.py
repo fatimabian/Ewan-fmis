@@ -8,6 +8,7 @@ from .views import (
     PasswordRecoveryView,
     PrivacyNoticeView,
     TermsOfUseView,
+    StaffRegistrationView,
     UserLoginView,
     UserLogoutView,
 )
@@ -17,6 +18,7 @@ app_name = "authentication"
 urlpatterns = [
     path("", LandingPageView.as_view(), name="landing"),
     path("login/", UserLoginView.as_view(), name="login"),
+    path("register-staff/", StaffRegistrationView.as_view(), name="register_staff"),
     path("logout/", UserLogoutView.as_view(), name="logout"),
     path("activate-account/", AccountActivationView.as_view(), name="activate_account"),
     path("mfa/setup/", MFASetupView.as_view(), name="mfa_setup"),

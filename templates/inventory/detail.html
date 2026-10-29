@@ -1,0 +1,61 @@
+{% extends base_template %}
+{% block page_title %}Inventory Item {{ object.item_code }}{% endblock %}
+{% block page_subtitle %}Review stock balance, storage information, and movement history{% endblock %}
+{% block content %}
+<style>
+  .inventory-status{display:inline-flex;padding:5px 10px;border:1px solid currentColor;background:#fff;font-size:11px;font-weight:850}
+  .inventory-status.in-stock{color:#16834f}.inventory-status.low-stock,.inventory-status.expiring{color:#ad6500}.inventory-status.out-of-stock{color:#c93232}
+  .movement-positive{color:#16834f;font-weight:850}.movement-negative{color:#b42318;font-weight:850}.inventory-detail-table{margin-top:12px}
+</style>
+<div class="content record-detail">
+  <div class="record-detail-nav">
+    <a href="{% url 'inventory:list' %}" data-history-back><i class="bi bi-arrow-left"></i> Back to Inventory</a>
+    <div class="record-detail-actions">
+      {% if object.is_active %}
+        <a class="btn btn-outline-success" href="{% url 'inventory:movement_create' %}?item={{ object.pk }}"><i class="bi bi-arrow-repeat"></i> Record Movement</a>
+        <a class="btn btn-outline-success" href="{% url 'inventory:item_edit' object.pk %}"><i class="bi bi-pencil-square"></i> Edit Item</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="record-single-card">
+    <header class="record-hero record-single-hero">
+      <div class="record-avatar square"><i class="bi bi-box-seam"></i></div>
+      <div class="record-hero-copy"><small>{{ object.item_code }} · {{ object.get_category_display }}</small><h2>{{ object.name }}</h2><p>{{ object.storage_location }}</p></div>
+      <span class="inventory-status {{ object.stock_status_css }} record-hero-status">{{ object.stock_status_label }}</span>
+    </header>
+    <section class="record-single-section">
+      <h3><i class="bi bi-journal-check"></i> Stock Information</h3>
+      <dl class="record-data">
+        <div><dt>On Hand</dt><dd>{{ object.stock_on_hand|floatformat:2 }} {{ object.unit }}</dd></div>
+        <div><dt>Reorder Level</dt><dd>{{ object.reorder_level|floatformat:2 }} {{ object.unit }}</dd></div>
+        <div><dt>Storage Location</dt><dd>{{ object.storage_location }}</dd></div>
+        <div><dt>Expiration Date</dt><dd>{% if object.expiration_date %}{{ object.expiration_date|date:"F d, Y" }}{% else %}Not applicable{% endif %}</dd></div>
+        <div class="record-data-wide"><dt>Notes</dt><dd>{{ object.notes|default:"No notes recorded." }}</dd></div>
+      </dl>
+    </section>
+    <section class="record-single-section">
+      <h3><i class="bi bi-clock-history"></i> Stock Movement History</h3>
+      <div class="universal-table-wrap inventory-detail-table"><table class="universal-table">
+        <thead><tr><th>Movement ID</th><th>Date</th><th>Movement</th><th>Quantity</th><th>Balance</th><th>Intervention</th><th>Reference</th><th>Recorded By</th></tr></thead>
+        <tbody>
+          {% for movement in object.movements.all %}
+            <tr>
+              <td><b>{{ movement.movement_id }}</b></td><td>{{ movement.created_at|date:"M d, Y h:i A" }}</td><td>{{ movement.get_movement_type_display }}</td>
+              <td class="{% if movement.movement_type == 'RECEIPT' or movement.movement_type == 'RETURN' or movement.movement_type == 'ADJUST_IN' %}movement-positive{% else %}movement-negative{% endif %}">{% if movement.movement_type == 'RECEIPT' or movement.movement_type == 'RETURN' or movement.movement_type == 'ADJUST_IN' %}+{% else %}−{% endif %}{{ movement.quantity|floatformat:2 }} {{ object.unit }}</td>
+              <td>{{ movement.balance_after|floatformat:2 }} {{ object.unit }}</td><td>{% if movement.intervention %}<a href="{% url 'interventions:detail' movement.intervention.pk %}">{{ movement.intervention.reference_id }}</a>{% else %}—{% endif %}</td><td>{{ movement.reference|default:"—" }}</td><td>{% if movement.recorded_by %}{{ movement.recorded_by.display_name }}{% else %}System{% endif %}</td>
+            </tr>
+          {% empty %}<tr><td colspan="8">No stock movements have been recorded.</td></tr>{% endfor %}
+        </tbody>
+      </table></div>
+    </section>
+    {% if object.is_active %}
+      <section class="record-single-section">
+        <h3><i class="bi bi-archive"></i> Archive Item</h3><p class="text-muted">Items can be archived only when their stock balance is zero. Movement history is always preserved.</p>
+        <form method="post" action="{% url 'inventory:item_archive' object.pk %}" data-confirm="Archive {{ object.name|escape }}? Its complete movement history will remain available.">{% csrf_token %}<button class="btn btn-outline-danger" type="submit"><i class="bi bi-archive"></i> Archive Item</button></form>
+      </section>
+    {% else %}
+      <section class="record-single-section"><form method="post" action="{% url 'inventory:item_archive' object.pk %}">{% csrf_token %}<input type="hidden" name="action" value="restore"><button class="btn btn-outline-success" type="submit">Restore Item</button></form></section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

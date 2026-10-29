@@ -7,7 +7,7 @@ from django.views import View
 from django.views.generic import TemplateView
 
 from apps.common.mixins import FMISLoginRequiredMixin
-from apps.common.permissions import StaffRequiredMixin
+from apps.common.permissions import RoleRequiredMixin, StaffRequiredMixin
 from apps.common.constants import ROSARIO_BARANGAYS
 from apps.crops.models import CropRecord
 from apps.activity_logs.models import ActivityLog
@@ -15,7 +15,7 @@ from apps.activity_logs.services import record_request_event
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
-from .analytics import report_metrics, report_preview
+from .analytics import ANALYTICS_TABS, descriptive_analytics, report_metrics, report_preview
 from .export import (
     COMMODITY_REPORT_KEYS,
     DATE_RANGES,
@@ -31,7 +31,15 @@ from .export import (
 )
 
 
-class ReportsView(FMISLoginRequiredMixin, TemplateView):
+class ReportsAccessRequiredMixin(RoleRequiredMixin):
+    denied_message = "Reports and analytics are available to authorized FMIS personnel only."
+
+    def test_func(self):
+        user = self.request.user
+        return user.is_authenticated and (user.is_admin or user.role == "STAFF")
+
+
+class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateView):
     template_name = "reports/home.html"
 
     @staticmethod
@@ -91,6 +99,35 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
         date_from = source.get("date_from", "")
         date_to = source.get("date_to", "")
         system_report = self.request.user.is_admin
+        # Keep the long-standing Report Generator as the landing experience.
+        # Descriptive analytics is additive and selected through the new tabs.
+        analytics_tab = source.get("analytics_tab", "reports")
+        valid_analytics_tabs = {key for key, _label in ANALYTICS_TABS}
+        if analytics_tab not in valid_analytics_tabs:
+            analytics_tab = "overview"
+        analytics_date_choice = source.get("analytics_date_range", "all")
+        if analytics_date_choice not in DATE_RANGES:
+            analytics_date_choice = "all"
+        analytics_date_from = source.get("analytics_date_from", "")
+        analytics_date_to = source.get("analytics_date_to", "")
+        analytics_error = ""
+        try:
+            analytics_date_range = resolve_date_range(
+                analytics_date_choice,
+                analytics_date_from,
+                analytics_date_to,
+            )
+        except ValueError as error:
+            analytics_error = str(error)
+            analytics_date_choice = "all"
+            analytics_date_range = "all"
+        analytics_filters = {
+            "barangay": source.get("analytics_barangay", ""),
+            "commodity": source.get("analytics_commodity", ""),
+            "request_status": source.get("analytics_request_status", ""),
+            "request_priority": source.get("analytics_request_priority", ""),
+            "intervention_type": source.get("analytics_intervention_type", ""),
+        }
         preview = None
         report_error = ""
         try:
@@ -129,6 +166,7 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             .distinct()
             .order_by("crop_type"),
             "status_choices": ServiceRequest.STATUS_CHOICES,
+            "request_priority_choices": ServiceRequest.PRIORITY_CHOICES,
             "intervention_type_choices": Intervention.TYPE_CHOICES,
             "role_choices": (("ADMIN", "Administrator"), ("STAFF", "Staff")),
             "account_status_choices": (
@@ -154,7 +192,21 @@ class ReportsView(FMISLoginRequiredMixin, TemplateView):
             "commodity_report_types": COMMODITY_REPORT_KEYS,
             "report_preview": preview,
             "report_error": report_error,
+            "analytics_tabs": ANALYTICS_TABS,
+            "analytics_tab": analytics_tab,
+            "analytics_date_ranges": DATE_RANGES,
+            "selected_analytics_date_range": analytics_date_choice,
+            "selected_analytics_date_from": analytics_date_from,
+            "selected_analytics_date_to": analytics_date_to,
+            "selected_analytics_filters": analytics_filters,
+            "analytics_error": analytics_error,
         }
+        if not system_report:
+            context["descriptive"] = descriptive_analytics(
+                analytics_tab,
+                analytics_date_range,
+                analytics_filters,
+            )
         return context
 
     def post(self, request, *args, **kwargs):

@@ -147,10 +147,10 @@
         </div>
         <form class="fmis-table-toolbar" method="get" data-table-toolbar>
           <label class="fmis-toolbar-search"><span>Search Accounts</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search name, username, or email..."></label>
-          <div class="fmis-toolbar-actions"><button class="fmis-toolbar-button{% if request.GET.role or request.GET.status %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="accountFilters"><i class="bi bi-funnel"></i> Filter Accounts <span class="fmis-filter-active">Active</span></button><a class="btn btn-success btn-add-outline new-account-button" href="{% url 'accounts:create' %}"><i class="bi bi-plus-lg"></i> New Account</a></div>
+          <div class="fmis-toolbar-actions"><button class="fmis-toolbar-button{% if request.GET.role or request.GET.status %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="accountFilters"><i class="bi bi-funnel"></i> Filter Accounts <span class="fmis-filter-active">Active</span></button><a class="btn btn-success btn-add-outline new-account-button" href="{% url 'accounts:list' %}?status=pending"><i class="bi bi-person-check"></i> Registration Requests</a></div>
           <section class="fmis-filter-popover" id="accountFilters" data-filter-popover hidden aria-labelledby="accountFiltersTitle"><div class="fmis-filter-heading"><h2 id="accountFiltersTitle">Filter Accounts</h2><button class="fmis-filter-close" type="button" data-filter-close aria-label="Close account filters"><i class="bi bi-x-lg"></i></button></div><div class="fmis-filter-grid">
             <label class="fmis-filter-field">Role<select name="role"><option value="">All roles</option><option value="ADMIN" {% if request.GET.role == 'ADMIN' %}selected{% endif %}>Administrator</option><option value="STAFF" {% if request.GET.role == 'STAFF' %}selected{% endif %}>Staff</option></select></label>
-            <label class="fmis-filter-field">Account status<select name="status"><option value="">All statuses</option><option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option><option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending activation</option><option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option></select></label>
+            <label class="fmis-filter-field">Account status<select name="status"><option value="">All statuses</option><option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>Active</option><option value="pending" {% if request.GET.status == 'pending' %}selected{% endif %}>Pending review or verification</option><option value="rejected" {% if request.GET.status == 'rejected' %}selected{% endif %}>Rejected registrations</option><option value="inactive" {% if request.GET.status == 'inactive' %}selected{% endif %}>Inactive</option></select></label>
             <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'accounts:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
           </div></section>
         </form>
@@ -180,8 +180,12 @@
                   <span class="badge">{{ user.get_role_display }}</span>
                 </td>
                 <td>
-                  {% if user.activation_pending %}
-                    <span class="status-badge status-pending">Pending activation</span>
+                  {% if user.approval_status == 'PENDING' %}
+                    <span class="status-badge status-pending">Pending admin review</span>
+                  {% elif user.approval_status == 'REJECTED' %}
+                    <span class="status-badge status-inactive">Registration rejected</span>
+                  {% elif user.activation_pending %}
+                    <span class="status-badge status-pending">Approved · email verification pending</span>
                   {% elif user.is_active %}
                     <span class="status-badge status-active">Active</span>
                   {% else %}
@@ -190,11 +194,15 @@
                 </td>
                 <td>
                   <div class="account-row-actions">
+                    {% if user.approval_status == 'PENDING' %}
+                      <form method="post" action="{% url 'accounts:review' user.pk %}" data-confirm="Approve {{ user.display_name|escape }}'s staff registration? They will still need to verify their email before access is activated.">{% csrf_token %}<input type="hidden" name="action" value="approve"><button type="submit" title="Approve {{ user.display_name }}"><i class="bi bi-check-lg"></i></button></form>
+                      <form method="post" action="{% url 'accounts:review' user.pk %}" data-confirm="Reject {{ user.display_name|escape }}'s staff registration? No system access will be granted.">{% csrf_token %}<input type="hidden" name="action" value="reject"><button type="submit" title="Reject {{ user.display_name }}"><i class="bi bi-x-lg"></i></button></form>
+                    {% else %}
                     <a href="{% url 'accounts:edit' user.pk %}" title="Edit {{ user.display_name }}">
                       <i class="bi bi-pencil-square">
                       </i>
                     </a>
-                    {% if user.pk != request.user.pk and not user.activation_pending %}
+                    {% if user.pk != request.user.pk and not user.activation_pending and user.approval_status == 'APPROVED' %}
                       <form method="post"
                             action="{% url 'accounts:delete' user.pk %}"
                             data-confirm="{% if user.is_active %}Deactivate {{ user.display_name|escape }}'s account? Their history will be preserved.{% else %}Reactivate {{ user.display_name|escape }}'s account?{% endif %}">
@@ -205,6 +213,7 @@
                           </i>
                         </button>
                       </form>
+                    {% endif %}
                     {% endif %}
                   </div>
                 </td>

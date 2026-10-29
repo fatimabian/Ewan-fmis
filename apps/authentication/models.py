@@ -5,12 +5,34 @@ from apps.common.constants import ROLE_ADMIN, ROLE_CHOICES
 
 
 class CustomUser(AbstractUser):
+    APPROVAL_PENDING = "PENDING"
+    APPROVAL_APPROVED = "APPROVED"
+    APPROVAL_REJECTED = "REJECTED"
+    APPROVAL_CHOICES = [
+        (APPROVAL_PENDING, "Pending administrator approval"),
+        (APPROVAL_APPROVED, "Approved"),
+        (APPROVAL_REJECTED, "Rejected"),
+    ]
     role = models.CharField(max_length=12, choices=ROLE_CHOICES, default="STAFF")
     phone_number = models.CharField(max_length=20, blank=True)
     google_sub = models.CharField(max_length=255, unique=True, null=True, blank=True)
     activation_pending = models.BooleanField(
         default=False,
         help_text="New staff account must verify its email OTP before first access.",
+    )
+    approval_status = models.CharField(
+        max_length=12,
+        choices=APPROVAL_CHOICES,
+        default=APPROVAL_APPROVED,
+        db_index=True,
+    )
+    approval_reviewed_at = models.DateTimeField(null=True, blank=True)
+    approval_reviewed_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_staff_registrations",
     )
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_username = models.CharField(max_length=150, blank=True)

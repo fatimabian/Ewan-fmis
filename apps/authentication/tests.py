@@ -20,6 +20,94 @@ from apps.authentication.mfa import (
 
 
 @override_settings(FMIS_REQUIRE_MFA=False)
+class StaffRegistrationApprovalTests(TestCase):
+    password = "Ready4Field!Secure"
+
+    def registration_data(self, **overrides):
+        data = {
+            "username": "new-oas-staff",
+            "first_name": "Maria",
+            "last_name": "Santos",
+            "email": "maria.santos@example.com",
+            "phone_number": "09171234567",
+            "password1": self.password,
+            "password2": self.password,
+        }
+        data.update(overrides)
+        return data
+
+    def test_registration_requires_admin_approval_before_activation(self):
+        response = self.client.post(
+            reverse("authentication:register_staff"), self.registration_data()
+        )
+        self.assertRedirects(response, reverse("authentication:login"))
+        account = get_user_model().objects.get(username="new-oas-staff")
+        self.assertEqual(account.role, "STAFF")
+        self.assertEqual(account.approval_status, account.APPROVAL_PENDING)
+        self.assertFalse(account.is_active)
+        self.assertFalse(account.activation_pending)
+
+        login_response = self.client.post(
+            reverse("authentication:login"),
+            {"username": account.username, "password": self.password},
+        )
+        self.assertContains(login_response, "awaiting administrator approval")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_admin_approval_enables_email_verification_not_immediate_access(self):
+        account = get_user_model().objects.create_user(
+            username="pending-review",
+            password=self.password,
+            email="pending-review@example.com",
+            phone_number="09171234568",
+            role="STAFF",
+            is_active=False,
+            activation_pending=False,
+            approval_status="PENDING",
+        )
+        admin = get_user_model().objects.create_user(
+            username="registration-admin",
+            password=self.password,
+            role="ADMIN",
+            is_active=True,
+        )
+        self.client.force_login(admin)
+        response = self.client.post(
+            reverse("accounts:review", args=[account.pk]), {"action": "approve"}
+        )
+        self.assertRedirects(response, reverse("accounts:list"))
+        account.refresh_from_db()
+        self.assertEqual(account.approval_status, account.APPROVAL_APPROVED)
+        self.assertFalse(account.is_active)
+        self.assertTrue(account.activation_pending)
+        self.assertEqual(account.approval_reviewed_by, admin)
+        self.assertIsNotNone(account.approval_reviewed_at)
+
+    def test_rejected_registration_cannot_be_reactivated_through_account_toggle(self):
+        account = get_user_model().objects.create_user(
+            username="rejected-review",
+            password=self.password,
+            role="STAFF",
+            is_active=False,
+            approval_status="REJECTED",
+        )
+        admin = get_user_model().objects.create_user(
+            username="rejection-admin",
+            password=self.password,
+            role="ADMIN",
+            is_active=True,
+        )
+        self.client.force_login(admin)
+        response = self.client.post(
+            reverse("accounts:delete", args=[account.pk]), {"action": "restore"}
+        )
+        self.assertRedirects(response, reverse("accounts:list"))
+        account.refresh_from_db()
+        self.assertFalse(account.is_active)
+        self.assertEqual(account.approval_status, account.APPROVAL_REJECTED)
+
+
+@override_settings(FMIS_REQUIRE_MFA=False)
 class DisabledMultiFactorAuthenticationTests(TestCase):
     password = "Ready4Field!Secure"
 

@@ -24,7 +24,7 @@
           <div><dt>Full Name</dt><dd>{{ object.display_name }}</dd></div>
           <div><dt>Username</dt><dd>{{ object.username }}</dd></div>
           <div><dt>Role</dt><dd>{{ object.get_role_display }}</dd></div>
-          <div><dt>Account Status</dt><dd>{% if object.activation_pending %}Pending email verification{% elif object.is_active %}Active{% else %}Inactive{% endif %}</dd></div>
+          <div><dt>Account Status</dt><dd>{% if object.approval_status == 'PENDING' %}Pending administrator approval{% elif object.approval_status == 'REJECTED' %}Registration rejected{% elif object.activation_pending %}Approved; pending email verification{% elif object.is_active %}Active{% else %}Inactive{% endif %}</dd></div>
         </dl>
       </section>
       <section class="record-single-section">

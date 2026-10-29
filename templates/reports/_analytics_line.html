@@ -1,0 +1,20 @@
+<div class="analytics-line-chart" role="img" aria-label="{{ title }} line chart">
+  <div class="analytics-chart-heading">
+    <div><h3>{{ title }}</h3><p>{{ description }}</p></div>
+    <span>{{ series.points|length }} recorded month{{ series.points|length|pluralize }}</span>
+  </div>
+  {% if series.points %}
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="4" y1="91" x2="96" y2="91"></line>
+      <line x1="4" y1="53" x2="96" y2="53"></line>
+      <line x1="4" y1="15" x2="96" y2="15"></line>
+      <polyline points="{{ series.polyline }}"></polyline>
+      {% for point in series.points %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="1.2"><title>{{ point.label }}: {{ point.value }}</title></circle>{% endfor %}
+    </svg>
+    <div class="analytics-chart-axis">
+      {% for point in series.points %}<span><b>{{ point.value }}</b><small>{{ point.label }}</small></span>{% endfor %}
+    </div>
+  {% else %}
+    <div class="analytics-empty"><i class="bi bi-info-circle"></i> No dated records match the selected filters.</div>
+  {% endif %}
+</div>

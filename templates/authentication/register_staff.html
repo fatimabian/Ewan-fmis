@@ -1,0 +1,36 @@
+{% extends "authentication/auth_base.html" %}
+{% load static %}
+{% block title %}Staff Registration | FMIS{% endblock %}
+{% block auth_content %}
+  <section class="landing-signin-card auth-standalone-card staff-registration-card" aria-labelledby="registrationTitle">
+    <div class="landing-signin-heading">
+      <span class="landing-signin-brand">
+        {% include "shared/brand_logo.html" with logo_class="landing-signin-logo" logo_width="30" logo_height="30" %}
+        FMIS staff registration
+      </span>
+      <h1 id="registrationTitle">Request staff access</h1>
+      <p>Submit your office details. An administrator will review the registration before access is granted.</p>
+    </div>
+    {% if messages %}<div class="landing-signin-messages" role="status">{% for message in messages %}<div class="landing-signin-message {{ message.tags }}"><i class="bi bi-info-circle"></i><span>{{ message }}</span></div>{% endfor %}</div>{% endif %}
+    <form method="post" class="landing-signin-form staff-registration-form" data-single-submit novalidate>
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="landing-signin-message error">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="staff-registration-grid">
+        {% for field in form %}
+          <label{% if field.errors %} class="has-error"{% endif %}>
+            <span class="signin-field-label">{{ field.label }}</span>
+            <span class="landing-input-wrap">{{ field }}{% if field.name == 'password1' or field.name == 'password2' %}<button class="password-visibility" type="button" data-password-toggle aria-controls="{{ field.id_for_label }}" aria-label="Show password" aria-pressed="false"><i class="bi bi-eye"></i></button>{% endif %}</span>
+            {{ field.errors }}
+          </label>
+        {% endfor %}
+      </div>
+      <div class="staff-registration-notice"><i class="bi bi-shield-check"></i><span>Registration does not immediately provide FMIS access. Approval and email verification are required.</span></div>
+      <button class="landing-signin-submit" type="submit">Submit Registration</button>
+      <p class="staff-registration-return">Already registered? <a href="{% url 'authentication:login' %}">Return to sign in</a></p>
+    </form>
+  </section>
+  <style>
+  .staff-registration-card{max-width:700px}.staff-registration-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.staff-registration-grid label:first-child,.staff-registration-grid label:nth-child(4){grid-column:1/-1}.staff-registration-notice{display:flex;gap:9px;padding:11px;border:1px solid #cfe0d6;background:#f5f9f6;color:#405449;font-size:12px;line-height:1.45}.staff-registration-notice i{color:#2f7d5c}.staff-registration-return{text-align:center;color:#68776f;font-size:12px}.staff-registration-return a{color:#2f7d5c;font-weight:800}@media(max-width:620px){.staff-registration-grid{grid-template-columns:1fr}.staff-registration-grid label:first-child,.staff-registration-grid label:nth-child(4){grid-column:auto}}
+  </style>
+{% endblock %}
+{% block scripts %}<script defer src="{% static 'js/password-toggle.min.js' %}?v=1"></script>{% endblock %}

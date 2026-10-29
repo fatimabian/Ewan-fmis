@@ -139,6 +139,10 @@ class AccountUpdateForm(AccountValidationMixin, InlineValidationMixin, forms.Mod
 
     def clean_is_active(self):
         is_active = self.cleaned_data.get("is_active", False)
+        if self.instance.approval_status != CustomUser.APPROVAL_APPROVED and is_active:
+            raise forms.ValidationError(
+                "This registration must be approved before system access can be activated."
+            )
         if self.instance.activation_pending and is_active:
             raise forms.ValidationError(
                 "This new account must complete first-login email verification before activation."

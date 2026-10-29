@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "apps.service_catalog",
     "apps.service_requests",
     "apps.interventions.apps.InterventionsConfig",
+    "apps.inventory.apps.InventoryConfig",
     "apps.reports",
     "apps.activity_logs",
     "apps.notifications",

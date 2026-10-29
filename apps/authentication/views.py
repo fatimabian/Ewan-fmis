@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model, login
 from django.contrib.auth.views import LoginView, LogoutView
 from django.core.cache import cache
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -35,6 +35,7 @@ from .forms import (
     MFAVerificationForm,
     PasswordRecoveryOTPForm,
     RecoverySetPasswordForm,
+    StaffRegistrationForm,
 )
 from .mfa import (
     MFA_MAX_ATTEMPTS,
@@ -172,12 +173,31 @@ class UserLoginView(LoginView):
                 "username", "Too many unsuccessful sign-in attempts. Wait 10 minutes and try again."
             )
             return self.form_invalid(form)
+        submitted_username = request.POST.get("username", "").strip()
+        submitted_password = request.POST.get("password", "")
+        review_user = get_user_model().objects.filter(
+            username__iexact=submitted_username,
+            is_active=False,
+            approval_status__in=("PENDING", "REJECTED"),
+        ).first()
+        if review_user and review_user.check_password(submitted_password):
+            form = self.get_form()
+            form.add_error(
+                "username",
+                (
+                    "Your staff registration is awaiting administrator approval."
+                    if review_user.approval_status == "PENDING"
+                    else "Your staff registration was not approved. Contact the Office for Agricultural Services."
+                ),
+            )
+            return self.form_invalid(form)
         pending_user = get_user_model().objects.filter(
-            username__iexact=request.POST.get("username", "").strip(),
+            username__iexact=submitted_username,
             is_active=False,
             activation_pending=True,
+            approval_status="APPROVED",
         ).first()
-        if pending_user and pending_user.check_password(request.POST.get("password", "")):
+        if pending_user and pending_user.check_password(submitted_password):
             if not pending_user.email:
                 form = self.get_form()
                 form.add_error("username", "Ask an administrator to add an email address first.")
@@ -271,6 +291,45 @@ class UserLoginView(LoginView):
 class LandingPageView(TemplateView):
     """Public information page; authentication lives on dedicated pages."""
     template_name = "authentication/landing.html"
+
+
+class StaffRegistrationView(FormView):
+    template_name = "authentication/register_staff.html"
+    form_class = StaffRegistrationForm
+    success_url = reverse_lazy("authentication:login")
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect(dashboard_for(request.user))
+        self.registration_limit_key = _request_limit_key(
+            "staff-registration", request, request.META.get("REMOTE_ADDR", "unknown")
+        )
+        if request.method == "POST" and int(cache.get(self.registration_limit_key, 0)) >= 5:
+            messages.error(request, "Too many registration attempts. Wait one hour and try again.")
+            return redirect("authentication:register_staff")
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        try:
+            with transaction.atomic():
+                user = form.save()
+                record_event(
+                    title="Staff registration submitted",
+                    module="Security",
+                    description="A staff registration was submitted for administrator review.",
+                    path=self.request.path,
+                    status="Pending",
+                    target_label=user.username,
+                )
+        except IntegrityError:
+            form.add_error(None, "This registration conflicts with an existing account.")
+            return self.form_invalid(form)
+        _record_attempt(self.registration_limit_key, timeout=60 * 60)
+        messages.success(
+            self.request,
+            "Registration submitted. An administrator must approve it before you can verify your email and sign in.",
+        )
+        return super().form_valid(form)
 
 
 class UserLogoutView(LogoutView):

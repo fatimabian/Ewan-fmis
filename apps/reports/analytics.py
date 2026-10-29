@@ -2,7 +2,8 @@ from collections import defaultdict
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Count, Q, Sum
+from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Q, Sum
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from apps.activity_logs.models import ActivityLog
@@ -16,6 +17,332 @@ from .export import _filter_period, build_report, build_system_report
 
 
 REPORT_METRICS_CACHE_KEY = "fmis:reports:metrics:all:v1"
+
+ANALYTICS_TABS = (
+    ("overview", "Overview"),
+    ("farmers", "Farmers"),
+    ("parcels", "Farm Parcels"),
+    ("commodities", "Commodities"),
+    ("requests", "Service Requests"),
+    ("interventions", "Interventions"),
+    ("reports", "Generate Reports"),
+)
+
+
+def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None, limit=12):
+    """Return compact, database-aggregated monthly counts for an analytics line."""
+    aggregation = Sum(value_field) if value_field else Count(count_field, distinct=True)
+    rows = list(
+        queryset.annotate(period=TruncMonth(field_name))
+        .values("period")
+        .annotate(total=aggregation)
+        .order_by("period")
+    )
+    rows = [row for row in rows if row["period"]][-limit:]
+    peak = max((row["total"] or 0 for row in rows), default=0) or 1
+    count = len(rows)
+    points = []
+    for index, row in enumerate(rows):
+        x = 4 if count <= 1 else 4 + (index * 92 / (count - 1))
+        value = row["total"] or 0
+        y = 91 - (float(value) / float(peak) * 76)
+        points.append(
+            {
+                "label": row["period"].strftime("%b %Y"),
+                "value": value,
+                "x": round(x, 2),
+                "y": round(y, 2),
+            }
+        )
+    return {
+        "points": points,
+        "polyline": " ".join(f'{point["x"]},{point["y"]}' for point in points),
+        "peak": peak,
+    }
+
+
+def _monthly_dual_series(first_queryset, first_field, second_queryset, second_field, limit=12):
+    first = {
+        row["period"]: row["total"]
+        for row in first_queryset.annotate(period=TruncMonth(first_field))
+        .values("period")
+        .annotate(total=Count("pk", distinct=True))
+        .order_by("period")
+        if row["period"]
+    }
+    second = {
+        row["period"]: row["total"]
+        for row in second_queryset.annotate(period=TruncMonth(second_field))
+        .values("period")
+        .annotate(total=Count("pk", distinct=True))
+        .order_by("period")
+        if row["period"]
+    }
+    periods = sorted(set(first) | set(second))[-limit:]
+    peak = max([first.get(period, 0) for period in periods] + [second.get(period, 0) for period in periods] + [1])
+    count = len(periods)
+    points = []
+    for index, period in enumerate(periods):
+        x = 4 if count <= 1 else 4 + (index * 92 / (count - 1))
+        first_value = first.get(period, 0)
+        second_value = second.get(period, 0)
+        points.append(
+            {
+                "label": period.strftime("%b %Y"),
+                "first": first_value,
+                "second": second_value,
+                "x": round(x, 2),
+                "first_y": round(91 - (first_value / peak * 76), 2),
+                "second_y": round(91 - (second_value / peak * 76), 2),
+            }
+        )
+    return {
+        "points": points,
+        "first_polyline": " ".join(f'{point["x"]},{point["first_y"]}' for point in points),
+        "second_polyline": " ".join(f'{point["x"]},{point["second_y"]}' for point in points),
+    }
+
+
+def _comparison_rows(queryset, field_name, *, value_field=None, limit=5):
+    annotation = Sum(value_field) if value_field else Count("pk", distinct=True)
+    rows = list(
+        queryset.exclude(**{field_name: ""})
+        .values(field_name)
+        .annotate(total=annotation)
+        .order_by("-total", field_name)[:limit]
+    )
+    peak = max((row["total"] or 0 for row in rows), default=0) or 1
+    return [
+        {
+            "label": row[field_name] or "Not recorded",
+            "value": row["total"] or 0,
+            "percent": round(float(row["total"] or 0) / float(peak) * 100),
+        }
+        for row in rows
+    ]
+
+
+def descriptive_analytics(tab="overview", date_range="all", filters=None):
+    """Build privacy-safe descriptive analytics from the existing FMIS records.
+
+    These values deliberately describe records captured by FMIS. Commodity
+    records are never presented as harvest volume, and newly encoded parcel
+    area is never described as physical land expansion.
+    """
+    filters = filters or {}
+    barangay = str(filters.get("barangay", "")).strip()
+    commodity = str(filters.get("commodity", "")).strip()
+    request_status = str(filters.get("request_status", "")).strip()
+    request_priority = str(filters.get("request_priority", "")).strip()
+    intervention_type = str(filters.get("intervention_type", "")).strip()
+
+    farmers = _filter_period(Farmer.objects.filter(is_active=True), "created_at", date_range)
+    parcels = _filter_period(
+        FarmParcel.objects.filter(is_active=True, farmer__is_active=True),
+        "created_at",
+        date_range,
+    )
+    crops = _filter_period(
+        CropRecord.objects.filter(
+            is_active=True, parcel__is_active=True, parcel__farmer__is_active=True
+        ),
+        "created_at",
+        date_range,
+    )
+    requests = _filter_period(
+        ServiceRequest.objects.filter(Q(farmer__is_active=True) | Q(scope="BARANGAY")),
+        "created_at",
+        date_range,
+    )
+    interventions = _filter_period(
+        Intervention.objects.filter(is_active=True),
+        "intervention_date",
+        date_range,
+        date_only=True,
+    )
+
+    if barangay:
+        farmers = farmers.filter(barangay=barangay)
+        parcels = parcels.filter(barangay=barangay)
+        crops = crops.filter(parcel__barangay=barangay)
+        requests = requests.filter(
+            Q(scope="BARANGAY", target_barangay=barangay)
+            | Q(scope="INDIVIDUAL", farmer__barangay=barangay)
+        )
+        interventions = interventions.filter(
+            Q(target_barangay=barangay)
+            | Q(recipients__is_active=True, recipients__farmer__barangay=barangay)
+        ).distinct()
+    if commodity:
+        crops = crops.filter(crop_type=commodity)
+    if request_status:
+        requests = requests.filter(status=request_status)
+    if request_priority:
+        requests = requests.filter(priority=request_priority)
+    if intervention_type:
+        interventions = interventions.filter(intervention_type=intervention_type)
+
+    parcel_totals = parcels.aggregate(total=Count("pk"), area=Sum("area_hectares"))
+    crop_totals = crops.aggregate(
+        total=Count("pk"), distinct=Count("crop_type", distinct=True), area=Sum("area_hectares")
+    )
+    intervention_totals = interventions.aggregate(
+        total=Count("pk", distinct=True),
+        farmers=Count(
+            "recipients__farmer",
+            filter=Q(recipients__is_active=True),
+            distinct=True,
+        ),
+    )
+    now = timezone.now()
+    open_requests = requests.exclude(status__in=("COMPLETED", "CANCELLED"))
+    overdue_requests = open_requests.filter(
+        Q(first_responded_at__isnull=True, first_response_due_at__lt=now)
+        | Q(first_responded_at__isnull=False, due_at__lt=now)
+    ).distinct()
+    request_status_counts = {
+        row["status"]: row["total"]
+        for row in requests.values("status").annotate(total=Count("pk"))
+    }
+    request_total = sum(request_status_counts.values())
+    request_status_rows = []
+    for value, label in ServiceRequest.STATUS_CHOICES:
+        total = request_status_counts.get(value, 0)
+        request_status_rows.append(
+            {
+                "label": label,
+                "value": total,
+                "percent": round(total / request_total * 100) if request_total else 0,
+                "tone": "positive" if value == "COMPLETED" else ("danger" if value == "CANCELLED" else "neutral"),
+            }
+        )
+
+    response_duration = ExpressionWrapper(
+        F("first_responded_at") - F("created_at"), output_field=DurationField()
+    )
+    completion_duration = ExpressionWrapper(
+        F("completed_at") - F("created_at"), output_field=DurationField()
+    )
+    timing = requests.aggregate(
+        average_response=Avg(response_duration, filter=Q(first_responded_at__isnull=False)),
+        average_completion=Avg(completion_duration, filter=Q(completed_at__isnull=False)),
+    )
+
+    def duration_hours(value):
+        return round(value.total_seconds() / 3600, 1) if value else None
+
+    top_commodity = (
+        crops.values("crop_type").annotate(total=Count("pk")).order_by("-total", "crop_type").first()
+    )
+    summary = [
+        {"label": "Active Farmers", "value": farmers.distinct().count(), "note": "registered in the selected period"},
+        {"label": "Registered Farm Parcels", "value": parcel_totals["total"] or 0, "note": "active parcel records"},
+        {"label": "Total Farm Area", "value": parcel_totals["area"] or 0, "suffix": "ha", "note": "recorded parcel area"},
+        {"label": "Recorded Commodities", "value": crop_totals["distinct"] or 0, "note": f'{crop_totals["total"] or 0} active records'},
+        {"label": "Service Requests Received", "value": request_total, "note": "created in the selected period"},
+        {"label": "Interventions Conducted", "value": intervention_totals["total"] or 0, "note": "recorded intervention activities"},
+    ]
+
+    unpinned = parcels.filter(Q(coordinates="") | Q(coordinates__isnull=True)).count()
+    findings = []
+    if unpinned:
+        findings.append(
+            f"{unpinned} active parcel record{'s' if unpinned != 1 else ''} "
+            f"{'have' if unpinned != 1 else 'has'} no saved map coordinates."
+        )
+    if overdue_requests.exists():
+        findings.append(f"{overdue_requests.count()} open service request{'s are' if overdue_requests.count() != 1 else ' is'} overdue.")
+    busiest_request_month = (
+        requests.annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(total=Count("pk"))
+        .order_by("-total", "month")
+        .first()
+    )
+    if busiest_request_month and busiest_request_month["month"]:
+        findings.append(
+            f'{busiest_request_month["month"].strftime("%B %Y")} recorded the highest request volume in the selected period ({busiest_request_month["total"]}).'
+        )
+    if not findings:
+        findings.append("No overdue requests or unmapped parcel records were found for the selected filters.")
+
+    farmer_demographics = [
+        {"label": "Female", "value": farmers.filter(sex="FEMALE").count()},
+        {"label": "Male", "value": farmers.filter(sex="MALE").count()},
+        {"label": "4Ps", "value": farmers.filter(is_four_ps=True).count()},
+        {"label": "PWD", "value": farmers.filter(is_pwd=True).count()},
+        {"label": "Indigenous", "value": farmers.filter(is_indigenous=True).count()},
+    ]
+    reached_barangays = set(
+        interventions.exclude(target_barangay="").values_list("target_barangay", flat=True)
+    )
+    reached_barangays.update(
+        interventions.filter(recipients__is_active=True)
+        .exclude(recipients__farmer__barangay="")
+        .values_list("recipients__farmer__barangay", flat=True)
+    )
+    intervention_labels = dict(Intervention.TYPE_CHOICES)
+    intervention_types = [
+        {
+            "label": intervention_labels.get(row["intervention_type"], row["intervention_type"]),
+            "value": row["total"],
+            "farmers": row["farmers"],
+        }
+        for row in interventions.values("intervention_type")
+        .annotate(
+            total=Count("pk", distinct=True),
+            farmers=Count("recipients__farmer", filter=Q(recipients__is_active=True), distinct=True),
+        )
+        .order_by("-total", "intervention_type")[:6]
+    ]
+
+    return {
+        "tab": tab,
+        "summary": summary,
+        "registration_series": _monthly_series(farmers, "created_at"),
+        "parcel_series": _monthly_series(
+            parcels, "created_at", value_field="area_hectares"
+        ),
+        "commodity_series": _monthly_series(crops, "created_at"),
+        "request_received_series": _monthly_series(requests, "created_at"),
+        "request_completed_series": _monthly_series(
+            requests.filter(completed_at__isnull=False), "completed_at"
+        ),
+        "request_dual_series": _monthly_dual_series(
+            requests,
+            "created_at",
+            requests.filter(completed_at__isnull=False),
+            "completed_at",
+        ),
+        "intervention_series": _monthly_series(interventions, "intervention_date"),
+        "top_farmer_barangays": _comparison_rows(farmers, "barangay"),
+        "top_parcel_barangays": _comparison_rows(parcels, "barangay", value_field="area_hectares"),
+        "top_commodities": _comparison_rows(crops, "crop_type", limit=7),
+        "top_services": [
+            {"label": row["service__name"], "value": row["total"]}
+            for row in requests.values("service__name").annotate(total=Count("pk")).order_by("-total", "service__name")[:6]
+        ],
+        "farmer_demographics": farmer_demographics,
+        "request_status_rows": request_status_rows,
+        "request_total": request_total,
+        "open_requests": open_requests.count(),
+        "overdue_requests": overdue_requests.count(),
+        "average_response_hours": duration_hours(timing["average_response"]),
+        "average_completion_hours": duration_hours(timing["average_completion"]),
+        "parcel_total": parcel_totals["total"] or 0,
+        "parcel_area": parcel_totals["area"] or 0,
+        "pinned_parcels": (parcel_totals["total"] or 0) - unpinned,
+        "unpinned_parcels": unpinned,
+        "crop_record_total": crop_totals["total"] or 0,
+        "distinct_commodities": crop_totals["distinct"] or 0,
+        "recorded_crop_area": crop_totals["area"] or 0,
+        "most_recorded_commodity": top_commodity["crop_type"] if top_commodity else "No records",
+        "intervention_total": intervention_totals["total"] or 0,
+        "intervention_farmers": intervention_totals["farmers"] or 0,
+        "intervention_types": intervention_types,
+        "intervention_barangays": len(reached_barangays),
+        "findings": findings[:3],
+    }
 
 
 def _apply_report_filters(queryset, model_name, date_range, filters):
