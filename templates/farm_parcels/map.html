@@ -718,7 +718,7 @@
     {{ rosario_map_center|json_script:"rosario-map-center" }}
     {{ rosario_boundary|json_script:"rosario-map-boundary" }}
     <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
-    <script src="{% static 'js/farm-parcel-map.js' %}?v=9"></script>
+    <script src="{% static 'js/farm-parcel-map.js' %}?v=10"></script>
     <script>
         (() => {
             if (window.FMIS_PROGRESSIVE_MAP) return;
@@ -1060,26 +1060,20 @@
                     window.fmisFeedback?.(error.message, 'error');
                     return
                 }
-                window.fmisFeedback?.(
-                    `Move ${item.farmer}'s saved pin?`,
-                    'confirm',
-                    () => {
-                        if (movingMarker) stopMovingPin(true);
-                        resetPinMode();
-                        movingSourceLayer = sourceLayer;
-                        originalMarkerPoint = L.latLng(sourceLayer.getLatLng());
-                        markerLayer.removeLayer(sourceLayer);
-                        movingMarker = L.marker(originalMarkerPoint, {
-                            icon: farmerIcon,
-                            draggable: true,
-                            title: `Move ${item.parcel}`
-                        }).addTo(map);
-                        farmerSelect.value = String(item.id);
-                        pinEditFarmer.textContent = `Moving ${item.parcel} · ${item.farmer}`;
-                        pinEditPanel.classList.add('is-visible');
-                        map.panTo(originalMarkerPoint)
-                    }
-                )
+                if (movingMarker) stopMovingPin(true);
+                resetPinMode();
+                movingSourceLayer = sourceLayer;
+                originalMarkerPoint = L.latLng(sourceLayer.getLatLng());
+                markerLayer.removeLayer(sourceLayer);
+                movingMarker = L.marker(originalMarkerPoint, {
+                    icon: farmerIcon,
+                    draggable: true,
+                    title: `Move ${item.parcel}`
+                }).addTo(map);
+                farmerSelect.value = String(item.id);
+                pinEditFarmer.textContent = `Moving ${item.parcel} · ${item.farmer}`;
+                pinEditPanel.classList.add('is-visible');
+                map.panTo(originalMarkerPoint)
             };
             const resetPinMode = () => {
                 pinning = false;
@@ -1156,11 +1150,25 @@
                 }
                 return result
             };
-            cancelPinMove.addEventListener('click', () => stopMovingPin(true));
-            savePinMove.addEventListener('click', async () => {
+            cancelPinMove.addEventListener('click', () => {
                 if (!movingMarker) return;
-                const point = movingMarker.getLatLng(),
-                    item = movingSourceLayer.fmisFarmer;
+                const item = movingSourceLayer.fmisFarmer;
+                const cancelMove = () => stopMovingPin(true);
+                if (window.fmisFeedback) {
+                    window.fmisFeedback(
+                        `Cancel moving ${item.parcel}? The saved pin will remain at its current location.`,
+                        'confirm',
+                        cancelMove
+                    )
+                } else if (window.confirm(`Cancel moving ${item.parcel}?`)) {
+                    cancelMove()
+                }
+            });
+            savePinMove.addEventListener('click', () => {
+                if (!movingMarker) return;
+                const marker = movingMarker,
+                    item = movingSourceLayer.fmisFarmer,
+                    point = marker.getLatLng();
                 if (!rosarioBounds.contains(point)) {
                     window.fmisFeedback?.(
                         'That point is outside Rosario, Batangas. Move the pin inside the highlighted boundary.',
@@ -1168,16 +1176,27 @@
                     );
                     return
                 }
-                savePinMove.disabled = true;
-                try {
-                    const result = await saveFarmerPoint(item.id, point, 'move');
-                    movingSourceLayer.setLatLng(point);
-                    stopMovingPin(false);
-                    window.fmisFeedback?.(result.message, 'success')
-                } catch (error) {
-                    window.fmisFeedback?.(error.message, 'error')
-                } finally {
-                    savePinMove.disabled = false
+                const saveMove = async () => {
+                    if (movingMarker !== marker) return;
+                    savePinMove.disabled = true;
+                    cancelPinMove.disabled = true;
+                    try {
+                        const currentPoint = marker.getLatLng();
+                        const result = await saveFarmerPoint(item.id, currentPoint, 'move');
+                        stopMovingPin(true);
+                        window.fmisFeedback?.(result.message, 'success')
+                    } catch (error) {
+                        window.fmisFeedback?.(error.message, 'error')
+                    } finally {
+                        savePinMove.disabled = false;
+                        cancelPinMove.disabled = false
+                    }
+                };
+                const message = `Save this new location for ${item.parcel}? It will be submitted for verification, and the saved pin will remain unchanged until approved.`;
+                if (window.fmisFeedback) {
+                    window.fmisFeedback(message, 'confirm', saveMove)
+                } else if (window.confirm(message)) {
+                    saveMove()
                 }
             });
             map.on('click', async event => {

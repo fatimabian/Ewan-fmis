@@ -2598,6 +2598,11 @@ class FMISRequirementTests(TestCase):
         self.assertIn("mobileSheetContent.replaceChildren(popupNode(item, marker))", map_script)
         self.assertIn('move.textContent = "Move pin"', map_script)
         self.assertIn("beginMove(item, marker)", map_script)
+        self.assertIn("const confirmAction", map_script)
+        self.assertIn(
+            "The saved pin will remain at its current location.", map_script
+        )
+        self.assertIn("It will be submitted for verification", map_script)
         self.assertIn("map.invalidateSize({pan: false})", map_script)
         self.assertIn("const searchMapParcels", map_script)
         self.assertIn("const chooseMapSearchResult", map_script)
@@ -2867,7 +2872,12 @@ class FMISRequirementTests(TestCase):
 
         map_response = self.client.get(reverse("farm_parcels:map"))
         self.assertContains(map_response, "Remove pin")
-        self.assertContains(map_response, "Save New Location")
+        self.assertContains(map_response, 'id="cancelPinMove"')
+        self.assertContains(map_response, 'id="savePinMove"')
+        self.assertContains(map_response, "The saved pin will remain at its current location.")
+        self.assertContains(map_response, "It will be submitted for verification")
+        self.assertNotContains(map_response, "Drag the orange pin")
+        self.assertNotContains(map_response, "Save New Location")
 
     def test_staff_pin_removal_requires_approval(self):
         self.parcel.coordinates = "13.8467000, 121.2060000"

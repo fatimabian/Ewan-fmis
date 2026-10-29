@@ -121,6 +121,13 @@
     if (window.fmisFeedback) window.fmisFeedback(message, type);
     else if (type === "error") window.alert(message);
   };
+  const confirmAction = (message, onConfirm) => {
+    if (window.fmisFeedback) {
+      window.fmisFeedback(message, "confirm", onConfirm);
+      return;
+    }
+    if (window.confirm(message)) onConfirm();
+  };
   const requestJson = async (url, options = {}) => {
     const response = await fetch(url, {credentials: "same-origin", ...options});
     let payload = {};
@@ -714,20 +721,38 @@
     state.moving = null;
     pinEditPanel.classList.remove("is-visible");
   };
-  cancelPinMove.addEventListener("click", () => endMove(true));
-  savePinMove.addEventListener("click", async () => {
+  cancelPinMove.addEventListener("click", () => {
+    if (!state.moving) return;
+    const {item} = state.moving;
+    confirmAction(
+      `Cancel moving ${item.parcel}? The saved pin will remain at its current location.`,
+      () => endMove(true)
+    );
+  });
+  savePinMove.addEventListener("click", () => {
     if (!state.moving) return;
     const {item, marker} = state.moving;
     const point = marker.getLatLng();
     if (!rosarioBounds.contains(point)) return feedback("Choose a point inside the Rosario boundary.", "error");
-    savePinMove.disabled = true;
-    try {
-      const payload = await postPin({parcel_id: item.id, operation: "move", latitude: point.lat, longitude: point.lng});
-      endMove(true);
-      await selectBarangay(item.barangay || state.barangay);
-      feedback(payload.message, "success");
-    } catch (error) { feedback(error.message, "error"); }
-    finally { savePinMove.disabled = false; }
+    confirmAction(
+      `Save this new location for ${item.parcel}? It will be submitted for verification, and the saved pin will remain unchanged until approved.`,
+      async () => {
+        if (!state.moving || state.moving.marker !== marker) return;
+        savePinMove.disabled = true;
+        cancelPinMove.disabled = true;
+        try {
+          const currentPoint = marker.getLatLng();
+          const payload = await postPin({parcel_id: item.id, operation: "move", latitude: currentPoint.lat, longitude: currentPoint.lng});
+          endMove(true);
+          await selectBarangay(item.barangay || state.barangay);
+          feedback(payload.message, "success");
+        } catch (error) { feedback(error.message, "error"); }
+        finally {
+          savePinMove.disabled = false;
+          cancelPinMove.disabled = false;
+        }
+      }
+    );
   });
 
   startPin.addEventListener("click", () => {
