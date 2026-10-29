@@ -964,6 +964,12 @@
     if (!event.target.closest(".map-search-field")) hideMapSearchResults();
     if (!event.target.closest(".map-toolbar-popover") && !event.target.closest("#toggleMapFilters") && !event.target.closest("#toggleBarangayPicker")) closeToolbarPopovers();
   });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    hideMapSearchResults();
+    closeToolbarPopovers();
+    toggleFilters.focus();
+  });
   map.on("zoomend", async () => {
     if (state.zoomTransition || state.programmaticMove || !state.barangay) return;
     if (state.mapMode === "farm" && map.getZoom() <= 16) {
