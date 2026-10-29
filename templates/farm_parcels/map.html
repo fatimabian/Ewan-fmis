@@ -440,17 +440,18 @@
   }
   .pin-move-control{
       display:inline-grid!important;
-      width:46px!important;
-      min-width:46px!important;
-      height:46px!important;
-      min-height:46px!important;
+      width:50px!important;
+      min-width:50px!important;
+      height:50px!important;
+      min-height:50px!important;
       place-items:center;
       padding:0!important;
       border:2px solid currentColor!important;
       border-radius:10px!important;
       background:#fff!important;
-      box-shadow:0 2px 8px rgba(18,42,29,.18)!important;
-      font-size:23px!important;
+      box-shadow:0 3px 12px rgba(0,0,0,.45),0 0 0 2px rgba(255,255,255,.9)!important;
+      font-size:25px!important;
+      font-weight:800!important;
       line-height:1!important;
       transition:background .15s ease,transform .15s ease!important
   }
@@ -459,22 +460,22 @@
       transform:translateY(-1px)
   }
   .pin-edit-panel .pin-move-control.pin-move-cancel{
-      color:#d71920!important;
-      border-color:#d71920!important;
-      background:#fff5f5!important
+      color:#fff!important;
+      border-color:#a80f15!important;
+      background:#d71920!important
   }
-  .pin-edit-panel .pin-move-control.pin-move-cancel i{color:#d71920!important}
+  .pin-edit-panel .pin-move-control.pin-move-cancel i{color:#fff!important}
   .pin-edit-panel .pin-move-control.pin-move-cancel:hover,
-  .pin-edit-panel .pin-move-control.pin-move-cancel:focus-visible{background:#ffe6e7!important}
+  .pin-edit-panel .pin-move-control.pin-move-cancel:focus-visible{background:#b91319!important}
   .pin-edit-panel .pin-move-control.pin-move-save{
-      color:#087a3d!important;
-      border-color:#087a3d!important;
-      background:#f1fbf5!important
+      color:#fff!important;
+      border-color:#05622f!important;
+      background:#087a3d!important
   }
-  .pin-edit-panel .pin-move-control.pin-move-save i{color:#087a3d!important}
+  .pin-edit-panel .pin-move-control.pin-move-save i{color:#fff!important}
   .pin-edit-panel .pin-move-control.pin-move-save:hover,
-  .pin-edit-panel .pin-move-control.pin-move-save:focus-visible{background:#ddf5e7!important}
-  .pin-move-control:disabled{cursor:wait;opacity:.62}
+  .pin-edit-panel .pin-move-control.pin-move-save:focus-visible{background:#056b35!important}
+  .pin-move-control:disabled{cursor:wait;opacity:.88}
   .pin-edit-label{
       position:absolute!important;
       width:1px!important;
@@ -491,9 +492,8 @@
       background:rgba(27,43,34,.96);
       color:#f0f7f2
   }
-  body[data-theme="dark"] .pin-move-control{background:#18231e!important}
-  body[data-theme="dark"] .pin-move-cancel:hover,body[data-theme="dark"] .pin-move-cancel:focus-visible{background:#3b2222!important}
-  body[data-theme="dark"] .pin-move-save:hover,body[data-theme="dark"] .pin-move-save:focus-visible{background:#183828!important}
+  body[data-theme="dark"] .pin-edit-panel .pin-move-control.pin-move-cancel{background:#d71920!important}
+  body[data-theme="dark"] .pin-edit-panel .pin-move-control.pin-move-save{background:#087a3d!important}
   body[data-theme="dark"] .parcel-side-panel{background:#18231e;color:#f0f7f2}
   body[data-theme="dark"] .map-search-results{background:#18231e;color:#f0f7f2}
   body[data-theme="dark"] .map-search-result:hover,body[data-theme="dark"] .map-search-result:focus{background:#20382c}

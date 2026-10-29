@@ -2550,6 +2550,9 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, "@media(max-width:768px)")
         self.assertContains(map_response, ".parcel-side-panel{position:static;order:-1")
         self.assertContains(map_response, "bottom:38px")
+        self.assertContains(map_response, "background:#d71920!important")
+        self.assertContains(map_response, "background:#087a3d!important")
+        self.assertContains(map_response, "color:#fff!important")
         self.assertContains(map_response, '<option value="">All parcels</option>', html=True)
         self.assertNotContains(
             map_response,
