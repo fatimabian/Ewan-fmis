@@ -18,6 +18,8 @@ from apps.activity_logs.services import record_event, record_request_event
 from apps.common.middleware import REMEMBER_UNTIL_SESSION_KEY
 
 from .activation import (
+    ActivationIssuanceInProgress,
+    ActivationResendCooldown,
     ACTIVATION_MAX_ATTEMPTS,
     clear_activation_challenge,
     get_activation_challenge,
@@ -53,6 +55,7 @@ from .mfa import (
     verify_totp,
 )
 from .recovery import (
+    RecoveryIssuanceInProgress,
     RECOVERY_MAX_ATTEMPTS,
     clear_recovery_challenge,
     get_recovery_challenge,
@@ -180,7 +183,7 @@ class UserLoginView(LoginView):
                 form.add_error("username", "Ask an administrator to add an email address first.")
                 return self.form_invalid(form)
             try:
-                send_activation_code(
+                _nonce, sent = send_activation_code(
                     request,
                     pending_user,
                     remember_me=bool(request.POST.get("remember_me")),
@@ -193,7 +196,12 @@ class UserLoginView(LoginView):
                 )
                 return self.form_invalid(form)
             cache.delete(self.login_limit_key)
-            messages.info(request, "A six-digit activation code was sent to the account email.")
+            messages.info(
+                request,
+                "A six-digit activation code was sent to the account email."
+                if sent
+                else "Use the activation code already sent to the account email.",
+            )
             return redirect("authentication:activate_account")
         return super().post(request, *args, **kwargs)
 
@@ -316,14 +324,24 @@ class AccountActivationView(FormView):
                     "Too many activation-code requests. Wait 15 minutes and try again.",
                 )
                 return redirect("authentication:activate_account")
-            _record_attempt(resend_limit_key, timeout=15 * 60)
             remember_me = self.activation_challenge.get("remember_me", False)
-            clear_activation_challenge(request, self.activation_nonce)
             try:
-                send_activation_code(request, self.activation_user, remember_me=remember_me)
+                send_activation_code(
+                    request,
+                    self.activation_user,
+                    remember_me=remember_me,
+                    force_new=True,
+                )
+            except ActivationResendCooldown:
+                messages.info(request, "Wait 60 seconds before requesting another code.")
+                return redirect("authentication:activate_account")
+            except ActivationIssuanceInProgress:
+                messages.info(request, "A code request is already being processed. Please wait.")
+                return redirect("authentication:activate_account")
             except Exception:
                 messages.error(request, "The activation email could not be sent. Try again later.")
-                return redirect("authentication:login")
+                return redirect("authentication:activate_account")
+            _record_attempt(resend_limit_key, timeout=15 * 60)
             messages.success(request, "A new six-digit code was sent.")
             return redirect("authentication:activate_account")
         return super().post(request, *args, **kwargs)
@@ -659,6 +677,11 @@ class PasswordRecoveryView(TemplateView):
         clear_recovery_challenge(request)
         try:
             start_recovery_challenge(request, user)
+        except RecoveryIssuanceInProgress:
+            form.add_error("identifier", "A code request is already being processed. Please wait.")
+            return self.render_to_response(
+                self._context(recovery_identifier_form=form), status=429
+            )
         except Exception:
             form.add_error("identifier", "The recovery email could not be sent. Try again later.")
             return self.render_to_response(

@@ -19,6 +19,15 @@
   const barangayFilter = byId("mapBarangayFilter");
   const commodityFilter = byId("mapCommodityFilter");
   const clearFilters = byId("clearMapFilters");
+  const applyFilters = byId("applyMapFilters");
+  const toggleFilters = byId("toggleMapFilters");
+  const filterPopover = byId("mapFilterPopover");
+  const toggleBarangayPicker = byId("toggleBarangayPicker");
+  const barangayPopover = byId("mapBarangayPopover");
+  const barangaySearch = byId("mapBarangaySearch");
+  const barangayOptions = byId("mapBarangayOptions");
+  const selectedBarangayLabel = byId("selectedBarangayLabel");
+  const toggleParcelList = byId("toggleParcelList");
   const mapParcelSearch = byId("mapParcelSearch");
   const mapParcelSearchResults = byId("mapParcelSearchResults");
   const mapFilterSummary = byId("mapFilterSummary");
@@ -177,7 +186,17 @@
   const showPanel = (show = true) => {
     sidePanel.hidden = !show;
     explorer.classList.toggle("has-panel", show);
-    window.setTimeout(() => map.invalidateSize(), 0);
+    toggleParcelList.setAttribute("aria-expanded", String(show));
+    toggleParcelList.classList.toggle("btn-success", show);
+    toggleParcelList.classList.toggle("btn-outline-success", !show);
+    if (show) {
+      filterPopover.hidden = true;
+      barangayPopover.hidden = true;
+      toggleFilters.setAttribute("aria-expanded", "false");
+      toggleBarangayPicker.setAttribute("aria-expanded", "false");
+      hideMobileSheet();
+    }
+    window.setTimeout(() => map.invalidateSize({pan: false}), 0);
   };
   const updateCounts = (payload) => {
     visibleMappedCount.textContent = payload.count ?? 0;
@@ -189,6 +208,39 @@
     select.replaceChildren(new Option(label, ""));
     values.forEach((value) => select.add(new Option(value, value)));
     if ([...select.options].some((option) => option.value === current)) select.value = current;
+  };
+  const updateBarangayLabel = () => {
+    selectedBarangayLabel.textContent = barangayFilter.value || "Barangay";
+  };
+  const renderBarangayOptions = (query = "") => {
+    const normalized = query.trim().toLocaleLowerCase();
+    const values = [...barangayFilter.options]
+      .map((option) => option.value)
+      .filter((value) => value && value.toLocaleLowerCase().includes(normalized));
+    barangayOptions.replaceChildren();
+    values.forEach((value) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "map-barangay-option";
+      option.classList.toggle("is-selected", value === barangayFilter.value);
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", String(value === barangayFilter.value));
+      option.textContent = value;
+      option.addEventListener("click", async () => {
+        barangayFilter.value = value;
+        updateBarangayLabel();
+        barangayPopover.hidden = true;
+        toggleBarangayPicker.setAttribute("aria-expanded", "false");
+        await selectBarangay(value);
+      });
+      barangayOptions.append(option);
+    });
+    if (!values.length) {
+      const empty = document.createElement("p");
+      empty.className = "map-search-message";
+      empty.textContent = "No Rosario barangays match your search.";
+      barangayOptions.append(empty);
+    }
   };
   const flyToBounds = (bounds, options = {}) => {
     const target = bounds instanceof L.LatLngBounds ? bounds : L.latLngBounds(bounds || []);
@@ -274,6 +326,8 @@
       updateCounts(payload);
       fillSelectOnce(barangayFilter, (payload.barangays || []).map((item) => item.name), "All barangays");
       fillSelectOnce(commodityFilter, payload.commodities || [], "All commodities");
+      updateBarangayLabel();
+      renderBarangayOptions(barangaySearch.value);
       (payload.barangays || []).forEach((item) => {
         L.marker([item.lat, item.lng], {icon: summaryIcon(), keyboard: true, riseOnHover: true})
           .addTo(barangayLayer)
@@ -301,6 +355,8 @@
     state.mapMode = "barangay";
     state.page = 1;
     barangayFilter.value = barangay;
+    updateBarangayLabel();
+    renderBarangayOptions(barangaySearch.value);
     backToBarangay.hidden = true;
     showPanel(true);
     clearMapLayers();
@@ -395,6 +451,7 @@
       state.page = payload.pagination.page;
       state.totalPages = payload.pagination.total_pages;
       panelPageStatus.textContent = `Page ${state.page} of ${state.totalPages} · ${payload.pagination.total} records`;
+      if (!state.cluster) panelScope.textContent = `${payload.pagination.total} matching parcel${payload.pagination.total === 1 ? "" : "s"} in ${state.barangay}`;
       pagePrevious.disabled = !payload.pagination.has_previous;
       pageNext.disabled = !payload.pagination.has_next;
       panelList.replaceChildren();
@@ -563,6 +620,7 @@
     });
   };
   const showMobileSheet = (item, marker) => {
+    showPanel(false);
     map.closePopup();
     mobileSheetContent.replaceChildren(popupNode(item, marker));
     mobileSheet.hidden = false;
@@ -654,7 +712,6 @@
     const url = new URL(parcelSearchUrl, window.location.origin);
     url.searchParams.set("q", query);
     url.searchParams.set("compact", "1");
-    url.searchParams.set("pinned_only", "1");
     if (barangayFilter.value) url.searchParams.set("barangay", barangayFilter.value);
     if (commodityFilter.value) url.searchParams.set("commodity", commodityFilter.value);
     try {
@@ -668,7 +725,10 @@
         const label = document.createElement("span");
         label.className = "map-search-result-label";
         label.textContent = `${item.parcel} / ${item.farmer_id} - ${item.farmer} (${item.barangay})`;
-        option.append(label);
+        const status = document.createElement("span");
+        status.className = "map-search-result-status";
+        status.textContent = item.is_pinned ? "Pinned · View on map" : "Not pinned · Select to pin";
+        option.append(label, status);
         option.addEventListener("click", () => chooseMapSearchResult(item));
         mapParcelSearchResults.append(option);
       });
@@ -817,15 +877,45 @@
   });
   farmerSelect.addEventListener("farmer-picker:selected", openSelectedPickerParcel);
 
-  barangayFilter.addEventListener("change", () => barangayFilter.value ? selectBarangay(barangayFilter.value) : loadOverview());
-  commodityFilter.addEventListener("change", () => state.barangay ? selectBarangay(state.barangay) : loadOverview());
+  const closeToolbarPopovers = () => {
+    filterPopover.hidden = true;
+    barangayPopover.hidden = true;
+    toggleFilters.setAttribute("aria-expanded", "false");
+    toggleBarangayPicker.setAttribute("aria-expanded", "false");
+  };
+  const toggleToolbarPopover = (target, trigger) => {
+    const opening = target.hidden;
+    closeToolbarPopovers();
+    if (!opening) return;
+    showPanel(false);
+    hideMobileSheet();
+    target.hidden = false;
+    trigger.setAttribute("aria-expanded", "true");
+  };
+  toggleFilters.addEventListener("click", () => toggleToolbarPopover(filterPopover, toggleFilters));
+  toggleBarangayPicker.addEventListener("click", () => {
+    toggleToolbarPopover(barangayPopover, toggleBarangayPicker);
+    if (!barangayPopover.hidden) {
+      barangaySearch.value = "";
+      renderBarangayOptions();
+      barangaySearch.focus();
+    }
+  });
+  barangaySearch.addEventListener("input", () => renderBarangayOptions(barangaySearch.value));
+  applyFilters.addEventListener("click", async () => {
+    updateBarangayLabel();
+    closeToolbarPopovers();
+    if (barangayFilter.value) await selectBarangay(barangayFilter.value);
+    else await loadOverview();
+  });
   clearFilters.addEventListener("click", () => {
     state.searchRequest?.abort();
-    mapParcelSearch.value = "";
     commodityFilter.value = "";
     panelSearch.value = "";
     panelStatus.value = "";
     hideMapSearchResults();
+    updateBarangayLabel();
+    closeToolbarPopovers();
     loadOverview();
   });
   backToBarangay.addEventListener("click", () => {
@@ -833,6 +923,17 @@
     else loadOverview();
   });
   closePanel.addEventListener("click", () => showPanel(false));
+  toggleParcelList.addEventListener("click", async () => {
+    const opening = sidePanel.hidden;
+    closeToolbarPopovers();
+    showPanel(opening);
+    if (opening && state.barangay) await loadParcelPage(state.page, Boolean(state.cluster));
+    if (opening && !state.barangay) {
+      panelTitle.textContent = "Farm Parcels";
+      panelScope.textContent = "Choose a barangay to view its parcels.";
+      panelList.innerHTML = '<p class="parcel-panel-empty">Choose a barangay from the toolbar.</p>';
+    }
+  });
   mobileSheetClose.addEventListener("click", hideMobileSheet);
   mobileSheetExpand.addEventListener("click", toggleMobileSheet);
   mobileSheetHandle.addEventListener("click", toggleMobileSheet);
@@ -861,6 +962,7 @@
   });
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".map-search-field")) hideMapSearchResults();
+    if (!event.target.closest(".map-toolbar-popover") && !event.target.closest("#toggleMapFilters") && !event.target.closest("#toggleBarangayPicker")) closeToolbarPopovers();
   });
   map.on("zoomend", async () => {
     if (state.zoomTransition || state.programmaticMove || !state.barangay) return;

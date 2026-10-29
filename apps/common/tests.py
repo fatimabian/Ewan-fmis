@@ -2526,13 +2526,17 @@ class FMISRequirementTests(TestCase):
         )
         self.assertContains(map_response, 'id="mapBarangayFilter"')
         self.assertContains(map_response, 'id="mapCommodityFilter"')
-        self.assertContains(map_response, "Find Farm Parcel")
+        self.assertContains(map_response, "Search Farm Parcel")
         self.assertContains(map_response, 'id="mapParcelSearch"')
         self.assertContains(
             map_response,
             'placeholder="Search farmer name, parcel, or farmer number..."',
         )
         self.assertContains(map_response, 'id="clearMapFilters"')
+        self.assertContains(map_response, 'id="applyMapFilters"')
+        self.assertContains(map_response, 'id="toggleMapFilters"')
+        self.assertContains(map_response, 'id="toggleBarangayPicker"')
+        self.assertContains(map_response, 'id="toggleParcelList"')
         self.assertNotContains(map_response, 'id="parcelSearchStatus"')
         self.assertNotContains(map_response, 'id="parcelSearchBarangay"')
         self.assertContains(map_response, reverse("farm_parcels:map_data"))
@@ -2548,7 +2552,7 @@ class FMISRequirementTests(TestCase):
         self.assertContains(map_response, 'id="parcelMobileSheetExpand"')
         self.assertContains(map_response, 'id="parcelMobileSheetClose"')
         self.assertContains(map_response, "@media(max-width:768px)")
-        self.assertContains(map_response, ".parcel-side-panel{position:static;order:-1")
+        self.assertContains(map_response, ".parcel-side-panel{position:absolute")
         self.assertContains(map_response, "bottom:38px")
         self.assertContains(map_response, "background:#d71920!important")
         self.assertContains(map_response, "background:#087a3d!important")
@@ -2616,7 +2620,7 @@ class FMISRequirementTests(TestCase):
         self.assertIn('map.on("zoomend"', map_script)
         self.assertIn("state.programmaticMove", map_script)
         self.assertNotIn('state.mapMode === "barangay" && map.getZoom() <= 12', map_script)
-        self.assertIn("mapParcelSearch.value = \"\"", map_script)
+        self.assertNotIn("mapParcelSearch.value = \"\"", map_script)
         self.assertIn("commodityFilter.value = \"\"", map_script)
         self.assertNotIn('status.textContent = item.pending_review', map_script)
         self.assertIn("map.flyToBounds", map_script)
@@ -2674,7 +2678,7 @@ class FMISRequirementTests(TestCase):
             reverse("farm_parcels:map_parcels"),
             {"barangay": "Bulihan", "q": self.parcel.display_name},
         ).json()
-        self.assertEqual(unpinned_search["results"], [])
+        self.assertIn(self.parcel.pk, {row["id"] for row in unpinned_search["results"]})
         self.assertEqual(unpinned_search["unlocated_matches"], 1)
 
     def test_coordinate_audit_flags_duplicates_without_changing_them(self):

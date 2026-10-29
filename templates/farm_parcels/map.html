@@ -28,16 +28,34 @@
       flex-wrap:wrap;
       margin-top:12px
   }
-  .map-filters{
-      display:grid;
-      grid-template-columns:minmax(260px,1.6fr) minmax(170px,1fr) minmax(170px,1fr) auto;
-      gap:12px;
-      align-items:end;
-      margin:0 0 14px;
+  .map-toolbar{position:relative;display:grid;grid-template-columns:minmax(280px,1fr) auto auto auto;gap:10px;align-items:end;margin:0 0 12px}
+  .map-toolbar .btn{min-height:44px;white-space:nowrap}
+  .map-search-field label{font-size:12px;font-weight:700}
+  .map-search-field input{width:100%;height:44px}
+  .map-toolbar-button-label{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .map-toolbar-popover{
+      position:absolute;
+      top:calc(100% + 6px);
+      z-index:1150;
+      width:min(330px,calc(100vw - 36px));
+      padding:14px;
+      border:1px solid var(--ag-border,#dce7e0);
+      border-radius:12px;
+      background:var(--surface,#fff);
+      box-shadow:0 14px 32px rgba(18,48,31,.2)
   }
-  .map-filters label{display:grid;gap:5px;font-size:12px;font-weight:700}
-  .map-filters input,.map-filters select{width:100%;height:44px}
-  .map-clear-filters{min-height:44px;white-space:nowrap}
+  .map-toolbar-popover[hidden]{display:none}
+  .map-filter-popover{right:246px;display:grid;gap:12px}
+  .map-filter-popover label{display:grid;gap:5px;font-size:12px;font-weight:700}
+  .map-filter-popover select{width:100%;height:42px}
+  .map-filter-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .map-filter-actions .btn{min-height:40px}
+  .map-barangay-popover{right:112px}
+  .map-barangay-popover input{width:100%;height:42px;margin-bottom:8px}
+  .map-barangay-options{max-height:260px;overflow:auto;border:1px solid var(--ag-border,#dce7e0);border-radius:8px}
+  .map-barangay-option{display:block;width:100%;min-height:40px;padding:8px 11px;border:0;border-bottom:1px solid var(--ag-border,#e5ece8);background:transparent;color:inherit;text-align:left;cursor:pointer}
+  .map-barangay-option:last-child{border-bottom:0}
+  .map-barangay-option:hover,.map-barangay-option:focus-visible,.map-barangay-option.is-selected{background:#eff8f2;outline:0}
   .map-filter-summary{margin:-4px 0 14px;color:#52645a;font-size:12px}
   .map-search-field{position:relative;display:grid;min-width:0;gap:5px;font-size:12px;font-weight:700}
   .map-search-results{
@@ -78,6 +96,7 @@
       overflow-wrap:normal;
       word-break:normal
   }
+  .map-search-result-status{display:block;margin-top:3px;color:#52645a;font-size:11px;font-weight:700}
   .map-search-message{margin:0;padding:13px;color:#607064;font-size:11px;text-align:center}
   .map-scope-note{
       display:flex;
@@ -154,7 +173,7 @@
       box-shadow:var(--ag-shadow);
       z-index:1
   }
-  .map-explorer{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
+  .map-explorer{position:relative;display:grid;grid-template-columns:minmax(0,1fr);gap:12px;align-items:start}
   .map-explorer.has-panel{grid-template-columns:minmax(0,1fr) minmax(280px,350px)}
   .map-canvas-shell{position:relative;min-width:0}
   .parcel-side-panel{
@@ -496,20 +515,26 @@
   body[data-theme="dark"] .pin-edit-panel .pin-move-control.pin-move-save{background:#087a3d!important}
   body[data-theme="dark"] .parcel-side-panel{background:#18231e;color:#f0f7f2}
   body[data-theme="dark"] .map-search-results{background:#18231e;color:#f0f7f2}
+  body[data-theme="dark"] .map-toolbar-popover{border-color:#43564a;background:#18231e;color:#f0f7f2}
+  body[data-theme="dark"] .map-barangay-option:hover,body[data-theme="dark"] .map-barangay-option:focus-visible,body[data-theme="dark"] .map-barangay-option.is-selected{background:#20382c}
   body[data-theme="dark"] .map-search-result:hover,body[data-theme="dark"] .map-search-result:focus{background:#20382c}
   body[data-theme="dark"] .parcel-panel-item.is-selected{background:#20382c}
   body[data-theme="dark"] .parcel-coordinate-review{background:#3c301d;color:#ffe8bd}
   body[data-theme="dark"] .parcel-popup-photo-empty,body[data-theme="dark"] .parcel-popup-fact{border-color:#43564a;background:#25342c;color:#e8f0eb}
   @media(max-width:850px){
-      .map-filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-      .map-search-field{grid-column:1/-1}
+      .map-toolbar{grid-template-columns:minmax(0,1fr) repeat(3,auto)}
+      .map-toolbar .map-search-field{grid-column:1/-1}
+      .map-filter-popover{right:228px}.map-barangay-popover{right:104px}
       .map-explorer.has-panel{grid-template-columns:minmax(0,1fr)}
-      .parcel-side-panel{position:static;order:-1;height:min(70dvh,620px);max-height:620px}.parcel-panel-list{max-height:none}
+      .parcel-side-panel{position:absolute;right:0;bottom:0;z-index:740;width:min(390px,94%);height:min(72dvh,620px);max-height:calc(100% - 16px);border-radius:16px 16px 0 0}.parcel-panel-list{max-height:none}
       .unmapped-list{
           grid-template-columns:1fr 1fr
       }
   }
   @media(max-width:768px){
+      .map-toolbar-popover{position:fixed;right:10px!important;bottom:10px;left:10px;top:auto;width:auto;max-height:min(70dvh,620px);overflow:auto;padding-bottom:calc(14px + env(safe-area-inset-bottom));border-radius:18px;z-index:1300}
+      .map-barangay-options{max-height:42dvh}
+      .parcel-side-panel{position:absolute;right:0;bottom:0;left:0;width:auto;height:min(72%,560px);max-height:calc(100% - 16px);border-radius:18px 18px 0 0}
       .parcel-mobile-sheet{
           position:absolute;
           right:0;
@@ -587,9 +612,10 @@
       body[data-theme="dark"] .parcel-mobile-sheet-control{border-color:#43564a;background:#18231e;color:#eef6f1}
   }
   @media(max-width:560px){
-      .map-filters{grid-template-columns:1fr}
-      .map-search-field{grid-column:auto}
-      .map-clear-filters{width:100%}
+      .map-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .map-toolbar .map-search-field{grid-column:1/-1}
+      .map-toolbar .btn{min-width:0;padding-inline:8px;font-size:11px}
+      .map-toolbar-button-label{max-width:90px}
       .unmapped-list{
           grid-template-columns:1fr
       }
@@ -631,23 +657,32 @@
       </select>
       <button id="startPin" type="button" tabindex="-1">Pin Farm Parcel</button>
     </form>
-      <section class="map-filters" aria-label="Farm parcel map filters">
+      <section class="map-toolbar" aria-label="Farm parcel map tools">
         <div class="map-search-field">
-          <label for="mapParcelSearch">Find Farm Parcel</label>
+          <label for="mapParcelSearch">Search Farm Parcel</label>
           <input id="mapParcelSearch" type="search" placeholder="Search farmer name, parcel, or farmer number..." autocomplete="off" aria-controls="mapParcelSearchResults" aria-expanded="false">
           <div class="map-search-results" id="mapParcelSearchResults" role="listbox" hidden></div>
         </div>
-        <label>Barangay
-          <select id="mapBarangayFilter">
-            <option value="">All barangays</option>
-          </select>
-        </label>
-        <label>Commodity
-          <select id="mapCommodityFilter">
-            <option value="">All commodities</option>
-          </select>
-        </label>
-        <button class="btn btn-outline-success map-clear-filters" id="clearMapFilters" type="button">Clear Filters</button>
+        <button class="btn btn-outline-success" id="toggleMapFilters" type="button" aria-expanded="false" aria-controls="mapFilterPopover"><i class="bi bi-funnel"></i> Filter Map</button>
+        <button class="btn btn-outline-success" id="toggleBarangayPicker" type="button" aria-expanded="false" aria-controls="mapBarangayPopover"><i class="bi bi-geo-alt"></i> <span class="map-toolbar-button-label" id="selectedBarangayLabel">Barangay</span></button>
+        <button class="btn btn-outline-success" id="toggleParcelList" type="button" aria-expanded="false" aria-controls="parcelSidePanel"><i class="bi bi-list-ul"></i> View List</button>
+        <div class="map-toolbar-popover map-filter-popover" id="mapFilterPopover" hidden>
+          <label>Barangay
+            <select id="mapBarangayFilter"><option value="">All barangays</option></select>
+          </label>
+          <label>Commodity
+            <select id="mapCommodityFilter"><option value="">All commodities</option></select>
+          </label>
+          <div class="map-filter-actions">
+            <button class="btn btn-outline-secondary" id="clearMapFilters" type="button">Reset Filters</button>
+            <button class="btn btn-success" id="applyMapFilters" type="button">Apply Filters</button>
+          </div>
+        </div>
+        <div class="map-toolbar-popover map-barangay-popover" id="mapBarangayPopover" hidden>
+          <label class="visually-hidden" for="mapBarangaySearch">Search Rosario barangays</label>
+          <input id="mapBarangaySearch" type="search" placeholder="Search barangay..." autocomplete="off">
+          <div class="map-barangay-options" id="mapBarangayOptions" role="listbox"></div>
+        </div>
       </section>
       <p class="map-filter-summary" id="mapFilterSummary" aria-live="polite">Showing all mapped farm parcels.</p>
       <p class="map-legend">

@@ -560,8 +560,6 @@ class FarmParcelMapParcelListView(FMISLoginRequiredMixin, StaffRequiredMixin, Vi
             point = FarmParcelMapView.parse_coordinates(parcel.coordinates)
             valid_point = point
             status = "PINNED" if valid_point else "UNPINNED"
-            if query and status == "UNPINNED":
-                continue
             if requested_status and status != requested_status:
                 continue
             if cluster_id:

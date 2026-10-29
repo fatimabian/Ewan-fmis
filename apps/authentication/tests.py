@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.core.cache import cache
 from django.core import mail
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -61,6 +62,7 @@ class DisabledMultiFactorAuthenticationTests(TestCase):
 
 class AccountActivationDeliveryTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.user = get_user_model().objects.create_user(
             username="pendingdelivery",
             email="pending@example.com",
@@ -80,9 +82,69 @@ class AccountActivationDeliveryTests(TestCase):
         self.assertContains(response, "The activation email could not be sent")
         self.assertNotIn(ACTIVATION_SESSION_KEY, self.client.session)
 
+    def test_activation_email_contains_exactly_one_code(self):
+        response = self.client.post(
+            reverse("authentication:login"),
+            {"username": self.user.username, "password": "Ready4Field!Secure"},
+        )
+
+        self.assertRedirects(response, reverse("authentication:activate_account"))
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "FMIS — Your Verification Code")
+        self.assertEqual(len(re.findall(r"\b\d{6}\b", mail.outbox[0].body)), 1)
+
+    def test_replayed_login_reuses_active_code_across_browser_sessions(self):
+        payload = {"username": self.user.username, "password": "Ready4Field!Secure"}
+        second_browser = Client()
+
+        first = self.client.post(reverse("authentication:login"), payload)
+        replay = second_browser.post(reverse("authentication:login"), payload)
+
+        self.assertEqual(first.status_code, 302)
+        self.assertEqual(replay.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(ACTIVATION_SESSION_KEY, second_browser.session)
+
+    def test_rapid_resend_keeps_current_code_and_sends_no_second_email(self):
+        self.client.post(
+            reverse("authentication:login"),
+            {"username": self.user.username, "password": "Ready4Field!Secure"},
+        )
+
+        response = self.client.post(
+            reverse("authentication:activate_account"), {"action": "resend"}, follow=True
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Wait 60 seconds")
+        self.assertEqual(len(mail.outbox), 1)
+
+    @patch("apps.authentication.activation.cache.add", return_value=False)
+    def test_issue_lock_blocks_concurrent_duplicate_send(self, _add):
+        response = self.client.post(
+            reverse("authentication:login"),
+            {"username": self.user.username, "password": "Ready4Field!Secure"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "activation email could not be sent")
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_activation_form_has_single_submit_guard(self):
+        self.client.post(
+            reverse("authentication:login"),
+            {"username": self.user.username, "password": "Ready4Field!Secure"},
+        )
+
+        response = self.client.get(reverse("authentication:activate_account"))
+
+        self.assertContains(response, "data-single-submit")
+        self.assertContains(response, "single-submit.min.")
+
 
 class PasswordRecoveryOTPTests(TestCase):
     def setUp(self):
+        cache.clear()
         self.user = get_user_model().objects.create_user(
             username="recoverystaff",
             email="recovery@example.com",
@@ -159,6 +221,19 @@ class PasswordRecoveryOTPTests(TestCase):
         self.assertEqual(second.status_code, 200)
         self.assertContains(second, "Enter your email OTP")
         self.assertEqual(len(mail.outbox), 1)
+
+    def test_replayed_recovery_request_across_browsers_sends_one_email(self):
+        payload = {"recovery_action": "request", "identifier": self.user.email}
+        second_browser = Client()
+
+        first = self.client.post(self.url, payload)
+        replay = second_browser.post(self.url, payload)
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "FMIS — Your Verification Code")
+        self.assertEqual(len(re.findall(r"\b\d{6}\b", mail.outbox[0].body)), 1)
 
 
 @override_settings(FMIS_REQUIRE_MFA=True)
