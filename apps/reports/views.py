@@ -201,7 +201,11 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             "selected_analytics_filters": analytics_filters,
             "analytics_error": analytics_error,
         }
-        if not system_report:
+        # The report generator must remain independent from descriptive
+        # analytics. Do not execute analytics queries while the user is on the
+        # Generate Reports tab; a data-specific analytics failure must never
+        # take the established report workflow offline.
+        if not system_report and analytics_tab != "reports":
             context["descriptive"] = descriptive_analytics(
                 analytics_tab,
                 analytics_date_range,

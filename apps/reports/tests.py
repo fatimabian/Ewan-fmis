@@ -3,6 +3,7 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from unittest.mock import patch
 
 from apps.farmers.models import Farmer
 from apps.reports.analytics import descriptive_analytics
@@ -50,10 +51,15 @@ class DescriptiveAnalyticsTests(TestCase):
 
     def test_generate_reports_tab_preserves_report_builder(self):
         self.client.force_login(self.staff)
-        response = self.client.get(
-            reverse("reports:home"), {"analytics_tab": "reports"}
-        )
+        with patch(
+            "apps.reports.views.descriptive_analytics",
+            side_effect=AssertionError("analytics must be lazy on the report generator"),
+        ) as analytics_builder:
+            response = self.client.get(
+                reverse("reports:home"), {"analytics_tab": "reports"}
+            )
         self.assertEqual(response.status_code, 200)
+        analytics_builder.assert_not_called()
         self.assertContains(response, "Report Filters")
         self.assertContains(response, 'name="report_type"')
         self.assertContains(response, 'name="date_range"')
