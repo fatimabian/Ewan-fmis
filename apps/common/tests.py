@@ -2603,6 +2603,9 @@ class FMISRequirementTests(TestCase):
             "The saved pin will remain at its current location.", map_script
         )
         self.assertIn("It will be submitted for verification", map_script)
+        self.assertIn("const positionPinEditPanel", map_script)
+        self.assertIn("map.latLngToContainerPoint(marker.getLatLng())", map_script)
+        self.assertIn('movingMarker.on("drag", positionPinEditPanel)', map_script)
         self.assertIn("map.invalidateSize({pan: false})", map_script)
         self.assertIn("const searchMapParcels", map_script)
         self.assertIn("const chooseMapSearchResult", map_script)

@@ -702,6 +702,17 @@
     } else if (window.confirm(`Remove the saved map pin for ${item.parcel}?`)) perform();
   };
 
+  const positionPinEditPanel = () => {
+    const marker = state.moving?.marker;
+    if (!marker) return;
+    const point = map.latLngToContainerPoint(marker.getLatLng());
+    const mapRect = mapNode.getBoundingClientRect();
+    const shellRect = pinEditPanel.offsetParent.getBoundingClientRect();
+    pinEditPanel.style.left = `${mapRect.left - shellRect.left + point.x}px`;
+    pinEditPanel.style.top = `${mapRect.top - shellRect.top + point.y}px`;
+  };
+  map.on("move zoom", positionPinEditPanel);
+
   const beginMove = (item, marker) => {
     state.pinning = false;
     document.body.classList.remove("map-pin-active");
@@ -709,8 +720,10 @@
     marker.removeFrom(parcelLayer);
     const movingMarker = L.marker(marker.getLatLng(), {icon: movingIcon, draggable: true, zIndexOffset: 1200}).addTo(parcelLayer);
     state.moving = {item, originalMarker: marker, marker: movingMarker};
+    movingMarker.on("drag", positionPinEditPanel);
     pinEditFarmer.textContent = `Moving ${item.parcel} · ${item.farmer}`;
     pinEditPanel.classList.add("is-visible");
+    positionPinEditPanel();
     movingMarker.dragging.enable();
   };
   const endMove = (restore = true) => {
@@ -720,6 +733,8 @@
     if (restore) originalMarker.addTo(parcelLayer);
     state.moving = null;
     pinEditPanel.classList.remove("is-visible");
+    pinEditPanel.style.left = "";
+    pinEditPanel.style.top = "";
   };
   cancelPinMove.addEventListener("click", () => {
     if (!state.moving) return;

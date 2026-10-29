@@ -420,13 +420,14 @@
   }
   .pin-edit-panel{
       position:absolute;
-      top:16px;
-      left:50%;
+      top:0;
+      left:0;
       z-index:1200;
       display:none;
       align-items:center;
       gap:10px;
-      transform:translateX(-50%);
+      transform:translate(-50%,calc(-100% - 30px));
+      will-change:left,top;
       pointer-events:none
   }
   .pin-edit-panel.is-visible{
@@ -457,10 +458,22 @@
   .pin-move-control:focus-visible{
       transform:translateY(-1px)
   }
-  .pin-move-cancel{color:#c62828!important}
-  .pin-move-cancel:hover,.pin-move-cancel:focus-visible{background:#fff1f1!important}
-  .pin-move-save{color:#087a3d!important}
-  .pin-move-save:hover,.pin-move-save:focus-visible{background:#edf9f1!important}
+  .pin-edit-panel .pin-move-control.pin-move-cancel{
+      color:#d71920!important;
+      border-color:#d71920!important;
+      background:#fff5f5!important
+  }
+  .pin-edit-panel .pin-move-control.pin-move-cancel i{color:#d71920!important}
+  .pin-edit-panel .pin-move-control.pin-move-cancel:hover,
+  .pin-edit-panel .pin-move-control.pin-move-cancel:focus-visible{background:#ffe6e7!important}
+  .pin-edit-panel .pin-move-control.pin-move-save{
+      color:#087a3d!important;
+      border-color:#087a3d!important;
+      background:#f1fbf5!important
+  }
+  .pin-edit-panel .pin-move-control.pin-move-save i{color:#087a3d!important}
+  .pin-edit-panel .pin-move-control.pin-move-save:hover,
+  .pin-edit-panel .pin-move-control.pin-move-save:focus-visible{background:#ddf5e7!important}
   .pin-move-control:disabled{cursor:wait;opacity:.62}
   .pin-edit-label{
       position:absolute!important;
@@ -608,7 +621,6 @@
           font-size:12px;
           padding:7px 8px
       }
-      .pin-edit-panel{top:12px}
   }
   </style>
   <div class="content farmer-map-page">
@@ -718,7 +730,7 @@
     {{ rosario_map_center|json_script:"rosario-map-center" }}
     {{ rosario_boundary|json_script:"rosario-map-boundary" }}
     <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
-    <script src="{% static 'js/farm-parcel-map.js' %}?v=10"></script>
+    <script src="{% static 'js/farm-parcel-map.js' %}?v=11"></script>
     <script>
         (() => {
             if (window.FMIS_PROGRESSIVE_MAP) return;
@@ -1040,6 +1052,15 @@
                 movingMarker = null,
                 movingSourceLayer = null,
                 originalMarkerPoint = null;
+            const positionPinEditPanel = () => {
+                if (!movingMarker) return;
+                const point = map.latLngToContainerPoint(movingMarker.getLatLng()),
+                    mapRect = mapNode.getBoundingClientRect(),
+                    shellRect = pinEditPanel.offsetParent.getBoundingClientRect();
+                pinEditPanel.style.left = `${mapRect.left - shellRect.left + point.x}px`;
+                pinEditPanel.style.top = `${mapRect.top - shellRect.top + point.y}px`
+            };
+            map.on('move zoom', positionPinEditPanel);
             const stopMovingPin = restorePosition => {
                 if (!movingMarker) return;
                 map.removeLayer(movingMarker);
@@ -1050,7 +1071,9 @@
                 movingMarker = null;
                 movingSourceLayer = null;
                 originalMarkerPoint = null;
-                pinEditPanel.classList.remove('is-visible')
+                pinEditPanel.classList.remove('is-visible');
+                pinEditPanel.style.left = '';
+                pinEditPanel.style.top = ''
             };
             const beginMoveMarker = async sourceLayer => {
                 const item = sourceLayer.fmisFarmer;
@@ -1070,9 +1093,11 @@
                     draggable: true,
                     title: `Move ${item.parcel}`
                 }).addTo(map);
+                movingMarker.on('drag', positionPinEditPanel);
                 farmerSelect.value = String(item.id);
                 pinEditFarmer.textContent = `Moving ${item.parcel} · ${item.farmer}`;
                 pinEditPanel.classList.add('is-visible');
+                positionPinEditPanel();
                 map.panTo(originalMarkerPoint)
             };
             const resetPinMode = () => {
