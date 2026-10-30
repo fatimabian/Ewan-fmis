@@ -12,7 +12,7 @@
       <line class="analytics-axis-line" x1="4" y1="91" x2="99" y2="91"></line><polyline class="analytics-axis-arrow" points="96,88 99,91 96,94"></polyline>
       <line class="analytics-axis-line" x1="4" y1="92" x2="4" y2="4"></line><polyline class="analytics-axis-arrow" points="1,7 4,4 7,7"></polyline>
       <polyline points="{{ series.polyline }}"></polyline>
-      {% for point in series.points %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="1.2"><title>{{ point.label }}: {{ point.value }}</title></circle>{% endfor %}
+      {% for point in series.points %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="0.65"><title>{{ point.label }}: {{ point.value }}</title></circle>{% endfor %}
     </svg>
     <span class="analytics-x-label">Month</span></div>
     <div class="analytics-chart-axis">

@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from io import StringIO
 
 from django.core.management import call_command
@@ -10,6 +11,7 @@ from apps.authentication.models import CustomUser
 from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel
 from apps.farmers.models import Farmer
+from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.service_requests.models import ServiceRequest
 from apps.service_catalog.models import ServiceCatalog
 
@@ -96,6 +98,61 @@ class InterventionModuleTests(TestCase):
         self.assertNotIn("is_active", form.fields)
         self.assertNotIn("status", form.fields)
         self.assertNotIn("intervention_date", form.fields)
+
+    def test_completed_intervention_with_inventory_item_records_one_release(self):
+        item = InventoryItem.objects.create(
+            name="Certified Rice Seed",
+            category="SEEDS",
+            unit="bag",
+            stock_on_hand=Decimal("20.00"),
+            reorder_level=Decimal("5.00"),
+            storage_location="Municipal Stockroom",
+        )
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("interventions:create"),
+            {
+                "scope": "INDIVIDUAL",
+                "farmer": self.farmer.pk,
+                "intervention_type": "SEEDS",
+                "inventory_item": item.pk,
+                "description": "Delivered seed assistance",
+                "quantity": "5.00",
+                "unit": "incorrect client value",
+                "provider": "Office for Agricultural Services",
+            },
+        )
+
+        self.assertRedirects(response, reverse("interventions:list"))
+        intervention = Intervention.objects.get()
+        movement = InventoryMovement.objects.get(
+            intervention=intervention,
+            movement_type=InventoryMovement.RELEASE,
+        )
+        item.refresh_from_db()
+        self.assertEqual(movement.quantity, Decimal("5.00"))
+        self.assertEqual(movement.reference, intervention.reference_id)
+        self.assertEqual(intervention.unit, "bag")
+        self.assertEqual(item.stock_on_hand, Decimal("15.00"))
+
+        response = self.client.post(
+            reverse("interventions:edit", args=[intervention.pk]),
+            {
+                "scope": "INDIVIDUAL",
+                "farmer": self.farmer.pk,
+                "intervention_type": "SEEDS",
+                "description": "Updated delivered seed assistance",
+                "quantity": "9.00",
+                "unit": "bag",
+                "provider": "Office for Agricultural Services",
+            },
+        )
+        self.assertRedirects(response, reverse("interventions:list"))
+        item.refresh_from_db()
+        intervention.refresh_from_db()
+        self.assertEqual(intervention.inventory_movements.count(), 1)
+        self.assertEqual(intervention.quantity, Decimal("5.00"))
+        self.assertEqual(item.stock_on_hand, Decimal("15.00"))
 
     def test_create_form_has_searchable_farmer_selection_without_snapshot_notice(self):
         Farmer.objects.create(

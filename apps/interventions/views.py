@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
 from django.http import JsonResponse
@@ -15,6 +16,8 @@ from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.filters import parse_inclusive_date_range
 from apps.common.permissions import StaffRequiredMixin
 from apps.farmers.models import Farmer
+from apps.inventory.models import InventoryMovement
+from apps.inventory.services import record_inventory_movement
 from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
 
 from .forms import InterventionForm
@@ -165,6 +168,24 @@ def _sync_linked_request_status(intervention, actor):
                 "after": status_note,
             }
         ],
+    )
+
+
+def _record_inventory_release(intervention, form, actor):
+    """Create one immutable inventory release for a delivered intervention."""
+    item = form.cleaned_data.get("inventory_item")
+    if not item or intervention.inventory_movements.filter(
+        movement_type=InventoryMovement.RELEASE
+    ).exists():
+        return None
+    return record_inventory_movement(
+        item=item,
+        movement_type=InventoryMovement.RELEASE,
+        quantity=form.cleaned_data["quantity"],
+        intervention=intervention,
+        reference=intervention.reference_id,
+        remarks=f"Automatically recorded for completed intervention {intervention.reference_id}.",
+        recorded_by=actor,
     )
 
 
@@ -346,20 +367,29 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
         form.instance.walk_in_name = (
             form.cleaned_data.get("walk_in_name", "") if scope == "WALK_IN" else ""
         )
-        with transaction.atomic():
-            response = super().form_valid(form)
-            recipient_ids = _resolved_recipient_ids(form)
-            _sync_recipients(self.object, recipient_ids)
-            _sync_linked_request_status(self.object, self.request.user)
-            created_values = _intervention_snapshot(self.object)
-            record_request_event(
-                self.request,
-                title="Intervention Recorded",
-                module="Interventions",
-                description=f"{self.request.user.display_name} recorded assistance for {len(recipient_ids)} farmer(s).",
-                target_label=self.object.reference_id,
-                details=_intervention_changes({}, created_values),
-            )
+        try:
+            with transaction.atomic():
+                response = super().form_valid(form)
+                recipient_ids = _resolved_recipient_ids(form)
+                _sync_recipients(self.object, recipient_ids)
+                _sync_linked_request_status(self.object, self.request.user)
+                inventory_release = _record_inventory_release(
+                    self.object, form, self.request.user
+                )
+                created_values = _intervention_snapshot(self.object)
+                record_request_event(
+                    self.request,
+                    title="Intervention Recorded",
+                    module="Interventions",
+                    description=f"{self.request.user.display_name} recorded assistance for {len(recipient_ids)} farmer(s).",
+                    target_label=self.object.reference_id,
+                    details=_intervention_changes({}, created_values),
+                )
+        except ValidationError as error:
+            form.add_error("inventory_item", error.messages[0])
+            form.instance.pk = None
+            self.object = None
+            return self.form_invalid(form)
         if self.object.service_request:
             messages.success(
                 self.request,
@@ -367,6 +397,11 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
             )
         else:
             messages.success(self.request, f"{self.object.reference_id} was saved for {len(recipient_ids)} farmer(s).")
+        if inventory_release:
+            messages.success(
+                self.request,
+                f"{inventory_release.quantity} {inventory_release.item.unit} was released from inventory as {inventory_release.movement_id}.",
+            )
         return response
 
 
@@ -437,21 +472,34 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
         form.instance.target_barangay = form.cleaned_data.get("target_barangay", "") if scope == "BARANGAY" else ""
         form.instance.target_association = form.cleaned_data.get("target_association", "") if scope == "ASSOCIATION" else ""
         form.instance.walk_in_name = form.cleaned_data.get("walk_in_name", "") if scope == "WALK_IN" else ""
-        with transaction.atomic():
-            response = super().form_valid(form)
-            recipient_ids = _resolved_recipient_ids(form)
-            _sync_recipients(self.object, recipient_ids)
-            _sync_linked_request_status(self.object, self.request.user)
-            after_values = _intervention_snapshot(self.object)
-            record_request_event(
-                self.request,
-                title="Intervention Updated",
-                module="Interventions",
-                description=f"{self.request.user.display_name} updated an intervention for {len(recipient_ids)} farmer(s).",
-                target_label=self.object.reference_id,
-                details=_intervention_changes(before_values, after_values),
-            )
+        try:
+            with transaction.atomic():
+                response = super().form_valid(form)
+                recipient_ids = _resolved_recipient_ids(form)
+                _sync_recipients(self.object, recipient_ids)
+                _sync_linked_request_status(self.object, self.request.user)
+                inventory_release = _record_inventory_release(
+                    self.object, form, self.request.user
+                )
+                after_values = _intervention_snapshot(self.object)
+                record_request_event(
+                    self.request,
+                    title="Intervention Updated",
+                    module="Interventions",
+                    description=f"{self.request.user.display_name} updated an intervention for {len(recipient_ids)} farmer(s).",
+                    target_label=self.object.reference_id,
+                    details=_intervention_changes(before_values, after_values),
+                )
+        except ValidationError as error:
+            form.add_error("inventory_item", error.messages[0])
+            self.object = before
+            return self.form_invalid(form)
         messages.success(self.request, f"{self.object.reference_id} was updated.")
+        if inventory_release:
+            messages.success(
+                self.request,
+                f"{inventory_release.quantity} {inventory_release.item.unit} was released from inventory as {inventory_release.movement_id}.",
+            )
         return response
 
 

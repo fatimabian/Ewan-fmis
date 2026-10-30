@@ -326,7 +326,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
     summary = [
         {"label": "Active Farmers", "value": farmer_statistics["active"], "note": "registered in the selected period", "icon": "bi-person-vcard"},
         {"label": "Registered Farm Parcels", "value": parcel_totals["total"] or 0, "note": "active parcel records", "icon": "bi-map"},
-        {"label": "Total Farm Area", "value": parcel_totals["area"] or 0, "suffix": "ha", "note": "recorded parcel area", "icon": "bi-bounding-box"},
+        {"label": "Total Farm Area", "value": parcel_totals["area"] or 0, "suffix": "ha", "note": "recorded parcel area", "icon": "bi-rulers"},
         {"label": "Recorded Commodities", "value": crop_totals["distinct"] or 0, "note": f'{crop_totals["total"] or 0} active records', "icon": "bi-flower1"},
         {"label": "Service Requests Received", "value": request_total, "note": "created in the selected period", "icon": "bi-headset"},
         {"label": "Interventions Conducted", "value": intervention_totals["total"] or 0, "note": "recorded intervention activities", "icon": "bi-box2-heart"},

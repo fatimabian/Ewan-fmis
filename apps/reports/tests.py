@@ -173,6 +173,27 @@ class DescriptiveAnalyticsTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.context["analytics_tab"], tab)
 
+    def test_analytics_filters_use_module_specific_popover_fields(self):
+        self.client.force_login(self.staff)
+        request_response = self.client.get(
+            reverse("reports:home"), {"analytics_tab": "requests"}
+        )
+        self.assertContains(request_response, "Filter Service Requests")
+        self.assertContains(request_response, 'data-filter-popover')
+        self.assertContains(request_response, 'name="analytics_request_status"')
+        self.assertContains(request_response, 'name="analytics_request_priority"')
+        self.assertNotContains(request_response, 'name="analytics_inventory_category"')
+
+        inventory_response = self.client.get(
+            reverse("reports:home"), {"analytics_tab": "inventory"}
+        )
+        self.assertContains(inventory_response, "Filter Inventory")
+        self.assertContains(inventory_response, 'name="analytics_inventory_category"')
+        self.assertContains(
+            inventory_response, 'name="analytics_inventory_movement_type"'
+        )
+        self.assertNotContains(inventory_response, 'name="analytics_barangay"')
+
     def test_inventory_analytics_describes_stock_and_movements(self):
         item = InventoryItem.objects.create(
             item_code="SEED-001",

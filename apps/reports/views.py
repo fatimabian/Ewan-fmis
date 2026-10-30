@@ -135,6 +135,19 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                 "analytics_inventory_movement_type", ""
             ),
         }
+        analytics_filter_keys = {
+            "overview": ("barangay",),
+            "farmers": ("barangay",),
+            "parcels": ("barangay",),
+            "commodities": ("barangay", "commodity"),
+            "requests": ("barangay", "request_status", "request_priority"),
+            "interventions": ("barangay", "commodity", "intervention_type"),
+            "inventory": ("inventory_category", "inventory_movement_type"),
+        }.get(analytics_tab, ())
+        analytics_filters_active = (
+            analytics_date_choice != "all"
+            or any(analytics_filters.get(key) for key in analytics_filter_keys)
+        )
         preview = None
         report_error = ""
         try:
@@ -209,11 +222,13 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             "report_error": report_error,
             "analytics_tabs": ANALYTICS_TABS,
             "analytics_tab": analytics_tab,
+            "analytics_tab_label": dict(ANALYTICS_TABS)[analytics_tab],
             "analytics_date_ranges": DATE_RANGES,
             "selected_analytics_date_range": analytics_date_choice,
             "selected_analytics_date_from": analytics_date_from,
             "selected_analytics_date_to": analytics_date_to,
             "selected_analytics_filters": analytics_filters,
+            "analytics_filters_active": analytics_filters_active,
             "analytics_error": analytics_error,
         }
         # The report generator must remain independent from descriptive

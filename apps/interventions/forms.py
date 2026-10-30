@@ -6,6 +6,7 @@ from apps.common.forms import InlineValidationMixin
 from apps.common.constants import ROSARIO_BARANGAY_CHOICES
 from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
 from apps.farmers.models import Farmer
+from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.service_requests.models import ServiceRequest
 
 from .models import Intervention
@@ -43,7 +44,28 @@ class ServiceRequestChoiceField(forms.ModelChoiceField):
         )
 
 
+class InventoryItemSelect(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(
+            name, value, label, selected, index, subindex=subindex, attrs=attrs
+        )
+        item = getattr(value, "instance", None)
+        if item:
+            option["attrs"]["data-unit"] = item.unit
+        return option
+
+
 class InterventionForm(InlineValidationMixin, forms.ModelForm):
+    inventory_item = forms.ModelChoiceField(
+        queryset=InventoryItem.objects.none(),
+        required=False,
+        label="Inventory item released",
+        widget=InventoryItemSelect,
+        help_text=(
+            "Select an item only when this delivered assistance used FMIS inventory. "
+            "Saving will record one stock release and reduce its balance."
+        ),
+    )
     farmer = FarmerChoiceField(queryset=active_farmer_queryset(), required=False)
     selected_farmers = FarmerMultipleChoiceField(
         queryset=Farmer.objects.none(),
@@ -81,6 +103,30 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.user = kwargs.pop("user", None)
         super().__init__(*args, **kwargs)
+        self.existing_inventory_release = None
+        self.fields["inventory_item"].queryset = (
+            InventoryItem.objects.filter(is_active=True)
+            .only("pk", "item_code", "name", "unit", "stock_on_hand")
+            .order_by("name", "item_code")
+        )
+        if self.instance and self.instance.pk:
+            self.existing_inventory_release = (
+                self.instance.inventory_movements.filter(
+                    movement_type=InventoryMovement.RELEASE
+                )
+                .select_related("item")
+                .order_by("pk")
+                .first()
+            )
+            if self.existing_inventory_release:
+                self.fields["inventory_item"].initial = (
+                    self.existing_inventory_release.item
+                )
+                self.fields["inventory_item"].disabled = True
+                self.fields["inventory_item"].help_text = (
+                    f"Stock release {self.existing_inventory_release.movement_id} is an "
+                    "immutable inventory record. Its item and released quantity cannot be changed here."
+                )
         active_farmers = active_farmer_queryset()
         farmer_search_url = reverse("interventions:farmer_search")
         self.fields["farmer"].widget.attrs["data-search-url"] = farmer_search_url
@@ -165,6 +211,24 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         request = cleaned.get("service_request")
+        inventory_item = cleaned.get("inventory_item")
+        quantity = cleaned.get("quantity")
+        if self.existing_inventory_release:
+            cleaned["inventory_item"] = self.existing_inventory_release.item
+            cleaned["quantity"] = self.existing_inventory_release.quantity
+            cleaned["unit"] = self.existing_inventory_release.item.unit
+        elif inventory_item:
+            if not quantity or quantity <= 0:
+                self.add_error(
+                    "quantity",
+                    "Enter the quantity released from inventory.",
+                )
+            elif quantity > inventory_item.stock_on_hand:
+                self.add_error(
+                    "inventory_item",
+                    f"Only {inventory_item.stock_on_hand} {inventory_item.unit} is available.",
+                )
+            cleaned["unit"] = inventory_item.unit
         submitted_scope = cleaned.get("scope") or "INDIVIDUAL"
         scope = submitted_scope
         if request:

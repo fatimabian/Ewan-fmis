@@ -54,6 +54,7 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
         <div class="intervention-field"><label>{{ form.intervention_type.label }}</label>{{ form.intervention_type }}<span class="intervention-errors">{{ form.intervention_type.errors }}</span></div>
         <div class="intervention-field"><label>Delivery status</label><div class="intervention-readonly">Completed / Delivered</div></div>
         <div class="intervention-field"><label>Delivery date</label><div class="intervention-readonly">{% if object %}{{ object.intervention_date|date:"F d, Y" }}{% else %}{% now "F d, Y" %}{% endif %}</div></div>
+        <div class="intervention-field full"><label>{{ form.inventory_item.label }}</label>{{ form.inventory_item }}<small class="text-muted">{{ form.inventory_item.help_text }}</small><span class="intervention-errors">{{ form.inventory_item.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.quantity.label }}</label>{{ form.quantity }}<span class="intervention-errors">{{ form.quantity.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.unit.label }}</label>{{ form.unit }}<span class="intervention-errors">{{ form.unit.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.provider.label }}</label>{{ form.provider }}<span class="intervention-errors">{{ form.provider.errors }}</span></div>
@@ -71,6 +72,8 @@ document.addEventListener("DOMContentLoaded",()=>{
   const scope=document.querySelector('[name="scope"]');
   const serviceRequest=document.querySelector('[name="service_request"]');
   const interventionType=document.querySelector('[name="intervention_type"]');
+  const inventoryItem=document.querySelector('[name="inventory_item"]');
+  const quantityUnit=document.querySelector('[name="unit"]');
   const farmer=document.querySelector('[name="farmer"]');
   const targetBarangay=document.querySelector('[name="target_barangay"]');
   const targetAssociation=document.querySelector('[name="target_association"]');
@@ -132,6 +135,10 @@ document.addEventListener("DOMContentLoaded",()=>{
   };
   scope.addEventListener("change",sync);
   serviceRequest?.addEventListener("change",syncRequest);
+  inventoryItem?.addEventListener("change",()=>{
+    const unit=inventoryItem.selectedOptions?.[0]?.dataset?.unit;
+    if(unit&&quantityUnit)quantityUnit.value=unit;
+  });
   let searchTimer;
   const selectedFarmers=new Map([...document.querySelectorAll('.intervention-checkbox-list input:checked')].map(input=>[input.value,input.closest('label')?.textContent.trim()||input.value]));
   const renderSelectedFarmers=(results=[])=>{
