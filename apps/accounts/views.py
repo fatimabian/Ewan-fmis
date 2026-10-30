@@ -5,9 +5,11 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 from uuid import uuid4
-from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, FormView, ListView, UpdateView
 from django.views import View
 from apps.authentication.models import CustomUser
+from apps.authentication.forms import MFAResetAuthorizationForm
+from apps.authentication.mfa import decrypt_secret, verify_totp
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import AdminRequiredMixin
 from apps.activity_logs.services import record_request_event
@@ -319,9 +321,24 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
         return redirect("accounts:list")
 
 
-class AccountMFAResetView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
-    def post(self, request, pk):
-        account = CustomUser.objects.filter(pk=pk, deleted_at__isnull=True).first()
+class AccountMFAResetView(FMISLoginRequiredMixin, AdminRequiredMixin, FormView):
+    template_name = "accounts/reset_mfa.html"
+    form_class = MFAResetAuthorizationForm
+
+    def dispatch(self, request, *args, **kwargs):
+        self.account = CustomUser.objects.filter(
+            pk=kwargs["pk"], deleted_at__isnull=True
+        ).first()
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["account"] = self.account
+        return context
+
+    def form_valid(self, form):
+        request = self.request
+        account = self.account
         if not account:
             messages.error(request, "The account could not be found.")
             return redirect("accounts:list")
@@ -331,20 +348,40 @@ class AccountMFAResetView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
                 "For safety, another administrator must reset MFA for the account you are using.",
             )
             return redirect("accounts:edit", pk=account.pk)
-        account.mfa_enabled = False
-        account.mfa_secret = ""
-        account.mfa_recovery_codes = []
-        account.mfa_last_counter = None
-        account.mfa_version += 1
-        account.save(
-            update_fields=[
-                "mfa_enabled",
-                "mfa_secret",
-                "mfa_recovery_codes",
-                "mfa_last_counter",
-                "mfa_version",
-            ]
-        )
+        if not request.user.check_password(form.cleaned_data["current_password"]):
+            form.add_error("current_password", "The administrator password is incorrect.")
+            return self.form_invalid(form)
+        with transaction.atomic():
+            administrator = CustomUser.objects.select_for_update().get(pk=request.user.pk)
+            secret = decrypt_secret(administrator.mfa_secret) if administrator.mfa_enabled else ""
+            counter = verify_totp(
+                secret,
+                form.cleaned_data["code"],
+                last_counter=administrator.mfa_last_counter,
+            ) if secret else None
+            if counter is None:
+                form.add_error(
+                    "code",
+                    "Enter a fresh code from your own authenticator app.",
+                )
+                return self.form_invalid(form)
+            administrator.mfa_last_counter = counter
+            administrator.save(update_fields=["mfa_last_counter"])
+            account = CustomUser.objects.select_for_update().get(pk=account.pk)
+            account.mfa_enabled = False
+            account.mfa_secret = ""
+            account.mfa_recovery_codes = []
+            account.mfa_last_counter = None
+            account.mfa_version += 1
+            account.save(
+                update_fields=[
+                    "mfa_enabled",
+                    "mfa_secret",
+                    "mfa_recovery_codes",
+                    "mfa_last_counter",
+                    "mfa_version",
+                ]
+            )
         record_request_event(
             request,
             title="Multi-factor Authentication Reset",

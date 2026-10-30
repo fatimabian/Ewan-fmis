@@ -349,9 +349,18 @@ class MultiFactorAuthenticationTests(TestCase):
         self.assertRedirects(response, reverse("authentication:mfa_setup"))
         setup = self.client.get(reverse("authentication:mfa_setup"))
         self.assertContains(setup, "Set up your authenticator")
+        self.assertNotContains(setup, "Authenticator setup QR code")
+        response = self.client.post(
+            reverse("authentication:mfa_setup"),
+            {"current_password": self.password},
+        )
+        self.assertRedirects(response, reverse("authentication:mfa_setup"))
         secret = self.client.session["fmis_mfa_setup_secret"]
         code = totp_at(secret, int(time.time() // 30))
-        response = self.client.post(reverse("authentication:mfa_setup"), {"code": code})
+        response = self.client.post(
+            reverse("authentication:mfa_setup"),
+            {"code": code},
+        )
         self.assertRedirects(response, reverse("authentication:mfa_recovery_codes"))
         self.user.refresh_from_db()
         self.assertTrue(self.user.mfa_enabled)
@@ -365,6 +374,56 @@ class MultiFactorAuthenticationTests(TestCase):
         self.assertContains(response, "Save your recovery codes")
         self.assertContains(response, "I Have Saved These Codes")
         response = self.client.post(reverse("authentication:mfa_recovery_codes"))
+        self.assertRedirects(response, reverse("dashboard:staff_home"))
+
+    def test_authenticator_setup_requires_password_reentry(self):
+        self._start_login()
+        setup = self.client.get(reverse("authentication:mfa_setup"))
+        self.assertNotContains(setup, "Authenticator setup QR code")
+        self.assertNotIn("fmis_mfa_setup_secret", self.client.session)
+        response = self.client.post(
+            reverse("authentication:mfa_setup"),
+            {"current_password": "wrong password"},
+        )
+        self.assertContains(response, "password is incorrect")
+        self.user.refresh_from_db()
+        self.assertFalse(self.user.mfa_enabled)
+
+    def test_new_account_challenge_discards_prior_setup_secret_and_authorization(self):
+        self._start_login()
+        self.client.post(
+            reverse("authentication:mfa_setup"),
+            {"current_password": self.password},
+        )
+        self.client.get(reverse("authentication:mfa_setup"))
+        first_secret = self.client.session["fmis_mfa_setup_secret"]
+
+        second_user = get_user_model().objects.create_user(
+            username="secondmfastaff",
+            email="secondmfastaff@example.com",
+            password=self.password,
+            role="STAFF",
+            is_active=True,
+        )
+        response = self.client.post(
+            reverse("authentication:login"),
+            {"username": second_user.username, "password": self.password},
+        )
+        self.assertRedirects(response, reverse("authentication:mfa_setup"))
+        self.assertNotIn("fmis_mfa_setup_secret", self.client.session)
+        self.assertNotIn("fmis_mfa_password_confirmed", self.client.session)
+
+        self.client.post(
+            reverse("authentication:mfa_setup"),
+            {"current_password": self.password},
+        )
+        self.client.get(reverse("authentication:mfa_setup"))
+        self.assertNotEqual(first_secret, self.client.session["fmis_mfa_setup_secret"])
+
+    def test_setup_qr_cannot_be_reopened_after_activation(self):
+        self._enroll()
+        self.client.post(reverse("authentication:mfa_recovery_codes"))
+        response = self.client.get(reverse("authentication:mfa_setup"))
         self.assertRedirects(response, reverse("dashboard:staff_home"))
 
     def test_email_activation_continues_to_authenticator_enrollment(self):
@@ -518,8 +577,18 @@ class MultiFactorAuthenticationTests(TestCase):
             role="ADMIN",
             is_active=True,
         )
+        admin_secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
+        admin.mfa_enabled = True
+        admin.mfa_secret = encrypt_secret(admin_secret)
+        admin.save(update_fields=["mfa_enabled", "mfa_secret"])
         self.client.force_login(admin)
-        response = self.client.post(reverse("accounts:reset_mfa", args=[self.user.pk]))
+        response = self.client.post(
+            reverse("accounts:reset_mfa", args=[self.user.pk]),
+            {
+                "current_password": self.password,
+                "code": totp_at(admin_secret, int(time.time() // 30)),
+            },
+        )
         self.assertRedirects(response, reverse("accounts:edit", args=[self.user.pk]))
         self.user.refresh_from_db()
         self.assertFalse(self.user.mfa_enabled)
@@ -527,3 +596,35 @@ class MultiFactorAuthenticationTests(TestCase):
         revoked = staff_client.get(reverse("dashboard:staff_home"))
         self.assertEqual(revoked.status_code, 302)
         self.assertTrue(revoked.url.startswith(reverse("authentication:login")))
+
+    def test_admin_cannot_reset_another_authenticator_without_reverification(self):
+        self.user.mfa_enabled = True
+        self.user.mfa_secret = encrypt_secret("JBSWY3DPEHPK3PXP")
+        self.user.save(update_fields=["mfa_enabled", "mfa_secret"])
+        admin = get_user_model().objects.create_user(
+            username="otheradmin", password=self.password, role="ADMIN", is_active=True,
+            mfa_enabled=True, mfa_secret=encrypt_secret("GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"),
+        )
+        self.client.force_login(admin)
+        response = self.client.post(
+            reverse("accounts:reset_mfa", args=[self.user.pk]),
+            {"current_password": "wrong", "code": "000000"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.mfa_enabled)
+
+    def test_staff_cannot_open_another_accounts_authenticator_reset(self):
+        self.user.mfa_enabled = True
+        self.user.mfa_secret = encrypt_secret("JBSWY3DPEHPK3PXP")
+        self.user.save(update_fields=["mfa_enabled", "mfa_secret"])
+        other_staff = get_user_model().objects.create_user(
+            username="ordinaryfieldstaff",
+            password=self.password,
+            role="STAFF",
+            is_active=True,
+        )
+        self.client.force_login(other_staff)
+        response = self.client.get(reverse("accounts:reset_mfa", args=[self.user.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard:home"))

@@ -28,6 +28,15 @@
         </dl>
       </section>
       <section class="record-single-section">
+        <h3><i class="bi bi-shield-lock"></i> Authenticator Security</h3>
+        <dl class="record-data">
+          <div><dt>Authenticator</dt><dd>{% if object.mfa_enabled %}Enabled{% else %}Enrollment required{% endif %}</dd></div>
+        </dl>
+        {% if object.mfa_enabled and object.pk != request.user.pk %}
+          <a class="btn btn-outline-danger" href="{% url 'accounts:reset_mfa' object.pk %}"><i class="bi bi-arrow-repeat"></i> Replace Authenticator</a>
+        {% endif %}
+      </section>
+      <section class="record-single-section">
         <h3><i class="bi bi-envelope-at"></i> Contact &amp; Sign-in</h3>
         <dl class="record-data">
           <div><dt>Email Address</dt><dd>{{ object.email|default:'Not recorded' }}</dd></div>

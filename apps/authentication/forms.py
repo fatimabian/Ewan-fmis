@@ -130,6 +130,16 @@ class ActivationOTPForm(InlineValidationMixin, forms.Form):
 
 
 class MFASetupForm(ActivationOTPForm):
+    current_password = forms.CharField(
+        label="Confirm your FMIS password",
+        strip=False,
+        widget=forms.PasswordInput(
+            attrs={
+                "autocomplete": "current-password",
+                "placeholder": "Enter your password again",
+            }
+        ),
+    )
     code = forms.CharField(
         label="Six-digit authenticator code",
         min_length=6,
@@ -149,6 +159,41 @@ class MFASetupForm(ActivationOTPForm):
         initial=True,
         label="Trust this private office browser for 30 days",
         widget=forms.CheckboxInput(attrs={"class": "remember-checkbox"}),
+    )
+
+    def __init__(self, *args, password_confirmed=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.password_confirmed = password_confirmed
+        self.fields["current_password"].required = not password_confirmed
+        self.fields["code"].required = password_confirmed
+        self.fields["trust_device"].required = False
+
+    def clean_code(self):
+        code = (self.cleaned_data.get("code") or "").strip()
+        if not self.password_confirmed:
+            return ""
+        if not code.isdigit():
+            raise forms.ValidationError("Enter the six-digit code from your authenticator app.")
+        return code
+
+
+class MFAResetAuthorizationForm(InlineValidationMixin, forms.Form):
+    current_password = forms.CharField(
+        label="Administrator password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password"}),
+    )
+    code = forms.CharField(
+        label="Administrator authenticator code",
+        min_length=6,
+        max_length=6,
+        widget=forms.TextInput(
+            attrs={
+                "autocomplete": "one-time-code",
+                "inputmode": "numeric",
+                "placeholder": "Six-digit code",
+            }
+        ),
     )
 
     def clean_code(self):

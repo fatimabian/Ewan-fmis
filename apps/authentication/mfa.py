@@ -195,6 +195,11 @@ def consume_recovery_code(user, candidate):
 
 def start_mfa_challenge(request, user, *, remember_me=False, next_url=""):
     request.session.cycle_key()
+    # A browser may begin a sign-in for a different account before an earlier
+    # enrollment challenge expires. Never carry setup authorization or a
+    # pending per-account secret into the replacement challenge.
+    request.session.pop("fmis_mfa_setup_secret", None)
+    request.session.pop("fmis_mfa_password_confirmed", None)
     request.session[MFA_SESSION_KEY] = {
         "user_id": user.pk,
         "remember_me": bool(remember_me),
@@ -217,3 +222,4 @@ def get_mfa_challenge(request):
 def clear_mfa_challenge(request):
     request.session.pop(MFA_SESSION_KEY, None)
     request.session.pop("fmis_mfa_setup_secret", None)
+    request.session.pop("fmis_mfa_password_confirmed", None)

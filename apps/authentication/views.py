@@ -496,12 +496,26 @@ class MFASetupView(PendingMFAViewMixin, FormView):
             self.request.session["fmis_mfa_setup_secret"] = secret
         return secret
 
+    def _password_confirmed(self):
+        return bool(self.request.session.get("fmis_mfa_password_confirmed"))
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["password_confirmed"] = self._password_confirmed()
+        return kwargs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        secret = self._secret()
+        password_confirmed = self._password_confirmed()
+        secret = self._secret() if password_confirmed else ""
         context.update(
             mfa_form=context["form"],
-            qr_data_uri=provisioning_qr_data_uri(secret, self.mfa_user),
+            password_confirmed=password_confirmed,
+            qr_data_uri=(
+                provisioning_qr_data_uri(secret, self.mfa_user)
+                if password_confirmed
+                else ""
+            ),
             manual_key=secret,
             account_label=self.mfa_user.email or self.mfa_user.username,
             attempts_remaining=max(
@@ -523,6 +537,15 @@ class MFASetupView(PendingMFAViewMixin, FormView):
             form.add_error("code", "Too many incorrect codes. Wait 10 minutes and sign in again.")
             clear_mfa_challenge(self.request)
             return self.form_invalid(form)
+        if not self._password_confirmed():
+            if not self.mfa_user.check_password(form.cleaned_data["current_password"]):
+                form.add_error(
+                    "current_password",
+                    "The password is incorrect. Authenticator setup was not changed.",
+                )
+                return self.form_invalid(form)
+            self.request.session["fmis_mfa_password_confirmed"] = True
+            return redirect("authentication:mfa_setup")
         secret = self._secret()
         counter = verify_totp(secret, form.cleaned_data["code"])
         if counter is None:

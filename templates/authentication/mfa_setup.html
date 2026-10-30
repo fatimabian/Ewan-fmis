@@ -7,16 +7,19 @@
       <span class="landing-dialog-icon"><i class="bi bi-shield-lock"></i></span>
       <span class="landing-dialog-kicker">ACCOUNT SECURITY</span>
       <h1 id="mfaSetupTitle">Set up your authenticator</h1>
-      <p>Use Google Authenticator, Microsoft Authenticator, or another compatible app. Scan this QR code, then enter the six-digit code shown by the app.</p>
+      {% if password_confirmed %}<p>Scan this one-time QR code with Google Authenticator, Microsoft Authenticator, or another compatible app, then enter its current code.</p>{% else %}<p>Confirm your FMIS password before FMIS creates or displays a new authenticator secret.</p>{% endif %}
       {% if messages %}{% for message in messages %}<div class="landing-dialog-message">{{ message }}</div>{% endfor %}{% endif %}
-      <div class="mfa-qr-wrap">
+      {% if password_confirmed %}<div class="mfa-qr-wrap">
         <img src="{{ qr_data_uri }}" width="210" height="210" alt="Authenticator setup QR code">
       </div>
       <details class="mfa-manual-key">
         <summary>Cannot scan the QR code?</summary>
         <p>Enter this setup key manually for <strong>{{ account_label }}</strong>:</p>
         <code>{{ manual_key }}</code>
-      </details>
+      </details>{% endif %}
+      {% if not password_confirmed %}<label for="{{ mfa_form.current_password.id_for_label }}">{{ mfa_form.current_password.label }}</label>
+      {{ mfa_form.current_password }}{{ mfa_form.current_password.errors }}{% endif %}
+      {% if password_confirmed %}
       <label for="{{ mfa_form.code.id_for_label }}">{{ mfa_form.code.label }}</label>
       <div class="landing-activation-code">{{ mfa_form.code }}{{ mfa_form.code.errors }}</div>
       <small class="landing-activation-attempts">{{ attempts_remaining }} attempt{{ attempts_remaining|pluralize }} remaining</small>
@@ -27,8 +30,9 @@
           <small>Do not select this on a shared or public browser.</small>
         </span>
       </label>
+      {% endif %}
       <div class="landing-activation-actions">
-        <button type="submit">Verify and Enable</button>
+        <button type="submit">{% if password_confirmed %}Verify and Enable{% else %}Continue Securely{% endif %}</button>
       </div>
     </form>
   </section>

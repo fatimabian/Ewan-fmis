@@ -1,0 +1,30 @@
+{% extends 'base/admin_base.html' %}
+{% block page_title %}Replace Authenticator{% endblock %}
+{% block page_subtitle %}Security verification is required before another account can enroll a new authenticator{% endblock %}
+{% block content %}
+  <div class="content" style="max-width:720px;margin:0 auto">
+    <section class="panel" style="padding:28px">
+      {% if account %}
+        <h2>Reset authenticator for {{ account.display_name }}</h2>
+        <p>This revokes the account's current authenticator, recovery codes, trusted browsers, and active sessions. The user must enroll a new unique authenticator at the next sign-in.</p>
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% for field in form %}
+            <div class="form-group" style="margin-top:18px">
+              <label for="{{ field.id_for_label }}"><strong>{{ field.label }}</strong></label>
+              {{ field }}
+              {% for error in field.errors %}<small class="text-danger">{{ error }}</small>{% endfor %}
+            </div>
+          {% endfor %}
+          <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px">
+            <a class="btn btn-outline-secondary" href="{% url 'accounts:detail' account.pk %}">Cancel</a>
+            <button class="btn btn-outline-danger" type="submit">Verify and Reset</button>
+          </div>
+        </form>
+      {% else %}
+        <p>The account could not be found.</p>
+        <a href="{% url 'accounts:list' %}">Return to User Accounts</a>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}
