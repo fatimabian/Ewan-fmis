@@ -29,7 +29,6 @@
         <h3><i class="bi bi-card-checklist"></i> Request Information</h3>
         <dl class="record-data">
           <div><dt>Scope</dt><dd>{{ object.get_scope_display }}</dd></div>
-          <div><dt>Request Source</dt><dd>{{ object.get_source_display }}{% if object.source == 'WEATHER' %} · <a href="{% url 'weather_monitoring:event_detail' object.weather_link.event_id %}">View weather review</a>{% endif %}</dd></div>
           <div><dt>Beneficiary</dt><dd>{{ object.beneficiary_label }}</dd></div>
           <div><dt>Coverage</dt><dd>{% if object.scope == 'BARANGAY' %}Brgy. {{ object.target_barangay }}{% elif object.scope == 'ASSOCIATION' %}{{ object.target_association }}{% elif object.scope == 'WALK_IN' %}Walk-In{% else %}{{ object.farmer.barangay }}{% endif %}</dd></div>
           <div><dt>Priority</dt><dd>{{ object.get_priority_display }}</dd></div>

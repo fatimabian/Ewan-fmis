@@ -14,7 +14,6 @@ from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
 from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.service_requests.models import ServiceRequest
-from apps.weather_monitoring.models import WeatherRiskEvent
 from .export import _filter_period, build_report, build_system_report
 
 
@@ -205,13 +204,6 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         # only when the Inventory tab is actually requested.
         inventory_items = InventoryItem.objects.none()
         inventory_movements = InventoryMovement.objects.none()
-    if tab == "requests":
-        weather_events = _filter_period(
-            WeatherRiskEvent.objects.all(), "created_at", date_range
-        )
-    else:
-        weather_events = WeatherRiskEvent.objects.none()
-
     if barangay:
         farmers = farmers.filter(barangay=barangay)
         parcels = parcels.filter(barangay=barangay)
@@ -223,9 +215,6 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         interventions = interventions.filter(
             Q(target_barangay=barangay)
             | Q(recipients__is_active=True, recipients__farmer__barangay=barangay)
-        ).distinct()
-        weather_events = weather_events.filter(
-            parcel_links__parcel__barangay=barangay
         ).distinct()
     if commodity:
         crops = crops.filter(crop_type=commodity)
@@ -314,20 +303,6 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         average_response=Avg(response_duration, filter=Q(first_responded_at__isnull=False)),
         average_completion=Avg(completion_duration, filter=Q(completed_at__isnull=False)),
     )
-    weather_review_duration = ExpressionWrapper(
-        F("reviewed_at") - F("created_at"), output_field=DurationField()
-    )
-    weather_counts = weather_events.aggregate(
-        total=Count("pk"),
-        pending=Count("pk", filter=Q(status=WeatherRiskEvent.STATUS_DRAFT)),
-        approved=Count("pk", filter=Q(status=WeatherRiskEvent.STATUS_APPROVED)),
-        dismissed=Count("pk", filter=Q(status=WeatherRiskEvent.STATUS_DISMISSED)),
-        affected_parcels=Count("parcel_links__parcel", distinct=True),
-        average_review=Avg(
-            weather_review_duration, filter=Q(reviewed_at__isnull=False)
-        ),
-    )
-
     def duration_hours(value):
         return round(value.total_seconds() / 3600, 1) if value else None
 
@@ -516,16 +491,6 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         "overdue_requests": overdue_requests.count(),
         "average_response_hours": duration_hours(timing["average_response"]),
         "average_completion_hours": duration_hours(timing["average_completion"]),
-        "weather_event_total": weather_counts["total"] or 0,
-        "weather_pending_reviews": weather_counts["pending"] or 0,
-        "weather_approved": weather_counts["approved"] or 0,
-        "weather_dismissed": weather_counts["dismissed"] or 0,
-        "weather_affected_parcels": weather_counts["affected_parcels"] or 0,
-        "weather_average_review_hours": duration_hours(weather_counts["average_review"]),
-        "weather_event_series": _monthly_series(weather_events, "created_at"),
-        "weather_barangays": _comparison_rows(
-            weather_events, "parcel_links__parcel__barangay", limit=8
-        ),
         "parcel_total": parcel_totals["total"] or 0,
         "parcel_area": parcel_totals["area"] or 0,
         "pinned_parcels": (parcel_totals["total"] or 0) - unpinned,

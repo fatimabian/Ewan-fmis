@@ -48,7 +48,6 @@ CANONICAL_AGRICULTURAL_SERVICES = (
     ("MARKET", "Market Linkage or Product Promotion Assistance", "Market Support"),
     ("FCA", "Farmer Cooperative or Association Support", "Organization Support"),
     ("DISASTER", "Farm Damage Assessment or Disaster Assistance", "Emergency Support"),
-    ("CROP-MONITOR", "Crop Monitoring Support", "Technical Services"),
     ("OTHER", "Other Agricultural Concern", "Other"),
 )
 

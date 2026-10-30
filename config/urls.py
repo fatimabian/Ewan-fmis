@@ -21,7 +21,6 @@ urlpatterns = [
     path("requests/", include("apps.service_requests.urls")),
     path("interventions/", include("apps.interventions.urls")),
     path("inventory/", include("apps.inventory.urls")),
-    path("weather-monitoring/", include("apps.weather_monitoring.urls")),
     path("reports/", include("apps.reports.urls")),
     path("activity/", include("apps.activity_logs.urls")),
     path("notifications/", include("apps.notifications.urls")),

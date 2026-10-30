@@ -17,7 +17,6 @@ from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
 from apps.service_requests.models import ServiceRequest
 from apps.settings_page.models import BackupRun
-from apps.weather_monitoring.models import WeatherMonitoringRun, WeatherRiskEvent
 from decimal import Decimal
 
 
@@ -544,15 +543,6 @@ def _build_staff_dashboard_metrics():
         if completeness_denominator
         else 0
     )
-    weather_summary = WeatherRiskEvent.objects.aggregate(
-        active_alerts=Count("pk", filter=Q(status="DRAFT")),
-        affected_parcels=Count(
-            "parcel_links__parcel", filter=Q(status="DRAFT"), distinct=True
-        ),
-    )
-    last_weather_run = WeatherMonitoringRun.objects.filter(
-        status__in=(WeatherMonitoringRun.STATUS_SUCCESS, WeatherMonitoringRun.STATUS_PARTIAL)
-    ).first()
     return {
         "farmers": total_farmers,
         "parcels": total_parcels,
@@ -580,8 +570,6 @@ def _build_staff_dashboard_metrics():
         "crop_recommendation": _crop_recommendation(today, recommendation_rows),
         "recent_requests": list(rosario_requests.filter(open_filter)[:5]),
         "dashboard_date": today,
-        "weather_monitoring_summary": weather_summary,
-        "last_weather_run": last_weather_run,
     }
 
 

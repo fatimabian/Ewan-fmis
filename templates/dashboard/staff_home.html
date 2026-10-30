@@ -181,15 +181,6 @@
         </section>
 
       </div>
-      <div class="ranked-summary-heading" style="margin-top:18px">
-        <h3>Weather Monitoring Review</h3>
-        <a href="{% url 'weather_monitoring:event_list' %}?status=DRAFT">Open reviews</a>
-      </div>
-      <div class="request-overview-grid">
-        <a href="{% url 'weather_monitoring:event_list' %}?status=DRAFT"><span class="status-dot pending"></span><small>Drafts awaiting review</small><b>{{ weather_monitoring_summary.active_alerts }}</b></a>
-        <a href="{% url 'weather_monitoring:event_list' %}?status=DRAFT"><span class="status-dot progress"></span><small>Potentially exposed parcels</small><b>{{ weather_monitoring_summary.affected_parcels }}</b></a>
-        <a href="{% url 'weather_monitoring:event_list' %}"><span class="status-dot completed"></span><small>Last successful update</small><b style="font-size:12px">{{ last_weather_run.finished_at|date:'M d, h:i A'|default:'Not run' }}</b></a>
-      </div>
     </section>
 
       <article class="staff-card weather-card"

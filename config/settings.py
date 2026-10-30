@@ -37,7 +37,6 @@ INSTALLED_APPS = [
     "apps.service_requests",
     "apps.interventions.apps.InterventionsConfig",
     "apps.inventory.apps.InventoryConfig",
-    "apps.weather_monitoring",
     "apps.reports",
     "apps.activity_logs",
     "apps.notifications",
@@ -164,16 +163,6 @@ FMIS_BACKUP_SCHEDULER_CONFIGURED = os.getenv(
     "FMIS_BACKUP_SCHEDULER_CONFIGURED", "False"
 ).lower() == "true"
 FMIS_RELEASE_VERSION = os.getenv("FMIS_RELEASE_VERSION", "Unreleased build")
-FMIS_WEATHER_LICENSE_REVIEWED = os.getenv(
-    "FMIS_WEATHER_LICENSE_REVIEWED", "False"
-).lower() == "true"
-FMIS_WEATHER_SCHEDULER_CONFIGURED = os.getenv(
-    "FMIS_WEATHER_SCHEDULER_CONFIGURED", "False"
-).lower() == "true"
-FMIS_WEATHER_API_URL = os.getenv(
-    "FMIS_WEATHER_API_URL", "https://api.open-meteo.com/v1/forecast"
-).strip()
-FMIS_WEATHER_API_KEY = os.getenv("FMIS_WEATHER_API_KEY", "").strip()
 FMIS_FIELD_BASE_URL = os.getenv("FMIS_FIELD_BASE_URL", "").strip().rstrip("/")
 if not DEBUG and FMIS_FIELD_BASE_URL and not FMIS_FIELD_BASE_URL.startswith("https://"):
     raise ImproperlyConfigured("FMIS_FIELD_BASE_URL must use HTTPS in production.")
