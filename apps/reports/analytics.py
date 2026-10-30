@@ -1,10 +1,9 @@
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 
 from django.conf import settings
 from django.core.cache import cache
 from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Q, Sum
-from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from apps.activity_logs.models import ActivityLog
@@ -33,16 +32,53 @@ ANALYTICS_TABS = (
 )
 
 
+def _month_bucket(value):
+    """Return a local calendar-month key without database timezone conversion.
+
+    MariaDB's CONVERT_TZ returns NULL when its optional timezone tables have not
+    been installed. Grouping the narrow values query in Python keeps analytics
+    portable while avoiding full model hydration.
+    """
+    if isinstance(value, datetime) and timezone.is_aware(value):
+        value = timezone.localtime(value)
+    return date(value.year, value.month, 1) if value else None
+
+
+def _monthly_count_map(queryset, field_name, *, count_field="pk"):
+    grouped = defaultdict(set)
+    fields = (field_name, count_field)
+    for occurred_at, identity in queryset.exclude(
+        **{f"{field_name}__isnull": True}
+    ).values_list(*fields).iterator(chunk_size=2000):
+        period = _month_bucket(occurred_at)
+        if period is not None:
+            grouped[period].add(identity)
+    return {period: len(identities) for period, identities in grouped.items()}
+
+
+def _monthly_value_map(queryset, field_name, value_field):
+    grouped = defaultdict(int)
+    fields = (field_name, value_field)
+    for occurred_at, value in queryset.exclude(
+        **{f"{field_name}__isnull": True}
+    ).values_list(*fields).iterator(chunk_size=2000):
+        period = _month_bucket(occurred_at)
+        if period is not None:
+            grouped[period] += value or 0
+    return dict(grouped)
+
+
 def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None, limit=12):
-    """Return compact, database-aggregated monthly counts for an analytics line."""
-    aggregation = Sum(value_field) if value_field else Count(count_field, distinct=True)
-    rows = list(
-        queryset.annotate(period=TruncMonth(field_name))
-        .values("period")
-        .annotate(total=aggregation)
-        .order_by("period")
+    """Return compact monthly values without relying on DB timezone tables."""
+    totals = (
+        _monthly_value_map(queryset, field_name, value_field)
+        if value_field
+        else _monthly_count_map(queryset, field_name, count_field=count_field)
     )
-    rows = [row for row in rows if row["period"]][-limit:]
+    rows = [
+        {"period": period, "total": total}
+        for period, total in sorted(totals.items())[-limit:]
+    ]
     peak = max((row["total"] or 0 for row in rows), default=0) or 1
     count = len(rows)
     points = []
@@ -66,22 +102,8 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
 
 
 def _monthly_dual_series(first_queryset, first_field, second_queryset, second_field, limit=12):
-    first = {
-        row["period"]: row["total"]
-        for row in first_queryset.annotate(period=TruncMonth(first_field))
-        .values("period")
-        .annotate(total=Count("pk", distinct=True))
-        .order_by("period")
-        if row["period"]
-    }
-    second = {
-        row["period"]: row["total"]
-        for row in second_queryset.annotate(period=TruncMonth(second_field))
-        .values("period")
-        .annotate(total=Count("pk", distinct=True))
-        .order_by("period")
-        if row["period"]
-    }
+    first = _monthly_count_map(first_queryset, first_field)
+    second = _monthly_count_map(second_queryset, second_field)
     periods = sorted(set(first) | set(second))[-limit:]
     peak = max([first.get(period, 0) for period in periods] + [second.get(period, 0) for period in periods] + [1])
     count = len(periods)
@@ -303,16 +325,16 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         )
     if overdue_requests.exists():
         findings.append(f"{overdue_requests.count()} open service request{'s are' if overdue_requests.count() != 1 else ' is'} overdue.")
+    request_month_totals = _monthly_count_map(requests, "created_at")
     busiest_request_month = (
-        requests.annotate(month=TruncMonth("created_at"))
-        .values("month")
-        .annotate(total=Count("pk"))
-        .order_by("-total", "month")
-        .first()
+        sorted(request_month_totals.items(), key=lambda item: (-item[1], item[0]))[0]
+        if request_month_totals
+        else None
     )
-    if busiest_request_month and busiest_request_month["month"]:
+    if busiest_request_month:
+        busiest_month, busiest_total = busiest_request_month
         findings.append(
-            f'{busiest_request_month["month"].strftime("%B %Y")} recorded the highest request volume in the selected period ({busiest_request_month["total"]}).'
+            f'{busiest_month.strftime("%B %Y")} recorded the highest request volume in the selected period ({busiest_total}).'
         )
     if not findings:
         findings.append("No overdue requests or unmapped parcel records were found for the selected filters.")
