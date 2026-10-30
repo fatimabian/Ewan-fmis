@@ -45,16 +45,25 @@
     body[data-theme="dark"] .rsbsa-file-remove{color:#d2e2d8}
     body[data-theme="dark"] .rsbsa-file-remove:hover,body[data-theme="dark"] .rsbsa-file-remove:focus-visible{background:#385044;color:#fff}
     body[data-theme="dark"] .rsbsa-camera-dialog{border-color:#607267;background:#1f2923;color:#edf6f0}
+    .duplicate-review-modal{position:fixed;inset:0;z-index:10030;display:grid;place-items:center;padding:18px}
+    .duplicate-review-modal[hidden]{display:none!important}.duplicate-review-backdrop{position:absolute;inset:0;border:0;background:rgba(10,22,17,.72)}
+    .duplicate-review-dialog{position:relative;width:min(920px,100%);max-height:88vh;overflow:auto;padding:22px;border:1px solid #afbeb6;background:#fff;box-shadow:0 24px 65px rgba(0,0,0,.32)}
+    .duplicate-review-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.duplicate-review-head h2{margin:0 0 5px;font-size:1.25rem}.duplicate-review-head p{margin:0;color:#526276}
+    .duplicate-review-close{display:grid;flex:0 0 42px;width:42px;height:42px;place-items:center;border:1px solid #87978e;background:#fff;font-size:1.1rem}
+    .duplicate-new-record{margin:17px 0 13px;padding:12px 14px;border-left:3px solid #526b85;background:#f3f6f8}.duplicate-new-record small{display:block;color:#667085}.duplicate-new-record strong{display:block;margin-top:3px;color:#17233a}
+    .duplicate-method{margin:0 0 12px;color:#667085;font-size:.75rem}.duplicate-match-list{display:grid;gap:9px}.duplicate-match{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(120px,.7fr) 90px 105px;gap:12px;align-items:center;padding:12px;border:1px solid #d6dfda;background:#fff}.duplicate-match h3{margin:0 0 3px;font-size:.92rem}.duplicate-match p{margin:0;color:#59687a;font-size:.76rem}.duplicate-score{display:inline-flex;justify-content:center;padding:6px 8px;border:1px solid #c67b17;background:#fff8e8;color:#87510b;font-weight:800}.duplicate-review-link{color:#075dc4;font-weight:750;text-decoration:none}.duplicate-reason-field{display:grid;gap:6px;margin-top:16px}.duplicate-reason-field label{font-weight:750}.duplicate-reason-field textarea{width:100%;min-height:74px;padding:10px;border:1px solid #aebdb5;resize:vertical}.duplicate-review-error{min-height:18px;margin:5px 0 0;color:#b42318;font-size:.78rem}.duplicate-review-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
+    body[data-theme="dark"] .duplicate-review-dialog,body[data-theme="dark"] .duplicate-review-close,body[data-theme="dark"] .duplicate-match{border-color:#52675b;background:#1c2735;color:#f1f5f9}body[data-theme="dark"] .duplicate-new-record{background:#243442}body[data-theme="dark"] .duplicate-new-record strong{color:#f1f5f9}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
     @media(max-width:900px){.rsbsa-file-picker{align-items:flex-start;flex-wrap:wrap}.rsbsa-file-selection{flex-basis:100%}}
-    @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-actions{width:100%}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-selection{width:100%}.rsbsa-file-summary{margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal{padding:6px}.rsbsa-camera-dialog{padding:12px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}}
+    @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-actions{width:100%}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-selection{width:100%}.rsbsa-file-summary{margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal,.duplicate-review-modal{padding:6px}.rsbsa-camera-dialog,.duplicate-review-dialog{padding:14px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}.duplicate-match{grid-template-columns:1fr 90px}.duplicate-match>:nth-child(2){grid-column:1/-1}.duplicate-review-actions{display:grid;grid-template-columns:1fr 1fr}.duplicate-review-actions .btn{width:100%}}
   </style>
 {% endblock %}
 {% block content %}
   <div class="content registration-page">
     <section class="panel registration-shell">
-      <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" novalidate>
+      <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" data-duplicate-check-url="{% url 'farmers:duplicate_check' %}" novalidate>
         {% csrf_token %}
+        <input type="hidden" name="duplicate_review_token" id="duplicateReviewToken" value="">
         <section class="rsbsa-record-card" aria-labelledby="rsbsaRecordCopyTitle">
           <div class="rsbsa-record-head">
             <div class="rsbsa-record-title">
@@ -342,6 +351,18 @@
           </div>
         </section>
       </form>
+      <div class="duplicate-review-modal" id="duplicateReviewModal" hidden aria-hidden="true">
+        <button type="button" class="duplicate-review-backdrop" data-duplicate-close aria-label="Close possible duplicate review"></button>
+        <section class="duplicate-review-dialog" role="dialog" aria-modal="true" aria-labelledby="duplicateReviewTitle">
+          <header class="duplicate-review-head"><div><h2 id="duplicateReviewTitle">Possible matching farmer records</h2><p>Compare these records before creating another farmer. A similarity flag is not proof of duplication.</p></div><button type="button" class="duplicate-review-close" data-duplicate-close aria-label="Close"><i class="bi bi-x-lg"></i></button></header>
+          <div class="duplicate-new-record"><small>New registration</small><strong id="duplicateNewFarmer"></strong></div>
+          <p class="duplicate-method" id="duplicateMethod"></p>
+          <div class="duplicate-match-list" id="duplicateMatchList"></div>
+          <div class="duplicate-reason-field"><label for="duplicateReviewReason">Why is this a separate farmer?</label><textarea id="duplicateReviewReason" maxlength="300" placeholder="Example: Different birthdate and verified as a different household member."></textarea></div>
+          <p class="duplicate-review-error" id="duplicateReviewError" role="alert"></p>
+          <div class="duplicate-review-actions"><button type="button" class="btn btn-outline-secondary" data-duplicate-close>Cancel</button><button type="button" class="btn btn-success" id="duplicateConfirmSeparate">Confirm Separate Farmer</button></div>
+        </section>
+      </div>
       <div class="registration-loading" id="registrationLoading" hidden role="status" aria-live="polite">
         <div class="registration-loading-card">
           <span class="spinner-border" aria-hidden="true"></span>
@@ -366,6 +387,61 @@
   </div>
   <script defer src="{% static 'js/rsbsa-multi-upload.js' %}?v=1"></script>
   <script src="{% static 'js/registration-draft.js' %}"></script>
+  <script>
+    (()=>{
+      const form=document.getElementById('rsbsaRegistration');
+      const modal=document.getElementById('duplicateReviewModal');
+      const list=document.getElementById('duplicateMatchList');
+      const method=document.getElementById('duplicateMethod');
+      const newFarmer=document.getElementById('duplicateNewFarmer');
+      const reason=document.getElementById('duplicateReviewReason');
+      const error=document.getElementById('duplicateReviewError');
+      const token=document.getElementById('duplicateReviewToken');
+      const confirm=document.getElementById('duplicateConfirmSeparate');
+      const identityFields=['first_name','middle_name','last_name','extension_name','birth_date','barangay','valid_id_type','valid_id_number'];
+      let duplicateCheckPassed=false;
+      let checking=false;
+      if(!form||!modal)return;
+      const payload=(extra={})=>{
+        const values=new URLSearchParams();
+        identityFields.forEach(name=>values.set(name,form.elements[name]?.value||''));
+        Object.entries(extra).forEach(([name,value])=>values.set(name,value));
+        return values;
+      };
+      const escapeHtml=value=>{const span=document.createElement('span');span.textContent=String(value??'');return span.innerHTML};
+      const close=()=>{modal.hidden=true;modal.setAttribute('aria-hidden','true');error.textContent=''};
+      document.querySelectorAll('[data-duplicate-close]').forEach(button=>button.addEventListener('click',close));
+      identityFields.forEach(name=>form.elements[name]?.addEventListener('change',()=>{token.value='';duplicateCheckPassed=false}));
+      const requestCheck=async extra=>{
+        const response=await fetch(form.dataset.duplicateCheckUrl,{method:'POST',headers:{'X-CSRFToken':form.elements.csrfmiddlewaretoken.value,'X-Requested-With':'XMLHttpRequest'},body:payload(extra)});
+        const data=await response.json();
+        if(!response.ok)throw new Error(data.error||'The duplicate check could not be completed.');
+        return data;
+      };
+      form.addEventListener('submit',async event=>{
+        if(token.value||duplicateCheckPassed)return;
+        event.preventDefault();event.stopImmediatePropagation();
+        if(checking||!form.reportValidity())return;
+        checking=true;
+        const submit=form.querySelector('.submit-registration');
+        submit.disabled=true;submit.textContent='Checking records…';
+        try{
+          const data=await requestCheck();
+          if(!data.matches.length){duplicateCheckPassed=true;form.requestSubmit();return}
+          method.textContent=data.method;
+          newFarmer.textContent=[form.elements.first_name.value,form.elements.middle_name.value,form.elements.last_name.value,form.elements.extension_name.value].filter(Boolean).join(' ');
+          list.innerHTML=data.matches.map(match=>`<article class="duplicate-match"><div><h3>${escapeHtml(match.farmer_id)} · ${escapeHtml(match.name)}</h3><p>${escapeHtml(match.reasons.join(' · '))}</p></div><div><p>${escapeHtml(match.barangay)}</p><p>Birth year: ${escapeHtml(match.birth_year)}</p></div><span class="duplicate-score">${escapeHtml(match.score)}%</span><a class="duplicate-review-link" href="${escapeHtml(match.review_url)}" target="_blank" rel="noopener">Review Record</a></article>`).join('');
+          modal.hidden=false;modal.setAttribute('aria-hidden','false');reason.focus();
+        }catch(problem){window.alert(problem.message)}finally{checking=false;submit.disabled=false;submit.innerHTML='<i class="bi bi-check2-circle"></i> Submit Registration'}
+      },true);
+      confirm.addEventListener('click',async()=>{
+        error.textContent='';
+        if(reason.value.trim().length<5){error.textContent='Enter a short reason before confirming.';reason.focus();return}
+        confirm.disabled=true;
+        try{const data=await requestCheck({decision:'SEPARATE',reason:reason.value.trim()});token.value=data.review_token;close();form.requestSubmit()}catch(problem){error.textContent=problem.message}finally{confirm.disabled=false}
+      });
+    })();
+  </script>
   <script>
       (function() {
           const form = document.getElementById('rsbsaRegistration');

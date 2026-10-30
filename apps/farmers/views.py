@@ -37,6 +37,11 @@ from .models import Farmer, FarmerDocument
 from .history import farmer_snapshot, record_farmer_update
 from .rsbsa_pdf import farmer_record_pdf_response
 from .rsbsa_scan import RSBSAScanError, scan_rsbsa_profile
+from .duplicate_detection import (
+    build_review_token,
+    find_possible_duplicates,
+    read_review_token,
+)
 from apps.activity_logs.services import record_request_event
 
 FARMER_QR_SALT = "fmis.farmers.field-record.v1"
@@ -375,6 +380,26 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 self.build_context(profile_form, parcel_formset, crop_formset, document_formset),
             )
 
+        possible_duplicates = find_possible_duplicates(profile_form.cleaned_data)
+        duplicate_review = None
+        if possible_duplicates:
+            duplicate_review = read_review_token(
+                request.POST.get("duplicate_review_token", ""),
+                profile_form.cleaned_data,
+                possible_duplicates,
+            )
+            if not duplicate_review:
+                profile_form.add_error(
+                    None,
+                    "Possible matching farmer records were found. Review them and confirm that this is a separate farmer before saving.",
+                )
+                return render(
+                    request,
+                    self.template_name,
+                    self.build_context(profile_form, parcel_formset, crop_formset, document_formset),
+                    status=409,
+                )
+
         try:
             with transaction.atomic():
                 farmer = profile_form.save(commit=False)
@@ -460,7 +485,82 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 status=503,
             )
 
+        if duplicate_review:
+            record_request_event(
+                request,
+                title="Possible Duplicate Reviewed",
+                module="Farmers",
+                description=(
+                    f"{request.user.display_name} confirmed that {farmer.record_id} is a separate farmer."
+                ),
+                target_label=farmer.record_id,
+                reason=duplicate_review["reason"],
+                details=[
+                    {
+                        "field": "Reviewed candidate",
+                        "after": f"{match['farmer'].record_id} · rule-based similarity {match['score']}%",
+                    }
+                    for match in possible_duplicates
+                ],
+            )
+
         return redirect("farmers:registration_complete", pk=farmer.pk)
+
+
+class FarmerDuplicateCheckView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Return a small, non-sensitive set of possible duplicate records."""
+
+    def post(self, request):
+        cache_key = f"fmis:farmer-duplicate-check:{request.user.pk}"
+        try:
+            attempts = cache.incr(cache_key)
+        except ValueError:
+            cache.set(cache_key, 1, 60)
+            attempts = 1
+        if attempts > 30:
+            return JsonResponse(
+                {"error": "Too many duplicate checks. Wait one minute and try again."},
+                status=429,
+            )
+        values = {
+            field: request.POST.get(field, "")
+            for field in (
+                "first_name", "middle_name", "last_name", "extension_name",
+                "birth_date", "barangay", "valid_id_type", "valid_id_number",
+            )
+        }
+        matches = find_possible_duplicates(values)
+        if request.POST.get("decision") == "SEPARATE":
+            reason = request.POST.get("reason", "").strip()
+            if len(reason) < 5:
+                return JsonResponse(
+                    {"error": "Enter a short reason for confirming a separate farmer."},
+                    status=400,
+                )
+            return JsonResponse(
+                {"review_token": build_review_token(values, matches, reason)}
+            )
+        return JsonResponse(
+            {
+                "method": "Rule-based fuzzy similarity; no ML model is active",
+                "matches": [
+                    {
+                        "farmer_id": match["farmer"].record_id,
+                        "name": match["farmer"].list_name,
+                        "barangay": match["farmer"].barangay,
+                        "birth_year": (
+                            match["farmer"].birth_date.year
+                            if match["farmer"].birth_date
+                            else "Not recorded"
+                        ),
+                        "score": match["score"],
+                        "reasons": match["reasons"],
+                        "review_url": reverse("farmers:detail", args=[match["farmer"].pk]),
+                    }
+                    for match in matches
+                ],
+            }
+        )
 
 
 class FarmerRSBSAScanView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
