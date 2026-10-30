@@ -19,6 +19,7 @@ from apps.service_catalog.models import ServiceCatalog
 from .forms import ServiceLevelPolicyForm, ServiceRequestForm
 from .models import ServiceLevelPolicy, ServiceRequest, ServiceRequestHistory
 from .services import ensure_service_level_policies, recalculate_open_deadlines
+from apps.weather_monitoring.models import WeatherRiskEvent
 
 
 def _history_value(field, value):
@@ -95,6 +96,7 @@ class ServiceRequestListView(
         priority = self.request.GET.get("priority", "").strip()
         assigned_to = self.request.GET.get("assigned_to", "").strip()
         overdue = self.request.GET.get("overdue", "").strip()
+        source = self.request.GET.get("source", "").strip()
         date_range = parse_inclusive_date_range(self.request.GET, label="request submission")
         self.filter_date_error = date_range.error
 
@@ -130,6 +132,8 @@ class ServiceRequestListView(
             queryset = queryset.exclude(status="COMPLETED")
         if priority:
             queryset = queryset.filter(priority=priority)
+        if source in {ServiceRequest.SOURCE_MANUAL, ServiceRequest.SOURCE_WEATHER}:
+            queryset = queryset.filter(source=source)
         if assigned_to.isdigit():
             queryset = queryset.filter(assigned_to_id=int(assigned_to))
         elif assigned_to == "unassigned":
@@ -154,6 +158,10 @@ class ServiceRequestListView(
         context = super().get_context_data(**kwargs)
         context["status_choices"] = ServiceRequest.STATUS_CHOICES
         context["priority_choices"] = ServiceRequest.PRIORITY_CHOICES
+        context["source_choices"] = ServiceRequest.SOURCE_CHOICES
+        context["pending_weather_reviews"] = WeatherRiskEvent.objects.filter(
+            status=WeatherRiskEvent.STATUS_DRAFT
+        ).count()
         context["request_type_choices"] = ServiceCatalog.objects.filter(
             servicerequest__isnull=False
         ).distinct().order_by("name")

@@ -1,0 +1,17 @@
+[Unit]
+Description=FMIS completed-day rainfall monitoring
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=fmis
+Group=fmis
+WorkingDirectory=/srv/fmis/app
+EnvironmentFile=/etc/fmis/fmis.env
+ExecStart=/srv/fmis/venv/bin/python manage.py monitor_weather
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/srv/fmis/app /var/log/fmis
+

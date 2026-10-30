@@ -1,0 +1,38 @@
+{% extends base_template %}
+{% block page_title %}Weather Monitoring{% endblock %}
+{% block page_subtitle %}Preliminary rainfall exposure events requiring staff review{% endblock %}
+{% block content %}
+<div class="content">
+  <div class="fmis-table-toolbar">
+    <form method="get" class="fmis-toolbar-actions">
+      <select name="status" aria-label="Review status">
+        <option value="">All review statuses</option>
+        {% for value,label in status_choices %}<option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <button class="fmis-toolbar-button" type="submit"><i class="bi bi-funnel"></i> Apply Filter</button>
+      {% if request.user.is_admin %}<a class="btn btn-outline-success" href="{% url 'weather_monitoring:settings' %}"><i class="bi bi-gear"></i> Monitoring Settings</a>{% endif %}
+    </form>
+  </div>
+  <p class="panel" style="padding:14px;margin:12px 0">
+    <strong>Important:</strong> These are model-estimated rainfall exposure events, not proof of crop damage.
+    {% if last_run %} Last run: {{ last_run.finished_at|date:'M d, Y h:i A'|default:'Still running' }} ({{ last_run.get_status_display }}).{% else %} No monitoring run has been recorded.{% endif %}
+  </p>
+  <div class="universal-table-wrap">
+    <table class="universal-table">
+      <thead><tr><th>ID</th><th>Alert</th><th>Coverage</th><th>Rainfall period</th><th>Total</th><th>Parcels</th><th>Priority</th><th>Review status</th></tr></thead>
+      <tbody>
+      {% for item in object_list %}
+        <tr class="record-row" data-record-url="{% url 'weather_monitoring:event_detail' item.pk %}" tabindex="0">
+          <td><a href="{% url 'weather_monitoring:event_detail' item.pk %}">{{ item.event_id }}</a></td>
+          <td>{{ item.title }}</td><td>{{ item.coverage_area.name }}</td>
+          <td>{{ item.period_start|date:'M d, Y' }}–{{ item.period_end|date:'M d, Y' }}</td>
+          <td>{{ item.accumulated_rainfall_mm }} mm</td><td>{{ item.parcel_count }}</td>
+          <td>{{ item.suggested_priority|title }}</td><td>{{ item.get_status_display }}</td>
+        </tr>
+      {% empty %}<tr><td colspan="8">No weather monitoring events match this filter.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'shared/pagination.html' %}
+</div>
+{% endblock %}

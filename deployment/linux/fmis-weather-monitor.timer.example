@@ -1,0 +1,12 @@
+[Unit]
+Description=Run FMIS rainfall monitoring after each completed local day
+
+[Timer]
+OnCalendar=*-*-* 05:15:00 Asia/Manila
+Persistent=true
+RandomizedDelaySec=10m
+Unit=fmis-weather-monitor.service
+
+[Install]
+WantedBy=timers.target
+

@@ -1,0 +1,23 @@
+{% extends 'base/admin_base.html' %}
+{% block page_title %}Weather Monitoring Settings{% endblock %}
+{% block page_subtitle %}Inactive until API licensing and OAS thresholds are formally approved{% endblock %}
+{% block content %}
+<div class="content">
+  <section class="panel" style="padding:20px;margin-bottom:18px">
+    <p><strong>API licence reviewed:</strong> {{ license_reviewed|yesno:'Yes,No' }} · <strong>Scheduler configured:</strong> {{ scheduler_configured|yesno:'Yes,No' }}</p>
+    <p>Open-Meteo data requires attribution. Free API capacity is for non-commercial use; use the customer endpoint/key if the deployment requires a commercial plan.</p>
+  </section>
+  <section class="panel" style="padding:20px;margin-bottom:18px">
+    <div style="display:flex;justify-content:space-between"><h2>Coverage areas</h2><a class="btn btn-outline-success" href="{% url 'weather_monitoring:area_create' %}">Add coverage area</a></div>
+    <div class="universal-table-wrap"><table class="universal-table"><thead><tr><th>Name</th><th>Coordinates</th><th>Radius</th><th>Active</th></tr></thead><tbody>
+    {% for area in coverage_areas %}<tr><td><a href="{% url 'weather_monitoring:area_edit' area.pk %}">{{ area.name }}</a></td><td>{{ area.latitude }}, {{ area.longitude }}</td><td>{{ area.radius_km }} km</td><td>{{ area.is_active|yesno:'Yes,No' }}</td></tr>{% empty %}<tr><td colspan="4">No coverage areas configured.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  <section class="panel" style="padding:20px">
+    <div style="display:flex;justify-content:space-between"><h2>OAS-approved rules</h2><a class="btn btn-outline-success" href="{% url 'weather_monitoring:rule_create' %}">Add rule</a></div>
+    <div class="universal-table-wrap"><table class="universal-table"><thead><tr><th>Rule</th><th>Coverage</th><th>Daily minimum</th><th>Days</th><th>Accumulated</th><th>Approved</th><th>Active</th></tr></thead><tbody>
+    {% for rule in object_list %}<tr><td><a href="{% url 'weather_monitoring:rule_edit' rule.pk %}">{{ rule.name }}</a></td><td>{{ rule.coverage_area.name }}</td><td>{{ rule.minimum_daily_rainfall_mm }} mm</td><td>{{ rule.consecutive_days }}</td><td>{{ rule.accumulated_rainfall_mm }} mm</td><td>{{ rule.is_approved|yesno:'Yes,No' }}</td><td>{{ rule.is_active|yesno:'Yes,No' }}</td></tr>{% empty %}<tr><td colspan="7">No rules configured. Placeholder thresholds are not activated automatically.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</div>
+{% endblock %}

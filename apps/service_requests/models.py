@@ -42,6 +42,12 @@ class ServiceLevelPolicy(models.Model):
 
 
 class ServiceRequest(models.Model):
+    SOURCE_MANUAL = "MANUAL"
+    SOURCE_WEATHER = "WEATHER"
+    SOURCE_CHOICES = [
+        (SOURCE_MANUAL, "Manual"),
+        (SOURCE_WEATHER, "Weather-Triggered"),
+    ]
     SCOPE_CHOICES = [
         ("INDIVIDUAL", "One farmer"),
         ("BARANGAY", "Barangay"),
@@ -56,6 +62,9 @@ class ServiceRequest(models.Model):
     ]
     PRIORITY_CHOICES = [("LOW", "Low"), ("MEDIUM", "Medium"), ("HIGH", "High")]
     scope = models.CharField(max_length=12, choices=SCOPE_CHOICES, default="INDIVIDUAL")
+    source = models.CharField(
+        max_length=12, choices=SOURCE_CHOICES, default=SOURCE_MANUAL, db_index=True
+    )
     farmer = models.ForeignKey(
         Farmer,
         on_delete=models.PROTECT,

@@ -1,0 +1,45 @@
+{% extends base_template %}
+{% block page_title %}Weather Review {{ object.event_id }}{% endblock %}
+{% block page_subtitle %}Review model-estimated rainfall exposure before creating service requests{% endblock %}
+{% block content %}
+<div class="content record-detail">
+  <div class="record-detail-nav"><a href="{% url 'weather_monitoring:event_list' %}"><i class="bi bi-arrow-left"></i> Back to Weather Monitoring</a></div>
+  <section class="panel" style="padding:24px">
+    <h2>{{ object.title }}</h2>
+    <p><strong>This alert indicates possible exposure only. It does not confirm waterlogging, disease, or crop damage.</strong></p>
+    <dl class="record-data">
+      <div><dt>Coverage</dt><dd>{{ object.coverage_area.name }} · {{ object.coverage_area.radius_km }} km configured radius</dd></div>
+      <div><dt>Monitoring period</dt><dd>{{ object.period_start|date:'F d, Y' }} to {{ object.period_end|date:'F d, Y' }}</dd></div>
+      <div><dt>Accumulated rainfall</dt><dd>{{ object.accumulated_rainfall_mm }} mm</dd></div>
+      <div><dt>Triggered rule</dt><dd>{{ object.rule.name }}</dd></div>
+      <div><dt>Suggested priority</dt><dd>{{ object.suggested_priority|title }}</dd></div>
+      <div><dt>Review status</dt><dd>{{ object.get_status_display }}</dd></div>
+      <div><dt>Recommended action</dt><dd>{{ object.recommended_action }}</dd></div>
+      <div><dt>Excluded records</dt><dd>{{ object.excluded_parcel_count }} parcel(s) lacked suitable verified coordinates</dd></div>
+    </dl>
+  </section>
+  <section class="panel" style="padding:24px;margin-top:18px">
+    <h2>Potentially affected parcels</h2>
+    <div class="universal-table-wrap" style="max-height:520px;overflow:auto">
+      <table class="universal-table"><thead><tr><th>Parcel</th><th>Farmer</th><th>Barangay</th><th>Distance</th><th>Recorded crops</th></tr></thead><tbody>
+      {% for link in object.parcel_links.all %}<tr>
+        <td><a href="{% url 'farm_parcels:detail' link.parcel.pk %}">{{ link.parcel.display_name }}</a></td>
+        <td>{{ link.parcel.farmer.list_name }}</td><td>{{ link.parcel.barangay }}</td><td>{{ link.distance_km }} km</td>
+        <td>{% for crop in link.crop_summary %}{{ crop.crop }}{% if crop.variety %} ({{ crop.variety }}){% endif %}{% if not forloop.last %}, {% endif %}{% empty %}No active crop record{% endfor %}</td>
+      </tr>{% empty %}<tr><td colspan="5">No suitable verified parcel coordinates were within this configured coverage.</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+  </section>
+  {% if object.status == 'DRAFT' %}
+  <section class="panel" style="padding:24px;margin-top:18px">
+    <h2>Staff review</h2>
+    <form method="post" action="{% url 'weather_monitoring:event_review' object.pk %}">{% csrf_token %}
+      {% for field in review_form %}<div class="form-group" style="margin-top:14px"><label><strong>{{ field.label }}</strong></label>{{ field }}</div>{% endfor %}
+      <button class="btn btn-success" type="submit">Submit Review</button>
+    </form>
+  </section>
+  {% else %}
+  <section class="panel" style="padding:24px;margin-top:18px"><h2>Review decision</h2><p>{{ object.get_status_display }} by {{ object.reviewed_by.display_name }} on {{ object.reviewed_at|date:'M d, Y h:i A' }}.</p><p>{{ object.review_reason|default:'No additional review note.' }}</p></section>
+  {% endif %}
+</div>
+{% endblock %}
