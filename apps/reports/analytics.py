@@ -334,13 +334,27 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
     top_commodity = (
         crops.values("crop_type").annotate(total=Count("pk")).order_by("-total", "crop_type").first()
     )
+    today = timezone.localdate()
+    try:
+        senior_cutoff = today.replace(year=today.year - 60)
+    except ValueError:  # February 29 in a non-leap cutoff year.
+        senior_cutoff = today.replace(year=today.year - 60, day=28)
+    farmer_statistics = farmers.aggregate(
+        active=Count("pk", distinct=True),
+        female=Count("pk", filter=Q(sex="FEMALE"), distinct=True),
+        male=Count("pk", filter=Q(sex="MALE"), distinct=True),
+        senior=Count("pk", filter=Q(birth_date__lte=senior_cutoff), distinct=True),
+        four_ps=Count("pk", filter=Q(is_four_ps=True), distinct=True),
+        pwd=Count("pk", filter=Q(is_pwd=True), distinct=True),
+        indigenous=Count("pk", filter=Q(is_indigenous=True), distinct=True),
+    )
     summary = [
-        {"label": "Active Farmers", "value": farmers.distinct().count(), "note": "registered in the selected period"},
-        {"label": "Registered Farm Parcels", "value": parcel_totals["total"] or 0, "note": "active parcel records"},
-        {"label": "Total Farm Area", "value": parcel_totals["area"] or 0, "suffix": "ha", "note": "recorded parcel area"},
-        {"label": "Recorded Commodities", "value": crop_totals["distinct"] or 0, "note": f'{crop_totals["total"] or 0} active records'},
-        {"label": "Service Requests Received", "value": request_total, "note": "created in the selected period"},
-        {"label": "Interventions Conducted", "value": intervention_totals["total"] or 0, "note": "recorded intervention activities"},
+        {"label": "Active Farmers", "value": farmer_statistics["active"], "note": "registered in the selected period", "icon": "bi-person-vcard"},
+        {"label": "Registered Farm Parcels", "value": parcel_totals["total"] or 0, "note": "active parcel records", "icon": "bi-map"},
+        {"label": "Total Farm Area", "value": parcel_totals["area"] or 0, "suffix": "ha", "note": "recorded parcel area", "icon": "bi-bounding-box"},
+        {"label": "Recorded Commodities", "value": crop_totals["distinct"] or 0, "note": f'{crop_totals["total"] or 0} active records', "icon": "bi-flower1"},
+        {"label": "Service Requests Received", "value": request_total, "note": "created in the selected period", "icon": "bi-headset"},
+        {"label": "Interventions Conducted", "value": intervention_totals["total"] or 0, "note": "recorded intervention activities", "icon": "bi-box2-heart"},
     ]
 
     unpinned = parcels.filter(Q(coordinates="") | Q(coordinates__isnull=True)).count()
@@ -367,11 +381,12 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         findings.append("No overdue requests or unmapped parcel records were found for the selected filters.")
 
     farmer_demographics = [
-        {"label": "Female", "value": farmers.filter(sex="FEMALE").count()},
-        {"label": "Male", "value": farmers.filter(sex="MALE").count()},
-        {"label": "4Ps", "value": farmers.filter(is_four_ps=True).count()},
-        {"label": "PWD", "value": farmers.filter(is_pwd=True).count()},
-        {"label": "Indigenous", "value": farmers.filter(is_indigenous=True).count()},
+        {"label": "Female Farmers", "value": farmer_statistics["female"], "icon": "bi-person-vcard"},
+        {"label": "Male Farmers", "value": farmer_statistics["male"], "icon": "bi-person-vcard"},
+        {"label": "Senior Farmers", "value": farmer_statistics["senior"], "icon": "bi-person-vcard"},
+        {"label": "4Ps Beneficiaries", "value": farmer_statistics["four_ps"], "icon": "bi-person-vcard"},
+        {"label": "PWD Farmers", "value": farmer_statistics["pwd"], "icon": "bi-person-vcard"},
+        {"label": "Indigenous Farmers", "value": farmer_statistics["indigenous"], "icon": "bi-person-vcard"},
     ]
     reached_barangays = set(
         interventions.exclude(target_barangay="").values_list("target_barangay", flat=True)

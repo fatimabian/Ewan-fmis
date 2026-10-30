@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from datetime import date
 from decimal import Decimal
 
 from django.db import connection
@@ -24,6 +25,10 @@ class DescriptiveAnalyticsTests(TestCase):
             last_name="Santos",
             barangay="Bagong Pook",
             sex="FEMALE",
+            birth_date=date(1950, 5, 10),
+            is_four_ps=True,
+            is_pwd=True,
+            is_indigenous=True,
             is_active=True,
         )
 
@@ -87,6 +92,27 @@ class DescriptiveAnalyticsTests(TestCase):
         empty = descriptive_analytics("overview", "all", {"barangay": "Alupay"})
         self.assertEqual(matching["summary"][0]["value"], 1)
         self.assertEqual(empty["summary"][0]["value"], 0)
+
+    def test_farmer_statistics_are_live_filtered_database_counts(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            reverse("reports:home"),
+            {"analytics_tab": "farmers", "analytics_date_range": "all"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        values = {
+            item["label"]: item["value"]
+            for item in response.context["descriptive"]["farmer_demographics"]
+        }
+        self.assertEqual(values["Female Farmers"], 1)
+        self.assertEqual(values["Male Farmers"], 0)
+        self.assertEqual(values["Senior Farmers"], 1)
+        self.assertEqual(values["4Ps Beneficiaries"], 1)
+        self.assertEqual(values["PWD Farmers"], 1)
+        self.assertEqual(values["Indigenous Farmers"], 1)
+        self.assertContains(response, "Farmer Statistics")
+        self.assertContains(response, '<span class="analytics-kpi-icon"', count=7)
 
     def test_generate_reports_tab_preserves_report_builder(self):
         self.client.force_login(self.staff)
