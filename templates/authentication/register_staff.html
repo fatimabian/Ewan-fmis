@@ -26,11 +26,11 @@
       </div>
       <div class="staff-registration-notice"><i class="bi bi-shield-check"></i><span>Registration does not immediately provide FMIS access. Approval and email verification are required.</span></div>
       <button class="landing-signin-submit" type="submit">Submit Registration</button>
-      <p class="staff-registration-return">Already registered? <a href="{% url 'authentication:login' %}">Return to sign in</a></p>
+      <p class="staff-registration-return">Already registered? <a href="{% url 'authentication:login' %}">Sign in</a></p>
     </form>
   </section>
   <style>
-  .staff-registration-card{max-width:700px}.staff-registration-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.staff-registration-grid label:first-child,.staff-registration-grid label:nth-child(4){grid-column:1/-1}.staff-registration-notice{display:flex;gap:9px;padding:11px;border:1px solid #cfe0d6;background:#f5f9f6;color:#405449;font-size:12px;line-height:1.45}.staff-registration-notice i{color:#2f7d5c}.staff-registration-return{text-align:center;color:#68776f;font-size:12px}.staff-registration-return a{color:#2f7d5c;font-weight:800}@media(max-width:620px){.staff-registration-grid{grid-template-columns:1fr}.staff-registration-grid label:first-child,.staff-registration-grid label:nth-child(4){grid-column:auto}}
+  .staff-registration-card{width:min(560px,calc(100% - 32px));max-width:560px;padding-inline:38px}.staff-registration-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}.staff-registration-grid label{display:grid;min-width:0;gap:5px}.staff-registration-grid .landing-input-wrap{width:100%;max-width:100%}.staff-registration-notice{display:flex;gap:9px;padding:11px;border:1px solid #cfe0d6;background:#f5f9f6;color:#405449;font-size:12px;line-height:1.45}.staff-registration-notice i{color:#2f7d5c}.staff-registration-return{text-align:center;color:#68776f;font-size:12px}.staff-registration-return a{color:#2f7d5c;font-weight:800}@media(max-width:620px){.staff-registration-card{width:calc(100% - 24px);padding-inline:22px}}
   </style>
 {% endblock %}
 {% block scripts %}<script defer src="{% static 'js/password-toggle.min.js' %}?v=1"></script>{% endblock %}

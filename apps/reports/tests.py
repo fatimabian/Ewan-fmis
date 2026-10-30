@@ -71,6 +71,27 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertContains(response, 'name="format"')
         self.assertContains(response, "Download Report")
 
+    def test_generated_report_preview_analytics_use_the_filtered_report_rows(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(
+            reverse("reports:home"),
+            {
+                "analytics_tab": "reports",
+                "report_type": "farmer_master",
+                "date_range": "all",
+                "view": "1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["report_preview"]["total_rows"], 1)
+        self.assertEqual(
+            response.context["report_preview"]["analytics_summary"][0]["value"],
+            "1",
+        )
+        self.assertContains(response, "Filtered Report Analytics")
+        self.assertContains(response, "Matching farmers")
+
     def test_every_descriptive_tab_renders(self):
         self.client.force_login(self.staff)
         for tab in (

@@ -71,11 +71,9 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
         fields = [
             "scope", "farmer", "selected_farmers", "target_barangay",
             "target_association", "walk_in_name", "service_request",
-            "status", "intervention_type", "intervention_date",
-            "description", "quantity", "unit", "provider",
+            "intervention_type", "description", "quantity", "unit", "provider",
         ]
         widgets = {
-            "intervention_date": forms.DateInput(attrs={"type": "date"}),
             "description": forms.TextInput(attrs={"placeholder": "Describe what was provided"}),
         }
         labels = {"service_request": "Related service request"}
@@ -87,8 +85,6 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
         farmer_search_url = reverse("interventions:farmer_search")
         self.fields["farmer"].widget.attrs["data-search-url"] = farmer_search_url
         self.fields["scope"].required = False
-        self.fields["status"].required = True
-        self.fields["status"].choices = [("", "---------"), *Intervention.STATUS_CHOICES]
         self.fields["scope"].initial = self.instance.scope or "INDIVIDUAL"
         association_rows = (
             Farmer.objects.filter(is_active=True, is_association_member=True)
@@ -116,8 +112,6 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
             ("", "Select an association"),
             *association_choices,
         ]
-        if not self.instance.pk and not self.is_bound:
-            self.initial["status"] = ""
         selected_ids = []
         if self.is_bound:
             selected_key = self.add_prefix("selected_farmers")
@@ -162,6 +156,8 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
             pk__in=request_ids
         ).select_related("farmer", "service").order_by("-created_at", "-pk")
         self.fields["service_request"].required = False
+        if self.instance.pk and self.instance.service_request_id:
+            self.fields["service_request"].disabled = True
         self.fields["service_request"].help_text = (
             "Choose the request being fulfilled, or select N/A when the intervention was not requested."
         )
@@ -175,49 +171,6 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
             expected_type = INTERVENTION_TYPE_BY_SERVICE_CODE.get(
                 request.service.code, "OTHER"
             )
-            if submitted_scope != request.scope:
-                self.add_error(
-                    "scope",
-                    "Coverage must match the related service request.",
-                )
-            if (
-                request.scope == "INDIVIDUAL"
-                and cleaned.get("farmer") != request.farmer
-            ):
-                self.add_error(
-                    "farmer",
-                    "Farmer must match the related service request.",
-                )
-            if (
-                request.scope == "BARANGAY"
-                and cleaned.get("target_barangay") != request.target_barangay
-            ):
-                self.add_error(
-                    "target_barangay",
-                    f"Barangay must remain {request.target_barangay} because it is set by the related service request.",
-                )
-            if (
-                request.scope == "ASSOCIATION"
-                and cleaned.get("target_association") != request.target_association
-            ):
-                self.add_error(
-                    "target_association",
-                    f"Association must remain {request.target_association} because it is set by the related service request.",
-                )
-            if (
-                request.scope == "WALK_IN"
-                and (cleaned.get("walk_in_name") or "").strip()
-                != request.walk_in_name
-            ):
-                self.add_error(
-                    "walk_in_name",
-                    f"Walk-in name must remain {request.walk_in_name} because it is set by the related service request.",
-                )
-            if cleaned.get("intervention_type") != expected_type:
-                self.add_error(
-                    "intervention_type",
-                    "Intervention type must match the related service request.",
-                )
             scope = request.scope
             cleaned["farmer"] = request.farmer if scope == "INDIVIDUAL" else None
             cleaned["target_barangay"] = (

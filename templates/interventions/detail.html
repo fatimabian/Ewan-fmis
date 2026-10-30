@@ -81,12 +81,7 @@
       </section>
       <section class="record-single-section">
         <h3><i class="bi bi-person-check"></i> Recipient Snapshot</h3>
-        <div class="universal-table-wrap recipient-snapshot-table">
-          <table class="universal-table">
-            <thead><tr><th>Farmer ID</th><th>Farmer Name</th><th>Barangay</th><th>Receipt Status</th></tr></thead>
-            <tbody>{% for recipient in object.active_recipients %}<tr><td>{{ recipient.farmer.record_id }}</td><td>{{ recipient.farmer.list_name }}</td><td>{{ recipient.farmer.barangay }}</td><td>{{ recipient.get_status_display }}</td></tr>{% empty %}<tr><td colspan="4">No recipients recorded.</td></tr>{% endfor %}</tbody>
-          </table>
-        </div>
+        {% include "shared/recipient_snapshot_table.html" with recipients=object.active_recipients %}
       </section>
     </div>
   </div>

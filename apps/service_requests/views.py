@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
 from django.forms import modelformset_factory
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
@@ -229,14 +229,43 @@ class ServiceRequestDetailView(
     template_name = "service_requests/detail.html"
 
     def get_queryset(self):
+        from apps.interventions.models import Intervention, InterventionRecipient
+
+        active_recipients = InterventionRecipient.objects.filter(
+            is_active=True
+        ).select_related("farmer")
+        linked_interventions = Intervention.objects.filter(
+            is_active=True
+        ).select_related("recorded_by").prefetch_related(
+            Prefetch(
+                "recipients",
+                queryset=active_recipients,
+                to_attr="active_recipients",
+            )
+        )
         return ServiceRequest.objects.select_related(
             "farmer", "service", "assigned_to"
-        ).prefetch_related("history__actor", "interventions__recorded_by")
+        ).prefetch_related(
+            "history__actor",
+            Prefetch(
+                "interventions",
+                queryset=linked_interventions,
+                to_attr="active_interventions",
+            ),
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["can_manage_request"] = _can_manage_request(
             self.request.user, self.object
+        )
+        linked_intervention = (
+            self.object.active_interventions[0]
+            if self.object.active_interventions
+            else None
+        )
+        context["recipient_snapshot"] = (
+            linked_intervention.active_recipients if linked_intervention else []
         )
         return context
 

@@ -592,11 +592,14 @@ def report_preview(report_type, date_range, filters, system_report=False):
         value_label = "Hectares"
     elif report_type == "crop_summary":
         for row in rows:
-            chart_values[row[0] or "Not recorded"] += float(row[5] or 0)
+            try:
+                chart_values[row[0] or "Not recorded"] += float(row[6] or 0)
+            except (TypeError, ValueError):
+                continue
         value_label = "Hectares"
     elif report_type == "service_status":
         for row in rows:
-            chart_values[row[6] or "Not recorded"] += 1
+            chart_values[row[5] or "Not recorded"] += 1
         value_label = "Requests"
     elif report_type == "service_effectiveness":
         pass
@@ -620,6 +623,7 @@ def report_preview(report_type, date_range, filters, system_report=False):
                 "width": max(2, round(float(value) / peak * 100)) if value else 0,
             }
         )
+    summary, insights = _report_preview_analytics(report_type, rows, chart, value_label)
     return {
         "title": title,
         "headers": headers,
@@ -630,7 +634,156 @@ def report_preview(report_type, date_range, filters, system_report=False):
         "value_label": value_label,
         "show_chart": show_chart,
         "is_farmer_master": report_type == "farmer_master",
+        "analytics_summary": summary,
+        "analytics_insights": insights,
     }
+
+
+def _report_preview_analytics(report_type, rows, chart, value_label):
+    """Describe the exact rows used by the on-screen preview and download."""
+
+    def unique(index, *, exclude=()):
+        excluded = {str(value).strip().lower() for value in exclude}
+        return len(
+            {
+                str(row[index]).strip()
+                for row in rows
+                if len(row) > index
+                and str(row[index]).strip()
+                and str(row[index]).strip().lower() not in excluded
+            }
+        )
+
+    def numeric_total(index):
+        total = 0.0
+        for row in rows:
+            if len(row) <= index:
+                continue
+            try:
+                total += float(row[index])
+            except (TypeError, ValueError):
+                continue
+        return total
+
+    def count(index, values):
+        expected = {str(value).strip().lower() for value in values}
+        return sum(
+            1
+            for row in rows
+            if len(row) > index and str(row[index]).strip().lower() in expected
+        )
+
+    def metric(label, value, note):
+        return {"label": label, "value": value, "note": note}
+
+    def whole(value):
+        return f"{int(value):,}"
+
+    summary = []
+    if report_type == "farmer_master":
+        summary = [
+            metric("Matching farmers", whole(len(rows)), "Farmer registry records"),
+            metric("Recorded farm area", f"{numeric_total(18):,.2f} ha", "Across matching farmers"),
+            metric("Associations", whole(unique(17, exclude=("No", "-"))), "Represented in the result"),
+            metric("Farm barangays", whole(unique(10, exclude=("-",))), "Distinct farm locations"),
+        ]
+    elif report_type == "farm_area_by_barangay":
+        summary = [
+            metric("Farm parcels", whole(len(rows)), "Matching parcel records"),
+            metric("Farmers", whole(unique(1)), "Distinct registered farmers"),
+            metric("Barangays", whole(unique(0)), "Represented in the result"),
+            metric("Total farm area", f"{numeric_total(5):,.2f} ha", "Recorded parcel area"),
+        ]
+    elif report_type == "farmers_by_ownership":
+        summary = [
+            metric("Farm parcels", whole(len(rows)), "Matching parcel records"),
+            metric("Farmers", whole(unique(1)), "Distinct registered farmers"),
+            metric("Tenure types", whole(unique(0)), "Ownership categories represented"),
+            metric("Total farm area", f"{numeric_total(6):,.2f} ha", "Recorded parcel area"),
+        ]
+    elif report_type == "crop_summary":
+        summary = [
+            metric("Commodity records", whole(len(rows)), "Matching production records"),
+            metric("Farmers", whole(unique(2)), "Distinct registered farmers"),
+            metric("Commodities", whole(unique(0)), "Commodity types represented"),
+            metric("Recorded area", f"{numeric_total(6):,.2f} ha", "Rows with applicable area"),
+        ]
+    elif report_type == "commodity_per_parcel":
+        summary = [
+            metric("Commodity records", whole(len(rows)), "Matching parcel commodities"),
+            metric("Farm parcels", whole(unique(2)), "Distinct parcels represented"),
+            metric("Farmers", whole(unique(0)), "Distinct registered farmers"),
+            metric("Commodities", whole(unique(4)), "Commodity types represented"),
+        ]
+    elif report_type == "service_status":
+        summary = [
+            metric("Service requests", whole(len(rows)), "Matching request records"),
+            metric("Completed", whole(count(5, {"Completed"})), "Requests marked completed"),
+            metric("Open requests", whole(count(5, {"Pending", "In Progress"})), "Pending or in progress"),
+            metric("Unassigned", whole(count(8, {"Unassigned"})), "Requests without assigned staff"),
+        ]
+    elif report_type == "service_effectiveness":
+        indicators = {str(row[0]): row[1] for row in rows if len(row) > 1}
+        summary = [
+            metric("Requests received", indicators.get("Requests received", 0), "Reporting cohort"),
+            metric("Resolution rate", indicators.get("Resolution rate", "N/A"), "Completed within the cohort"),
+            metric("Open backlog", indicators.get("Open backlog", 0), "Not completed or cancelled"),
+            metric("Overdue", indicators.get("Overdue open requests", 0), "Open beyond service target"),
+        ]
+    elif report_type == "intervention_summary":
+        leading = max(rows, key=lambda row: float(row[1] or 0), default=None)
+        summary = [
+            metric("Interventions", whole(numeric_total(1)), "Recorded distributions"),
+            metric("Farmers served", whole(numeric_total(2)), "Summed across intervention types"),
+            metric("Intervention types", whole(len(rows)), "Types represented"),
+            metric("Most provided", leading[0] if leading else "None", f"{leading[1]} intervention(s)" if leading else "No matching records"),
+        ]
+    elif report_type == "intervention_registry":
+        summary = [
+            metric("Recipient records", whole(len(rows)), "Matching delivery rows"),
+            metric("Interventions", whole(unique(0)), "Distinct intervention references"),
+            metric("Registered farmers", whole(unique(2, exclude=("Walk-In", "-"))), "Distinct farmer IDs"),
+            metric("Intervention types", whole(unique(5)), "Types represented"),
+        ]
+    elif report_type == "staff_accomplishment":
+        summary = [
+            metric("Records handled", whole(numeric_total(4)), "Across matching staff work"),
+            metric("Completed / successful", whole(numeric_total(5)), "Recorded successful work"),
+            metric("Staff members", whole(unique(0)), "Staff represented"),
+            metric("Work areas", whole(unique(1)), "Modules represented"),
+        ]
+    elif report_type == "user_accounts":
+        summary = [
+            metric("User accounts", whole(len(rows)), "Matching account records"),
+            metric("Active", whole(count(5, {"Active"})), "Accounts with system access"),
+            metric("Pending", whole(count(5, {"Pending activation"})), "Awaiting activation"),
+            metric("Staff", whole(count(4, {"Staff"})), "Staff-role accounts"),
+        ]
+    elif report_type == "activity_audit":
+        summary = [
+            metric("Activities", whole(len(rows)), "Matching audit events"),
+            metric("Successful", whole(count(6, {"Success"})), "Successful recorded actions"),
+            metric("Users", whole(unique(1)), "Actors represented"),
+            metric("Modules", whole(unique(2)), "System areas represented"),
+        ]
+    elif report_type == "system_overview":
+        summary = [metric(str(row[0]), row[1], "Current filtered total") for row in rows[:4]]
+    else:
+        summary = [metric("Matching records", whole(len(rows)), "Rows in this filtered report")]
+
+    insights = [
+        "These indicators use the same selected report, period, and filters as the preview table and downloaded file."
+    ]
+    if chart:
+        leading = chart[0]
+        insights.append(
+            f"Largest grouping: {leading['label']} with {leading['value']} {value_label.lower()}."
+        )
+    elif not rows:
+        insights.append("No records match the current filters. Adjust the report filters to broaden the result.")
+    else:
+        insights.append(f"The current filtered result contains {len(rows):,} report row(s).")
+    return summary[:4], insights
 
 
 def _build_report_metrics(date_range="all", filters=None):

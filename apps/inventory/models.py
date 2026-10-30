@@ -1,5 +1,6 @@
 from decimal import Decimal
 from datetime import timedelta
+from uuid import uuid4
 
 from django.conf import settings
 from django.core.validators import MinValueValidator
@@ -41,6 +42,18 @@ class InventoryItem(models.Model):
             models.Index(fields=["is_active", "category"], name="inventory_active_cat_idx"),
             models.Index(fields=["expiration_date"], name="inventory_expiry_idx"),
         ]
+
+    def save(self, *args, **kwargs):
+        """Assign a stable, human-readable code after the database assigns the PK."""
+        if self.item_code:
+            return super().save(*args, **kwargs)
+
+        # A unique temporary value makes concurrent creates safe. The final code is
+        # based on the database primary key, so it cannot collide or be reused.
+        self.item_code = f"TMP-{uuid4().hex[:20]}"
+        super().save(*args, **kwargs)
+        self.item_code = f"INV-{self.pk:05d}"
+        type(self).objects.filter(pk=self.pk).update(item_code=self.item_code)
 
     @property
     def stock_status(self):

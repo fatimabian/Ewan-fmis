@@ -177,7 +177,7 @@ RSBSA_OCR_MODEL = os.getenv("RSBSA_OCR_MODEL", "gpt-5.4-mini")
 RSBSA_OCR_TIMEOUT_SECONDS = max(
     15, min(120, int(os.getenv("RSBSA_OCR_TIMEOUT_SECONDS", "60")))
 )
-FMIS_REQUIRE_MFA = os.getenv("FMIS_REQUIRE_MFA", "False").lower() == "true"
+FMIS_REQUIRE_MFA = os.getenv("FMIS_REQUIRE_MFA", "True").lower() == "true"
 FMIS_TRUSTED_DEVICE_DAYS = max(
     1, min(90, int(os.getenv("FMIS_TRUSTED_DEVICE_DAYS", "30")))
 )

@@ -115,16 +115,6 @@
           <div class="request-field full">
             <label>{{ form.assigned_to.label }}</label>{{ form.assigned_to }}<span class="request-errors">{{ form.assigned_to.errors }}</span>
           </div>
-          <div class="request-field">
-            <label>{{ form.satisfaction_rating.label }}</label>{{ form.satisfaction_rating }}<span class="request-errors">{{ form.satisfaction_rating.errors }}</span>
-            <small class="text-muted">Record only feedback actually reported by the farmer after completion.</small>
-          </div>
-          <div class="request-field">
-            <label>{{ form.feedback_method.label }}</label>{{ form.feedback_method }}<span class="request-errors">{{ form.feedback_method.errors }}</span>
-          </div>
-          <div class="request-field full">
-            <label>{{ form.satisfaction_feedback.label }}</label>{{ form.satisfaction_feedback }}<span class="request-errors">{{ form.satisfaction_feedback.errors }}</span>
-          </div>
         </div>
         <div class="request-form-actions">
           <a class="btn btn-outline-secondary btn-cancel" href="{% url 'service_requests:list' %}">Cancel</a>

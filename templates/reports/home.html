@@ -611,6 +611,34 @@
       color:#153c2a;
       font-size:11px
   }
+  .report-context-analytics{
+      display:grid;
+      gap:11px;
+      margin:14px 0;
+      padding:14px;
+      border:1px solid #d8e1e7;
+      background:#f8faf9
+  }
+  .report-context-analytics header h4{margin:0;color:#17233a;font-size:14px}
+  .report-context-analytics header p{margin:3px 0 0;color:#64748b;font-size:11px}
+  .report-context-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+  .report-context-metrics article{
+      min-width:0;
+      padding:11px 12px;
+      border:1px solid #dce4e9;
+      border-top:3px solid #315f86;
+      background:#fff
+  }
+  .report-context-metrics article:nth-child(2){border-top-color:#b07b22}
+  .report-context-metrics article:nth-child(3){border-top-color:#6b5b95}
+  .report-context-metrics article:nth-child(4){border-top-color:#3f7d61}
+  .report-context-metrics small,.report-context-metrics b,.report-context-metrics p{display:block}
+  .report-context-metrics small{color:#536273;font-size:10px!important;font-weight:800;text-transform:uppercase}
+  .report-context-metrics b{margin-top:5px;color:#17233a;font-size:19px;line-height:1.2}
+  .report-context-metrics p{margin:3px 0 0;color:#697586;font-size:10px;line-height:1.35}
+  .report-context-findings{display:grid;gap:5px;margin:0;padding-left:18px;color:#435164;font-size:11px;line-height:1.45}
+  @media(max-width:900px){.report-context-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:520px){.report-context-metrics{grid-template-columns:1fr}}
   .report-table-wrap{
       overflow-x:scroll!important;
       overflow-y:auto!important;
@@ -941,6 +969,7 @@
         {% if report_preview %}
           <article class="report-card" id="filteredReport">
             <div class="preview-heading"><div><h3>{{ report_preview.title|upper }}</h3><p>View-only preview using the selected period and staff filter.</p></div><div><b>{{ report_preview.total_rows }}</b><p>matching rows</p></div></div>
+            {% include "reports/_report_preview_analytics.html" %}
             <div class="report-table-wrap"><table class="report-preview-table"><thead><tr>{% for header in report_preview.headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>{% for row in report_preview.rows %}<tr>{% for cell in row %}<td>{{ cell|default:'-' }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="8">No records match the selected filters.</td></tr>{% endfor %}</tbody></table></div>
           </article>
         {% endif %}
@@ -1125,6 +1154,7 @@
               {% endfor %}
             </div>
           {% endif %}
+          {% include "reports/_report_preview_analytics.html" %}
           {% if report_preview.rows %}
             <div class="report-table-wrap{% if report_preview.is_farmer_master %} farmer-master-table-wrap{% endif %}">
               <table class="report-preview-table{% if report_preview.is_farmer_master %} farmer-master-preview{% endif %}">

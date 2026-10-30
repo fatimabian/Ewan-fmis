@@ -7,6 +7,9 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.interventions.models import Intervention
+from apps.service_catalog.models import ServiceCatalog
+from apps.service_requests.models import ServiceRequest
+from apps.farmers.models import Farmer
 
 from .models import InventoryItem, InventoryMovement
 from .services import record_inventory_movement
@@ -75,6 +78,30 @@ class InventoryModuleTests(TestCase):
         self.assertEqual(response.context["page_obj"].paginator.per_page, 10)
         self.assertEqual(response.context["page_obj"].paginator.num_pages, 4)
         self.assertContains(response, "of 4")
+
+    def test_item_code_is_generated_and_not_user_editable(self):
+        self.client.force_login(self.staff)
+        create_page = self.client.get(reverse("inventory:item_create"))
+        self.assertNotContains(create_page, 'name="item_code"')
+        response = self.client.post(
+            reverse("inventory:item_create"),
+            {
+                "name": "Hybrid Corn Seed",
+                "category": "SEEDS",
+                "unit": "bag",
+                "reorder_level": "5.00",
+                "storage_location": "Municipal Stockroom B",
+                "expiration_date": "",
+                "notes": "",
+            },
+        )
+        created = InventoryItem.objects.get(name="Hybrid Corn Seed")
+        self.assertEqual(created.item_code, f"INV-{created.pk:05d}")
+        self.assertRedirects(response, reverse("inventory:list"))
+
+        edit_page = self.client.get(reverse("inventory:item_edit", args=[created.pk]))
+        self.assertNotContains(edit_page, 'name="item_code"')
+        self.assertContains(edit_page, created.item_code)
 
     def test_administrator_cannot_open_staff_inventory(self):
         self.client.force_login(self.admin)
@@ -158,6 +185,64 @@ class InventoryModuleTests(TestCase):
         self.assertContains(intervention_response, "Inventory Released")
         self.assertContains(intervention_response, movement.movement_id)
         self.assertContains(intervention_response, self.item.name)
+
+    def test_request_release_creates_and_links_delivered_intervention(self):
+        farmer = Farmer.objects.create(
+            first_name="Maria", last_name="Santos", barangay="Alupay"
+        )
+        service, _ = ServiceCatalog.objects.get_or_create(
+            code="SEED",
+            defaults={
+                "name": "Seed Assistance",
+                "category": "Farm Inputs",
+                "description": "Seed support",
+                "processing_time": "Depends on assessment",
+            },
+        )
+        request = ServiceRequest.objects.create(
+            scope="INDIVIDUAL",
+            farmer=farmer,
+            service=service,
+            subject=service.name,
+            status="PENDING",
+            assigned_to=self.staff,
+        )
+        record_inventory_movement(
+            item=self.item,
+            movement_type=InventoryMovement.RECEIPT,
+            quantity=Decimal("20.00"),
+            recorded_by=self.staff,
+        )
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("inventory:movement_create"),
+            {
+                "service_request": request.pk,
+                "intervention": "",
+                "item": self.item.pk,
+                "movement_type": InventoryMovement.RELEASE,
+                "quantity": "5.00",
+                "reference": "RIS-2026-02",
+                "remarks": "Released at the municipal office",
+            },
+        )
+        self.assertRedirects(response, reverse("inventory:detail", args=[self.item.pk]))
+        intervention = Intervention.objects.get(service_request=request)
+        movement = InventoryMovement.objects.get(
+            movement_type=InventoryMovement.RELEASE,
+            reference="RIS-2026-02",
+        )
+        request.refresh_from_db()
+        self.item.refresh_from_db()
+        self.assertEqual(intervention.status, "COMPLETED")
+        self.assertEqual(intervention.farmer, farmer)
+        self.assertEqual(
+            list(intervention.recipients.values_list("farmer_id", flat=True)),
+            [farmer.pk],
+        )
+        self.assertEqual(movement.intervention, intervention)
+        self.assertEqual(request.status, "COMPLETED")
+        self.assertEqual(self.item.stock_on_hand, Decimal("15.00"))
 
     def test_item_and_movement_filters_only_return_matches(self):
         other = InventoryItem.objects.create(

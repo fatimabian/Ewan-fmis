@@ -1,0 +1,40 @@
+<style>
+  .recipient-snapshot-scroll{
+    max-height:636px;
+    overflow:auto;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+  }
+  .recipient-snapshot-scroll .recipient-snapshot-grid{
+    min-width:720px;
+    margin:0;
+  }
+  .recipient-snapshot-scroll .recipient-snapshot-grid thead th{
+    position:sticky;
+    top:0;
+    z-index:2;
+    height:54px;
+  }
+  .recipient-snapshot-scroll .recipient-snapshot-grid tbody tr{
+    height:58px;
+  }
+</style>
+<div class="universal-table-wrap recipient-snapshot-table recipient-snapshot-scroll" tabindex="0" aria-label="Recipient snapshot; scroll to view additional rows and columns">
+  <table class="universal-table recipient-snapshot-grid">
+    <thead>
+      <tr><th>Farmer ID</th><th>Farmer Name</th><th>Barangay</th><th>Receipt Status</th></tr>
+    </thead>
+    <tbody>
+      {% for recipient in recipients %}
+        <tr>
+          <td>{{ recipient.farmer.record_id }}</td>
+          <td>{{ recipient.farmer.list_name }}</td>
+          <td>{{ recipient.farmer.barangay }}</td>
+          <td>{{ recipient.get_status_display }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4">{{ empty_message|default:"No recipients recorded." }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

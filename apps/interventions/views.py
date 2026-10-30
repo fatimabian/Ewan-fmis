@@ -4,6 +4,7 @@ from django.db.models import Count, Prefetch, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
@@ -330,6 +331,8 @@ class InterventionCreateView(InterventionAccessMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.recorded_by = self.request.user
+        form.instance.status = "COMPLETED"
+        form.instance.intervention_date = timezone.localdate()
         scope = form.cleaned_data["scope"]
         form.instance.farmer = form.cleaned_data.get("farmer") if scope == "INDIVIDUAL" else None
         form.instance.target_barangay = (
@@ -427,6 +430,8 @@ class InterventionUpdateView(InterventionAccessMixin, UpdateView):
         )
         before_values = _intervention_snapshot(before)
         form.instance.recorded_by = self.request.user
+        form.instance.status = "COMPLETED"
+        form.instance.intervention_date = before.intervention_date
         scope = form.cleaned_data["scope"]
         form.instance.farmer = form.cleaned_data.get("farmer") if scope == "INDIVIDUAL" else None
         form.instance.target_barangay = form.cleaned_data.get("target_barangay", "") if scope == "BARANGAY" else ""

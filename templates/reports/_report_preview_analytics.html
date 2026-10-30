@@ -1,0 +1,22 @@
+{% if report_preview.analytics_summary %}
+  <section class="report-context-analytics" aria-labelledby="reportContextAnalyticsTitle">
+    <header>
+      <div>
+        <h4 id="reportContextAnalyticsTitle">Filtered Report Analytics</h4>
+        <p>Descriptive totals calculated from the same records shown in this report.</p>
+      </div>
+    </header>
+    <div class="report-context-metrics">
+      {% for metric in report_preview.analytics_summary %}
+        <article>
+          <small>{{ metric.label }}</small>
+          <b>{{ metric.value }}</b>
+          <p>{{ metric.note }}</p>
+        </article>
+      {% endfor %}
+    </div>
+    <ul class="report-context-findings">
+      {% for insight in report_preview.analytics_insights %}<li>{{ insight }}</li>{% endfor %}
+    </ul>
+  </section>
+{% endif %}

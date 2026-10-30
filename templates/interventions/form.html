@@ -24,6 +24,9 @@
 .intervention-checkbox-list input[type="checkbox"]{flex:0 0 18px;width:18px!important;height:18px;margin:0;padding:0;accent-color:#16834f}
 .intervention-farmer-search{margin-bottom:8px}
 .intervention-search-result{margin-top:6px;color:#667085;font-size:13px}
+.intervention-readonly{min-height:46px;display:flex;align-items:center;padding:11px;border:1px solid #cbd8d0;background:#f4f7f5;color:#263b30;font-weight:700}
+.intervention-field.is-request-locked :is(select,input){background:#f4f7f5!important;color:#4a5c52!important;cursor:not-allowed}
+.intervention-field.is-request-locked .farmer-picker{pointer-events:none;opacity:.78}
 body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#183126;color:#c7f5d8}
 @media(max-width:950px){.intervention-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.intervention-form-grid{grid-template-columns:1fr}.intervention-field.full{grid-column:auto}.intervention-checkbox-list{grid-template-columns:1fr}.intervention-checkbox-list>div:nth-last-child(-n+2){border-bottom:1px solid #e7eee9}.intervention-checkbox-list>div:last-child{border-bottom:0}}
@@ -32,10 +35,10 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
   <section class="panel intervention-form-card">
     <div class="mb-4">
       <h2>{% if object %}Update {{ object.reference_id }}{% else %}Record Delivered Assistance{% endif %}</h2>
-      <p class="text-muted mb-0">Choose who is covered, then set the current intervention status.</p>
+      <p class="text-muted mb-0">Record assistance that has already been completed and delivered.</p>
     </div>
     {% if request.GET.service_request %}
-      <div class="linked-request-note"><i class="bi bi-link-45deg"></i><span>The farmer and related service request were filled from the selected request. Confirm the details before saving.</span></div>
+      <div class="linked-request-note"><i class="bi bi-link-45deg"></i><span>Coverage and intervention type come from the related service request and cannot be changed.</span></div>
     {% endif %}
     <form method="post" novalidate>
       {% csrf_token %}
@@ -48,9 +51,9 @@ body[data-theme="dark"] .linked-request-note{border-color:#345a45;background:#18
         <div class="intervention-field" data-recipient-field="barangay"><label>{{ form.target_barangay.label }}</label>{{ form.target_barangay }}<span class="intervention-errors">{{ form.target_barangay.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="association"><label>{{ form.target_association.label }}</label>{{ form.target_association }}<span class="intervention-errors">{{ form.target_association.errors }}</span></div>
         <div class="intervention-field" data-recipient-field="walk-in"><label>{{ form.walk_in_name.label }}</label>{{ form.walk_in_name }}<span class="intervention-errors">{{ form.walk_in_name.errors }}</span></div>
-        <div class="intervention-field"><label>{{ form.status.label }}</label>{{ form.status }}<span class="intervention-errors">{{ form.status.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.intervention_type.label }}</label>{{ form.intervention_type }}<span class="intervention-errors">{{ form.intervention_type.errors }}</span></div>
-        <div class="intervention-field"><label>{{ form.intervention_date.label }}</label>{{ form.intervention_date }}<span class="intervention-errors">{{ form.intervention_date.errors }}</span></div>
+        <div class="intervention-field"><label>Delivery status</label><div class="intervention-readonly">Completed / Delivered</div></div>
+        <div class="intervention-field"><label>Delivery date</label><div class="intervention-readonly">{% if object %}{{ object.intervention_date|date:"F d, Y" }}{% else %}{% now "F d, Y" %}{% endif %}</div></div>
         <div class="intervention-field"><label>{{ form.quantity.label }}</label>{{ form.quantity }}<span class="intervention-errors">{{ form.quantity.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.unit.label }}</label>{{ form.unit }}<span class="intervention-errors">{{ form.unit.errors }}</span></div>
         <div class="intervention-field"><label>{{ form.provider.label }}</label>{{ form.provider }}<span class="intervention-errors">{{ form.provider.errors }}</span></div>
@@ -76,6 +79,22 @@ document.addEventListener("DOMContentLoaded",()=>{
   const farmerResult=document.querySelector('[data-selected-farmer-result]');
   const farmerList=document.querySelector('.intervention-checkbox-list');
   if(!scope)return;
+  const lockField=(element,locked)=>{
+    if(!element)return;
+    const field=element.closest('.intervention-field');
+    field?.classList.toggle('is-request-locked',locked);
+    element.setAttribute('aria-disabled',locked?'true':'false');
+    if(element.tagName==='INPUT')element.readOnly=locked;
+    else element.style.pointerEvents=locked?'none':'';
+    element.tabIndex=locked?-1:0;
+  };
+  const syncRequestLocks=(locked)=>{
+    [scope,targetBarangay,targetAssociation,interventionType].forEach(element=>lockField(element,locked));
+    lockField(walkInName,locked);
+    const farmerField=farmer?.closest('.intervention-field');
+    farmerField?.classList.toggle('is-request-locked',locked);
+    farmerField?.querySelectorAll('.farmer-picker input,.farmer-picker button').forEach(control=>{control.disabled=locked});
+  };
   const sync=()=>{
     document.querySelectorAll("[data-recipient-field]").forEach(el=>{
       const visible=(scope.value==="INDIVIDUAL"&&el.dataset.recipientField==="individual")||(scope.value==="SELECTED"&&el.dataset.recipientField==="selected")||(scope.value==="BARANGAY"&&el.dataset.recipientField==="barangay")||(scope.value==="ASSOCIATION"&&el.dataset.recipientField==="association")||(scope.value==="WALK_IN"&&el.dataset.recipientField==="walk-in");
@@ -84,7 +103,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   };
   const syncRequest=()=>{
     const option=serviceRequest?.selectedOptions?.[0];
-    if(!option?.value)return;
+    if(!option?.value){syncRequestLocks(false);sync();return}
     scope.value=option.dataset.scope||"INDIVIDUAL";
     if(scope.value==="INDIVIDUAL"&&farmer&&option.dataset.farmerId){
       farmer.value=option.dataset.farmerId;
@@ -108,6 +127,7 @@ document.addEventListener("DOMContentLoaded",()=>{
       interventionType.value=option.dataset.interventionType;
       interventionType.dispatchEvent(new Event("change",{bubbles:true}));
     }
+    syncRequestLocks(true);
     sync();
   };
   scope.addEventListener("change",sync);

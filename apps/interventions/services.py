@@ -1,3 +1,6 @@
+from django.db import transaction
+from django.utils import timezone
+
 from .models import Intervention, InterventionRecipient
 from apps.farmers.models import Farmer
 
@@ -77,4 +80,76 @@ def complete_registered_request_intervention(service_request, actor=None):
                 "is_active": True,
             },
         )
+    return intervention
+
+
+@transaction.atomic
+def ensure_inventory_release_intervention(
+    service_request, *, actor, description, quantity, unit
+):
+    """Return one delivered intervention for a request, creating it when needed."""
+    service_request = type(service_request).objects.select_for_update().select_related(
+        "farmer", "service", "assigned_to"
+    ).get(pk=service_request.pk)
+    intervention = (
+        service_request.interventions.filter(is_active=True)
+        .order_by("pk")
+        .first()
+    )
+    if intervention is None:
+        intervention = Intervention.objects.create(
+            service_request=service_request,
+            scope=service_request.scope,
+            farmer=(
+                service_request.farmer
+                if service_request.scope == "INDIVIDUAL"
+                else None
+            ),
+            target_barangay=(
+                service_request.target_barangay
+                if service_request.scope == "BARANGAY"
+                else ""
+            ),
+            target_association=(
+                service_request.target_association
+                if service_request.scope == "ASSOCIATION"
+                else ""
+            ),
+            walk_in_name=(
+                service_request.walk_in_name
+                if service_request.scope == "WALK_IN"
+                else ""
+            ),
+            status="COMPLETED",
+            intervention_type=INTERVENTION_TYPE_BY_SERVICE_CODE.get(
+                service_request.service.code, "OTHER"
+            ),
+            intervention_date=timezone.localdate(),
+            description=description[:240],
+            quantity=quantity,
+            unit=unit,
+            provider="Office for Agricultural Services",
+            recorded_by=actor,
+        )
+    else:
+        intervention.quantity = quantity
+        intervention.unit = unit
+        intervention.description = description[:240]
+        intervention.intervention_date = intervention.intervention_date or timezone.localdate()
+        intervention.save(update_fields=[
+            "quantity", "unit", "description", "intervention_date", "updated_at"
+        ])
+
+    # Synchronize request-derived coverage and a fixed recipient snapshot for both
+    # newly created and previously existing interventions.
+    intervention = complete_registered_request_intervention(
+        service_request, actor=actor
+    )
+
+    # The request is fulfilled by the completed release/intervention chain.
+    if service_request.status != "COMPLETED":
+        service_request.status = "COMPLETED"
+        service_request.save(update_fields=[
+            "status", "first_responded_at", "completed_at", "updated_at"
+        ])
     return intervention

@@ -45,13 +45,36 @@
   .account-row-actions button{
       color:#d32626
   }
+  .account-review-actions{
+      gap:6px;
+      flex-wrap:wrap
+  }
+  html body .account-table .account-review-button{
+      width:auto!important;
+      min-width:0!important;
+      height:34px!important;
+      min-height:34px!important;
+      display:inline-flex!important;
+      align-items:center!important;
+      gap:6px!important;
+      padding:6px 10px!important;
+      border:1px solid currentColor!important;
+      border-radius:7px!important;
+      background:transparent!important;
+      box-shadow:none!important;
+      font-size:12px!important;
+      font-weight:700!important;
+      line-height:1!important
+  }
+  html body .account-table .account-review-approve{color:#168052!important}
+  html body .account-table .account-review-disapprove{color:#c62828!important}
   @media(min-width:1181px){
-      .account-table :is(th,td):nth-child(1){width:17%}
-      .account-table :is(th,td):nth-child(2){width:12%}
-      .account-table :is(th,td):nth-child(3){width:28%}
-      .account-table :is(th,td):nth-child(4){width:15%}
-      .account-table :is(th,td):nth-child(5){width:17%}
-      .account-table :is(th,td):nth-child(6){width:11%;text-align:center!important}
+      .account-table :is(th,td):nth-child(1){width:16%}
+      .account-table :is(th,td):nth-child(2){width:11%}
+      .account-table :is(th,td):nth-child(3){width:24%}
+      .account-table :is(th,td):nth-child(4){width:12%}
+      .account-table :is(th,td):nth-child(5){width:19%}
+      .account-table :is(th,td):nth-child(6){width:18%;text-align:center!important}
       .account-table :is(th,td):nth-child(3){
           overflow:hidden;
           text-overflow:ellipsis;
@@ -112,10 +135,10 @@
                   {% endif %}
                 </td>
                 <td>
-                  <div class="account-row-actions">
+                  <div class="account-row-actions{% if user.approval_status == 'PENDING' %} account-review-actions{% endif %}">
                     {% if user.approval_status == 'PENDING' %}
-                      <form method="post" action="{% url 'accounts:review' user.pk %}" data-confirm="Approve {{ user.display_name|escape }}'s staff registration? They will still need to verify their email before access is activated.">{% csrf_token %}<input type="hidden" name="action" value="approve"><button type="submit" title="Approve {{ user.display_name }}"><i class="bi bi-check-lg"></i></button></form>
-                      <form method="post" action="{% url 'accounts:review' user.pk %}" data-confirm="Reject {{ user.display_name|escape }}'s staff registration? No system access will be granted.">{% csrf_token %}<input type="hidden" name="action" value="reject"><button type="submit" title="Reject {{ user.display_name }}"><i class="bi bi-x-lg"></i></button></form>
+                      <form method="post" action="{% url 'accounts:review' user.pk %}" data-confirm="Approve {{ user.display_name|escape }}'s staff registration? They will still need to verify their email before access is activated.">{% csrf_token %}<input type="hidden" name="action" value="approve"><button class="account-review-button account-review-approve" type="submit" title="Approve {{ user.display_name }}"><i class="bi bi-check-lg"></i><span>Approve</span></button></form>
+                      <form method="post" action="{% url 'accounts:review' user.pk %}" data-confirm="Disapprove {{ user.display_name|escape }}'s staff registration? No system access will be granted.">{% csrf_token %}<input type="hidden" name="action" value="reject"><button class="account-review-button account-review-disapprove" type="submit" title="Disapprove {{ user.display_name }}"><i class="bi bi-x-lg"></i><span>Disapprove</span></button></form>
                     {% else %}
                     <a href="{% url 'accounts:edit' user.pk %}" title="Edit {{ user.display_name }}">
                       <i class="bi bi-pencil-square">

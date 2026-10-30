@@ -2,7 +2,8 @@ from datetime import timedelta
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import F, Q
+from django.db import transaction
+from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -13,6 +14,7 @@ from apps.activity_logs.services import record_request_event
 from apps.common.filters import parse_inclusive_date_range
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.permissions import StaffRequiredMixin
+from apps.interventions.services import ensure_inventory_release_intervention
 
 from .forms import InventoryItemForm, InventoryMovementForm
 from .models import InventoryItem, InventoryMovement
@@ -103,28 +105,43 @@ class InventoryListView(InventoryAccessMixin, ListView):
         context = super().get_context_data(**kwargs)
         active_items = InventoryItem.objects.filter(is_active=True)
         expiring_cutoff = timezone.localdate() + timedelta(days=30)
+        stock_summary = active_items.aggregate(
+            total=Count("pk"),
+            low=Count(
+                "pk",
+                filter=Q(stock_on_hand__gt=0, stock_on_hand__lte=F("reorder_level"))
+                & (Q(expiration_date__isnull=True) | Q(expiration_date__gt=expiring_cutoff)),
+            ),
+            out=Count("pk", filter=Q(stock_on_hand__lte=0)),
+            expiring=Count(
+                "pk",
+                filter=Q(stock_on_hand__gt=0, expiration_date__lte=expiring_cutoff),
+            ),
+        )
         context.update(
             {
                 "tab": self.tab,
                 "category_choices": InventoryItem.CATEGORY_CHOICES,
                 "movement_choices": InventoryMovement.MOVEMENT_CHOICES,
-                "inventory_items": active_items.order_by("name", "item_code"),
-                "locations": InventoryItem.objects.exclude(storage_location="")
-                .values_list("storage_location", flat=True)
-                .distinct()
-                .order_by("storage_location"),
-                "total_items": active_items.count(),
-                "low_stock_count": active_items.filter(
-                    stock_on_hand__gt=0, stock_on_hand__lte=F("reorder_level")
-                ).count(),
-                "out_of_stock_count": active_items.filter(stock_on_hand__lte=0).count(),
-                "expiring_count": active_items.filter(
-                    stock_on_hand__gt=0, expiration_date__lte=expiring_cutoff
-                ).count(),
+                "total_items": stock_summary["total"],
+                "low_stock_count": stock_summary["low"],
+                "out_of_stock_count": stock_summary["out"],
+                "expiring_count": stock_summary["expiring"],
                 "movement_count": InventoryMovement.objects.count(),
                 "filter_date_error": getattr(self, "filter_date_error", ""),
             }
         )
+        if self.tab == "movements":
+            context["inventory_items"] = active_items.only(
+                "pk", "item_code", "name"
+            ).order_by("name", "item_code")
+        else:
+            context["locations"] = (
+                InventoryItem.objects.exclude(storage_location="")
+                .values_list("storage_location", flat=True)
+                .distinct()
+                .order_by("storage_location")
+            )
         return context
 
 
@@ -188,6 +205,11 @@ class InventoryMovementCreateView(InventoryAccessMixin, FormView):
     form_class = InventoryMovementForm
     template_name = "inventory/movement_form.html"
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def get_initial(self):
         initial = super().get_initial()
         if self.request.GET.get("item", "").isdigit():
@@ -198,11 +220,26 @@ class InventoryMovementCreateView(InventoryAccessMixin, FormView):
         return initial
 
     def form_valid(self, form):
+        cleaned = form.cleaned_data.copy()
+        service_request = cleaned.pop("service_request", None)
         try:
-            movement = record_inventory_movement(
-                **form.cleaned_data,
-                recorded_by=self.request.user,
-            )
+            with transaction.atomic():
+                if (
+                    cleaned["movement_type"] == InventoryMovement.RELEASE
+                    and service_request
+                    and cleaned.get("intervention") is None
+                ):
+                    cleaned["intervention"] = ensure_inventory_release_intervention(
+                        service_request,
+                        actor=self.request.user,
+                        description=f"Released {cleaned['item'].name} for {service_request.subject}",
+                        quantity=cleaned["quantity"],
+                        unit=cleaned["item"].unit,
+                    )
+                movement = record_inventory_movement(
+                    **cleaned,
+                    recorded_by=self.request.user,
+                )
         except ValidationError as error:
             form.add_error("quantity", error.messages[0])
             return self.form_invalid(form)
@@ -220,6 +257,15 @@ class InventoryMovementCreateView(InventoryAccessMixin, FormView):
                 {
                     "field": "Intervention",
                     "after": movement.intervention.reference_id if movement.intervention_id else "Not linked",
+                },
+                {
+                    "field": "Service request",
+                    "after": (
+                        movement.intervention.service_request.request_id
+                        if movement.intervention_id
+                        and movement.intervention.service_request_id
+                        else "Not linked"
+                    ),
                 },
             ],
         )

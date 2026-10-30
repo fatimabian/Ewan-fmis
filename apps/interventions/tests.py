@@ -94,8 +94,8 @@ class InterventionModuleTests(TestCase):
 
         form = InterventionForm()
         self.assertNotIn("is_active", form.fields)
-        self.assertEqual(form.initial["status"], "")
-        self.assertTrue(form.fields["status"].required)
+        self.assertNotIn("status", form.fields)
+        self.assertNotIn("intervention_date", form.fields)
 
     def test_create_form_has_searchable_farmer_selection_without_snapshot_notice(self):
         Farmer.objects.create(
@@ -139,10 +139,12 @@ class InterventionModuleTests(TestCase):
         intervention = Intervention.objects.get()
         self.assertIsNone(intervention.farmer)
         self.assertEqual(intervention.scope, "SELECTED")
+        self.assertEqual(intervention.status, "COMPLETED")
+        self.assertEqual(intervention.intervention_date, date.today())
         self.assertEqual(intervention.recipients.filter(is_active=True).count(), 2)
         self.assertEqual(
             set(InterventionRecipient.objects.values_list("status", flat=True)),
-            {"PENDING"},
+            {"RECEIVED"},
         )
 
     def test_admin_is_kept_out_of_operational_intervention_pages(self):
@@ -205,6 +207,8 @@ class InterventionModuleTests(TestCase):
         self.assertRedirects(response, reverse("interventions:list"))
         intervention = Intervention.objects.get(service_request=request)
         self.assertEqual(intervention.scope, "ASSOCIATION")
+        self.assertEqual(intervention.status, "COMPLETED")
+        self.assertEqual(intervention.intervention_type, "SEEDS")
         self.assertEqual(intervention.target_association, "Hog Raisers Association")
         self.assertEqual(
             set(
@@ -214,6 +218,48 @@ class InterventionModuleTests(TestCase):
             ),
             {self.farmer.pk, second.pk},
         )
+
+    def test_linked_request_values_cannot_be_changed_by_post_data(self):
+        service, _ = ServiceCatalog.objects.get_or_create(
+            code="SEED",
+            defaults={
+                "name": "Seed Assistance",
+                "category": "Farm Inputs",
+                "description": "Seed support",
+                "processing_time": "Depends on assessment",
+            },
+        )
+        request = ServiceRequest.objects.create(
+            scope="INDIVIDUAL",
+            farmer=self.farmer,
+            service=service,
+            subject=service.name,
+            status="PENDING",
+            assigned_to=self.staff,
+        )
+        other_farmer = Farmer.objects.create(
+            first_name="Other", last_name="Recipient", barangay="Alupay"
+        )
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("interventions:create"),
+            {
+                "service_request": request.pk,
+                "scope": "INDIVIDUAL",
+                "farmer": other_farmer.pk,
+                "intervention_type": "FINANCIAL",
+                "status": "DRAFT",
+                "intervention_date": "2000-01-01",
+                "description": "Delivered seed assistance",
+                "provider": "Office for Agricultural Services",
+            },
+        )
+        self.assertRedirects(response, reverse("interventions:list"))
+        intervention = Intervention.objects.get(service_request=request)
+        self.assertEqual(intervention.farmer, self.farmer)
+        self.assertEqual(intervention.intervention_type, "SEEDS")
+        self.assertEqual(intervention.status, "COMPLETED")
+        self.assertEqual(intervention.intervention_date, date.today())
 
     def test_demo_farmer_commands_are_repeatable_and_safely_removable(self):
         Farmer.objects.create(
