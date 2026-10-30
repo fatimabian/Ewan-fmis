@@ -868,14 +868,14 @@
   .analytics-tabs a[aria-current="page"]{border-bottom-color:#148653;color:#14243a;background:#edf7f1}
   </style>
   <div class="content reports-page">
-    {% if not request.user.is_admin and analytics_tab != 'reports' %}
+    {% if analytics_tab != 'reports' %}
       {% include 'reports/_descriptive_analytics.html' %}
-    {% elif not request.user.is_admin %}
+    {% else %}
       <nav class="analytics-tabs" aria-label="Reports and analytics sections">
         {% for key,label in analytics_tabs %}<a href="?analytics_tab={{ key }}"{% if analytics_tab == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
       </nav>
     {% endif %}
-    {% if request.user.is_admin %}
+    {% if request.user.is_admin and analytics_tab == 'reports' %}
       <section class="report-metrics">
         <article class="report-metric">
           <i class="bi bi-people">
@@ -923,7 +923,7 @@
         </div>
       </section>
     {% endif %}
-    {% if request.user.is_admin %}
+    {% if request.user.is_admin and analytics_tab == 'reports' %}
       <section class="admin-report-library" aria-labelledby="adminReportLibraryTitle">
         <div class="admin-report-library-heading">
           <h2 id="adminReportLibraryTitle">Governance Reports</h2>
@@ -1199,7 +1199,7 @@
       {% endif %}
     </section>
     {% endif %}
-    {% if request.user.is_admin or analytics_tab == 'reports' %}
+    {% if analytics_tab == 'reports' %}
     <section class="analytics-grid">
       {% if request.user.is_admin %}
         <article class="report-card">

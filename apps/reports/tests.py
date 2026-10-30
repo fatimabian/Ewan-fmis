@@ -44,6 +44,42 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertContains(response, "Generate Reports")
         self.assertNotContains(response, "phone_number")
 
+    def test_reports_navigation_lands_on_overview_for_staff_and_admin(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("reports:home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["analytics_tab"], "overview")
+        self.assertContains(response, "Farmer Registrations Over Time")
+        self.assertNotContains(response, "Report Filters")
+
+        administrator = get_user_model().objects.create_user(
+            username="analytics-admin",
+            password="StrongPass123!",
+            role="ADMIN",
+            is_active=True,
+        )
+        self.client.force_login(administrator)
+        response = self.client.get(reverse("reports:home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["analytics_tab"], "overview")
+        self.assertContains(response, "Farmer Registrations Over Time")
+        self.assertNotContains(response, "Governance Reports")
+
+    def test_admin_generate_reports_tab_keeps_governance_reports(self):
+        administrator = get_user_model().objects.create_user(
+            username="reports-admin",
+            password="StrongPass123!",
+            role="ADMIN",
+            is_active=True,
+        )
+        self.client.force_login(administrator)
+        response = self.client.get(
+            reverse("reports:home"), {"analytics_tab": "reports"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Governance Reports")
+        self.assertNotContains(response, "Farmer Registrations Over Time")
+
     def test_barangay_filter_limits_analytics(self):
         matching = descriptive_analytics(
             "overview", "all", {"barangay": "Bagong Pook"}

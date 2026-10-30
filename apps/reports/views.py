@@ -102,9 +102,9 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
         date_from = source.get("date_from", "")
         date_to = source.get("date_to", "")
         system_report = self.request.user.is_admin
-        # Keep the long-standing Report Generator as the landing experience.
-        # Descriptive analytics is additive and selected through the new tabs.
-        analytics_tab = source.get("analytics_tab", "reports")
+        # Reports & Analytics opens on the descriptive overview. The report
+        # builder remains available as an explicit Generate Reports tab.
+        analytics_tab = source.get("analytics_tab", "overview")
         valid_analytics_tabs = {key for key, _label in ANALYTICS_TABS}
         if analytics_tab not in valid_analytics_tabs:
             analytics_tab = "overview"
@@ -220,7 +220,7 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
         # analytics. Do not execute analytics queries while the user is on the
         # Generate Reports tab; a data-specific analytics failure must never
         # take the established report workflow offline.
-        if not system_report and analytics_tab != "reports":
+        if analytics_tab != "reports":
             context["descriptive"] = descriptive_analytics(
                 analytics_tab,
                 analytics_date_range,
