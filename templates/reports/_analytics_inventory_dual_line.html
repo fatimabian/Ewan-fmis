@@ -4,11 +4,13 @@
     <span class="analytics-chart-legend"><i></i> Receipts <i></i> Releases</span>
   </div>
   {% if descriptive.inventory_movement_series.points %}
+    <div class="analytics-plot"><span class="analytics-y-label">Quantity</span><span class="analytics-y-max">{{ descriptive.inventory_movement_series.peak|floatformat:"-2" }}</span><span class="analytics-y-zero">0</span>
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
       <line x1="4" y1="91" x2="96" y2="91"></line><line x1="4" y1="53" x2="96" y2="53"></line><line x1="4" y1="15" x2="96" y2="15"></line>
+      <line class="analytics-axis-line" x1="4" y1="91" x2="99" y2="91"></line><polyline class="analytics-axis-arrow" points="96,88 99,91 96,94"></polyline><line class="analytics-axis-line" x1="4" y1="92" x2="4" y2="4"></line><polyline class="analytics-axis-arrow" points="1,7 4,4 7,7"></polyline>
       <polyline class="received-line" points="{{ descriptive.inventory_movement_series.first_polyline }}"></polyline><polyline class="completed-line" points="{{ descriptive.inventory_movement_series.second_polyline }}"></polyline>
       {% for point in descriptive.inventory_movement_series.points %}<circle class="received-point" cx="{{ point.x }}" cy="{{ point.first_y }}" r="1.2"><title>{{ point.label }} receipts: {{ point.first }}</title></circle><circle class="completed-point" cx="{{ point.x }}" cy="{{ point.second_y }}" r="1.2"><title>{{ point.label }} releases: {{ point.second }}</title></circle>{% endfor %}
-    </svg>
+    </svg><span class="analytics-x-label">Month</span></div>
     <div class="analytics-chart-axis">{% for point in descriptive.inventory_movement_series.points %}<span><b>{{ point.first }} / {{ point.second }}</b><small>{{ point.label }}</small></span>{% endfor %}</div>
   {% else %}<div class="analytics-empty"><i class="bi bi-info-circle"></i> No dated inventory movements match the selected filters.</div>{% endif %}
 </div>

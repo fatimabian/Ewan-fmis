@@ -126,6 +126,7 @@ def _monthly_dual_series(first_queryset, first_field, second_queryset, second_fi
         "points": points,
         "first_polyline": " ".join(f'{point["x"]},{point["first_y"]}' for point in points),
         "second_polyline": " ".join(f'{point["x"]},{point["second_y"]}' for point in points),
+        "peak": peak,
     }
 
 
@@ -228,6 +229,13 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         ).distinct()
     if commodity:
         crops = crops.filter(crop_type=commodity)
+        if tab == "interventions":
+            interventions = interventions.filter(
+                recipients__is_active=True,
+                recipients__farmer__parcels__is_active=True,
+                recipients__farmer__parcels__crops__is_active=True,
+                recipients__farmer__parcels__crops__crop_type=commodity,
+            ).distinct()
     if request_status:
         requests = requests.filter(status=request_status)
     if request_priority:
@@ -272,10 +280,29 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             {
                 "label": label,
                 "value": total,
-                "percent": round(total / request_total * 100) if request_total else 0,
+                "percent": round(total / request_total * 100, 1) if request_total else 0,
                 "tone": "positive" if value == "COMPLETED" else ("danger" if value == "CANCELLED" else "neutral"),
             }
         )
+    request_priority_counts = {
+        row["priority"]: row["total"]
+        for row in requests.values("priority").annotate(total=Count("pk"))
+    }
+    request_priority_rows = [
+        {
+            "label": label,
+            "value": request_priority_counts.get(value, 0),
+            "percent": (
+                round(request_priority_counts.get(value, 0) / request_total * 100, 1)
+                if request_total
+                else 0
+            ),
+        }
+        for value, label in ServiceRequest.PRIORITY_CHOICES
+    ]
+    recent_requests = list(
+        requests.select_related("farmer", "service").order_by("-created_at", "-pk")[:5]
+    )
 
     response_duration = ExpressionWrapper(
         F("first_responded_at") - F("created_at"), output_field=DurationField()
@@ -366,7 +393,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             total=Count("pk", distinct=True),
             farmers=Count("recipients__farmer", filter=Q(recipients__is_active=True), distinct=True),
         )
-        .order_by("-total", "intervention_type")[:6]
+        .order_by("-total", "intervention_type")
     ]
     expiring_cutoff = timezone.localdate() + timedelta(days=30)
     not_expiring = Q(expiration_date__isnull=True) | Q(
@@ -467,6 +494,8 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         ],
         "farmer_demographics": farmer_demographics,
         "request_status_rows": request_status_rows,
+        "request_priority_rows": request_priority_rows,
+        "recent_requests": recent_requests,
         "request_total": request_total,
         "open_requests": open_requests.count(),
         "overdue_requests": overdue_requests.count(),
