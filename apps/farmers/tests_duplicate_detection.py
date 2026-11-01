@@ -104,3 +104,29 @@ class FarmerDuplicateDetectionTests(TestCase):
         self.assertEqual(len(queries), 1)
         self.assertLessEqual(len(matches), 5)
         self.assertIn(f"LIMIT {MAX_DATABASE_CANDIDATES}", queries.captured_queries[0]["sql"])
+
+    def test_recent_strong_match_is_not_lost_behind_broad_barangay_candidates(self):
+        Farmer.objects.bulk_create(
+            [
+                Farmer(
+                    first_name=f"Unrelated{index}",
+                    last_name=f"Resident{index}",
+                    barangay="Alupay",
+                )
+                for index in range(MAX_DATABASE_CANDIDATES + 20)
+            ]
+        )
+        recent_match = Farmer.objects.create(
+            first_name="Marya",
+            middle_name="Reyes",
+            last_name="Dela Cruz",
+            extension_name="Junior",
+            birth_date=date(1985, 4, 12),
+            barangay="Alupay",
+            valid_id_type="Voter's ID",
+            valid_id_number="VOTER-9988",
+        )
+
+        matches = find_possible_duplicates(self.values(first_name="Maria"))
+
+        self.assertIn(recent_match, [match["farmer"] for match in matches])

@@ -13,7 +13,7 @@ import unicodedata
 from datetime import date
 
 from django.core import signing
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, Value, When
 
 from .models import Farmer
 
@@ -119,13 +119,61 @@ def _candidate_queryset(values, *, exclude_pk=None):
         )
     if not filters:
         return Farmer.objects.none()
+
+    # A broad barangay or common-name match can easily exceed the bounded
+    # candidate window. Rank strong identity evidence first so recent or
+    # high-confidence candidates are not discarded before they are scored.
+    priority_conditions = []
+    if valid_id_type and valid_id_number:
+        priority_conditions.append(
+            When(
+                valid_id_type__iexact=valid_id_type,
+                valid_id_number__iexact=valid_id_number,
+                then=Value(0),
+            )
+        )
+    if birth and len(last) >= 2:
+        priority_conditions.append(
+            When(birth_date=birth, last_name__istartswith=last[:2], then=Value(1))
+        )
+    if birth and len(first) >= 2:
+        priority_conditions.append(
+            When(birth_date=birth, first_name__istartswith=first[:2], then=Value(2))
+        )
+    if len(first) >= 2 and len(last) >= 2:
+        priority_conditions.append(
+            When(
+                first_name__istartswith=first[:2],
+                last_name__istartswith=last[:2],
+                then=Value(3),
+            )
+        )
+    if birth:
+        priority_conditions.append(When(birth_date=birth, then=Value(4)))
+    if len(last) >= 2:
+        priority_conditions.append(
+            When(last_name__istartswith=last[:2], then=Value(5))
+        )
+    if len(first) >= 2:
+        priority_conditions.append(
+            When(first_name__istartswith=first[:2], then=Value(6))
+        )
+    if barangay:
+        priority_conditions.append(When(barangay__iexact=barangay, then=Value(7)))
+
     queryset = Farmer.objects.filter(is_active=True).filter(filters)
     if exclude_pk:
         queryset = queryset.exclude(pk=exclude_pk)
-    return queryset.only(
+    return queryset.annotate(
+        duplicate_priority=Case(
+            *priority_conditions,
+            default=Value(8),
+            output_field=IntegerField(),
+        )
+    ).only(
         "pk", "first_name", "middle_name", "last_name", "extension_name",
         "birth_date", "barangay", "valid_id_type", "valid_id_number",
-    ).order_by("pk")[:MAX_DATABASE_CANDIDATES]
+    ).order_by("duplicate_priority", "-pk")[:MAX_DATABASE_CANDIDATES]
 
 
 def _score(values, candidate):
