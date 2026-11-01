@@ -143,6 +143,23 @@ class GroupedCropListTests(TestCase):
         self.assertEqual(form.cleaned_data["cropping_schedule"], "")
         self.assertFalse(form.cleaned_data["is_intercrop"])
 
+    def test_crop_requires_an_intercropping_yes_or_no_answer(self):
+        form = CropRecordForm(
+            data={
+                "parcel": self.parcel.pk,
+                "crop_type": "Rice",
+                "cropping_start_month": "",
+                "cropping_end_month": "",
+                "area_hectares": "0.50",
+                "number_of_heads": "",
+                "is_organic": "False",
+                "is_intercrop": "",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("is_intercrop", form.errors)
+
     def test_crop_schedule_is_optional_but_a_partial_range_is_rejected(self):
         empty_parcel = FarmParcel.objects.create(
             farmer=self.farmer,

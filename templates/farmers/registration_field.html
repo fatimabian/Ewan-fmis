@@ -48,7 +48,7 @@
 {% else %}
   <div class="registration-field{% if field.errors %} has-error{% endif %}" data-field-name="{{ field.name }}">
     {{ field.label_tag }}
-    {% if field.field.required or field.name == "area_hectares" %}
+    {% if field.field.required or field.name == "area_hectares" or field.name == "is_intercrop" %}
       <b>*</b>
     {% endif %}
     {{ field }}

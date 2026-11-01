@@ -51,7 +51,7 @@
     .duplicate-review-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.duplicate-review-head h2{margin:0 0 5px;font-size:1.25rem}.duplicate-review-head p{margin:0;color:#526276}
     .duplicate-review-close{display:grid;flex:0 0 42px;width:42px;height:42px;place-items:center;border:1px solid #87978e;background:#fff;font-size:1.1rem}
     .duplicate-new-record{margin:17px 0 13px;padding:12px 14px;border-left:3px solid #526b85;background:#f3f6f8}.duplicate-new-record small{display:block;color:#667085}.duplicate-new-record strong{display:block;margin-top:3px;color:#17233a}
-    .duplicate-method{margin:0 0 12px;color:#667085;font-size:.75rem}.duplicate-match-list{display:grid;gap:9px}.duplicate-match{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(120px,.7fr) 90px 105px;gap:12px;align-items:center;padding:12px;border:1px solid #d6dfda;background:#fff}.duplicate-match h3{margin:0 0 3px;font-size:.92rem}.duplicate-match p{margin:0;color:#59687a;font-size:.76rem}.duplicate-score{display:inline-flex;justify-content:center;padding:6px 8px;border:1px solid #c67b17;background:#fff8e8;color:#87510b;font-weight:800}.duplicate-review-link{color:#075dc4;font-weight:750;text-decoration:none}.duplicate-reason-field{display:grid;gap:6px;margin-top:16px}.duplicate-reason-field label{font-weight:750}.duplicate-reason-field textarea{width:100%;min-height:74px;padding:10px;border:1px solid #aebdb5;resize:vertical}.duplicate-review-error{min-height:18px;margin:5px 0 0;color:#b42318;font-size:.78rem}.duplicate-review-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
+    .duplicate-decision-guide{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:0 0 14px}.duplicate-decision-guide p{margin:0;padding:10px 12px;border-left:3px solid #2f7d5c;background:#f4f8f6;color:#334a3f;font-size:.78rem;line-height:1.45}.duplicate-decision-guide p:last-child{border-left-color:#526b85;background:#f3f6f8}.duplicate-method{margin:0 0 12px;color:#667085;font-size:.75rem}.duplicate-match-list{display:grid;gap:9px}.duplicate-match{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(120px,.7fr) 90px minmax(132px,.55fr);gap:12px;align-items:center;padding:12px;border:1px solid #d6dfda;background:#fff}.duplicate-match h3{margin:0 0 3px;font-size:.92rem}.duplicate-match p{margin:0;color:#59687a;font-size:.76rem}.duplicate-score{display:inline-flex;justify-content:center;padding:6px 8px;border:1px solid #c67b17;background:#fff8e8;color:#87510b;font-weight:800}.duplicate-match-actions{display:grid;gap:6px}.duplicate-review-link,.duplicate-use-existing{display:inline-flex;min-height:34px;align-items:center;justify-content:center;padding:6px 8px;border:1px solid #168052;color:#075dc4;font-size:.75rem;font-weight:750;text-align:center;text-decoration:none}.duplicate-use-existing{background:#168052;color:#fff}.duplicate-reason-field{display:grid;gap:6px;margin-top:16px}.duplicate-reason-field label{font-weight:750}.duplicate-reason-field textarea{width:100%;min-height:74px;padding:10px;border:1px solid #aebdb5;resize:vertical}.duplicate-review-error{min-height:18px;margin:5px 0 0;color:#b42318;font-size:.78rem}.duplicate-review-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
     body[data-theme="dark"] .duplicate-review-dialog,body[data-theme="dark"] .duplicate-review-close,body[data-theme="dark"] .duplicate-match{border-color:#52675b;background:#1c2735;color:#f1f5f9}body[data-theme="dark"] .duplicate-new-record{background:#243442}body[data-theme="dark"] .duplicate-new-record strong{color:#f1f5f9}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
     #registrationReview.review-grid article.review-summary-card{display:block!important;min-height:0;padding:18px}
@@ -70,7 +70,7 @@
     @media(max-width:900px){#registrationReview .review-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:560px){#registrationReview .review-data-grid{grid-template-columns:1fr}}
     @media(max-width:900px){.rsbsa-file-picker{align-items:flex-start;flex-wrap:wrap}.rsbsa-file-selection{flex-basis:100%}}
-    @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-actions{width:100%}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-selection{width:100%}.rsbsa-file-summary{margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal,.duplicate-review-modal{padding:6px}.rsbsa-camera-dialog,.duplicate-review-dialog{padding:14px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}.duplicate-match{grid-template-columns:1fr 90px}.duplicate-match>:nth-child(2){grid-column:1/-1}.duplicate-review-actions{display:grid;grid-template-columns:1fr 1fr}.duplicate-review-actions .btn{width:100%}}
+    @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-actions{width:100%}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-selection{width:100%}.rsbsa-file-summary{margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal,.duplicate-review-modal{padding:6px}.rsbsa-camera-dialog,.duplicate-review-dialog{padding:14px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}.duplicate-decision-guide{grid-template-columns:1fr}.duplicate-match{grid-template-columns:1fr 90px}.duplicate-match>:nth-child(2),.duplicate-match-actions{grid-column:1/-1}.duplicate-review-actions{display:grid;grid-template-columns:1fr 1fr}.duplicate-review-actions .btn{width:100%}}
   </style>
 {% endblock %}
 {% block content %}
@@ -371,6 +371,10 @@
         <section class="duplicate-review-dialog" role="dialog" aria-modal="true" aria-labelledby="duplicateReviewTitle">
           <header class="duplicate-review-head"><div><h2 id="duplicateReviewTitle">Possible matching farmer records</h2><p>Compare these records before creating another farmer. A similarity flag is not proof of duplication.</p></div><button type="button" class="duplicate-review-close" data-duplicate-close aria-label="Close"><i class="bi bi-x-lg"></i></button></header>
           <div class="duplicate-new-record"><small>New registration</small><strong id="duplicateNewFarmer"></strong></div>
+          <div class="duplicate-decision-guide" aria-label="Duplicate review choices">
+            <p><strong>Same person?</strong> Use the existing record below. The new registration will not be saved.</p>
+            <p><strong>Different person?</strong> Review the match, explain why it is separate, then confirm.</p>
+          </div>
           <p class="duplicate-method" id="duplicateMethod"></p>
           <div class="duplicate-match-list" id="duplicateMatchList"></div>
           <div class="duplicate-reason-field"><label for="duplicateReviewReason">Why is this a separate farmer?</label><textarea id="duplicateReviewReason" maxlength="300" placeholder="Example: Different birthdate and verified as a different household member."></textarea></div>
@@ -445,7 +449,7 @@
           if(!data.matches.length){duplicateCheckPassed=true;form.requestSubmit();return}
           method.textContent=data.method;
           newFarmer.textContent=[form.elements.first_name.value,form.elements.middle_name.value,form.elements.last_name.value,form.elements.extension_name.value].filter(Boolean).join(' ');
-          list.innerHTML=data.matches.map(match=>`<article class="duplicate-match"><div><h3>${escapeHtml(match.farmer_id)} · ${escapeHtml(match.name)}</h3><p>${escapeHtml(match.reasons.join(' · '))}</p></div><div><p>${escapeHtml(match.barangay)}</p><p>Birth year: ${escapeHtml(match.birth_year)}</p></div><span class="duplicate-score">${escapeHtml(match.score)}%</span><a class="duplicate-review-link" href="${escapeHtml(match.review_url)}" target="_blank" rel="noopener">Review Record</a></article>`).join('');
+          list.innerHTML=data.matches.map(match=>`<article class="duplicate-match"><div><h3>${escapeHtml(match.farmer_id)} · ${escapeHtml(match.name)}</h3><p>${escapeHtml(match.reasons.join(' · '))}</p></div><div><p>${escapeHtml(match.barangay)}</p><p>Birth year: ${escapeHtml(match.birth_year)}</p></div><span class="duplicate-score">${escapeHtml(match.score)}%</span><div class="duplicate-match-actions"><a class="duplicate-review-link" href="${escapeHtml(match.review_url)}" target="_blank" rel="noopener">Review Record</a><a class="duplicate-use-existing" href="${escapeHtml(match.review_url)}">Use Existing Record</a></div></article>`).join('');
           modal.hidden=false;modal.setAttribute('aria-hidden','false');reason.focus();
         }catch(problem){window.alert(problem.message)}finally{checking=false;submit.disabled=false;submit.innerHTML='<i class="bi bi-check2-circle"></i> Submit Registration'}
       },true);
@@ -454,6 +458,11 @@
         if(reason.value.trim().length<5){error.textContent='Enter a short reason before confirming.';reason.focus();return}
         confirm.disabled=true;
         try{const data=await requestCheck({decision:'SEPARATE',reason:reason.value.trim()});token.value=data.review_token;close();form.requestSubmit()}catch(problem){error.textContent=problem.message}finally{confirm.disabled=false}
+      });
+      list.addEventListener('click',event=>{
+        const link=event.target.closest('.duplicate-use-existing');
+        if(!link)return;
+        if(!window.confirm('Use this existing farmer record? The new registration will not be saved.'))event.preventDefault();
       });
     })();
   </script>

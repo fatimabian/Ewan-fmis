@@ -88,6 +88,20 @@ class FarmerDuplicateDetectionTests(TestCase):
         self.assertEqual(payload["matches"][0]["farmer_id"], self.existing.record_id)
         self.assertNotContains(response, self.existing.valid_id_number)
 
+    def test_registration_explains_both_duplicate_review_outcomes(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.get(reverse("farmers:create"))
+
+        self.assertContains(response, "Same person?")
+        self.assertContains(response, "Use Existing Record")
+        self.assertContains(response, "Different person?")
+        self.assertContains(response, "Confirm Separate Farmer")
+        self.assertRegex(
+            response.content.decode(),
+            r"Intercropping commodity\?</label>\s*<b>\*</b>",
+        )
+
     def test_saved_record_check_excludes_self_and_returns_other_matches(self):
         other = Farmer.objects.create(
             first_name="Marya",
