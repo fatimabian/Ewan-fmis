@@ -54,6 +54,21 @@
     .duplicate-method{margin:0 0 12px;color:#667085;font-size:.75rem}.duplicate-match-list{display:grid;gap:9px}.duplicate-match{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(120px,.7fr) 90px 105px;gap:12px;align-items:center;padding:12px;border:1px solid #d6dfda;background:#fff}.duplicate-match h3{margin:0 0 3px;font-size:.92rem}.duplicate-match p{margin:0;color:#59687a;font-size:.76rem}.duplicate-score{display:inline-flex;justify-content:center;padding:6px 8px;border:1px solid #c67b17;background:#fff8e8;color:#87510b;font-weight:800}.duplicate-review-link{color:#075dc4;font-weight:750;text-decoration:none}.duplicate-reason-field{display:grid;gap:6px;margin-top:16px}.duplicate-reason-field label{font-weight:750}.duplicate-reason-field textarea{width:100%;min-height:74px;padding:10px;border:1px solid #aebdb5;resize:vertical}.duplicate-review-error{min-height:18px;margin:5px 0 0;color:#b42318;font-size:.78rem}.duplicate-review-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
     body[data-theme="dark"] .duplicate-review-dialog,body[data-theme="dark"] .duplicate-review-close,body[data-theme="dark"] .duplicate-match{border-color:#52675b;background:#1c2735;color:#f1f5f9}body[data-theme="dark"] .duplicate-new-record{background:#243442}body[data-theme="dark"] .duplicate-new-record strong{color:#f1f5f9}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
+    #registrationReview.review-grid article.review-summary-card{display:block!important;min-height:0;padding:18px}
+    .review-summary-card h3{margin:0 0 14px}
+    .review-subsection+.review-subsection{margin-top:18px;padding-top:16px;border-top:1px solid #dce6df}
+    .review-subsection h4,.review-record h4{margin:0 0 10px;color:#31485e;font-size:.78rem;text-transform:uppercase;letter-spacing:.035em}
+    .review-records{display:grid;gap:12px}
+    .review-record{padding:13px 14px;border:1px solid #dce6df;background:#fbfdfc}
+    #registrationReview .review-data-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 20px;margin:0;font-size:.78rem}
+    #registrationReview .review-data-grid>div{min-width:0}
+    #registrationReview .review-data-grid dt{margin:0 0 3px;color:#64748b;font-size:.7rem}
+    #registrationReview .review-data-grid dd{margin:0;color:#17233a;font-weight:650;overflow-wrap:anywhere}
+    .review-empty{margin:0;color:#64748b;font-size:.78rem}
+    body[data-theme="dark"] .review-record{border-color:#405168;background:#202b25}
+    body[data-theme="dark"] .review-subsection h4,body[data-theme="dark"] .review-record h4{color:#c9d8d0}
+    @media(max-width:900px){#registrationReview .review-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:560px){#registrationReview .review-data-grid{grid-template-columns:1fr}}
     @media(max-width:900px){.rsbsa-file-picker{align-items:flex-start;flex-wrap:wrap}.rsbsa-file-selection{flex-basis:100%}}
     @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-actions{width:100%}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-selection{width:100%}.rsbsa-file-summary{margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal,.duplicate-review-modal{padding:6px}.rsbsa-camera-dialog,.duplicate-review-dialog{padding:14px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}.duplicate-match{grid-template-columns:1fr 90px}.duplicate-match>:nth-child(2){grid-column:1/-1}.duplicate-review-actions{display:grid;grid-template-columns:1fr 1fr}.duplicate-review-actions .btn{width:100%}}
   </style>
@@ -333,7 +348,7 @@
           <div class="step-heading">
             <div>
               <h2>Review &amp; Confirm</h2>
-              <p>Check the information before submitting the new RSBSA registration.</p>
+              <p>Check all entered information before submitting. To correct anything, select Back; your drafted entries will remain in the form.</p>
             </div>
             <span class="rsbsa-label">Final Review</span>
           </div>
@@ -657,7 +672,7 @@
               if (schedule) schedule.hidden = nonCrop;
               scheduleInputs.forEach(input => {
                   input.disabled = nonCrop;
-                  input.required = !nonCrop;
+                  input.required = false;
                   if (nonCrop) input.value = ''
               });
               if (intercrop) intercrop.hidden = nonCrop;
@@ -708,16 +723,6 @@
               }
           });
 
-          function valueOf(name) {
-              const el = form.elements[name];
-              if (!el) return 'Not provided';
-              if (el instanceof RadioNodeList) {
-                  const values = [...document.querySelectorAll(`[name="${name}"]:checked`)].map(x => x.labels?.[0]?.innerText || x.value);
-                  return values.join(', ') || 'Not provided'
-              }
-              return el.options ? el.options[el.selectedIndex]?.text : el.value || 'Not provided'
-          }
-
           function esc(value) {
               const node = document.createElement('span');
               node.textContent = String(value);
@@ -728,12 +733,87 @@
               return [...document.querySelectorAll(`#${prefix}-rows .formset-row:not(.deleted)`)]
           }
 
+          function reviewLabel(wrapper) {
+              const label = [...wrapper.children].find(child => child.tagName === 'LABEL') || wrapper.querySelector('label');
+              return (label?.textContent || wrapper.dataset.fieldName || 'Field')
+                  .replace(/\s*\*\s*$/, '')
+                  .replace(/\s+/g, ' ')
+                  .trim()
+          }
+
+          function selectedText(select) {
+              return [...select.selectedOptions]
+                  .filter(option => option.value)
+                  .map(option => option.textContent.trim())
+          }
+
+          function reviewValue(wrapper) {
+              const controls = [...wrapper.querySelectorAll('input,select,textarea')]
+                  .filter(control => control.type !== 'hidden' && !control.name.endsWith('-DELETE'));
+              if (!controls.length) return 'Not provided';
+              const files = controls.filter(control => control.type === 'file')
+                  .flatMap(control => [...(control.files || [])].map(file => file.name));
+              if (files.length) return files.join(', ');
+              if (controls.every(control => control.type === 'checkbox')) {
+                  if (controls.length === 1) return controls[0].checked ? 'Yes' : 'No';
+                  const checked = controls.filter(control => control.checked)
+                      .map(control => control.labels?.[0]?.textContent?.trim() || control.value);
+                  return checked.join(', ') || 'None selected'
+              }
+              if (controls.every(control => control.type === 'radio')) {
+                  const checked = controls.find(control => control.checked);
+                  return checked ? (checked.labels?.[0]?.textContent?.trim() || checked.value) : 'Not provided'
+              }
+              const values = controls.flatMap(control => {
+                  if (control.type === 'file') return [];
+                  if (control.tagName === 'SELECT') return selectedText(control);
+                  const value = control.value.trim();
+                  return value ? [value] : []
+              });
+              return values.join(' – ') || 'Not provided'
+          }
+
+          function reviewFields(container) {
+              return [...container.querySelectorAll('.registration-field')]
+                  .filter(wrapper => !wrapper.closest('.deleted'))
+                  .map(wrapper => ({label: reviewLabel(wrapper), value: reviewValue(wrapper)}))
+          }
+
+          function reviewData(fields) {
+              return `<dl class="review-data-grid">${fields.map(field => `<div><dt>${esc(field.label)}</dt><dd>${esc(field.value)}</dd></div>`).join('')}</dl>`
+          }
+
+          function profileReview() {
+              const sections = [...form.querySelectorAll('.registration-step[data-step="1"] .form-section')]
+                  .map(section => `<section class="review-subsection"><h4>${esc(section.querySelector('h3')?.textContent.trim() || 'Profile details')}</h4>${reviewData(reviewFields(section))}</section>`)
+                  .join('');
+              return `<article class="review-summary-card"><h3><i class="bi bi-person"></i> Farmer Profile</h3>${sections}</article>`
+          }
+
+          function rowReview(prefix, title, icon, emptyMessage) {
+              const records = activeRows(prefix).map((row, index) => `<section class="review-record"><h4>${esc(title)} ${index + 1}</h4>${reviewData(reviewFields(row))}</section>`).join('');
+              return `<article class="review-summary-card"><h3><i class="bi ${icon}"></i> ${esc(title)}s</h3><div class="review-records">${records || `<p class="review-empty">${esc(emptyMessage)}</p>`}</div></article>`
+          }
+
+          function commodityReview() {
+              const livelihood = form.querySelector('.registration-step[data-step="3"] .form-section');
+              const records = activeRows('crops').map((row, index) => `<section class="review-record"><h4>Commodity ${index + 1}</h4>${reviewData(reviewFields(row))}</section>`).join('');
+              return `<article class="review-summary-card"><h3><i class="bi bi-flower1"></i> Commodity &amp; Livelihood</h3><section class="review-subsection"><h4>Primary livelihood</h4>${reviewData(reviewFields(livelihood))}</section><section class="review-subsection"><h4>Commodity records</h4><div class="review-records">${records || '<p class="review-empty">No commodity records entered.</p>'}</div></section></article>`
+          }
+
+          function documentReview() {
+              const rsbsaInput = form.elements.rsbsa_form;
+              const rsbsaFiles = [...(rsbsaInput?.files || [])].map(file => file.name).join(', ') || 'No RSBSA form uploaded';
+              const records = activeRows('documents').map((row, index) => `<section class="review-record"><h4>Supporting document ${index + 1}</h4>${reviewData(reviewFields(row))}</section>`).join('');
+              return `<article class="review-summary-card"><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><section class="review-subsection"><h4>RSBSA form copies</h4>${reviewData([{label:'Selected files',value:rsbsaFiles}])}</section><section class="review-subsection"><h4>Supporting documents</h4><div class="review-records">${records || '<p class="review-empty">No supporting documents entered.</p>'}</div></section></article>`
+          }
+
           function buildReview() {
               const review = document.getElementById('registrationReview');
-              const name = [valueOf('first_name'), valueOf('middle_name'), valueOf('last_name'), valueOf('extension_name')].filter(x => x !== 'Not provided').join(' ');
-              const address = [valueOf('house_lot_purok'), valueOf('street_sitio'), valueOf('barangay'), valueOf('city_municipality'), valueOf('province')].filter(x => x !== 'Not provided').join(', ');
-              review.innerHTML = `<article><div><h3><i class="bi bi-person"></i> Farmer Profile</h3><dl><dt>Name</dt><dd>${esc(name)}</dd><dt>Address</dt><dd>${esc(address)}</dd><dt>Contact</dt><dd>${esc(valueOf('phone_number'))}</dd><dt>Livelihood</dt><dd>${esc(valueOf('livelihood'))}</dd></dl></div><button type="button" data-edit-step="1">Edit profile</button></article><article><div><h3><i class="bi bi-map"></i> Farm Parcels</h3><p><strong>${activeRows('parcels').length}</strong> parcel(s) declared</p></div><button type="button" data-edit-step="2">Edit parcels</button></article><article><div><h3><i class="bi bi-flower1"></i> Commodity &amp; Livelihood</h3><p><strong>${activeRows('crops').length}</strong> commodity record(s)</p></div><button type="button" data-edit-step="3">Edit commodities</button></article><article><div><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><p><strong>${activeRows('documents').length}</strong> supporting document(s)</p></div><button type="button" data-edit-step="4">Edit documents</button></article>`;
-              review.querySelectorAll('[data-edit-step]').forEach(btn => btn.addEventListener('click', () => showStep(Number(btn.dataset.editStep))))
+              review.innerHTML = profileReview()
+                  + rowReview('parcels', 'Farm Parcel', 'bi-map', 'No farm parcels entered.')
+                  + commodityReview()
+                  + documentReview()
           }
           form.addEventListener('submit', () => {
               const submit = document.querySelector('.submit-registration');

@@ -46,11 +46,10 @@ class FarmParcelPhotoUploadForm(InlineValidationMixin, forms.Form):
 class FarmParcelForm(InlineValidationMixin, forms.ModelForm):
     farmer = FarmerChoiceField(queryset=active_farmer_queryset())
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES)
-    farm_type = forms.CharField(
-        max_length=30,
+    farm_type = forms.ChoiceField(
+        choices=(("", "Select farm type"), *FarmParcel.FARM_TYPE_CHOICES),
         required=True,
         label="Farm type",
-        widget=forms.Select(choices=FarmParcel.FARM_TYPE_CHOICES),
     )
     is_rsbsa_recorded = RequiredYesNoField(label="Already recorded in RSBSA?")
     is_active = RequiredYesNoField(label="Currently cultivated / active?")
@@ -317,11 +316,11 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
             cleaned["is_intercrop"] = False
         elif not cleaned.get("area_hectares"):
             self.add_error("area_hectares", "Enter the area used for this commodity.")
-        elif not start_month or not end_month:
+        elif bool(start_month) != bool(end_month):
             if not start_month:
-                self.add_error("cropping_start_month", "Select the first cropping month.")
+                self.add_error("cropping_start_month", "Select the first cropping month or leave both months blank.")
             if not end_month:
-                self.add_error("cropping_end_month", "Select the last cropping month.")
+                self.add_error("cropping_end_month", "Select the last cropping month or leave both months blank.")
         if commodity not in LIVESTOCK_COMMODITIES | FISHERY_COMMODITIES and cleaned.get("is_intercrop") is None:
             self.add_error("is_intercrop", "Select whether this is an intercropping commodity.")
         cleaned["cropping_schedule"] = (

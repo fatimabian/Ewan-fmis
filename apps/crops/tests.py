@@ -143,6 +143,42 @@ class GroupedCropListTests(TestCase):
         self.assertEqual(form.cleaned_data["cropping_schedule"], "")
         self.assertFalse(form.cleaned_data["is_intercrop"])
 
+    def test_crop_schedule_is_optional_but_a_partial_range_is_rejected(self):
+        empty_parcel = FarmParcel.objects.create(
+            farmer=self.farmer,
+            barangay="Bulihan",
+            area_hectares=Decimal("1.00"),
+            ownership_type="OWNED",
+            land_type="UPLAND",
+        )
+        base_data = {
+            "parcel": empty_parcel.pk,
+            "crop_type": "Rice",
+            "area_hectares": "0.50",
+            "number_of_heads": "",
+            "is_organic": "False",
+            "is_intercrop": "False",
+        }
+        optional = CropRecordForm(
+            data={
+                **base_data,
+                "cropping_start_month": "",
+                "cropping_end_month": "",
+            }
+        )
+        self.assertTrue(optional.is_valid(), optional.errors)
+        self.assertEqual(optional.cleaned_data["cropping_schedule"], "")
+
+        partial = CropRecordForm(
+            data={
+                **base_data,
+                "cropping_start_month": "January",
+                "cropping_end_month": "",
+            }
+        )
+        self.assertFalse(partial.is_valid())
+        self.assertIn("cropping_end_month", partial.errors)
+
     def test_common_then_other_then_additional_groups_are_ordered_for_staff(self):
         form = CropRecordForm()
         groups = [

@@ -207,10 +207,11 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
         elif not area:
             self.add_error("area_hectares", "Enter the area used for this commodity.")
         else:
-            if not start_month:
-                self.add_error("cropping_start_month", "Select the first cropping month.")
-            if not end_month:
-                self.add_error("cropping_end_month", "Select the last cropping month.")
+            if bool(start_month) != bool(end_month):
+                if not start_month:
+                    self.add_error("cropping_start_month", "Select the first cropping month or leave both months blank.")
+                if not end_month:
+                    self.add_error("cropping_end_month", "Select the last cropping month or leave both months blank.")
             if cleaned.get("is_intercrop") is None:
                 self.add_error("is_intercrop", "Select Yes or No.")
             cleaned["cropping_schedule"] = (

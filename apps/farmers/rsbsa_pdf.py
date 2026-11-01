@@ -367,7 +367,7 @@ def _page_two(pdf, farmer, parcels):
             _write(pdf, crop.crop_type, 313, y, 80, 5.5, "center")
             _write(pdf, crop.area_hectares, 394, y, 47, 5.5, "center")
             _write(pdf, crop.number_of_heads, 442, y, 43, 5.5, "center")
-            farm_type = {"Irrigated": "1", "Rainfed Upland": "2", "Rainfed Lowland": "3"}.get(parcel.farm_type, "N/A")
+            farm_type = {"Irrigated": "1", "Rainfed Upland": "2", "Rainfed Lowland": "3", "Urban/Peri-Urban": "4"}.get(parcel.farm_type, "N/A")
             _write(pdf, farm_type, 487, y, 42, 5.5, "center")
             _write(pdf, "Y" if crop.is_organic else "N", 531, y, 34, 5.5, "center")
         if intercrop:
@@ -376,7 +376,7 @@ def _page_two(pdf, farmer, parcels):
             _write(pdf, intercrop.crop_type, 313, y, 80, 5.5, "center")
             _write(pdf, intercrop.area_hectares, 394, y, 47, 5.5, "center")
             _write(pdf, intercrop.number_of_heads, 442, y, 43, 5.5, "center")
-            farm_type = {"Irrigated": "1", "Rainfed Upland": "2", "Rainfed Lowland": "3"}.get(parcel.farm_type, "N/A")
+            farm_type = {"Irrigated": "1", "Rainfed Upland": "2", "Rainfed Lowland": "3", "Urban/Peri-Urban": "4"}.get(parcel.farm_type, "N/A")
             _write(pdf, farm_type, 487, y, 42, 5.5, "center")
             _write(pdf, "Y" if intercrop.is_organic else "N", 531, y, 34, 5.5, "center")
 

@@ -1048,6 +1048,11 @@ class FMISRequirementTests(TestCase):
         self.assertContains(response, 'data-rsbsa-file-input')
         self.assertContains(response, "Choose files")
         self.assertNotContains(response, "Selected files:")
+        self.assertContains(response, "Check all entered information before submitting")
+        self.assertContains(response, "your drafted entries will remain in the form")
+        self.assertContains(response, "function profileReview()")
+        self.assertContains(response, "function rowReview(prefix, title, icon, emptyMessage)")
+        self.assertNotContains(response, "data-edit-step")
         self.assertContains(response, "Complete all required fields in this step to continue.")
         self.assertContains(response, "stepIsComplete")
         self.assertContains(response, 'id="fmisNetworkLoading"')
@@ -1272,7 +1277,7 @@ class FMISRequirementTests(TestCase):
             "parcels-0-area_hectares": "1.50",
             "parcels-0-ownership_type": "OWNED",
             "parcels-0-land_type": "UPLAND",
-            "parcels-0-farm_type": "Mixed vegetables",
+            "parcels-0-farm_type": "Irrigated",
             "parcels-0-is_active": "True",
             "crops-TOTAL_FORMS": "1",
             "crops-INITIAL_FORMS": "0",
@@ -1392,7 +1397,7 @@ class FMISRequirementTests(TestCase):
             "barangay": "Alupay",
             "area_hectares": "1.50",
             "land_type": "UPLAND",
-            "farm_type": "Mixed vegetables near the creek",
+            "farm_type": "Rainfed Upland",
             "is_active": "True",
         }
         owned = ParcelRegistrationForm(data={**base_data, "ownership_type": "OWNED"})
@@ -1429,6 +1434,20 @@ class FMISRequirementTests(TestCase):
         )
         self.assertTrue(crop_form.is_valid(), crop_form.errors)
         self.assertEqual(crop_form.cleaned_data["cropping_schedule"], "January - March")
+
+        optional_schedule = CropRegistrationForm(
+            data={
+                "parcel_number": "1",
+                "crop_type": "Rice",
+                "cropping_start_month": "",
+                "cropping_end_month": "",
+                "area_hectares": "0.75",
+                "is_organic": "False",
+                "is_intercrop": "False",
+            }
+        )
+        self.assertTrue(optional_schedule.is_valid(), optional_schedule.errors)
+        self.assertEqual(optional_schedule.cleaned_data["cropping_schedule"], "")
 
     def test_farmer_registration_rejects_wrong_character_types(self):
         form = FarmerRegistrationForm(
@@ -3245,7 +3264,21 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.context["crop_formset"].total_form_count(), 1)
         self.assertEqual(response.context["document_formset"].total_form_count(), 1)
         parcel_fields = response.context["parcel_formset"].empty_form.fields
-        self.assertIsInstance(parcel_fields["farm_type"].widget, django_forms.TextInput)
+        self.assertIsInstance(parcel_fields["farm_type"].widget, django_forms.Select)
+        self.assertEqual(
+            list(parcel_fields["farm_type"].choices),
+            [
+                ("", "Select farm type"),
+                ("Irrigated", "1 - Irrigated"),
+                ("Rainfed Upland", "2 - Rainfed Upland"),
+                ("Rainfed Lowland", "3 - Rainfed Lowland"),
+                ("Urban/Peri-Urban", "4 - Urban/Peri-Urban"),
+                (
+                    "Not Applicable (For Fisheries)",
+                    "N/A - Not Applicable (For Fisheries)",
+                ),
+            ],
+        )
         self.assertNotIn("parcel_name", parcel_fields)
         self.assertNotIn("remarks", parcel_fields)
         self.assertNotIn("is_rsbsa_recorded", parcel_fields)

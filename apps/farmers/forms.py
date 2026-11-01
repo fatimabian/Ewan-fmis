@@ -662,13 +662,10 @@ class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
     )
     barangay = forms.ChoiceField(choices=ROSARIO_BARANGAY_CHOICES, required=True)
     is_active = RequiredYesNoField(label="Currently cultivated / active?")
-    farm_type = forms.CharField(
-        max_length=180,
+    farm_type = forms.ChoiceField(
+        choices=(("", "Select farm type"), *FarmParcel.FARM_TYPE_CHOICES),
         required=True,
         label="Farm type",
-        widget=forms.TextInput(
-            attrs={"placeholder": "Enter farm type or brief office remarks"}
-        ),
     )
     field_photos = MultipleImageField(
         required=False,
@@ -872,8 +869,6 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
             "parcel_number",
             "crop_type",
             "area_hectares",
-            "cropping_start_month",
-            "cropping_end_month",
         ):
             self.fields[name].required = False
             self.fields[name].widget.attrs["data-step-required"] = "true"
@@ -902,10 +897,6 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
         ):
             if not cleaned.get(name):
                 self.add_error(name, "Complete this field for the commodity.")
-        if not livestock and not fishery:
-            for name in ("cropping_start_month", "cropping_end_month"):
-                if not cleaned.get(name):
-                    self.add_error(name, "Complete this field for the commodity.")
         if livestock:
             cleaned["area_hectares"] = None
             cleaned["is_intercrop"] = False
@@ -919,6 +910,11 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
             self.add_error("is_intercrop", "Select whether this is an intercropping commodity.")
         start_month = cleaned.get("cropping_start_month")
         end_month = cleaned.get("cropping_end_month")
+        if bool(start_month) != bool(end_month):
+            if not start_month:
+                self.add_error("cropping_start_month", "Select the first cropping month or leave both months blank.")
+            if not end_month:
+                self.add_error("cropping_end_month", "Select the last cropping month or leave both months blank.")
         cleaned["cropping_schedule"] = (
             f"{start_month} - {end_month}"
             if not fishery and start_month and end_month

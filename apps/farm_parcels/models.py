@@ -26,10 +26,10 @@ class FarmParcel(models.Model):
         ("LOWLAND", "Lowland"),
     ]
     FARM_TYPE_CHOICES = [
-        ("Irrigated", "Irrigated"),
-        ("Rainfed Upland", "Rainfed Upland"),
-        ("Rainfed Lowland", "Rainfed Lowland"),
-        ("Urban/Peri-Urban", "Urban / Peri-Urban"),
+        ("Irrigated", "1 - Irrigated"),
+        ("Rainfed Upland", "2 - Rainfed Upland"),
+        ("Rainfed Lowland", "3 - Rainfed Lowland"),
+        ("Urban/Peri-Urban", "4 - Urban/Peri-Urban"),
         ("Not Applicable (For Fisheries)", "N/A - Not Applicable (For Fisheries)"),
     ]
     GPX_STATUS_CHOICES = [
@@ -66,6 +66,7 @@ class FarmParcel(models.Model):
     land_type = models.CharField(max_length=30, choices=LAND_TYPE_CHOICES, default="")
     farm_type = models.CharField(
         max_length=180,
+        choices=FARM_TYPE_CHOICES,
         blank=True,
         default="",
     )
@@ -99,10 +100,6 @@ class FarmParcel(models.Model):
 
     def __str__(self):
         return f"{self.display_name} - {self.farmer}"
-
-    def get_farm_type_display(self):
-        """Keep existing reports/templates compatible now that farm type is staff-entered."""
-        return self.farm_type
 
     class Meta:
         indexes = [
