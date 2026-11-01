@@ -79,6 +79,14 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
         for period, total in sorted(totals.items())[-limit:]
     ]
     peak = max((row["total"] or 0 for row in rows), default=0) or 1
+    years = sorted({row["period"].year for row in rows})
+    period_label = (
+        str(years[0])
+        if len(years) == 1
+        else f"{years[0]}\u2013{years[-1]}"
+        if years
+        else ""
+    )
     count = len(rows)
     points = []
     for index, row in enumerate(rows):
@@ -88,6 +96,7 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
         points.append(
             {
                 "label": row["period"].strftime("%b %Y"),
+                "month_label": row["period"].strftime("%b"),
                 "value": value,
                 "x": round(x, 2),
                 "y": round(y, 2),
@@ -98,6 +107,7 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
         "points": points,
         "polyline": " ".join(f'{point["x"]},{point["y"]}' for point in points),
         "peak": peak,
+        "period_label": period_label,
     }
 
 

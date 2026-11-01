@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from apps.farmers.models import Farmer
 from apps.inventory.models import InventoryItem, InventoryMovement
-from apps.reports.analytics import descriptive_analytics
+from apps.reports.analytics import _monthly_series, descriptive_analytics
 
 
 class DescriptiveAnalyticsTests(TestCase):
@@ -211,6 +211,24 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertContains(requests, 'aria-label="Service Requests Over Time line chart"')
         self.assertContains(interventions, 'aria-label="Interventions Given by Month bar chart"')
         self.assertContains(inventory, 'aria-label="Inventory receipts and releases grouped bar chart"')
+
+    def test_bar_chart_axis_shows_months_with_one_shared_year_label(self):
+        series = _monthly_series(Farmer.objects.all(), "created_at")
+
+        self.assertEqual(len(series["points"][0]["month_label"]), 3)
+        self.assertNotIn(" ", series["points"][0]["month_label"])
+        self.assertEqual(series["period_label"], str(date.today().year))
+
+    def test_analytics_filter_shares_the_tab_row_and_intervention_summary_follows_chart(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("reports:home"), {"analytics_tab": "interventions"})
+        html = response.content.decode()
+
+        self.assertIn("grid-template-columns:minmax(0,1fr) auto", html)
+        self.assertLess(html.index("Interventions Given by Month"), html.index("INTERVENTION DISTRIBUTION SUMMARY"))
+
+        reports = self.client.get(reverse("reports:home"), {"analytics_tab": "reports"})
+        self.assertNotContains(reports, 'class="analytics-filter-toolbar')
 
     def test_analytics_filters_use_module_specific_popover_fields(self):
         self.client.force_login(self.staff)
