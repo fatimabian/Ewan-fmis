@@ -54,6 +54,14 @@
       color:#c62828;
       padding:4px
   }
+  .geocamera-review{margin:0 0 18px;padding:16px;border:1px solid #2f7d5c;background:#f7fbf8}
+  .geocamera-review-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+  .geocamera-review h4{margin:0;color:#14243a;font-size:17px}.geocamera-review p{margin:5px 0 0;color:#526276;font-size:13px}
+  .geocamera-owner{margin-top:12px;padding:10px 12px;border-left:3px solid #2f7d5c;background:#fff;color:#26384c;font-size:12px}
+  .geocamera-points{width:100%;margin-top:12px;border-collapse:collapse;background:#fff;font-size:12px}.geocamera-points th,.geocamera-points td{padding:9px;border-bottom:1px solid #e0e8e3;text-align:left}.geocamera-points th{background:#eaf5ee;color:#14243a}.geocamera-point-status{font-weight:800;color:#18794e}.geocamera-point-status.is-outlier{color:#b54708}
+  .geocamera-proposal{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:12px;background:#fff}.geocamera-proposal strong,.geocamera-proposal small{display:block}.geocamera-proposal small{margin-top:3px;color:#68766f}
+  .parcel-photo-gps{display:block!important;color:#287353!important;font-weight:700}.parcel-photo-gps.is-missing{color:#8a5a17!important}
+  @media(max-width:700px){.geocamera-review-heading,.geocamera-proposal{align-items:stretch;flex-direction:column}.geocamera-points-wrap{overflow-x:auto}.geocamera-points{min-width:540px}}
   </style>
   <div class="content record-detail">
     {% if request.GET.saved == 'slip-b' %}
@@ -115,6 +123,27 @@
 
       <section class="record-single-section">
         <h3><i class="bi bi-images"></i> Field Photo Gallery</h3>
+        {% if geotag_summary %}
+          <section class="geocamera-review" id="geocameraReview" aria-labelledby="geocameraReviewTitle">
+            <div class="geocamera-review-heading">
+              <div>
+                <h4 id="geocameraReviewTitle"><i class="bi bi-geo-alt-fill"></i> GeoCamera Coordinate Review</h4>
+                <p>{{ geotag_summary.message }}</p>
+              </div>
+              <span class="status-badge {% if geotag_summary.status == 'ready' %}status-active{% else %}status-pending{% endif %}">{{ geotag_summary.points|length }} GPS point{{ geotag_summary.points|length|pluralize }}</span>
+            </div>
+            <div class="geocamera-owner"><strong>Coordinate owner:</strong> {{ object.display_name }} · {{ object.farmer.record_id }} — {{ object.farmer.full_name }}. Ownership comes from the selected FMIS parcel, never from GPS proximity.</div>
+            {% if geotag_summary.points %}
+              <div class="geocamera-points-wrap"><table class="geocamera-points"><thead><tr><th>Photo</th><th>Embedded coordinate</th><th>Captured</th><th>Assessment</th></tr></thead><tbody>
+                {% for item in geotag_summary.accepted %}<tr><td>Photo {{ forloop.counter }}</td><td>{{ item.point.0|floatformat:7 }}, {{ item.point.1|floatformat:7 }}</td><td>{{ item.photo.gps_captured_at|date:'M d, Y h:i A'|default:'Not embedded' }}</td><td><span class="geocamera-point-status">Included</span></td></tr>{% endfor %}
+                {% for item in geotag_summary.outliers %}<tr><td>Photo {{ forloop.counter }}</td><td>{{ item.point.0|floatformat:7 }}, {{ item.point.1|floatformat:7 }}</td><td>{{ item.photo.gps_captured_at|date:'M d, Y h:i A'|default:'Not embedded' }}</td><td><span class="geocamera-point-status is-outlier">Excluded / review</span></td></tr>{% endfor %}
+              </tbody></table></div>
+            {% endif %}
+            {% if geotag_summary.status == 'ready' %}
+              <div class="geocamera-proposal"><span><strong>Proposed parcel location</strong><small>{{ geotag_summary.proposed.0|floatformat:7 }}, {{ geotag_summary.proposed.1|floatformat:7 }} · median of the close photo coordinates</small></span><form method="post" action="{% url 'farm_parcels:geocamera_confirm' object.pk %}" data-confirm="Use this verified GeoCamera location for {{ object.display_name }}? The previous coordinate remains in history.">{% csrf_token %}<input type="hidden" name="upload_batch_id" value="{{ geotag_batch_id }}"><button class="btn btn-success" type="submit"><i class="bi bi-check-lg"></i> Confirm Parcel Location</button></form></div>
+            {% endif %}
+          </section>
+        {% endif %}
         {% if object.is_active %}
           <form class="parcel-photo-upload" method="post" enctype="multipart/form-data"
                 action="{% url 'farm_parcels:photo_upload' object.pk %}" novalidate>
@@ -123,7 +152,7 @@
               <label for="{{ photo_upload_form.field_photo.id_for_label }}">Office field documentation</label>
               {{ photo_upload_form.field_photo }}
               {{ photo_upload_form.field_photo.errors }}
-              <small>Select one or more photos. Existing field photos remain in the gallery.</small>
+              <small>Select one or more original DA GeoCamera photos. FMIS reads embedded GPS metadata; screenshots and messaging-app copies may not contain it.</small>
             </div>
             <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> Upload Photos</button>
           </form>
@@ -136,7 +165,7 @@
                   <img src="{% url 'farm_parcels:photo_view' object.pk photo.pk %}" alt="Field view of {{ object.display_name }}" loading="lazy">
                 </a>
                 <div class="parcel-photo-meta">
-                  <small>{{ photo.created_at|date:'M d, Y' }}</small>
+                  <span><small>{{ photo.created_at|date:'M d, Y' }}</small>{% if photo.gps_latitude != None and photo.gps_longitude != None %}<small class="parcel-photo-gps"><i class="bi bi-geo-alt-fill"></i> {{ photo.gps_latitude }}, {{ photo.gps_longitude }}</small>{% else %}<small class="parcel-photo-gps is-missing">No embedded GPS</small>{% endif %}</span>
                   {% if object.is_active %}
                     <form method="post"
                           action="{% url 'farm_parcels:photo_remove' object.pk photo.pk %}"

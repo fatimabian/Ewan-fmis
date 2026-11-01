@@ -14,6 +14,7 @@ from .views import (
     FarmParcelPhotoArchiveView,
     FarmParcelPhotoView,
     FarmParcelPhotoUploadView,
+    FarmParcelGeoCameraConfirmView,
     FarmParcelUpdateView,
     CoordinateVerificationListView,
     CoordinateReviewApproveView,
@@ -59,6 +60,11 @@ urlpatterns = [
         "<int:pk>/photos/upload/",
         FarmParcelPhotoUploadView.as_view(),
         name="photo_upload",
+    ),
+    path(
+        "<int:pk>/photos/geocamera/confirm/",
+        FarmParcelGeoCameraConfirmView.as_view(),
+        name="geocamera_confirm",
     ),
     path(
         "<int:pk>/photos/<int:photo_pk>/view/",

@@ -96,7 +96,9 @@ def propose_coordinate_change(
 
 @transaction.atomic
 def apply_coordinate_change_immediately(
-    *, parcel, actor, proposed_coordinates, notes=""
+    *, parcel, actor, proposed_coordinates, notes="",
+    evidence_source="Staff-confirmed map move", evidence_reference="",
+    issue_codes=None,
 ):
     """Apply a staff-confirmed map move immediately and retain full history."""
     locked = FarmParcel.objects.select_for_update().get(pk=parcel.pk)
@@ -122,14 +124,15 @@ def apply_coordinate_change_immediately(
         operation=ParcelCoordinateReview.OPERATION_SET,
         original_coordinates=before,
         proposed_coordinates=after,
-        issue_codes=["staff_map_correction"],
-        evidence_source="Staff-confirmed map move",
+        issue_codes=issue_codes or ["staff_map_correction"],
+        evidence_source=evidence_source,
+        evidence_reference=evidence_reference,
         staff_notes=notes,
         status=ParcelCoordinateReview.STATUS_APPROVED,
         submitted_by=actor,
         reviewed_by=actor,
         reviewed_at=now,
-        decision_notes="Confirmed and applied immediately on the farm parcel map.",
+        decision_notes=f"Confirmed and applied immediately from {evidence_source.lower()}.",
     )
     locked.coordinates = after
     update_fields = ["coordinates"]

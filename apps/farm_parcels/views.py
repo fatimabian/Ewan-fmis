@@ -2,6 +2,7 @@ import re
 import mimetypes
 from collections import Counter
 from math import floor
+from uuid import UUID, uuid4
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -35,6 +36,7 @@ from apps.common.record_history import activity_rows, farmer_update_rows
 from apps.farmers.history import farmer_snapshot, record_farmer_update
 from apps.crops.models import CropRecord
 from .forms import FarmParcelForm, FarmParcelPhotoUploadForm
+from .geocamera import extract_geocamera_metadata, reconcile_geotagged_photos
 from .coordinate_services import (
     apply_coordinate_change_immediately,
     approve_coordinate_review,
@@ -210,8 +212,25 @@ class FarmParcelDetailView(
         context = super().get_context_data(**kwargs)
         context["parcel_photos"] = self.object.photos.filter(is_active=True).select_related(
             "uploaded_by"
-        )[:1]
+        )[:24]
         context["photo_upload_form"] = FarmParcelPhotoUploadForm()
+        batch_value = self.request.GET.get("geotag_batch", "").strip()
+        if batch_value:
+            try:
+                batch_id = UUID(batch_value)
+            except (TypeError, ValueError):
+                batch_id = None
+            if batch_id:
+                batch_photos = list(
+                    self.object.photos.filter(
+                        is_active=True, upload_batch_id=batch_id
+                    ).order_by("created_at", "pk")
+                )
+                if batch_photos:
+                    context["geotag_batch_id"] = batch_id
+                    context["geotag_summary"] = reconcile_geotagged_photos(
+                        batch_photos
+                    )
         return context
 
 
@@ -1111,30 +1130,131 @@ class FarmParcelPhotoUploadView(FMISLoginRequiredMixin, StaffRequiredMixin, View
             return redirect("farm_parcels:detail", pk=parcel.pk)
 
         uploads = form.cleaned_data["field_photo"]
+        batch_id = uuid4()
+        extracted = [
+            (upload, extract_geocamera_metadata(upload)) for upload in uploads
+        ]
+        created = []
+        skipped = 0
         with transaction.atomic():
             locked_parcel = FarmParcel.objects.select_for_update().get(pk=parcel.pk)
-            for upload in uploads:
-                FarmParcelPhoto.objects.create(
+            existing_hashes = set(
+                FarmParcelPhoto.objects.filter(
+                    parcel=locked_parcel,
+                    file_sha256__in=[metadata["file_sha256"] for _, metadata in extracted],
+                ).values_list("file_sha256", flat=True)
+            )
+            for upload, metadata in extracted:
+                if metadata["file_sha256"] in existing_hashes:
+                    skipped += 1
+                    continue
+                created.append(FarmParcelPhoto.objects.create(
                     parcel=locked_parcel,
                     image=upload,
                     uploaded_by=request.user,
-                )
+                    upload_batch_id=batch_id,
+                    file_sha256=metadata["file_sha256"],
+                    gps_latitude=metadata["latitude"],
+                    gps_longitude=metadata["longitude"],
+                    gps_captured_at=metadata["captured_at"],
+                    gps_source=metadata["source"],
+                ))
+                existing_hashes.add(metadata["file_sha256"])
             record_request_event(
                 request,
                 title="Farm Parcel Photos Added",
                 module="Farm Parcels",
-                description=f"{request.user.display_name} added {len(uploads)} office field photo(s).",
+                description=f"{request.user.display_name} added {len(created)} office field photo(s).",
                 target_label=f"{parcel.farmer.record_id} - {parcel.display_name}",
                 reason="Office field documentation for parcel review and decision-making.",
                 details=[
                     {
                         "field": "Field photo gallery",
                         "before": "Existing gallery retained",
-                        "after": f"{len(uploads)} photo(s) added",
+                        "after": f"{len(created)} photo(s) added; {skipped} duplicate(s) skipped",
                     }
                 ],
             )
-        messages.success(request, f"{len(uploads)} field photo(s) were uploaded.")
+        geotagged_count = sum(
+            photo.gps_latitude is not None and photo.gps_longitude is not None
+            for photo in created
+        )
+        if created:
+            messages.success(
+                request,
+                f"{len(created)} field photo(s) were uploaded. "
+                f"FMIS found embedded GPS coordinates in {geotagged_count} photo(s).",
+            )
+        if skipped:
+            messages.info(request, f"{skipped} duplicate photo(s) were not uploaded again.")
+        detail_url = reverse("farm_parcels:detail", args=[parcel.pk])
+        if geotagged_count:
+            detail_url += f"?geotag_batch={batch_id}#geocameraReview"
+        return redirect(detail_url)
+
+
+class FarmParcelGeoCameraConfirmView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Apply the representative point only after staff confirms its parcel owner."""
+
+    def post(self, request, pk):
+        parcel = get_object_or_404(FarmParcel, pk=pk, is_active=True)
+        try:
+            batch_id = UUID(request.POST.get("upload_batch_id", ""))
+        except (TypeError, ValueError):
+            messages.error(request, "The GeoCamera upload batch is invalid.")
+            return redirect("farm_parcels:detail", pk=parcel.pk)
+        photos = list(
+            FarmParcelPhoto.objects.filter(
+                parcel=parcel,
+                upload_batch_id=batch_id,
+                is_active=True,
+            ).order_by("created_at", "pk")
+        )
+        summary = reconcile_geotagged_photos(photos)
+        if summary["status"] != "ready" or not summary["proposed"]:
+            messages.error(request, summary["message"])
+            return redirect(
+                f'{reverse("farm_parcels:detail", args=[parcel.pk])}?geotag_batch={batch_id}#geocameraReview'
+            )
+        latitude, longitude = summary["proposed"]
+        if not is_within_rosario(latitude, longitude):
+            messages.error(
+                request,
+                "The proposed GeoCamera location is outside the Rosario municipal boundary and was not applied.",
+            )
+            return redirect(
+                f'{reverse("farm_parcels:detail", args=[parcel.pk])}?geotag_batch={batch_id}#geocameraReview'
+            )
+        proposed = format_coordinates(latitude, longitude)
+        if (parcel.coordinates or "").strip() == proposed:
+            messages.info(request, "The parcel already uses this GeoCamera location.")
+            return redirect("farm_parcels:detail", pk=parcel.pk)
+        notes = (
+            f"Staff confirmed {len(summary['accepted'])} clustered GeoCamera photo coordinate(s); "
+            f"{len(summary['outliers'])} outlier(s) were excluded."
+        )
+        try:
+            apply_coordinate_change_immediately(
+                parcel=parcel,
+                actor=request.user,
+                proposed_coordinates=proposed,
+                notes=notes,
+                evidence_source="DA GeoCamera photo import",
+                evidence_reference=str(batch_id),
+                issue_codes=["geocamera_import"],
+            )
+        except ValidationError as error:
+            messages.error(request, error.messages[0])
+            return redirect(
+                f'{reverse("farm_parcels:detail", args=[parcel.pk])}?geotag_batch={batch_id}#geocameraReview'
+            )
+        FarmParcelPhoto.objects.filter(
+            pk__in=[item["photo"].pk for item in summary["accepted"]]
+        ).update(gps_applied_at=timezone.now())
+        messages.success(
+            request,
+            f"{parcel.display_name} was updated to the confirmed GeoCamera location.",
+        )
         return redirect("farm_parcels:detail", pk=parcel.pk)
 
 

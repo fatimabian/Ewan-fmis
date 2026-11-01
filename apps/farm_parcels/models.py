@@ -241,6 +241,17 @@ class FarmParcelPhoto(models.Model):
     parcel = models.ForeignKey(FarmParcel, on_delete=models.CASCADE, related_name="photos")
     image = models.ImageField(upload_to=parcel_photo_upload_path)
     caption = models.CharField(max_length=180, blank=True)
+    upload_batch_id = models.UUIDField(default=uuid4, db_index=True, editable=False)
+    file_sha256 = models.CharField(max_length=64, blank=True, db_index=True)
+    gps_latitude = models.DecimalField(
+        max_digits=10, decimal_places=7, null=True, blank=True
+    )
+    gps_longitude = models.DecimalField(
+        max_digits=10, decimal_places=7, null=True, blank=True
+    )
+    gps_captured_at = models.DateTimeField(null=True, blank=True)
+    gps_source = models.CharField(max_length=80, blank=True)
+    gps_applied_at = models.DateTimeField(null=True, blank=True)
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

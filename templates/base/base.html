@@ -308,7 +308,10 @@
   </head>
   <body class="{% if request.user.is_admin %}role-admin{% else %}role-staff{% endif %}"
         data-theme="{{ user_preference.theme|default:'system' }}"
-        data-theme-preference="{{ user_preference.theme|default:'system' }}">
+        data-theme-preference="{{ user_preference.theme|default:'system' }}"
+        data-session-timeout-seconds="{{ session_timeout_seconds|default:0 }}"
+        data-session-activity-url="{% url 'record_session_activity' %}"
+        data-session-expire-url="{% url 'expire_idle_session' %}">
     <script>
       (() => {
           const body = document.body;

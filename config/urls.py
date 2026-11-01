@@ -3,7 +3,7 @@ from django.conf.urls.static import static
 from django.http import Http404
 from django.urls import include, path
 
-from apps.common.views import health_check
+from apps.common.views import expire_idle_session, health_check, record_session_activity
 
 
 def deny_direct_farmer_document_access(request, path):
@@ -12,6 +12,8 @@ def deny_direct_farmer_document_access(request, path):
 
 urlpatterns = [
     path("health/", health_check, name="health_check"),
+    path("session/activity/", record_session_activity, name="record_session_activity"),
+    path("session/expire/", expire_idle_session, name="expire_idle_session"),
     path("", include("apps.authentication.urls")),
     path("dashboard/", include("apps.dashboard.urls")),
     path("accounts/", include("apps.accounts.urls")),

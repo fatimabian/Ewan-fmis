@@ -579,6 +579,40 @@ class FMISRequirementTests(TestCase):
         dashboard = self.client.get(reverse("dashboard:staff_home"))
         self.assertNotContains(dashboard, timeout_message)
 
+    def test_authenticated_page_exposes_browser_idle_timeout(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("dashboard:staff_home"))
+        self.assertContains(response, 'data-session-timeout-seconds="900"')
+        self.assertContains(response, 'data-session-activity-url="/session/activity/"')
+        self.assertContains(response, 'data-session-expire-url="/session/expire/"')
+
+    def test_browser_activity_endpoint_keeps_authenticated_session_alive(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("record_session_activity"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 204)
+        self.assertIn("_auth_user_id", self.client.session)
+
+    def test_browser_idle_expiry_logs_out_and_returns_login_url(self):
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("expire_idle_session"),
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["login_url"], reverse("authentication:login"))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_remembered_login_does_not_use_browser_idle_timer(self):
+        self.client.force_login(self.staff)
+        session = self.client.session
+        session["fmis_remember_until"] = int(time.time()) + (7 * 24 * 60 * 60)
+        session.save()
+        response = self.client.get(reverse("dashboard:staff_home"))
+        self.assertContains(response, 'data-session-timeout-seconds="0"')
+
     def test_duplicate_valid_id_is_rejected(self):
         form = FarmerRegistrationForm(
             data={
@@ -2215,7 +2249,7 @@ class FMISRequirementTests(TestCase):
         parcel_detail = self.client.get(reverse("farm_parcels:detail", args=[self.parcel.pk]))
         self.assertContains(parcel_detail, "Office field documentation")
         self.assertContains(parcel_detail, 'name="field_photo"')
-        self.assertNotContains(parcel_detail, 'name="field_photo" multiple')
+        self.assertContains(parcel_detail, 'accept="image/png,image/jpeg,image/webp" multiple')
 
         image_bytes = BytesIO()
         Image.new("RGB", (16, 16), "green").save(image_bytes, format="PNG")
@@ -2253,10 +2287,10 @@ class FMISRequirementTests(TestCase):
                 reverse("farm_parcels:detail", args=[self.parcel.pk]),
             )
             photo.refresh_from_db()
-            self.assertFalse(photo.is_active)
+            self.assertTrue(photo.is_active)
             self.assertEqual(
                 FarmParcelPhoto.objects.filter(parcel=self.parcel, is_active=True).count(),
-                1,
+                2,
             )
         self.assertEqual(
             FarmerUpdateHistory.objects.filter(
@@ -2264,9 +2298,66 @@ class FMISRequirementTests(TestCase):
             ).count(),
             history_count,
         )
-        self.assertTrue(
-            ActivityLog.objects.filter(title="Farm Parcel Photo Replaced").exists()
+        self.assertTrue(ActivityLog.objects.filter(title="Farm Parcel Photos Added").exists())
+
+    def test_staff_confirms_clustered_geocamera_coordinates_for_selected_parcel(self):
+        from uuid import uuid4
+
+        self.client.force_login(self.staff)
+        batch_id = uuid4()
+        first = FarmParcelPhoto.objects.create(
+            parcel=self.parcel,
+            image="parcel_photos/test/geo-1.jpg",
+            uploaded_by=self.staff,
+            upload_batch_id=batch_id,
+            gps_latitude=Decimal("13.8467000"),
+            gps_longitude=Decimal("121.2060000"),
+            gps_source="Embedded GPS metadata",
         )
+        second = FarmParcelPhoto.objects.create(
+            parcel=self.parcel,
+            image="parcel_photos/test/geo-2.jpg",
+            uploaded_by=self.staff,
+            upload_batch_id=batch_id,
+            gps_latitude=Decimal("13.8467100"),
+            gps_longitude=Decimal("121.2060100"),
+            gps_source="Embedded GPS metadata",
+        )
+        FarmParcelPhoto.objects.create(
+            parcel=self.parcel,
+            image="parcel_photos/test/geo-outlier.jpg",
+            uploaded_by=self.staff,
+            upload_batch_id=batch_id,
+            gps_latitude=Decimal("13.8600000"),
+            gps_longitude=Decimal("121.2300000"),
+            gps_source="Embedded GPS metadata",
+        )
+
+        review_page = self.client.get(
+            reverse("farm_parcels:detail", args=[self.parcel.pk]),
+            {"geotag_batch": str(batch_id)},
+        )
+        self.assertContains(review_page, "GeoCamera Coordinate Review")
+        self.assertContains(review_page, "2 close GPS point(s)")
+        self.assertContains(review_page, "1 distant point(s) were excluded")
+        self.assertContains(review_page, self.farmer.full_name)
+
+        response = self.client.post(
+            reverse("farm_parcels:geocamera_confirm", args=[self.parcel.pk]),
+            {"upload_batch_id": str(batch_id)},
+        )
+
+        self.assertRedirects(response, reverse("farm_parcels:detail", args=[self.parcel.pk]))
+        self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.coordinates, "13.8467050, 121.2060050")
+        review = ParcelCoordinateReview.objects.get(parcel=self.parcel)
+        self.assertEqual(review.evidence_source, "DA GeoCamera photo import")
+        self.assertEqual(review.evidence_reference, str(batch_id))
+        self.assertEqual(review.issue_codes, ["geocamera_import"])
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertIsNotNone(first.gps_applied_at)
+        self.assertIsNotNone(second.gps_applied_at)
 
     def test_cancelled_service_request_has_actions_and_can_be_restored(self):
         self.client.force_login(self.staff)
