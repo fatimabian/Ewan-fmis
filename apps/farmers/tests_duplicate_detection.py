@@ -88,6 +88,35 @@ class FarmerDuplicateDetectionTests(TestCase):
         self.assertEqual(payload["matches"][0]["farmer_id"], self.existing.record_id)
         self.assertNotContains(response, self.existing.valid_id_number)
 
+    def test_saved_record_check_excludes_self_and_returns_other_matches(self):
+        other = Farmer.objects.create(
+            first_name="Marya",
+            middle_name="Reyes",
+            last_name="Dela Cruz",
+            extension_name="Junior",
+            birth_date=date(1985, 4, 12),
+            barangay="Alupay",
+            valid_id_type="Voter's ID",
+            valid_id_number="VOTER-7788",
+        )
+        self.client.force_login(self.staff)
+
+        response = self.client.get(
+            reverse("farmers:record_duplicate_check", args=[other.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["farmer"]["farmer_id"], other.record_id)
+        self.assertEqual(payload["matches"][0]["farmer_id"], self.existing.record_id)
+        self.assertGreaterEqual(payload["matches"][0]["score"], 76)
+        self.assertNotContains(response, self.existing.valid_id_number)
+
+        detail = self.client.get(reverse("farmers:detail", args=[other.pk]))
+        self.assertContains(detail, "Check for Duplicates")
+        self.assertContains(detail, reverse("farmers:record_duplicate_check", args=[other.pk]))
+        self.assertContains(detail, f"fmis-duplicate-audit-{other.pk}")
+
     def test_candidate_search_remains_one_bounded_database_query(self):
         Farmer.objects.bulk_create(
             [

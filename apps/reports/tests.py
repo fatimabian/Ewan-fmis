@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from datetime import date
 from decimal import Decimal
+from io import BytesIO
 
 from django.db import connection
 from django.test import TestCase
@@ -83,7 +84,28 @@ class DescriptiveAnalyticsTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Governance Reports")
+        self.assertContains(response, "System Overview")
+        self.assertContains(response, "User Account Registry")
+        self.assertContains(response, "Activity Audit Trail")
+        self.assertNotContains(response, "Farmer Master List")
+        self.assertNotContains(response, "Intervention Distribution Summary")
         self.assertNotContains(response, "Farmer Registrations Over Time")
+
+    def test_downloaded_pdf_uses_the_shared_official_da_header(self):
+        from pypdf import PdfReader
+
+        self.client.force_login(self.staff)
+        response = self.client.post(
+            reverse("reports:home"),
+            {"report_type": "farmer_master", "date_range": "all", "format": "pdf"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        page_text = PdfReader(BytesIO(response.content)).pages[0].extract_text()
+        self.assertIn("Department of Agriculture", page_text)
+        self.assertIn("Regional Field Office No. IV-A", page_text)
+        self.assertIn("FARMER MASTER LIST", page_text)
 
     def test_barangay_filter_limits_analytics(self):
         matching = descriptive_analytics(
@@ -172,6 +194,23 @@ class DescriptiveAnalyticsTests(TestCase):
                 )
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.context["analytics_tab"], tab)
+
+    def test_each_analytics_measure_uses_an_appropriate_visual(self):
+        self.client.force_login(self.staff)
+
+        farmers = self.client.get(reverse("reports:home"), {"analytics_tab": "farmers"})
+        parcels = self.client.get(reverse("reports:home"), {"analytics_tab": "parcels"})
+        commodities = self.client.get(reverse("reports:home"), {"analytics_tab": "commodities"})
+        requests = self.client.get(reverse("reports:home"), {"analytics_tab": "requests"})
+        interventions = self.client.get(reverse("reports:home"), {"analytics_tab": "interventions"})
+        inventory = self.client.get(reverse("reports:home"), {"analytics_tab": "inventory"})
+
+        self.assertContains(farmers, 'aria-label="Farmer Registrations Over Time line chart"')
+        self.assertContains(parcels, 'aria-label="Recorded Farm Area by Month bar chart"')
+        self.assertContains(commodities, 'aria-label="Commodity Records Added by Month bar chart"')
+        self.assertContains(requests, 'aria-label="Service Requests Over Time line chart"')
+        self.assertContains(interventions, 'aria-label="Interventions Given by Month bar chart"')
+        self.assertContains(inventory, 'aria-label="Inventory receipts and releases grouped bar chart"')
 
     def test_analytics_filters_use_module_specific_popover_fields(self):
         self.client.force_login(self.staff)

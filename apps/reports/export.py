@@ -1231,22 +1231,22 @@ def _pdf_response(title, headers, rows, date_range, filters=None):
 
     def decorate_page(canvas, doc):
         page_width, page_height = page_size
+        center_x = page_width / 2
         canvas.saveState()
         if logo_path.exists():
             canvas.drawImage(
-                str(logo_path), 47 * mm, page_height - 24 * mm, 18 * mm, 18 * mm,
+                str(logo_path), center_x - 50 * mm, page_height - 24 * mm, 18 * mm, 18 * mm,
                 preserveAspectRatio=True, anchor="c", mask="auto",
             )
-        center_x = page_width / 2
         canvas.setFillColor(colors.black)
-        canvas.setFont("Helvetica", 7.5)
+        canvas.setFont("Helvetica", 7)
         canvas.drawCentredString(center_x, page_height - 8 * mm, "Republic of the Philippines")
-        canvas.drawCentredString(center_x, page_height - 12 * mm, "Municipality of Rosario, Batangas")
-        canvas.drawCentredString(center_x, page_height - 16 * mm, "Office for Agricultural Services")
-        canvas.setFont("Helvetica-Bold", 10)
-        canvas.drawCentredString(center_x, page_height - 22 * mm, safe_text(title).upper())
-        canvas.setFont("Helvetica", 6.5)
-        canvas.drawCentredString(center_x, page_height - 26 * mm, "Farmer Management Information System")
+        canvas.drawCentredString(center_x, page_height - 11.5 * mm, "Department of Agriculture")
+        canvas.drawCentredString(center_x, page_height - 15 * mm, "Regional Field Office No. IV-A")
+        canvas.setFont("Helvetica-Bold", 9.5)
+        canvas.drawCentredString(center_x, page_height - 20.5 * mm, safe_text(title).upper())
+        canvas.setFont("Helvetica", 6)
+        canvas.drawCentredString(center_x, page_height - 25 * mm, "Municipality of Rosario, Batangas - Farmer Management Information System")
         canvas.setStrokeColor(colors.HexColor("#444444"))
         canvas.setLineWidth(.5)
         canvas.line(8 * mm, page_height - 29 * mm, page_width - 8 * mm, page_height - 29 * mm)

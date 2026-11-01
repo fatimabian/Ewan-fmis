@@ -1321,6 +1321,40 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(saved.documents.count(), 2)
         self.assertTrue(saved.documents.filter(document_type="RSBSA_FORM").exists())
 
+    def test_registration_requires_duplicate_review_before_saving_a_match(self):
+        Farmer.objects.create(
+            first_name="Maria",
+            last_name="Dela Cruz",
+            birth_date=date(1992, 4, 8),
+            barangay="Alupay",
+            valid_id_type="Voter's ID",
+            valid_id_number="VOTER-EXISTING-01",
+        )
+        self.client.force_login(self.staff)
+        farmer_count = Farmer.objects.count()
+
+        response = self.client.post(
+            reverse("farmers:create"),
+            self._valid_registration_payload(),
+        )
+
+        self.assertEqual(
+            response.status_code,
+            409,
+            {
+                "profile": response.context["profile_form"].errors,
+                "parcels": response.context["parcel_formset"].errors,
+                "crops": response.context["crop_formset"].errors,
+                "documents": response.context["document_formset"].errors,
+            },
+        )
+        self.assertContains(
+            response,
+            "Possible matching farmer records were found",
+            status_code=409,
+        )
+        self.assertEqual(Farmer.objects.count(), farmer_count)
+
     def test_registration_rejects_an_invalid_rsbsa_upload(self):
         self.client.force_login(self.staff)
         payload = self._valid_registration_payload()

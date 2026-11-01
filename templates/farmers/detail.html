@@ -1,6 +1,23 @@
 {% extends base_template %}
 {% block page_title %}Farmer Record{% endblock %}
 {% block page_subtitle %}Registered farmer profile and supporting information{% endblock %}
+{% block extra_css %}
+  <style>
+    .duplicate-audit-panel{margin:0 0 18px;padding:18px;border:1px solid #b8c8bf;background:#fff}
+    .duplicate-audit-panel[hidden]{display:none!important}
+    .duplicate-audit-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}
+    .duplicate-audit-head h2{margin:0 0 4px;font-size:1rem}.duplicate-audit-head p{margin:0;color:#607083;font-size:.76rem}
+    .duplicate-audit-count{flex:0 0 auto;padding:5px 9px;border:1px solid #607083;color:#26384d;font-size:.72rem;font-weight:750}
+    .duplicate-audit-list{display:grid;gap:9px}
+    .duplicate-audit-match{display:grid;grid-template-columns:minmax(180px,1fr) minmax(150px,.7fr) 100px auto;gap:14px;align-items:center;padding:12px 14px;border:1px solid #d8e1dc;background:#fbfdfc}
+    .duplicate-audit-match h3{margin:0 0 3px;font-size:.86rem}.duplicate-audit-match p{margin:0;color:#607083;font-size:.73rem}
+    .duplicate-audit-score{display:inline-flex;justify-content:center;padding:6px 8px;border:1px solid #b57600;color:#87510b;font-size:.75rem;font-weight:800}
+    .duplicate-audit-empty{margin:0;padding:14px;border:1px solid #d8e1dc;color:#526158}
+    body[data-theme="dark"] .duplicate-audit-panel,body[data-theme="dark"] .duplicate-audit-match{border-color:#405168;background:#1c2735;color:#f1f5f9}
+    body[data-theme="dark"] .duplicate-audit-count{border-color:#91a39a;color:#f1f5f9}
+    @media(max-width:760px){.duplicate-audit-match{grid-template-columns:1fr 90px}.duplicate-audit-match>:nth-child(2){grid-column:1/-1}.duplicate-audit-match .btn{width:100%}}
+  </style>
+{% endblock %}
 {% block content %}
   <div class="content record-detail">
     {% if request.GET.saved == 'slip-a' %}
@@ -17,12 +34,25 @@
         {% endif %}
         <a class="btn btn-outline-success" href="{% url 'farmers:rsbsa_export' object.pk %}"><i class="bi bi-file-earmark-pdf"></i> Print Farmer Record</a>
         <a class="btn btn-outline-success" href="{% url 'farmers:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
+        <button class="btn btn-outline-success"
+                type="button"
+                id="farmerDuplicateAuditButton"
+                data-check-url="{% url 'farmers:record_duplicate_check' object.pk %}"
+                data-storage-key="fmis-duplicate-audit-{{ object.pk }}"><i class="bi bi-person-check"></i> Check for Duplicates</button>
         {% if object.is_active %}
           <a class="btn btn-outline-success" href="{% url 'farmers:edit' object.pk %}"><i class="bi bi-person-vcard"></i> Update Record</a>
           <a class="btn btn-outline-success status-action-{{ object.registration_status|lower }}" href="{% url 'farmers:registration_status' object.pk %}"><i class="bi bi-list-check"></i> Update Status</a>
         {% endif %}
       </div>
     </div>
+
+    <section class="duplicate-audit-panel" id="farmerDuplicateAuditPanel" hidden aria-live="polite">
+      <header class="duplicate-audit-head">
+        <div><h2>Possible Duplicate Review</h2><p id="farmerDuplicateAuditMethod"></p></div>
+        <span class="duplicate-audit-count" id="farmerDuplicateAuditCount"></span>
+      </header>
+      <div class="duplicate-audit-list" id="farmerDuplicateAuditList"></div>
+    </section>
 
     <div class="record-single-card">
       <header class="record-hero record-single-hero">
@@ -110,4 +140,56 @@
 
     </div>
   </div>
+{% endblock %}
+{% block extra_js %}
+  <script>
+    (() => {
+      const button = document.getElementById('farmerDuplicateAuditButton');
+      const panel = document.getElementById('farmerDuplicateAuditPanel');
+      const list = document.getElementById('farmerDuplicateAuditList');
+      const count = document.getElementById('farmerDuplicateAuditCount');
+      const method = document.getElementById('farmerDuplicateAuditMethod');
+      if (!button || !panel || !list || !count || !method) return;
+      const storageKey = button.dataset.storageKey;
+      const escapeHtml = value => {
+        const span = document.createElement('span');
+        span.textContent = String(value ?? '');
+        return span.innerHTML
+      };
+      const render = data => {
+        button.hidden = true;
+        panel.hidden = false;
+        method.textContent = `${data.method}. No records were changed.`;
+        count.textContent = `${data.matches.length} possible match${data.matches.length === 1 ? '' : 'es'}`;
+        list.innerHTML = data.matches.length ? data.matches.map(match => `
+          <article class="duplicate-audit-match">
+            <div><h3>${escapeHtml(match.farmer_id)} · ${escapeHtml(match.name)}</h3><p>${escapeHtml(match.reasons.join(' · '))}</p></div>
+            <div><p>${escapeHtml(match.barangay)}</p><p>Birth year: ${escapeHtml(match.birth_year)}</p></div>
+            <span class="duplicate-audit-score">${escapeHtml(match.score)}% match</span>
+            <a class="btn btn-outline-success" href="${escapeHtml(match.review_url)}">View record</a>
+          </article>`).join('') : '<p class="duplicate-audit-empty">No possible duplicate records were found.</p>';
+      };
+      try {
+        const saved = sessionStorage.getItem(storageKey);
+        if (saved) render(JSON.parse(saved))
+      } catch (error) {
+        sessionStorage.removeItem(storageKey)
+      }
+      button.addEventListener('click', async () => {
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Checking…';
+        try {
+          const response = await fetch(button.dataset.checkUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Duplicate check failed.');
+          sessionStorage.setItem(storageKey, JSON.stringify(data));
+          render(data)
+        } catch (error) {
+          button.disabled = false;
+          button.innerHTML = '<i class="bi bi-person-check"></i> Check for Duplicates';
+          window.alert(error.message)
+        }
+      })
+    })();
+  </script>
 {% endblock %}

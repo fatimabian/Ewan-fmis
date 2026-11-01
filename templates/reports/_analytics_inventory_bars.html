@@ -1,0 +1,12 @@
+<article class="analytics-line-chart analytics-bar-chart analytics-grouped-bars" role="img" aria-label="Inventory receipts and releases grouped bar chart">
+  <div class="analytics-chart-heading"><div><h3>Inventory Movement Over Time</h3><p>Recorded stock receipts and intervention releases per month.</p></div><span class="analytics-chart-legend"><i></i> Receipts <i></i> Releases</span></div>
+  {% if descriptive.inventory_movement_series.points %}
+    <div class="analytics-bar-plot">
+      <span class="analytics-bar-y-max">{{ descriptive.inventory_movement_series.peak|floatformat:"-2" }}</span><span class="analytics-bar-y-zero">0</span><span class="analytics-y-label">Quantity</span>
+      <div class="analytics-bar-grid" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="analytics-bar-columns">
+        {% for point in descriptive.inventory_movement_series.points %}<div class="analytics-bar-column"><span class="analytics-paired-bars"><i style="--bar-height:{{ point.first_percent }}%" title="{{ point.label }} receipts: {{ point.first }}"></i><i style="--bar-height:{{ point.second_percent }}%" title="{{ point.label }} releases: {{ point.second }}"></i></span><b>{{ point.first|floatformat:"-2" }} / {{ point.second|floatformat:"-2" }}</b><small>{{ point.label }}</small></div>{% endfor %}
+      </div>
+    </div>
+  {% else %}<div class="analytics-empty"><i class="bi bi-info-circle"></i> No dated inventory movements match the selected filters.</div>{% endif %}
+</article>

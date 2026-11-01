@@ -563,6 +563,56 @@ class FarmerDuplicateCheckView(FMISLoginRequiredMixin, StaffRequiredMixin, View)
         )
 
 
+class FarmerRecordDuplicateCheckView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Check one saved farmer against other active records without changing data."""
+
+    def get(self, request, pk):
+        farmer = get_object_or_404(Farmer, pk=pk)
+        cache_key = f"fmis:farmer-record-duplicate-check:{request.user.pk}"
+        try:
+            attempts = cache.incr(cache_key)
+        except ValueError:
+            cache.set(cache_key, 1, 60)
+            attempts = 1
+        if attempts > 30:
+            return JsonResponse(
+                {"error": "Too many duplicate checks. Wait one minute and try again."},
+                status=429,
+            )
+        values = {
+            field: getattr(farmer, field)
+            for field in (
+                "first_name", "middle_name", "last_name", "extension_name",
+                "birth_date", "barangay", "valid_id_type", "valid_id_number",
+            )
+        }
+        matches = find_possible_duplicates(values, exclude_pk=farmer.pk)
+        return JsonResponse(
+            {
+                "farmer": {"farmer_id": farmer.record_id, "name": farmer.list_name},
+                "method": "Rule-based fuzzy similarity; no ML model is active",
+                "matches": [
+                    {
+                        "farmer_id": match["farmer"].record_id,
+                        "name": match["farmer"].list_name,
+                        "barangay": match["farmer"].barangay,
+                        "birth_year": (
+                            match["farmer"].birth_date.year
+                            if match["farmer"].birth_date
+                            else "Not recorded"
+                        ),
+                        "score": match["score"],
+                        "reasons": match["reasons"],
+                        "review_url": reverse(
+                            "farmers:detail", args=[match["farmer"].pk]
+                        ),
+                    }
+                    for match in matches
+                ],
+            }
+        )
+
+
 class FarmerRSBSAScanView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
     """Read an RSBSA profile image without creating or changing a farmer record."""
 

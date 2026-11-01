@@ -91,6 +91,7 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
                 "value": value,
                 "x": round(x, 2),
                 "y": round(y, 2),
+                "percent": round(float(value) / float(peak) * 100, 2),
             }
         )
     return {
@@ -119,6 +120,8 @@ def _monthly_dual_series(first_queryset, first_field, second_queryset, second_fi
                 "x": round(x, 2),
                 "first_y": round(91 - (first_value / peak * 76), 2),
                 "second_y": round(91 - (second_value / peak * 76), 2),
+                "first_percent": round(first_value / peak * 100, 2),
+                "second_percent": round(second_value / peak * 100, 2),
             }
         )
     return {
