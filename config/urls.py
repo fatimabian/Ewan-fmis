@@ -27,6 +27,8 @@ urlpatterns = [
     path("activity/", include("apps.activity_logs.urls")),
     path("notifications/", include("apps.notifications.urls")),
     path("settings/", include("apps.settings_page.urls")),
+    path("scan/", include("apps.form_scan.urls")),
+    path("gis/", include("apps.gis.urls")),
 ]
 if settings.DEBUG:
     urlpatterns += [

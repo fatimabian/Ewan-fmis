@@ -1,0 +1,112 @@
+{% extends base_template %}
+{% load static %}
+{% block page_title %}Review Scan #{{ scan.pk }}{% endblock %}
+{% block page_subtitle %}Compare the photo with the values, fix anything marked, then approve{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+  <link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
+  <div class="content sg-page">
+    {% if not scan.ocr_available %}
+      <div class="sg-note sg-note-gold"><i class="bi bi-pencil-square"></i><span><strong>Manual entry.</strong> The form reader could not be used for this photo, so type the values from the image. Nothing else is blocked.</span></div>
+    {% elif scan.ocr_provider == 'sample' %}
+      <div class="sg-note sg-note-gold"><i class="bi bi-info-circle"></i><span><strong>Sample data.</strong> These values are made up for the demo, not read from the photo.</span></div>
+    {% endif %}
+    <div class="sg-status sg-{{ result.status|lower }}" role="status">
+      <strong>{{ result.status }}</strong>
+      <span>{% if result.status == 'GREEN' %}All checks passed.{% elif result.status == 'YELLOW' %}Review the highlighted items. You may still approve.{% else %}Correct the red items before this can be approved.{% endif %}</span>
+    </div>
+
+    <form method="post" id="scanForm" novalidate>
+      {% csrf_token %}
+      <div class="sg-split">
+        <section class="panel sg-panel">
+          <h3><i class="bi bi-image"></i> Form photo</h3>
+          <a href="{% url 'form_scan:image' scan.pk %}" target="_blank" rel="noopener"><img class="sg-photo" src="{% url 'form_scan:image' scan.pk %}" alt="Photographed farmer form"></a>
+        </section>
+
+        <section class="panel sg-panel">
+          <h3><i class="bi bi-ui-checks"></i> Values</h3>
+          {% if form.non_field_errors %}<p class="sg-error">{{ form.non_field_errors }}</p>{% endif %}
+          <div class="sg-fields">
+            {% for row in rows %}
+              <div class="sg-field{% if row.low %} sg-low{% endif %}">
+                <label for="{{ row.field.id_for_label }}">{{ row.label }}
+                  {% if row.confidence is not None and row.field.value %}<small class="sg-conf">{{ row.confidence }}% sure</small>{% endif %}
+                </label>
+                {{ row.field }}
+                {% if row.low %}<small class="sg-low-note">Low confidence. Check against the photo.</small>{% endif %}
+                {% for error in row.field.errors %}<small class="sg-error">{{ error }}</small>{% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+          <datalist id="barangayList">{% for name in barangays %}<option value="{{ name }}">{% endfor %}</datalist>
+          <datalist id="commodityList">{% for name in commodities %}<option value="{{ name }}">{% endfor %}</datalist>
+
+          <div class="sg-field sg-farmer">
+            <label for="{{ form.farmer.id_for_label }}">Save under farmer</label>
+            {{ form.farmer }}
+            {% for error in form.farmer.errors %}<small class="sg-error">{{ error }}</small>{% endfor %}
+            <small class="sg-help">Matches for the name on the form. Not listed? <a href="{% url 'farmers:list' %}">Find or register the farmer first</a>, then search here:</small>
+            <span class="sg-search"><input type="search" id="farmerSearch" value="{{ search }}" placeholder="Search by name" aria-label="Search farmers"><a class="btn btn-outline-success" id="farmerSearchGo" href="?q=">Search</a></span>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel sg-panel">
+        <h3><i class="bi bi-geo-alt"></i> Location</h3>
+        <div id="scanMap" class="sg-map" role="img" aria-label="Map showing the scanned location"></div>
+        <ul class="sg-legend" aria-label="Map key">
+          <li><span class="sg-dot sg-green"></span> Green: passed</li>
+          <li><span class="sg-dot sg-yellow"></span> Yellow: review</li>
+          <li><span class="sg-dot sg-red"></span> Red: must fix</li>
+          <li><span class="sg-dot sg-ring"></span> Suggested correction</li>
+        </ul>
+      </section>
+
+      <section class="panel sg-panel">
+        <h3><i class="bi bi-clipboard-check"></i> Checks</h3>
+        <ul class="sg-checks">
+          {% for check in checks %}
+            <li class="sg-check sg-{{ check.level }}">
+              <i class="bi {% if check.level == 'ok' %}bi-check-circle{% elif check.level == 'warn' %}bi-exclamation-circle{% else %}bi-x-octagon{% endif %}"></i>
+              <div>
+                <strong>{{ check.title }}</strong>
+                <p>{{ check.message }}</p>
+                {% if check.suggestion and editable %}
+                  <button class="btn btn-outline-success sg-apply" type="button" data-fix="{{ check.fix_json }}">Use suggestion</button>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      {% if editable %}
+        <div class="sg-actions">
+          <button class="btn btn-outline-success" type="submit" name="action" value="check"><i class="bi bi-arrow-repeat"></i> Re-run checks</button>
+          <button class="btn btn-success" type="submit" name="action" value="approve" {% if result.status == 'RED' %}disabled title="Correct the red items first"{% endif %}><i class="bi bi-check2-circle"></i> Approve and save parcel</button>
+          <button class="btn btn-outline-secondary" type="submit" name="action" value="discard" formnovalidate onclick="return confirm('Discard this scan?')">Discard</button>
+        </div>
+      {% else %}
+        <div class="sg-note"><i class="bi bi-lock"></i><span>{{ scan.get_status_display }}{% if scan.parcel %}: <a href="{% url 'farm_parcels:detail' scan.parcel.pk %}">{{ scan.parcel.display_name }}</a>{% endif %}.</span></div>
+      {% endif %}
+    </form>
+
+    {% if scan.audit.all %}
+      <section class="panel sg-panel">
+        <h3><i class="bi bi-journal-text"></i> Audit trail</h3>
+        <ul class="sg-list">
+          {% for entry in scan.audit.all %}
+            <li><span>{{ entry.get_action_display }}</span><span class="sg-muted">{{ entry.actor.display_name|default:"System" }} · {{ entry.created_at|date:"M j, g:i A" }}</span></li>
+          {% endfor %}
+        </ul>
+        {% if scan.corrections.all %}
+          <p class="sg-help">Corrections kept for later learning: {% for item in scan.corrections.all %}{{ item.field_name }} ({{ item.ocr_value|default:"empty" }} → {{ item.final_value|default:"empty" }}){% if not forloop.last %}, {% endif %}{% endfor %}.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+  </div>
+  {{ map_data|json_script:"scan-map-data" }}
+  <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+  <script src="{% static 'js/scan-review.js' %}"></script>
+{% endblock %}
