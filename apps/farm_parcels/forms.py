@@ -3,6 +3,7 @@ from django.forms import BaseInlineFormSet, inlineformset_factory
 from django.utils import timezone
 
 from apps.common.constants import (
+    CROP_COMMODITIES,
     FISHERY_COMMODITIES,
     LIVESTOCK_COMMODITIES,
     MONTH_CHOICES,
@@ -11,6 +12,8 @@ from apps.common.constants import (
     ROSARIO_COMMODITY_VALUES,
     ROSARIO_MUNICIPALITY,
     ROSARIO_PROVINCE,
+    commodity_matches_livelihood,
+    livelihood_commodity_category,
 )
 from apps.common.forms import (
     InlineValidationMixin,
@@ -296,6 +299,9 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
         self.fields["crop_type"].widget.attrs["data-fishery-values"] = "|".join(
             sorted(FISHERY_COMMODITIES)
         )
+        self.fields["crop_type"].widget.attrs["data-crop-values"] = "|".join(
+            sorted(CROP_COMMODITIES)
+        )
         self.fields["area_hectares"].widget.attrs["data-commodity-area"] = "true"
         for field in self.fields.values():
             if not isinstance(field.widget, forms.CheckboxInput):
@@ -307,6 +313,18 @@ class ParcelCropForm(InlineValidationMixin, forms.ModelForm):
         commodity = cleaned.get("crop_type")
         start_month = cleaned.get("cropping_start_month")
         end_month = cleaned.get("cropping_end_month")
+        parcel = getattr(self.instance, "parcel", None)
+        farmer = getattr(parcel, "farmer", None)
+        if farmer and commodity and not commodity_matches_livelihood(
+            commodity, farmer.livelihood, farmer.activities
+        ):
+            expected = livelihood_commodity_category(
+                farmer.livelihood, farmer.activities
+            )
+            self.add_error(
+                "crop_type",
+                f"Choose a {expected} commodity that matches this farmer's recorded livelihood.",
+            )
         if commodity in LIVESTOCK_COMMODITIES:
             cleaned["area_hectares"] = None
             cleaned["is_intercrop"] = False

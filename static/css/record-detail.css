@@ -159,7 +159,7 @@ body[data-theme="dark"] .record-save-confirmation{
 }
 .related-list{
     display:grid;
-    gap:8px
+    gap:12px
 }
 .related-list>a,.related-list>div{
     display:flex;

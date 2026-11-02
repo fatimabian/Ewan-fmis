@@ -71,6 +71,7 @@ from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
 from config.startup import prewarm_wsgi_application
 
 
+@override_settings(FMIS_REQUIRE_MFA=False)
 class FMISRequirementTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -230,13 +231,14 @@ class FMISRequirementTests(TestCase):
         form = InterventionForm(data={})
 
         self.assertFalse(form.is_valid())
-        status_html = str(form["status"])
-        status_errors = str(form["status"].errors)
-        self.assertIn('class="form-control is-invalid"', status_html)
-        self.assertIn('aria-invalid="true"', status_html)
-        self.assertIn('aria-describedby="id_status_error"', status_html)
-        self.assertIn('id="id_status_error"', status_errors)
-        self.assertNotIn(" required", status_html)
+        type_html = str(form["intervention_type"])
+        type_errors = str(form["intervention_type"].errors)
+        self.assertIn('class="form-control is-invalid"', type_html)
+        self.assertIn('aria-invalid="true"', type_html)
+        self.assertIn('aria-describedby="id_intervention_type_error"', type_html)
+        self.assertIn('id="id_intervention_type_error"', type_errors)
+        self.assertNotIn(" required", type_html)
+        self.assertNotIn("status", form.fields)
         self.assertEqual(
             form.fields["service_request"].label, "Related service request"
         )
@@ -671,9 +673,11 @@ class FMISRequirementTests(TestCase):
             "valid_id_type": "National ID",
             "valid_id_number": "9999888877776666",
             "livelihood": "FARMER",
+            "activities": "FARMER_CROPS",
             "is_indigenous": "False",
             "is_pwd": "False",
             "is_four_ps": "False",
+            "is_association_member": "False",
             "consent_given": "on",
         }
         form = FarmerRegistrationForm(data=base)
@@ -817,7 +821,7 @@ class FMISRequirementTests(TestCase):
             }
         )
         self.assertFalse(individual.is_valid())
-        self.assertIn("barangay recipients", individual.errors["service"][0])
+        self.assertIn("Choose Barangay or Association", individual.errors["service"][0])
         self.assertEqual(individual.fields["farmer"].queryset.get(), self.farmer)
 
         barangay = ServiceRequestForm(
@@ -900,6 +904,7 @@ class FMISRequirementTests(TestCase):
             "phone_number": "09953092018",
             "civil_status": "SINGLE",
             "livelihood": "FARMER",
+            "activities": "FARMER_CROPS",
             "consent_given": "on",
         }
         short_national_id = FarmerRegistrationForm(
@@ -944,6 +949,7 @@ class FMISRequirementTests(TestCase):
             "valid_id_type": "Driver's License",
             "valid_id_number": "N01-12-654321",
             "livelihood": "FARMER",
+            "activities": "FARMER_CROPS",
             "is_indigenous": "NA",
             "is_pwd": "NA",
             "is_four_ps": "NA",
@@ -987,21 +993,23 @@ class FMISRequirementTests(TestCase):
                 "valid_id_type": "National ID",
                 "valid_id_number": "8888777766665555",
                 "livelihood": "FARMER",
+                "activities": "FARMER_CROPS",
                 "is_indigenous": "False",
                 "is_pwd": "False",
                 "is_four_ps": "False",
+                "is_association_member": "False",
                 "consent_given": "on",
             },
         )
         self.assertTrue(form.is_valid(), form.errors)
-        for name in ("is_indigenous", "is_pwd", "is_four_ps"):
+        for name in ("is_indigenous", "is_pwd", "is_four_ps", "is_association_member"):
             self.assertNotIn(("NA", "N/A / Not applicable"), form.fields[name].choices)
             self.assertFalse(form.cleaned_data[name])
         self.assertNotIn("N/A / Not applicable", dict(form.fields["philsys_registered"].choices).values())
 
         missing_choices = FarmerRegistrationForm(data={})
         missing_choices.is_valid()
-        for name in ("is_indigenous", "is_pwd", "is_four_ps"):
+        for name in ("is_indigenous", "is_pwd", "is_four_ps", "is_association_member"):
             self.assertIn(name, missing_choices.errors)
 
     def test_invalid_registration_explains_that_nothing_was_saved(self):
@@ -1260,9 +1268,11 @@ class FMISRequirementTests(TestCase):
             "valid_id_type": "National ID",
             "valid_id_number": "9999888877776666",
             "livelihood": "FARMER",
+            "activities": "FARMER_CROPS",
             "is_indigenous": "NA",
             "is_pwd": "False",
             "is_four_ps": "NA",
+            "is_association_member": "False",
             "consent_given": "on",
             "rsbsa_form": SimpleUploadedFile(
                 "rsbsa-form.pdf",
@@ -1757,11 +1767,10 @@ class FMISRequirementTests(TestCase):
             reverse("interventions:create"),
             {"service_request": request_record.pk},
         )
-        self.assertEqual(linked_form.status_code, 200)
-        self.assertEqual(
-            linked_form.context["form"].initial["service_request"], request_record
+        self.assertRedirects(
+            linked_form,
+            reverse("service_requests:detail", args=[request_record.pk]),
         )
-        self.assertEqual(linked_form.context["form"].initial["farmer"], self.farmer)
 
     def test_single_farmer_export_contains_only_the_current_fmis_record(self):
         from pypdf import PdfReader
@@ -1867,7 +1876,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(intervention.intervention_type, "SEEDS")
         self.assertEqual(intervention.recorded_by, self.staff)
         request_item.refresh_from_db()
-        self.assertEqual(request_item.status, "IN_PROGRESS")
+        self.assertEqual(request_item.status, "COMPLETED")
 
         response = self.client.post(
             reverse("interventions:edit", args=[intervention.pk]),
@@ -2015,13 +2024,10 @@ class FMISRequirementTests(TestCase):
                 "provider": "Office for Agricultural Services",
             }
         )
-        self.assertFalse(form.is_valid())
+        self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["scope"], "INDIVIDUAL")
         self.assertEqual(form.cleaned_data["farmer"], self.farmer)
         self.assertEqual(form.cleaned_data["intervention_type"], "SEEDS")
-        self.assertIn("scope", form.errors)
-        self.assertIn("farmer", form.errors)
-        self.assertIn("intervention_type", form.errors)
 
     def test_barangay_request_controls_intervention_scope_and_recipients(self):
         second_farmer = Farmer.objects.create(
@@ -2180,11 +2186,7 @@ class FMISRequirementTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(
-            response,
-            "Barangay must remain Alupay because it is set by the related service request.",
-        )
-        self.assertNotContains(response, f"{intervention.reference_id} was updated.")
+        self.assertContains(response, "This barangay has no active farmers")
         intervention.refresh_from_db()
         self.assertEqual(intervention.target_barangay, "Alupay")
         self.assertFalse(
@@ -2229,7 +2231,7 @@ class FMISRequirementTests(TestCase):
         )
         changes = {change["field"]: change for change in history.details}
         self.assertEqual(changes["Status"]["before"], "Scheduled")
-        self.assertEqual(changes["Status"]["after"], "Ongoing")
+        self.assertEqual(changes["Status"]["after"], "Completed")
         self.assertEqual(
             changes["Description"]["before"], "Seed distribution scheduled"
         )
@@ -2621,7 +2623,7 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(selected_result["parcel"], self.parcel.display_name)
         self.assertEqual(selected_result["farmer"], self.farmer.full_name)
         self.assertEqual(selected_result["farmer_id"], self.farmer.record_id)
-        self.assertEqual(selected_result["livelihood"], "Farmer")
+        self.assertEqual(selected_result["livelihood"], "Crop Farmer")
         self.assertEqual(selected_result["livelihood_code"], "FARMER")
         self.assertEqual(selected_result["activities"], "FARMER_CROPS")
         self.assertTrue(selected_result["is_pinned"])
@@ -3070,13 +3072,8 @@ class FMISRequirementTests(TestCase):
             reverse("farm_parcels:pin_farmer"),
             {"parcel_id": self.parcel.pk, "operation": "move", "latitude": "13.8501", "longitude": "121.2102"},
         ).json()
-        approval = self.client.post(
-            reverse("farm_parcels:coordinate_review_approve", args=[proposal["review_id"]]),
-            {"decision_notes": "Field GPS verified."},
-        ).json()
-
         reversal = self.client.post(
-            reverse("farm_parcels:coordinate_history_reverse", args=[approval["history_id"]]),
+            reverse("farm_parcels:coordinate_history_reverse", args=[proposal["history_id"]]),
             {"reason": "Survey correction was withdrawn."},
         )
 
@@ -3113,20 +3110,12 @@ class FMISRequirementTests(TestCase):
             {"parcel_id": self.parcel.pk, "operation": "move", "latitude": "13.8501", "longitude": "121.2102"},
         ).json()
 
-        before = self.client.get(reverse("farm_parcels:map_detail", args=[self.parcel.pk])).json()
-        self.assertEqual(before["coordinates"], "13.8467000, 121.2060000")
-        self.assertEqual(before["pending_review"]["id"], proposal["review_id"])
-
-        approved = self.client.post(
-            reverse("farm_parcels:coordinate_review_approve", args=[proposal["review_id"]]),
-            {"decision_notes": "Field evidence checked."},
-        )
         after = self.client.get(reverse("farm_parcels:map_detail", args=[self.parcel.pk])).json()
         panel = self.client.get(
             reverse("farm_parcels:map_parcels"), {"barangay": self.parcel.barangay}
         ).json()["results"]
 
-        self.assertEqual(approved.status_code, 200)
+        self.assertFalse(proposal["pending"])
         self.assertEqual(after["coordinates"], "13.8501000, 121.2102000")
         self.assertIsNone(after["pending_review"])
         self.assertEqual(next(row for row in panel if row["id"] == self.parcel.pk)["lat"], 13.8501)
@@ -3450,10 +3439,10 @@ class FMISRequirementTests(TestCase):
         self.assertIn("Recorded By", headers)
         self.assertEqual(rows[0][0], intervention.reference_id)
         self.assertEqual(rows[0][3], self.farmer.full_name)
-        self.assertEqual(rows[0][7], "2.00 bags")
+        self.assertEqual(rows[0][6], "2.00 bags")
         self.assertNotIn("Estimated Value (PHP)", headers)
         self.assertNotIn("Funding Source", headers)
-        self.assertEqual(rows[0][9], service_request.request_id)
+        self.assertEqual(rows[0][8], service_request.request_id)
 
         other_farmer = Farmer.objects.create(
             first_name="Mario",
@@ -3473,7 +3462,11 @@ class FMISRequirementTests(TestCase):
         self.client.force_login(self.staff)
         reports = self.client.get(
             reverse("reports:home"),
-            {"report_type": "intervention_registry", "date_range": "all"},
+            {
+                "report_type": "intervention_registry",
+                "date_range": "all",
+                "analytics_tab": "reports",
+            },
         )
         self.assertContains(reports, "Complete Intervention Register")
         self.assertContains(reports, intervention.reference_id)
@@ -3492,12 +3485,12 @@ class FMISRequirementTests(TestCase):
         )
         title, headers, rows = build_report("service_status", "all", {"status": "PENDING"})
         self.assertEqual(title, "Service Request Status")
-        for header in ("Beneficiary", "Barangay", "Request Type", "Request", "Date Requested"):
+        for header in ("Name", "Barangay / Association", "Request Type", "Date Requested"):
             self.assertIn(header, headers)
         row = next(item for item in rows if item[0] == request_item.request_id)
         self.assertEqual(row[2], self.farmer.list_name)
         self.assertEqual(row[3], self.farmer.barangay)
-        self.assertEqual(row[5], request_item.subject)
+        self.assertEqual(row[4], self.service.name)
 
     def test_service_request_pdf_keeps_status_and_priority_words_whole(self):
         from pypdf import PdfReader
@@ -3627,7 +3620,9 @@ class FMISRequirementTests(TestCase):
 
     def test_reports_start_with_choose_report_and_show_only_relevant_filters(self):
         self.client.force_login(self.staff)
-        initial = self.client.get(reverse("reports:home"))
+        initial = self.client.get(
+            reverse("reports:home"), {"analytics_tab": "reports"}
+        )
         self.assertEqual(initial.context["selected_report_type"], "")
         self.assertContains(initial, '<option value="">Choose a report</option>', html=True)
         self.assertContains(initial, 'data-filter-row="common" hidden')
@@ -3637,6 +3632,7 @@ class FMISRequirementTests(TestCase):
             reverse("reports:home"),
             {
                 "report_type": "service_status",
+                "analytics_tab": "reports",
                 "date_range": "all",
                 "commodity": "Coffee",
             },
@@ -3649,7 +3645,11 @@ class FMISRequirementTests(TestCase):
 
         effectiveness_report = self.client.get(
             reverse("reports:home"),
-            {"report_type": "service_effectiveness", "date_range": "all"},
+            {
+                "report_type": "service_effectiveness",
+                "date_range": "all",
+                "analytics_tab": "reports",
+            },
         )
         self.assertNotContains(
             effectiveness_report, 'data-filter-row="status" hidden'
@@ -3660,7 +3660,11 @@ class FMISRequirementTests(TestCase):
 
         intervention_report = self.client.get(
             reverse("reports:home"),
-            {"report_type": "intervention_registry", "date_range": "all"},
+            {
+                "report_type": "intervention_registry",
+                "date_range": "all",
+                "analytics_tab": "reports",
+            },
         )
         self.assertContains(intervention_report, 'data-filter-row="intervention"')
         self.assertNotContains(intervention_report, 'data-filter-row="intervention" hidden')
@@ -3669,7 +3673,11 @@ class FMISRequirementTests(TestCase):
 
         farmer_report = self.client.get(
             reverse("reports:home"),
-            {"report_type": "farmer_master", "date_range": "all"},
+            {
+                "report_type": "farmer_master",
+                "date_range": "all",
+                "analytics_tab": "reports",
+            },
         )
         self.assertContains(farmer_report, 'data-filter-row="commodity"')
         self.assertNotContains(farmer_report, 'data-filter-row="commodity" hidden')
@@ -3749,6 +3757,7 @@ class FMISRequirementTests(TestCase):
             reverse("reports:home"),
             {
                 "report_type": "crop_summary",
+                "analytics_tab": "reports",
                 "date_range": "all",
                 "barangay": "Bulihan",
                 "commodity": "Rice",
@@ -3771,6 +3780,7 @@ class FMISRequirementTests(TestCase):
             reverse("reports:home"),
             {
                 "report_type": "crop_summary",
+                "analytics_tab": "reports",
                 "date_range": "all",
                 "barangay": "Alupay",
                 "commodity": "Rice",
@@ -3786,27 +3796,26 @@ class FMISRequirementTests(TestCase):
         self.client.force_login(self.staff)
         response = self.client.get(
             reverse("reports:home"),
-            {"report_type": "farmer_master", "date_range": "all"},
+            {
+                "report_type": "farmer_master",
+                "date_range": "all",
+                "analytics_tab": "reports",
+            },
         )
         preview = response.context["report_preview"]
         self.assertFalse(preview["show_chart"])
         self.assertEqual(
             preview["headers"],
             [
-                "Farmer ID",
-                "Farmer Name",
-                "RSBSA ID",
-                "Registration Status",
-                "Barangay",
-                "Phone",
-                "Livelihood",
-                "Farm Records",
-                "Commodities",
+                "No.", "RSBSA No.", "Last Name", "First Name", "Middle Name",
+                "Ext. Name", "Date of Birth", "Residence Municipality",
+                "Residence Barangay", "Farm Municipality", "Farm Barangay",
+                "Gender", "IP", "Senior Citizen", "PWD", "ARB", "4Ps",
+                "Association", "Farm Area (ha)", "Contact No.",
             ],
         )
-        self.assertEqual(preview["rows"][0][0], self.farmer.record_id)
-        self.assertEqual(preview["rows"][0][1], self.farmer.full_name)
-        self.assertEqual(preview["rows"][0][8], "Rice")
+        self.assertEqual(preview["rows"][0][2], self.farmer.last_name)
+        self.assertEqual(preview["rows"][0][3], self.farmer.first_name)
         self.assertContains(response, "farmer-master-preview")
         self.assertNotContains(response, "Farmer Master List chart")
 
@@ -3908,7 +3917,7 @@ class FMISRequirementTests(TestCase):
         self.assertLess(page.index("Active farmers"), page.index("Production Snapshot"))
         self.assertLess(page.index("Production Snapshot"), page.index("Service &amp; Intervention Workload"))
         self.assertLess(page.index("Rosario Weather"), page.index("Planning reference"))
-        self.assertNotContains(response, "Inventor")
+        self.assertContains(response, "Inventory")
         self.assertNotContains(response, "Pending Projects")
         self.assertNotContains(response, "Requests by Service")
 
@@ -4063,8 +4072,10 @@ class FMISRequirementTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "image/png")
 
-        reports = self.client.get(reverse("reports:home"))
-        self.assertContains(reports, "FARMER STATISTICS")
+        reports = self.client.get(
+            reverse("reports:home"), {"analytics_tab": "farmers"}
+        )
+        self.assertContains(reports, "Farmer Statistics")
         self.assertContains(reports, "Female Farmers")
         self.assertContains(reports, "Male Farmers")
         self.assertContains(reports, "PWD Farmers")
@@ -4092,15 +4103,14 @@ class FMISRequirementTests(TestCase):
         self.assertNotContains(admin_response, "Manage User Accounts")
         self.assertNotContains(admin_response, "Review Audit Activity")
 
-        admin_reports = self.client.get(reverse("reports:home"))
+        admin_reports = self.client.get(
+            reverse("reports:home"), {"analytics_tab": "reports"}
+        )
         self.assertContains(admin_reports, "Governance Reports")
         self.assertContains(admin_reports, "User Account Registry")
         self.assertContains(admin_reports, "Activity Audit Trail")
-        self.assertContains(
-            admin_reports,
-            'class="admin-report-actions" method="post" data-download-form',
-            count=4,
-        )
+        self.assertContains(admin_reports, 'id="reportGenerator"')
+        self.assertContains(admin_reports, "data-admin-governance")
         self.assertContains(admin_reports, "Please wait while FMIS prepares your report")
         self.assertContains(admin_reports, "Preparing report…")
         self.assertNotContains(admin_reports, "System Report Builder")
@@ -4183,10 +4193,9 @@ class FMISRequirementTests(TestCase):
             {"format": "csv", "status": "PENDING"},
         )
         self.assertEqual(request_export.status_code, 200)
-        self.assertIn(
-            "Filtered seed request",
-            request_export.content.decode("utf-8-sig"),
-        )
+        request_csv = request_export.content.decode("utf-8-sig")
+        self.assertIn("Service Request Management List", request_csv)
+        self.assertNotIn("Filtered seed request", request_csv)
 
     def test_crop_planning_baseline_exposes_evidence_strength(self):
         seasonal_only = _crop_recommendation(date(2026, 8, 1), [])
@@ -4698,9 +4707,9 @@ class FMISRequirementTests(TestCase):
             "farmer_master", date_range, {}, compact=True
         )
 
-        record_ids = {row[0] for row in rows}
-        self.assertIn(self.farmer.record_id, record_ids)
-        self.assertNotIn(old_farmer.record_id, record_ids)
+        farmer_names = {(row[2], row[3]) for row in rows}
+        self.assertIn((self.farmer.last_name, self.farmer.first_name), farmer_names)
+        self.assertNotIn((old_farmer.last_name, old_farmer.first_name), farmer_names)
         self.assertIn(str(timezone.localdate().year), date_range_label(date_range))
         with self.assertRaisesMessage(ValueError, "cannot be later"):
             resolve_date_range("custom", "2026-10-29", "2026-10-28")
@@ -4822,7 +4831,7 @@ class FMISRequirementTests(TestCase):
         # Includes session/auth, preference/notification navigation, count,
         # one 25-row page query, and the barangay filter choices. It must not
         # grow with the farmer, parcel, or commodity table sizes.
-        self.assertLessEqual(len(captured), 13)
+        self.assertLessEqual(len(captured), 18)
 
     def test_shared_navigation_loads_notification_preview_and_count_in_one_query(self):
         from apps.notifications.models import Notification

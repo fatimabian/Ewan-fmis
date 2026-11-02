@@ -8,6 +8,24 @@ from apps.service_requests.models import ServiceRequest
 from .models import InventoryItem, InventoryMovement
 
 
+INVENTORY_UNIT_CHOICES = (
+    ("", "Select a unit"),
+    ("pcs", "Pieces (pcs)"),
+    ("kg", "Kilograms (kg)"),
+    ("g", "Grams (g)"),
+    ("L", "Liters (L)"),
+    ("mL", "Milliliters (mL)"),
+    ("bag", "Bags"),
+    ("sack", "Sacks"),
+    ("box", "Boxes"),
+    ("pack", "Packs"),
+    ("bottle", "Bottles"),
+    ("pair", "Pairs"),
+    ("set", "Sets"),
+    ("unit", "Units"),
+)
+
+
 class InterventionChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, intervention):
         request = (
@@ -19,6 +37,45 @@ class InterventionChoiceField(forms.ModelChoiceField):
 
 
 class InventoryItemForm(InlineValidationMixin, forms.ModelForm):
+    unit = forms.ChoiceField(
+        choices=INVENTORY_UNIT_CHOICES,
+        label="Unit",
+        help_text="Choose the unit used for receipts, releases, and the on-hand balance.",
+    )
+    opening_quantity = forms.DecimalField(
+        label="Initial stock on hand",
+        min_value=0,
+        max_digits=14,
+        decimal_places=2,
+        help_text="Enter the quantity physically on hand when this item is first added.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        creating = kwargs.pop("creating", False)
+        super().__init__(*args, **kwargs)
+        # Preserve older custom units when an existing record is edited, while
+        # keeping all newly created items on the standard unit list.
+        current_unit = getattr(self.instance, "unit", "")
+        if current_unit and current_unit not in dict(self.fields["unit"].choices):
+            self.fields["unit"].choices = (
+                *self.fields["unit"].choices,
+                (current_unit, f"{current_unit} (existing unit)"),
+            )
+        if not creating:
+            self.fields.pop("opening_quantity", None)
+        self.order_fields(
+            (
+                "name",
+                "category",
+                "unit",
+                "opening_quantity",
+                "reorder_level",
+                "storage_location",
+                "expiration_date",
+                "notes",
+            )
+        )
+
     class Meta:
         model = InventoryItem
         fields = (

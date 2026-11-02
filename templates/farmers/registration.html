@@ -52,7 +52,9 @@
     .duplicate-review-close{display:grid;flex:0 0 42px;width:42px;height:42px;place-items:center;border:1px solid #87978e;background:#fff;font-size:1.1rem}
     .duplicate-new-record{margin:17px 0 13px;padding:12px 14px;border-left:3px solid #526b85;background:#f3f6f8}.duplicate-new-record small{display:block;color:#667085}.duplicate-new-record strong{display:block;margin-top:3px;color:#17233a}
     .duplicate-decision-guide{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:0 0 14px}.duplicate-decision-guide p{margin:0;padding:10px 12px;border-left:3px solid #2f7d5c;background:#f4f8f6;color:#334a3f;font-size:.78rem;line-height:1.45}.duplicate-decision-guide p:last-child{border-left-color:#526b85;background:#f3f6f8}.duplicate-method{margin:0 0 12px;color:#667085;font-size:.75rem}.duplicate-match-list{display:grid;gap:9px}.duplicate-match{display:grid;grid-template-columns:minmax(170px,1.2fr) minmax(120px,.7fr) 90px minmax(132px,.55fr);gap:12px;align-items:center;padding:12px;border:1px solid #d6dfda;background:#fff}.duplicate-match h3{margin:0 0 3px;font-size:.92rem}.duplicate-match p{margin:0;color:#59687a;font-size:.76rem}.duplicate-score{display:inline-flex;justify-content:center;padding:6px 8px;border:1px solid #c67b17;background:#fff8e8;color:#87510b;font-weight:800}.duplicate-match-actions{display:grid;gap:6px}.duplicate-review-link,.duplicate-use-existing{display:inline-flex;min-height:34px;align-items:center;justify-content:center;padding:6px 8px;border:1px solid #168052;color:#075dc4;font-size:.75rem;font-weight:750;text-align:center;text-decoration:none}.duplicate-use-existing{background:#168052;color:#fff}.duplicate-reason-field{display:grid;gap:6px;margin-top:16px}.duplicate-reason-field label{font-weight:750}.duplicate-reason-field textarea{width:100%;min-height:74px;padding:10px;border:1px solid #aebdb5;resize:vertical}.duplicate-review-error{min-height:18px;margin:5px 0 0;color:#b42318;font-size:.78rem}.duplicate-review-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
+    .duplicate-use-modal{position:fixed;inset:0;z-index:10040;display:grid;place-items:center;padding:18px}.duplicate-use-modal[hidden]{display:none!important}.duplicate-use-backdrop{position:absolute;inset:0;border:0;background:rgba(10,22,17,.74)}.duplicate-use-dialog{position:relative;width:min(470px,100%);padding:22px;border:1px solid #afbeb6;background:#fff;box-shadow:0 24px 65px rgba(0,0,0,.34)}.duplicate-use-icon{display:grid;width:52px;height:52px;margin-bottom:14px;border-radius:50%;background:#e5f5ec;color:#168052;font-size:1.3rem;place-items:center}.duplicate-use-dialog h2{margin:0 0 8px;font-size:1.2rem}.duplicate-use-dialog p{margin:0;color:#526276;line-height:1.5}.duplicate-use-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}
     body[data-theme="dark"] .duplicate-review-dialog,body[data-theme="dark"] .duplicate-review-close,body[data-theme="dark"] .duplicate-match{border-color:#52675b;background:#1c2735;color:#f1f5f9}body[data-theme="dark"] .duplicate-new-record{background:#243442}body[data-theme="dark"] .duplicate-new-record strong{color:#f1f5f9}
+    body[data-theme="dark"] .duplicate-use-dialog{border-color:#52675b;background:#1c2735;color:#f1f5f9}body[data-theme="dark"] .duplicate-use-dialog p{color:#cbd5e1}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
     #registrationReview.review-grid article.review-summary-card{display:block!important;min-height:0;padding:18px}
     .review-summary-card h3{margin:0 0 14px}
@@ -70,7 +72,7 @@
     @media(max-width:900px){#registrationReview .review-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:560px){#registrationReview .review-data-grid{grid-template-columns:1fr}}
     @media(max-width:900px){.rsbsa-file-picker{align-items:flex-start;flex-wrap:wrap}.rsbsa-file-selection{flex-basis:100%}}
-    @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-actions{width:100%}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-selection{width:100%}.rsbsa-file-summary{margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal,.duplicate-review-modal{padding:6px}.rsbsa-camera-dialog,.duplicate-review-dialog{padding:14px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}.duplicate-decision-guide{grid-template-columns:1fr}.duplicate-match{grid-template-columns:1fr 90px}.duplicate-match>:nth-child(2),.duplicate-match-actions{grid-column:1/-1}.duplicate-review-actions{display:grid;grid-template-columns:1fr 1fr}.duplicate-review-actions .btn{width:100%}}
+    @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-actions{width:100%}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-selection{width:100%}.rsbsa-file-summary{margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal,.duplicate-review-modal,.duplicate-use-modal{padding:6px}.rsbsa-camera-dialog,.duplicate-review-dialog,.duplicate-use-dialog{padding:14px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}.duplicate-decision-guide{grid-template-columns:1fr}.duplicate-match{grid-template-columns:1fr 90px}.duplicate-match>:nth-child(2),.duplicate-match-actions{grid-column:1/-1}.duplicate-review-actions,.duplicate-use-actions{display:grid;grid-template-columns:1fr 1fr}.duplicate-review-actions .btn,.duplicate-use-actions .btn{width:100%}}
   </style>
 {% endblock %}
 {% block content %}
@@ -382,6 +384,18 @@
           <div class="duplicate-review-actions"><button type="button" class="btn btn-outline-secondary" data-duplicate-close>Cancel</button><button type="button" class="btn btn-success" id="duplicateConfirmSeparate">Confirm Separate Farmer</button></div>
         </section>
       </div>
+      <div class="duplicate-use-modal" id="duplicateUseModal" hidden aria-hidden="true">
+        <button type="button" class="duplicate-use-backdrop" data-duplicate-use-close aria-label="Close confirmation"></button>
+        <section class="duplicate-use-dialog" role="alertdialog" aria-modal="true" aria-labelledby="duplicateUseTitle" aria-describedby="duplicateUseMessage">
+          <span class="duplicate-use-icon" aria-hidden="true"><i class="bi bi-person-check"></i></span>
+          <h2 id="duplicateUseTitle">Use existing farmer record?</h2>
+          <p id="duplicateUseMessage">The new registration will not be saved. You will be taken to the selected farmer record.</p>
+          <div class="duplicate-use-actions">
+            <button type="button" class="btn btn-outline-secondary" data-duplicate-use-close>Cancel</button>
+            <button type="button" class="btn btn-success" id="duplicateUseConfirm">Use Existing Record</button>
+          </div>
+        </section>
+      </div>
       <div class="registration-loading" id="registrationLoading" hidden role="status" aria-live="polite">
         <div class="registration-loading-card">
           <span class="spinner-border" aria-hidden="true"></span>
@@ -417,9 +431,12 @@
       const error=document.getElementById('duplicateReviewError');
       const token=document.getElementById('duplicateReviewToken');
       const confirm=document.getElementById('duplicateConfirmSeparate');
+      const useModal=document.getElementById('duplicateUseModal');
+      const useConfirm=document.getElementById('duplicateUseConfirm');
       const identityFields=['first_name','middle_name','last_name','extension_name','birth_date','barangay','valid_id_type','valid_id_number'];
       let duplicateCheckPassed=false;
       let checking=false;
+      let existingRecordUrl='';
       if(!form||!modal)return;
       const payload=(extra={})=>{
         const values=new URLSearchParams();
@@ -429,7 +446,9 @@
       };
       const escapeHtml=value=>{const span=document.createElement('span');span.textContent=String(value??'');return span.innerHTML};
       const close=()=>{modal.hidden=true;modal.setAttribute('aria-hidden','true');error.textContent=''};
+      const closeUse=()=>{useModal.hidden=true;useModal.setAttribute('aria-hidden','true');existingRecordUrl=''};
       document.querySelectorAll('[data-duplicate-close]').forEach(button=>button.addEventListener('click',close));
+      document.querySelectorAll('[data-duplicate-use-close]').forEach(button=>button.addEventListener('click',closeUse));
       identityFields.forEach(name=>form.elements[name]?.addEventListener('change',()=>{token.value='';duplicateCheckPassed=false}));
       const requestCheck=async extra=>{
         const response=await fetch(form.dataset.duplicateCheckUrl,{method:'POST',headers:{'X-CSRFToken':form.elements.csrfmiddlewaretoken.value,'X-Requested-With':'XMLHttpRequest'},body:payload(extra)});
@@ -462,8 +481,13 @@
       list.addEventListener('click',event=>{
         const link=event.target.closest('.duplicate-use-existing');
         if(!link)return;
-        if(!window.confirm('Use this existing farmer record? The new registration will not be saved.'))event.preventDefault();
+        event.preventDefault();
+        existingRecordUrl=link.href;
+        useModal.hidden=false;
+        useModal.setAttribute('aria-hidden','false');
+        useConfirm.focus();
       });
+      useConfirm.addEventListener('click',()=>{if(existingRecordUrl)window.location.assign(existingRecordUrl)});
     })();
   </script>
   <script>
@@ -552,7 +576,7 @@
               updateRemoveButtons(prefix);
               if (prefix === 'parcels' || prefix === 'crops') syncParcelChoices();
               if (prefix === 'parcels') updateOwnershipFields(row);
-              if (prefix === 'crops') updateCommodityArea(row);
+              if (prefix === 'crops') filterCommodityForLivelihood(row);
               updateNextButtonState();
               row.querySelector('input:not([type=hidden]):not([type=checkbox]),select,textarea')?.focus()
           }
@@ -694,6 +718,47 @@
               updateNextButtonState()
           }
 
+          const commodityOptionTemplates = new WeakMap();
+
+          function filterCommodityForLivelihood(row) {
+              const commodity = row?.querySelector('[data-commodity-type]');
+              const livelihood = form.querySelector('[data-livelihood-type]')?.value || 'FARMER';
+              if (!commodity) return;
+              if (!commodityOptionTemplates.has(commodity)) {
+                  commodityOptionTemplates.set(
+                      commodity,
+                      [...commodity.children].map(child => child.cloneNode(true))
+                  )
+              }
+              const selected = commodity.value;
+              const livestock = new Set((commodity.dataset.livestockValues || '').split('|').filter(Boolean));
+              const fishery = new Set((commodity.dataset.fisheryValues || '').split('|').filter(Boolean));
+              const crops = new Set((commodity.dataset.cropValues || '').split('|').filter(Boolean));
+              const category = livelihood === 'FISHERFOLK'
+                  ? 'fishery'
+                  : ['LIVESTOCK', 'POULTRY'].includes(livelihood)
+                      ? 'livestock'
+                      : 'crop';
+              const allowed = category === 'fishery' ? fishery : crops;
+              if (category === 'crop') allowed.add('Other Crop / Commodity');
+              const children = commodityOptionTemplates.get(commodity).map(child => child.cloneNode(true));
+              const filteredChildren = children.filter(child => {
+                  if (child.tagName === 'OPTGROUP') {
+                      [...child.querySelectorAll('option')].forEach(option => {
+                          if (!allowed.has(option.value)) option.remove()
+                      });
+                      return Boolean(child.querySelector('option'))
+                  } else if (child.tagName === 'OPTION' && child.value && !allowed.has(child.value)) {
+                      return false
+                  }
+                  return true
+              });
+              commodity.replaceChildren(...filteredChildren);
+              commodity.value = allowed.has(selected) ? selected : '';
+              commodity.dataset.allowedCategory = category;
+              updateCommodityArea(row)
+          }
+
           function updateIndigenousGroup() {
               const choice = form.querySelector('[data-indigenous-choice]');
               const group = form.querySelector('[data-indigenous-group]');
@@ -724,6 +789,9 @@
               if (event.target.matches('[data-valid-id-type]')) updateIdNumberRule();
               if (event.target.matches('[data-indigenous-choice]')) updateIndigenousGroup();
               if (event.target.matches('[data-association-choice]')) updateAssociationName();
+              if (event.target.matches('[data-livelihood-type]')) {
+                  activeRows('crops').forEach(filterCommodityForLivelihood)
+              }
               if (event.target.matches('[data-commodity-type]')) {
                   updateCommodityArea(event.target.closest('.formset-row'))
               }
@@ -834,7 +902,7 @@
           updateIndigenousGroup();
           updateAssociationName();
           activeRows('parcels').forEach(updateOwnershipFields);
-          activeRows('crops').forEach(updateCommodityArea);
+          activeRows('crops').forEach(filterCommodityForLivelihood);
           syncParcelChoices();
           updateNextButtonState();
           const serverError = document.querySelector('.registration-step .errorlist');

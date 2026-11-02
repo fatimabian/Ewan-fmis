@@ -10,6 +10,7 @@ from apps.activity_logs.models import ActivityLog
 from apps.authentication.models import CustomUser
 from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel
+from apps.farmers.duplicate_detection import find_system_duplicate_pairs
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention
 from apps.inventory.models import InventoryItem, InventoryMovement
@@ -469,6 +470,15 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             "No current low-stock, out-of-stock, or near-expiration exceptions were found."
         )
 
+    duplicate_scan = (
+        find_system_duplicate_pairs() if tab == "farmers" else {
+            "total": 0,
+            "pairs": [],
+            "records_scanned": 0,
+            "method": "",
+        }
+    )
+
     return {
         "tab": tab,
         "summary": summary,
@@ -489,6 +499,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         ),
         "intervention_series": _monthly_series(interventions, "intervention_date"),
         "top_farmer_barangays": _comparison_rows(farmers, "barangay"),
+        "top_parcel_count_barangays": _comparison_rows(parcels, "barangay", limit=8),
         "top_parcel_barangays": _comparison_rows(parcels, "barangay", value_field="area_hectares"),
         "top_commodities": _comparison_rows(crops, "crop_type", limit=7),
         "top_services": [
@@ -496,6 +507,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             for row in requests.values("service__name").annotate(total=Count("pk")).order_by("-total", "service__name")[:6]
         ],
         "farmer_demographics": farmer_demographics,
+        "duplicate_scan": duplicate_scan,
         "request_status_rows": request_status_rows,
         "request_priority_rows": request_priority_rows,
         "recent_requests": recent_requests,

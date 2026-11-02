@@ -55,6 +55,11 @@ class InventoryModuleTests(TestCase):
         self.assertContains(response, "Stock Movements")
         self.assertContains(response, self.item.item_code)
         self.assertContains(response, "Rows per page:")
+        self.assertNotContains(response, "ACTIVE ITEMS")
+        self.assertNotContains(response, "EXPIRING SOON")
+        self.assertContains(response, "Needs attention")
+        self.assertContains(response, "Balances come from recorded stock movements.")
+        self.assertContains(response, "inventory-table-wrap")
 
     def test_inventory_supports_bounded_rows_per_page_pagination(self):
         InventoryItem.objects.bulk_create(
@@ -83,12 +88,17 @@ class InventoryModuleTests(TestCase):
         self.client.force_login(self.staff)
         create_page = self.client.get(reverse("inventory:item_create"))
         self.assertNotContains(create_page, 'name="item_code"')
+        self.assertContains(create_page, "Initial stock on hand")
+        self.assertContains(create_page, '<select name="unit"', html=False)
+        self.assertContains(create_page, "Kilograms (kg)")
+        self.assertContains(create_page, "Pieces (pcs)")
         response = self.client.post(
             reverse("inventory:item_create"),
             {
                 "name": "Hybrid Corn Seed",
                 "category": "SEEDS",
                 "unit": "bag",
+                "opening_quantity": "24.00",
                 "reorder_level": "5.00",
                 "storage_location": "Municipal Stockroom B",
                 "expiration_date": "",
@@ -97,6 +107,10 @@ class InventoryModuleTests(TestCase):
         )
         created = InventoryItem.objects.get(name="Hybrid Corn Seed")
         self.assertEqual(created.item_code, f"INV-{created.pk:05d}")
+        self.assertEqual(created.stock_on_hand, Decimal("24.00"))
+        opening = created.movements.get()
+        self.assertEqual(opening.movement_type, InventoryMovement.RECEIPT)
+        self.assertEqual(opening.balance_after, Decimal("24.00"))
         self.assertRedirects(response, reverse("inventory:list"))
 
         edit_page = self.client.get(reverse("inventory:item_edit", args=[created.pk]))

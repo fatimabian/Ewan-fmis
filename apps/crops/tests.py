@@ -7,6 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from apps.farm_parcels.models import FarmParcel
+from apps.farmers.forms import FarmerSlipBLivelihoodForm
 from apps.farmers.models import Farmer
 
 from .forms import CropRecordForm
@@ -96,6 +97,8 @@ class GroupedCropListTests(TestCase):
         )
 
     def test_poultry_group_is_available_and_does_not_require_area(self):
+        self.farmer.activities = "FARMER_POULTRY"
+        self.farmer.save(update_fields=["activities"])
         form = CropRecordForm(
             data={
                 "parcel": self.parcel.pk,
@@ -127,6 +130,9 @@ class GroupedCropListTests(TestCase):
         self.assertEqual(record.cropping_schedule, "")
 
     def test_fishery_commodity_does_not_require_a_cropping_schedule(self):
+        self.farmer.livelihood = "FISHERFOLK"
+        self.farmer.activities = "FISH_AQUACULTURE"
+        self.farmer.save(update_fields=["livelihood", "activities"])
         form = CropRecordForm(
             data={
                 "parcel": self.parcel.pk,
@@ -142,6 +148,112 @@ class GroupedCropListTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         self.assertEqual(form.cleaned_data["cropping_schedule"], "")
         self.assertFalse(form.cleaned_data["is_intercrop"])
+
+    def test_farmer_crop_livelihood_rejects_livestock_commodity(self):
+        form = CropRecordForm(
+            data={
+                "parcel": self.parcel.pk,
+                "crop_type": "Swine",
+                "cropping_start_month": "",
+                "cropping_end_month": "",
+                "area_hectares": "",
+                "number_of_heads": "10",
+                "is_organic": "False",
+                "is_intercrop": "False",
+            }
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("crop_type", form.errors)
+        self.assertIn(
+            "matches this farmer's recorded livelihood",
+            form.errors["crop_type"][0],
+        )
+
+    def test_livestock_raiser_accepts_livestock_and_rejects_crop_commodity(self):
+        self.farmer.livelihood = "LIVESTOCK"
+        self.farmer.activities = ""
+        self.farmer.save(update_fields=["livelihood", "activities"])
+        livestock = CropRecordForm(
+            data={
+                "parcel": self.parcel.pk,
+                "crop_type": "Swine",
+                "number_of_heads": "10",
+                "is_organic": "False",
+                "is_intercrop": "False",
+            }
+        )
+        crop = CropRecordForm(
+            data={
+                "parcel": self.parcel.pk,
+                "crop_type": "Rice",
+                "area_hectares": "0.50",
+                "is_organic": "False",
+                "is_intercrop": "False",
+            }
+        )
+
+        self.assertTrue(livestock.is_valid(), livestock.errors)
+        self.assertFalse(crop.is_valid())
+        self.assertIn("crop_type", crop.errors)
+
+    def test_catalog_uses_specific_leafy_vegetables(self):
+        form = CropRecordForm()
+        values = {
+            value
+            for _group, group_choices in form.fields["crop_type"].choices
+            if isinstance(group_choices, (list, tuple))
+            for value, _label in group_choices
+        }
+        self.assertNotIn("Leafy Vegetables", values)
+        self.assertNotIn("Unspecified Leafy Vegetable", values)
+        self.assertTrue({"Kangkong", "Pechay", "Mustasa"}.issubset(values))
+
+    def test_livelihood_update_rejects_mismatched_primary_activity(self):
+        shared = {
+            "transaction_code": "TX-2026-001",
+            "change_reason": "CORRECTION",
+            "registrant_declaration": "on",
+        }
+        mismatches = (
+            ("FARMER", "FARMER_LIVESTOCK"),
+            ("LIVESTOCK", "FISH_CAPTURE"),
+            ("POULTRY", "FARMER_CROPS"),
+        )
+        for livelihood, activity in mismatches:
+            with self.subTest(livelihood=livelihood, activity=activity):
+                form = FarmerSlipBLivelihoodForm(
+                    data={
+                        **shared,
+                        "livelihood": livelihood,
+                        "activities": activity,
+                    },
+                    instance=self.farmer,
+                )
+                self.assertFalse(form.is_valid())
+                self.assertIn("activities", form.errors)
+
+    def test_livelihood_update_accepts_each_new_exact_activity(self):
+        shared = {
+            "transaction_code": "TX-2026-002",
+            "change_reason": "CORRECTION",
+            "registrant_declaration": "on",
+        }
+        matches = (
+            ("FARMER", "FARMER_CROPS"),
+            ("LIVESTOCK", "FARMER_LIVESTOCK"),
+            ("POULTRY", "FARMER_POULTRY"),
+        )
+        for livelihood, activity in matches:
+            with self.subTest(livelihood=livelihood, activity=activity):
+                form = FarmerSlipBLivelihoodForm(
+                    data={
+                        **shared,
+                        "livelihood": livelihood,
+                        "activities": activity,
+                    },
+                    instance=self.farmer,
+                )
+                self.assertTrue(form.is_valid(), form.errors)
 
     def test_crop_requires_an_intercropping_yes_or_no_answer(self):
         form = CropRecordForm(
@@ -203,9 +315,7 @@ class GroupedCropListTests(TestCase):
             for label, choices in form.fields["crop_type"].choices
             if isinstance(choices, (list, tuple))
         ]
-        self.assertEqual(groups[:2], ["Common in Rosario", "Not listed above"])
-        self.assertIn("Additional crops", groups)
-        self.assertIn("Additional livestock and poultry", groups)
+        self.assertEqual(groups[:2], ["Crops", "Livestock and poultry"])
         self.assertIn("Fisheries and aquaculture", groups)
 
     def test_add_commodity_loads_parcels_through_search(self):

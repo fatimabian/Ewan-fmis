@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.crops.models import CropRecord
 from apps.common.constants import (
+    CROP_COMMODITIES,
     FISHERY_COMMODITIES,
     MONTH_CHOICES,
     ROSARIO_BARANGAY_CHOICES,
@@ -368,7 +369,10 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
         ] = "true"
         self.fields["fca_membership"].widget.attrs["data-association-name"] = "true"
         self.fields["valid_id_type"].widget.attrs["data-valid-id-type"] = "true"
+        if "livelihood" in self.fields:
+            self.fields["livelihood"].widget.attrs["data-livelihood-type"] = "true"
         registration_only = not (self.instance and self.instance.pk)
+        self.fields["is_association_member"].required = registration_only
         self.fields["valid_id_type"].required = registration_only
         self.fields["valid_id_number"].required = registration_only
         self.fields["valid_id_type"].label = (
@@ -650,8 +654,30 @@ class FarmerSlipBLivelihoodForm(StyledFormMixin, forms.ModelForm):
             self.initial["activities"] = self.instance.activities.split(",")[0]
         self.apply_styles()
 
-    def clean_activities(self):
-        return self.cleaned_data["activities"]
+    def clean(self):
+        cleaned = super().clean()
+        livelihood = cleaned.get("livelihood")
+        activity = cleaned.get("activities") or ""
+        allowed_activities = {
+            "FARMER": {"FARMER_CROPS"},
+            "LIVESTOCK": {"FARMER_LIVESTOCK"},
+            "POULTRY": {"FARMER_POULTRY"},
+            "FARMWORKER": {
+                value for value, _label in ACTIVITY_CHOICES if value.startswith("WORK_")
+            },
+            "FISHERFOLK": {
+                value for value, _label in ACTIVITY_CHOICES if value.startswith("FISH_")
+            },
+            "AGRI_YOUTH": {
+                value for value, _label in ACTIVITY_CHOICES if value.startswith("YOUTH_")
+            },
+        }.get(livelihood, set())
+        if activity and activity not in allowed_activities:
+            self.add_error(
+                "activities",
+                "Choose a primary activity that matches the selected livelihood.",
+            )
+        return cleaned
 
 
 class ParcelRegistrationForm(StyledFormMixin, forms.ModelForm):
@@ -881,6 +907,9 @@ class CropRegistrationForm(StyledFormMixin, forms.ModelForm):
         )
         self.fields["crop_type"].widget.attrs["data-fishery-values"] = "|".join(
             sorted(FISHERY_COMMODITIES)
+        )
+        self.fields["crop_type"].widget.attrs["data-crop-values"] = "|".join(
+            sorted(CROP_COMMODITIES)
         )
         self.fields["area_hectares"].widget.attrs["data-commodity-area"] = "true"
 

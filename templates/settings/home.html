@@ -163,7 +163,12 @@
   #profile .settings-grid-reference>div{
       display:grid;
       min-width:0;
+      height:100%;
       gap:16px
+  }
+  #profile .settings-grid-reference>div:first-child{
+      align-content:stretch;
+      grid-template-rows:minmax(0,1fr)
   }
   #profile .appearance-settings-card{
       order:1
@@ -181,10 +186,13 @@
   }
   .account-settings-list{
       display:grid;
+      gap:12px;
       margin-top:10px;
-      border:1px solid #dce6e0;
-      border-radius:10px;
-      overflow:hidden
+      border:0;
+      overflow:visible
+  }
+  .account-settings-row+.account-settings-row{
+      margin-top:2px
   }
   .account-settings-row{
       min-height:54px;
@@ -193,14 +201,14 @@
       gap:11px;
       width:100%;
       padding:13px 16px;
-      border:0;
-      border-bottom:1px solid #dce6e0;
+      border:1px solid #dce6e0;
+      border-radius:10px;
       background:#fff;
       color:#17251d;
       text-align:left;
       cursor:pointer
   }
-  .account-settings-row:last-child{border-bottom:0}
+  .account-settings-row:last-child{border-bottom:1px solid #dce6e0}
   .account-settings-row>i:first-child{color:#087346;font-size:16px}
   .account-settings-row>span{
       min-width:0;
@@ -221,6 +229,8 @@
   .account-settings-row>i:last-child{margin-left:auto;color:#76847c}
   @media(max-width:900px){
       #profile .settings-grid-reference{grid-template-columns:1fr}
+      #profile .settings-grid-reference>div:first-child{grid-template-rows:auto}
+      #profile .profile-details-card{height:auto}
   }
   .settings-modal{
       position:fixed;

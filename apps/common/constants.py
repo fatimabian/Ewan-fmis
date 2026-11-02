@@ -84,7 +84,9 @@ _ROSARIO_ADDITIONAL_CROPS = (
     ("String Beans", "String Beans"),
     ("Bitter Gourd", "Bitter Gourd"),
     ("Chili Pepper", "Chili Pepper"),
-    ("Leafy Vegetables", "Leafy Vegetables"),
+    ("Kangkong", "Kangkong (Water Spinach)"),
+    ("Pechay", "Pechay"),
+    ("Mustasa", "Mustasa (Mustard Greens)"),
 )
 _ROSARIO_ADDITIONAL_ANIMALS = (
     ("Carabao", "Carabao"),
@@ -183,7 +185,13 @@ COMMODITY_DETAIL_TO_GROUP = {
     "Turmeric": "Turmeric",
     "Bitter Gourd": "Bitter Gourd",
     "Chili Pepper": "Chili Pepper",
-    "Leafy Vegetables": "Leafy Vegetables",
+    "Kangkong": "Kangkong",
+    "Pechay": "Pechay",
+    "Mustasa": "Mustasa",
+    # Historical records used a generic value that cannot be safely inferred as
+    # Kangkong, Pechay, or Mustasa. Keep it reportable, but do not expose it as
+    # a selectable value for new records.
+    "Unspecified Leafy Vegetable": "Unspecified Leafy Vegetable",
     "Livestock": "Mixed Livestock",
     "Dairy Carabao": "Dairy Carabao",
     "Carabao": "Carabao",
@@ -217,6 +225,42 @@ def commodity_group(value):
     """Return the municipal summary group without altering the saved detail."""
     normalized = (value or "").strip().casefold()
     return _COMMODITY_GROUP_LOOKUP.get(normalized, "Other Commodity")
+
+
+def commodity_category(value):
+    """Return the operational category used to validate livelihood compatibility."""
+    if value in LIVESTOCK_COMMODITIES:
+        return "livestock"
+    if value in FISHERY_COMMODITIES:
+        return "fishery"
+    if value in CROP_COMMODITIES or value == "Other Crop / Commodity":
+        return "crop"
+    return "unknown"
+
+
+def livelihood_commodity_category(livelihood, activities=""):
+    """Map the recorded livelihood/activity to the only compatible commodity group."""
+    if livelihood in {"LIVESTOCK", "POULTRY"}:
+        return "livestock"
+    activity_values = {
+        value.strip() for value in (activities or "").split(",") if value.strip()
+    }
+    if activity_values & {"FARMER_LIVESTOCK", "FARMER_POULTRY"}:
+        return "livestock"
+    if livelihood == "FISHERFOLK" or any(
+        value.startswith("FISH_") for value in activity_values
+    ):
+        return "fishery"
+    return "crop"
+
+
+def commodity_matches_livelihood(value, livelihood, activities=""):
+    category = commodity_category(value)
+    # A staff-entered "Other" name is treated as a crop. Animal and fishery
+    # records must use the explicit catalog so their reporting remains reliable.
+    if category == "unknown":
+        category = "crop"
+    return category == livelihood_commodity_category(livelihood, activities)
 
 # Philippine Standard Geographic Code (PSGC), Municipality of Rosario,
 # Batangas. Verified against the PSA list of 48 barangays.

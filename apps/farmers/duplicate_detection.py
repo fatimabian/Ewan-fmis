@@ -10,8 +10,10 @@ import hashlib
 import json
 import re
 import unicodedata
+from collections import defaultdict
 from datetime import date
 
+from django.core.cache import cache
 from django.core import signing
 from django.db.models import Case, IntegerField, Q, Value, When
 
@@ -23,6 +25,11 @@ REVIEW_MAX_AGE_SECONDS = 20 * 60
 MAX_DATABASE_CANDIDATES = 120
 MAX_REVIEW_MATCHES = 5
 FLAG_THRESHOLD = 76
+SYSTEM_SCAN_CACHE_KEY = "fmis:farmer-duplicate-system-scan:v1"
+SYSTEM_SCAN_CACHE_SECONDS = 120
+SYSTEM_SCAN_RESULT_LIMIT = 30
+SYSTEM_SCAN_FULL_BUCKET_LIMIT = 60
+SYSTEM_SCAN_NEIGHBOR_WINDOW = 8
 
 
 def normalize_text(value):
@@ -255,6 +262,120 @@ def find_possible_duplicates(values, *, exclude_pk=None):
     return sorted(matches, key=lambda match: (-match["score"], match["farmer"].pk))[
         :MAX_REVIEW_MATCHES
     ]
+
+
+def find_system_duplicate_pairs(*, limit=SYSTEM_SCAN_RESULT_LIMIT, use_cache=True):
+    """Return a bounded, explainable review list across active farmer records.
+
+    Candidate buckets avoid an all-records Cartesian comparison. The scan uses
+    one bounded-field database query, compares likely identities in memory, and
+    caches the serializable result briefly so opening Analytics stays fast.
+    Nothing is merged, deleted, or changed by this review.
+    """
+    if use_cache:
+        cached = cache.get(SYSTEM_SCAN_CACHE_KEY)
+        if cached is not None:
+            return {**cached, "pairs": cached["pairs"][:limit]}
+
+    farmers = list(
+        Farmer.objects.filter(is_active=True)
+        .only(
+            "pk", "first_name", "middle_name", "last_name", "extension_name",
+            "birth_date", "barangay", "valid_id_type", "valid_id_number",
+        )
+        .order_by("pk")
+    )
+    buckets = defaultdict(list)
+    for farmer in farmers:
+        identity = identity_values(
+            {
+                "first_name": farmer.first_name,
+                "middle_name": farmer.middle_name,
+                "last_name": farmer.last_name,
+                "extension_name": farmer.extension_name,
+                "birth_date": farmer.birth_date,
+                "barangay": farmer.barangay,
+                "valid_id_type": farmer.valid_id_type,
+                "valid_id_number": farmer.valid_id_number,
+            }
+        )
+        if identity["valid_id_type"] and identity["valid_id_number"]:
+            buckets[("id", identity["valid_id_type"], identity["valid_id_number"])].append(farmer)
+        if identity["birth_date"]:
+            buckets[("birth-last", identity["birth_date"], identity["last_name"][:3])].append(farmer)
+            if identity["barangay"]:
+                buckets[("birth-place", identity["birth_date"], identity["barangay"])].append(farmer)
+        if identity["first_name"] and identity["last_name"]:
+            buckets[("name", identity["first_name"][:3], identity["last_name"][:3])].append(farmer)
+
+    candidate_pairs = set()
+    for bucket in buckets.values():
+        if len(bucket) < 2:
+            continue
+        # Small buckets are cheap enough to compare exhaustively. Large common-
+        # name buckets are sorted by normalized identity and compared within a
+        # bounded neighbor window. This keeps the scan responsive without
+        # silently dropping the entire bucket and missing obvious duplicates.
+        ordered = sorted(
+            bucket,
+            key=lambda farmer: (
+                normalize_text(farmer.last_name),
+                normalize_text(farmer.first_name),
+                normalize_text(farmer.middle_name),
+                normalize_suffix(farmer.extension_name),
+                str(farmer.birth_date or ""),
+                normalize_text(farmer.barangay),
+                farmer.pk,
+            ),
+        )
+        window = (
+            len(ordered)
+            if len(ordered) <= SYSTEM_SCAN_FULL_BUCKET_LIMIT
+            else SYSTEM_SCAN_NEIGHBOR_WINDOW + 1
+        )
+        for index, left in enumerate(ordered[:-1]):
+            for right in ordered[index + 1:index + window]:
+                candidate_pairs.add((left.pk, right.pk))
+
+    by_pk = {farmer.pk: farmer for farmer in farmers}
+    pairs = []
+    for left_pk, right_pk in candidate_pairs:
+        left = by_pk[left_pk]
+        right = by_pk[right_pk]
+        values = {
+            "first_name": left.first_name,
+            "middle_name": left.middle_name,
+            "last_name": left.last_name,
+            "extension_name": left.extension_name,
+            "birth_date": left.birth_date,
+            "barangay": left.barangay,
+            "valid_id_type": left.valid_id_type,
+            "valid_id_number": left.valid_id_number,
+        }
+        score, reasons = _score(values, right)
+        if score < FLAG_THRESHOLD:
+            continue
+        pairs.append(
+            {
+                "left_pk": left.pk,
+                "left_id": left.record_id,
+                "left_name": left.list_name,
+                "right_pk": right.pk,
+                "right_id": right.record_id,
+                "right_name": right.list_name,
+                "score": score,
+                "reasons": reasons[:4],
+            }
+        )
+    pairs.sort(key=lambda pair: (-pair["score"], pair["left_pk"], pair["right_pk"]))
+    result = {
+        "total": len(pairs),
+        "pairs": pairs[:SYSTEM_SCAN_RESULT_LIMIT],
+        "records_scanned": len(farmers),
+        "method": "Rule-based fuzzy similarity; no ML model is active",
+    }
+    cache.set(SYSTEM_SCAN_CACHE_KEY, result, SYSTEM_SCAN_CACHE_SECONDS)
+    return {**result, "pairs": result["pairs"][:limit]}
 
 
 def build_review_token(values, matches, reason):

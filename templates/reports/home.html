@@ -474,7 +474,7 @@
   .report-filter-row{
       display:grid;
       grid-template-columns:128px 1fr;
-      min-height:43px
+      min-height:var(--fmis-control-height,48px)
   }
   .report-filter-row>label{
       display:flex;
@@ -492,7 +492,7 @@
   }
   .report-filter-row select,.report-filter-row .selected-report{
       width:100%;
-      min-height:43px;
+      min-height:var(--fmis-control-height,48px);
       border:1px solid #d6e2db;
       border-left:0;
       border-radius:0 6px 6px 0;
@@ -525,7 +525,7 @@
       font-size:12px
   }
   .report-generate{
-      min-height:44px;
+      min-height:var(--fmis-control-height,48px);
       border-radius:6px!important;
       background:linear-gradient(100deg,var(--fmis-accent),var(--ag-green-deep))!important;
       border-color:var(--ag-green-deep)!important;
@@ -706,6 +706,14 @@
   .admin-report-library{
       margin-top:16px
   }
+  .admin-governance-filter{
+      grid-template-columns:minmax(300px,430px);
+      margin-top:12px
+  }
+  .admin-governance-filter .report-filter-card{
+      width:100%;
+      margin-bottom:0
+  }
   .admin-report-library-heading{
       margin-bottom:10px
   }
@@ -852,8 +860,9 @@
       margin-bottom:14px;
       border-bottom:1px solid #d6e1da;
       background:#fff;
-      scrollbar-width:thin
+      scrollbar-width:none
   }
+  .analytics-tabs::-webkit-scrollbar{display:none}
   .analytics-tabs a{
       flex:0 0 auto;
       padding:12px 15px;
@@ -929,46 +938,68 @@
           <h2 id="adminReportLibraryTitle">Governance Reports</h2>
           <p>Download only the records administrators need for access review, accountability, and turnover.</p>
         </div>
-        <div class="admin-report-cards">
-          {% for template in report_templates %}
-            <article class="report-card admin-report-card">
-              <i class="bi {{ template.icon }}" aria-hidden="true"></i>
-              <div>
-                <h3>{{ template.title }}</h3>
-                <p>{{ template.description }}</p>
+        <div class="report-top admin-governance-filter">
+          <article class="report-card report-filter-card">
+            <h3>Report Filters</h3>
+            <p>Choose an administrator report, then apply only the filters relevant to it.</p>
+            <form class="generate-form" id="reportGenerator" method="post" novalidate data-admin-governance>
+              {% csrf_token %}
+              <input type="hidden" name="analytics_tab" value="reports">
+              <div class="report-filter-row" data-filter-row="category">
+                <label>Category</label>
+                <select name="report_type" id="reportType"{% if report_error %} class="is-invalid" aria-invalid="true" aria-describedby="reportType_error"{% endif %}>
+                  <option value="">Choose a report</option>
+                  {% for template in report_templates %}
+                    <option value="{{ template.key }}"{% if selected_report_type == template.key %} selected{% endif %}>{{ template.title }}</option>
+                  {% endfor %}
+                </select>
+                {% if report_error %}<span class="inline-form-error" id="reportType_error">{{ report_error }}</span>{% endif %}
               </div>
-              <form class="admin-report-actions" method="post" data-download-form>
-                {% csrf_token %}
-                <input type="hidden" name="report_type" value="{{ template.key }}">
-                <div class="admin-report-fields">
-                  <select name="date_range" aria-label="Report period" data-date-range>
-                    {% for value,label in date_ranges.items %}
-                      <option value="{{ value }}"{% if template.key == 'staff_accomplishment' and value == 'month' %} selected{% elif template.key != 'staff_accomplishment' and value == 'all' %} selected{% endif %}>{{ label }}</option>
-                    {% endfor %}
-                  </select>
-                  <div class="custom-date-fields" data-custom-date-fields hidden>
-                    <label>From <input type="date" name="date_from" disabled></label>
-                    <label>To <input type="date" name="date_to" disabled></label>
-                  </div>
-                  {% if template.key == 'staff_accomplishment' %}
-                    <select name="staff" aria-label="Staff member">
-                      <option value="">All staff</option>
-                      {% for staff_member in staff_choices %}<option value="{{ staff_member.pk }}">{{ staff_member.display_name }}</option>{% endfor %}
-                    </select>
-                  {% endif %}
-                </div>
-                <div class="admin-report-buttons">
-                  <button type="submit" formmethod="get" name="view" value="1"><i class="bi bi-eye"></i> View Only</button>
-                  <button type="submit" name="format" value="pdf"><i class="bi bi-printer"></i> Print PDF</button>
-                  <button type="submit" name="format" value="csv"><i class="bi bi-filetype-csv"></i> CSV</button>
-                </div>
-              </form>
-            </article>
-          {% endfor %}
+              <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+                <label>Period</label>
+                <select name="date_range" required data-date-range>
+                  {% for value,label in date_ranges.items %}<option value="{{ value }}"{% if selected_date_range == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+              </div>
+              <div class="report-filter-row" data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
+                <label>From date</label>
+                <input type="date" name="date_from" value="{{ selected_date_from }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
+              </div>
+              <div class="report-filter-row" data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
+                <label>To date</label>
+                <input type="date" name="date_to" value="{{ selected_date_to }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
+              </div>
+              <div class="report-filter-row" data-filter-row="staff"{% if selected_report_type != 'staff_accomplishment' %} hidden{% endif %}>
+                <label>Staff member</label>
+                <select name="staff"><option value="">All staff</option>{% for staff_member in staff_choices %}<option value="{{ staff_member.pk }}"{% if selected_filters.staff == staff_member.pk|stringformat:'s' %} selected{% endif %}>{{ staff_member.display_name }}</option>{% endfor %}</select>
+              </div>
+              <div class="report-filter-row" data-filter-row="account"{% if selected_report_type != 'user_accounts' %} hidden{% endif %}>
+                <label>User role</label>
+                <select name="role"><option value="">All user roles</option>{% for value,label in role_choices %}<option value="{{ value }}"{% if selected_filters.role == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+              </div>
+              <div class="report-filter-row" data-filter-row="account"{% if selected_report_type != 'user_accounts' %} hidden{% endif %}>
+                <label>Account status</label>
+                <select name="account_status"><option value="">All account statuses</option>{% for value,label in account_status_choices %}<option value="{{ value }}"{% if selected_filters.account_status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+              </div>
+              <div class="report-filter-row" data-filter-row="audit"{% if selected_report_type != 'activity_audit' %} hidden{% endif %}>
+                <label>Activity module</label>
+                <select name="module"><option value="">All system modules</option>{% for module in activity_modules %}<option value="{{ module }}"{% if selected_filters.module == module %} selected{% endif %}>{{ module }}</option>{% endfor %}</select>
+              </div>
+              <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+                <label>Format</label>
+                <select name="format" required><option value="pdf">PDF Document</option><option value="csv">CSV Spreadsheet</option></select>
+              </div>
+              <div class="report-actions" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+                <button type="submit" formmethod="get" name="view" value="1" class="btn btn-outline-success"><i class="bi bi-eye"></i> View Report</button>
+                <button type="submit" class="btn btn-success report-generate"><i class="bi bi-download"></i> Download Report</button>
+                <p class="report-download-status" role="status" aria-live="polite" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Please wait while FMIS prepares your report. The download will start automatically.</span></p>
+              </div>
+            </form>
+          </article>
         </div>
         {% if report_preview %}
           <article class="report-card" id="filteredReport">
-            <div class="preview-heading"><div><h3>{{ report_preview.title|upper }}</h3><p>View-only preview using the selected period and staff filter.</p></div><div><b>{{ report_preview.total_rows }}</b><p>matching rows</p></div></div>
+            <div class="preview-heading"><div><h3>{{ report_preview.title|upper }}</h3><p>View-only preview using the filters relevant to this governance report.</p></div><div><b>{{ report_preview.total_rows }}</b><p>matching rows</p></div></div>
             {% include "reports/_report_preview_analytics.html" %}
             <div class="report-table-wrap"><table class="report-preview-table"><thead><tr>{% for header in report_preview.headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>{% for row in report_preview.rows %}<tr>{% for cell in row %}<td>{{ cell|default:'-' }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="8">No records match the selected filters.</td></tr>{% endfor %}</tbody></table></div>
           </article>
@@ -1379,6 +1410,7 @@
           function updateRelevantFilters() {
               const selected = type.value;
               const hasSelection = Boolean(selected);
+              const isAdminGovernance = form.hasAttribute('data-admin-governance');
               const isServiceEffectiveness = selected === 'service_effectiveness';
               const isIntervention = ['intervention_summary', 'intervention_registry'].includes(selected);
               const customDate = form.querySelector('[name="date_range"]')?.value === 'custom';
@@ -1389,7 +1421,13 @@
                   'crop_summary',
                   'commodity_per_parcel'
               ].includes(selected);
-              const rules = {
+              const rules = isAdminGovernance ? {
+                  common: hasSelection,
+                  staff: selected === 'staff_accomplishment',
+                  account: selected === 'user_accounts',
+                  audit: selected === 'activity_audit',
+                  'custom-date': hasSelection && customDate
+              } : {
                   common: hasSelection,
                   commodity: supportsCommodity,
                   association: selected === 'farmer_master',
@@ -1533,7 +1571,10 @@
           }
 
           document.querySelectorAll('#reportGenerator,[data-download-form]').forEach(downloadForm => {
-              downloadForm.addEventListener('submit', downloadReport)
+              downloadForm.addEventListener('submit', event => {
+                  if (event.submitter?.name === 'view') return;
+                  downloadReport(event)
+              })
           });
           if (form && type) updateRelevantFilters();
       })();

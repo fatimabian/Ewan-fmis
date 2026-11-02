@@ -12,17 +12,17 @@
 }
 .fmis-toolbar-search{display:grid;gap:0;width:var(--fmis-table-search-width);max-width:100%;min-width:0}
 .fmis-toolbar-search>span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap}
-.fmis-toolbar-search input{width:100%;height:50px;min-width:0;padding:0 14px 0 40px}
+.fmis-toolbar-search input{width:100%;height:var(--fmis-toolbar-height,50px);min-width:0;padding:0 14px 0 40px}
 .fmis-toolbar-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
 .fmis-toolbar-button,.fmis-table-toolbar .btn{
     display:inline-flex;
-    min-height:50px;
+    min-height:var(--fmis-toolbar-height,50px);
     align-items:center;
     justify-content:center;
     gap:8px;
     padding:0 17px;
     border:1px solid var(--fmis-accent,#2f7d5c);
-    border-radius:8px;
+    border-radius:var(--fmis-radius-control,8px);
     background:var(--surface,#fff);
     color:#17233a;
     font-weight:700;
@@ -58,10 +58,10 @@
 .fmis-filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fmis-filter-field{display:grid;gap:5px;min-width:0;font-size:12px;font-weight:700;color:#334155}
 .fmis-filter-field.is-wide{grid-column:1/-1}
-.fmis-filter-field :is(select,input){width:100%;height:44px;min-width:0}
+.fmis-filter-field :is(select,input){width:100%;height:var(--fmis-compact-height,44px);min-height:var(--fmis-compact-height,44px)!important;min-width:0}
 .fmis-filter-error{grid-column:1/-1;margin:0;padding:8px 10px;border:1px solid #dc4c45;background:#fff4f3;color:#9f1c17;font-size:12px}
 .fmis-filter-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:9px;margin-top:4px}
-.fmis-filter-reset,.fmis-filter-apply{min-height:42px;padding:0 15px;border:1px solid var(--fmis-accent,#2f7d5c);background:#fff;color:#17233a;font-weight:700;text-decoration:none}
+.fmis-filter-reset,.fmis-filter-apply{min-height:var(--fmis-compact-height,44px)!important;padding:0 15px;border:1px solid var(--fmis-accent,#2f7d5c);background:#fff;color:#17233a;font-weight:700;text-decoration:none}
 .fmis-filter-reset{display:inline-flex;align-items:center;justify-content:center;border-color:#9aa9a0}
 .fmis-filter-apply{background:var(--fmis-accent,#2f7d5c);color:#fff}
 body[data-theme="dark"] .fmis-toolbar-button,

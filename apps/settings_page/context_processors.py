@@ -27,7 +27,8 @@ def user_preference(request):
         # Remembered sign-ins use their fixed seven-day window. Browser-only
         # sessions receive the administrator's inactivity limit in the page so
         # an open tab can log out without waiting for another navigation.
-        if not request.session.get("fmis_remember_until"):
+        session = getattr(request, "session", None)
+        if session is not None and not session.get("fmis_remember_until"):
             session_timeout_seconds = max(
                 60,
                 int(SystemSetting.load().session_timeout) * 60,

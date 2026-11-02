@@ -22,6 +22,10 @@ from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.filters import parse_inclusive_date_range
 from apps.common.permissions import StaffRequiredMixin
 from apps.common.record_history import farmer_update_rows
+from apps.common.constants import (
+    commodity_matches_livelihood,
+    livelihood_commodity_category,
+)
 from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel, FarmParcelPhoto
 
@@ -332,6 +336,9 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                     parcel_rows[row_number] = parcel_form
 
         if crop_formset.is_valid():
+            profile_is_valid = profile_form.is_valid()
+            livelihood = profile_form.cleaned_data.get("livelihood") if profile_is_valid else ""
+            activities = ""
             parcel_primary_area = {}
             parcel_primary_forms = {}
             for crop_form in crop_formset.forms:
@@ -341,6 +348,16 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 ):
                     continue
                 parcel_number = crop_form.cleaned_data.get("parcel_number")
+                commodity = crop_form.cleaned_data.get("crop_type")
+                if livelihood and commodity and not commodity_matches_livelihood(
+                    commodity, livelihood, activities
+                ):
+                    expected = livelihood_commodity_category(livelihood, activities)
+                    crop_form.add_error(
+                        "crop_type",
+                        f"Choose a {expected} commodity that matches the selected livelihood.",
+                    )
+                    forms_valid = False
                 if parcel_number not in parcel_rows:
                     crop_form.add_error(
                         "parcel_number", "Choose the number of an active parcel row from Step 2."

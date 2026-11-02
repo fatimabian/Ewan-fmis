@@ -10,8 +10,10 @@ from django.urls import reverse
 from unittest.mock import patch
 
 from apps.farmers.models import Farmer
+from apps.farmers.duplicate_detection import find_system_duplicate_pairs
 from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.reports.analytics import _monthly_series, descriptive_analytics
+from apps.reports.export import generate_table_export
 
 
 class DescriptiveAnalyticsTests(TestCase):
@@ -46,7 +48,7 @@ class DescriptiveAnalyticsTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["descriptive"]["summary"][0]["value"], 1)
-        self.assertContains(response, "Farmer Registrations Over Time")
+        self.assertContains(response, "Barangays with the Most Farmers")
         self.assertContains(response, "Generate Reports")
         self.assertNotContains(response, "phone_number")
 
@@ -55,7 +57,7 @@ class DescriptiveAnalyticsTests(TestCase):
         response = self.client.get(reverse("reports:home"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["analytics_tab"], "overview")
-        self.assertContains(response, "Farmer Registrations Over Time")
+        self.assertContains(response, "Barangays with the Most Farmers")
         self.assertNotContains(response, "Report Filters")
 
         administrator = get_user_model().objects.create_user(
@@ -68,7 +70,7 @@ class DescriptiveAnalyticsTests(TestCase):
         response = self.client.get(reverse("reports:home"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["analytics_tab"], "overview")
-        self.assertContains(response, "Farmer Registrations Over Time")
+        self.assertContains(response, "Barangays with the Most Farmers")
         self.assertNotContains(response, "Governance Reports")
 
     def test_admin_generate_reports_tab_keeps_governance_reports(self):
@@ -84,12 +86,17 @@ class DescriptiveAnalyticsTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Governance Reports")
+        self.assertContains(response, "Report Filters")
+        self.assertContains(response, 'data-admin-governance')
+        self.assertContains(response, '<label>Category</label>')
+        self.assertContains(response, '<option value="">Choose a report</option>')
         self.assertContains(response, "System Overview")
         self.assertContains(response, "User Account Registry")
         self.assertContains(response, "Activity Audit Trail")
+        self.assertNotContains(response, 'class="admin-report-cards"')
         self.assertNotContains(response, "Farmer Master List")
         self.assertNotContains(response, "Intervention Distribution Summary")
-        self.assertNotContains(response, "Farmer Registrations Over Time")
+        self.assertNotContains(response, "Barangays with the Most Farmers")
 
     def test_downloaded_pdf_uses_the_shared_official_da_header(self):
         from pypdf import PdfReader
@@ -106,6 +113,42 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertIn("Department of Agriculture", page_text)
         self.assertIn("Regional Field Office No. IV-A", page_text)
         self.assertIn("FARMER MASTER LIST", page_text)
+
+    def test_admin_downloaded_pdf_uses_the_same_official_da_header(self):
+        from pypdf import PdfReader
+
+        administrator = get_user_model().objects.create_user(
+            username="pdf-reports-admin",
+            password="StrongPass123!",
+            role="ADMIN",
+            is_active=True,
+        )
+        self.client.force_login(administrator)
+        response = self.client.post(
+            reverse("reports:home"),
+            {"report_type": "system_overview", "date_range": "all", "format": "pdf"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        page_text = PdfReader(BytesIO(response.content)).pages[0].extract_text()
+        self.assertIn("Department of Agriculture", page_text)
+        self.assertIn("Regional Field Office No. IV-A", page_text)
+        self.assertIn("SYSTEM OVERVIEW", page_text)
+
+    def test_management_table_pdf_uses_the_same_official_da_header(self):
+        from pypdf import PdfReader
+
+        response = generate_table_export(
+            "Inventory Movement Register",
+            ["Reference", "Item", "Quantity"],
+            [["MOV-0001", "Certified Rice Seed", "10 bags"]],
+            "pdf",
+        )
+
+        page_text = PdfReader(BytesIO(response.content)).pages[0].extract_text()
+        self.assertIn("Department of Agriculture", page_text)
+        self.assertIn("INVENTORY MOVEMENT REGISTER", page_text)
 
     def test_barangay_filter_limits_analytics(self):
         matching = descriptive_analytics(
@@ -205,10 +248,11 @@ class DescriptiveAnalyticsTests(TestCase):
         interventions = self.client.get(reverse("reports:home"), {"analytics_tab": "interventions"})
         inventory = self.client.get(reverse("reports:home"), {"analytics_tab": "inventory"})
 
-        self.assertContains(farmers, 'aria-label="Farmer Registrations Over Time line chart"')
-        self.assertContains(parcels, 'aria-label="Recorded Farm Area by Month bar chart"')
-        self.assertContains(commodities, 'aria-label="Commodity Records Added by Month bar chart"')
+        self.assertContains(farmers, "Barangays with the Most Farmers")
+        self.assertContains(parcels, "Barangays with the Most Farm Parcels")
+        self.assertContains(commodities, "Most Planted or Raised Commodities")
         self.assertContains(requests, 'aria-label="Service Requests Over Time line chart"')
+        self.assertContains(requests, "fill:#fff;stroke:#2f7d5c;stroke-width:4!important")
         self.assertContains(interventions, 'aria-label="Interventions Given by Month bar chart"')
         self.assertContains(inventory, 'aria-label="Inventory receipts and releases grouped bar chart"')
 
@@ -226,6 +270,9 @@ class DescriptiveAnalyticsTests(TestCase):
 
         self.assertIn("grid-template-columns:minmax(0,1fr) auto", html)
         self.assertLess(html.index("Interventions Given by Month"), html.index("INTERVENTION DISTRIBUTION SUMMARY"))
+        self.assertContains(response, "Operational Follow-up")
+        self.assertContains(response, "Reconcile released stock")
+        self.assertNotContains(response, "How to read this summary")
 
         reports = self.client.get(reverse("reports:home"), {"analytics_tab": "reports"})
         self.assertNotContains(reports, 'class="analytics-filter-toolbar')
@@ -317,3 +364,40 @@ class DescriptiveAnalyticsTests(TestCase):
             result = descriptive_analytics("overview", "all", {})
         self.assertEqual(result["summary"][0]["value"], 5001)
         self.assertLessEqual(len(queries), 35)
+
+    def test_duplicate_scan_keeps_large_common_name_buckets_reviewable(self):
+        Farmer.objects.bulk_create(
+            [
+                Farmer(
+                    first_name=f"Maria {index:03d}",
+                    last_name="Santos",
+                    barangay="Bagong Pook",
+                    is_active=True,
+                )
+                for index in range(70)
+            ]
+        )
+        left = Farmer.objects.create(
+            first_name="Maria Duplicate",
+            middle_name="Reyes",
+            last_name="Santos",
+            barangay="Alupay",
+            birth_date=date(1988, 4, 12),
+            is_active=True,
+        )
+        right = Farmer.objects.create(
+            first_name="Maria Duplicate",
+            middle_name="Reyes",
+            last_name="Santos",
+            barangay="Alupay",
+            birth_date=date(1988, 4, 12),
+            is_active=True,
+        )
+
+        result = find_system_duplicate_pairs(use_cache=False)
+
+        candidate_ids = {
+            frozenset((pair["left_pk"], pair["right_pk"]))
+            for pair in result["pairs"]
+        }
+        self.assertIn(frozenset((left.pk, right.pk)), candidate_ids)

@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Count, F, Q
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -104,30 +104,11 @@ class InventoryListView(InventoryAccessMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         active_items = InventoryItem.objects.filter(is_active=True)
-        expiring_cutoff = timezone.localdate() + timedelta(days=30)
-        stock_summary = active_items.aggregate(
-            total=Count("pk"),
-            low=Count(
-                "pk",
-                filter=Q(stock_on_hand__gt=0, stock_on_hand__lte=F("reorder_level"))
-                & (Q(expiration_date__isnull=True) | Q(expiration_date__gt=expiring_cutoff)),
-            ),
-            out=Count("pk", filter=Q(stock_on_hand__lte=0)),
-            expiring=Count(
-                "pk",
-                filter=Q(stock_on_hand__gt=0, expiration_date__lte=expiring_cutoff),
-            ),
-        )
         context.update(
             {
                 "tab": self.tab,
                 "category_choices": InventoryItem.CATEGORY_CHOICES,
                 "movement_choices": InventoryMovement.MOVEMENT_CHOICES,
-                "total_items": stock_summary["total"],
-                "low_stock_count": stock_summary["low"],
-                "out_of_stock_count": stock_summary["out"],
-                "expiring_count": stock_summary["expiring"],
-                "movement_count": InventoryMovement.objects.count(),
                 "filter_date_error": getattr(self, "filter_date_error", ""),
             }
         )
@@ -136,6 +117,22 @@ class InventoryListView(InventoryAccessMixin, ListView):
                 "pk", "item_code", "name"
             ).order_by("name", "item_code")
         else:
+            expiring_cutoff = timezone.localdate() + timedelta(days=30)
+            context["inventory_attention"] = {
+                "out": active_items.filter(stock_on_hand__lte=0).count(),
+                "low": active_items.filter(
+                    stock_on_hand__gt=0,
+                    stock_on_hand__lte=F("reorder_level"),
+                ).filter(
+                    Q(expiration_date__isnull=True)
+                    | Q(expiration_date__gt=expiring_cutoff)
+                ).count(),
+                "expiring": active_items.filter(
+                    stock_on_hand__gt=0,
+                    expiration_date__isnull=False,
+                    expiration_date__lte=expiring_cutoff,
+                ).count(),
+            }
             context["locations"] = (
                 InventoryItem.objects.exclude(storage_location="")
                 .values_list("storage_location", flat=True)
@@ -151,8 +148,25 @@ class InventoryItemCreateView(InventoryAccessMixin, CreateView):
     template_name = "inventory/item_form.html"
     success_url = reverse_lazy("inventory:list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["creating"] = True
+        return kwargs
+
     def form_valid(self, form):
-        response = super().form_valid(form)
+        opening_quantity = form.cleaned_data["opening_quantity"]
+        with transaction.atomic():
+            self.object = form.save()
+            opening_movement = None
+            if opening_quantity > 0:
+                opening_movement = record_inventory_movement(
+                    item=self.object,
+                    movement_type=InventoryMovement.RECEIPT,
+                    quantity=opening_quantity,
+                    reference="Opening balance",
+                    remarks="Opening quantity recorded when the inventory item was created.",
+                    recorded_by=self.request.user,
+                )
         record_request_event(
             self.request,
             title="Inventory Item Created",
@@ -163,13 +177,18 @@ class InventoryItemCreateView(InventoryAccessMixin, CreateView):
                 {"field": "Item", "after": self.object.name},
                 {"field": "Category", "after": self.object.get_category_display()},
                 {"field": "Storage location", "after": self.object.storage_location},
+                {"field": "Opening on hand", "after": f"{opening_quantity} {self.object.unit}"},
             ],
         )
         messages.success(
             self.request,
-            f"{self.object.name} was added. Record a stock receipt to enter its opening balance.",
+            (
+                f"{self.object.name} was added with {opening_quantity} {self.object.unit} on hand."
+                if opening_movement
+                else f"{self.object.name} was added with a zero opening balance."
+            ),
         )
-        return response
+        return redirect(self.success_url)
 
 
 class InventoryItemUpdateView(InventoryAccessMixin, UpdateView):

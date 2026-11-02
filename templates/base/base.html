@@ -11,13 +11,34 @@
     </title>
     <link rel="icon" type="image/webp" href="{% static 'images/brand/fmis-logo-display.webp' %}">
     <link rel="preload" href="{% static 'vendor/bootstrap-icons/fonts/bootstrap-icons.woff2' %}" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="{% static 'css/fmis-core.min.css' %}?v=12">
+    <link rel="stylesheet" href="{% static 'css/fmis-core.min.css' %}?v=13">
     {% block extra_css %}{% endblock %}
     <style>
     :root{
         --fmis-accent:#2f7d5c;
         --fmis-accent-text:#fff;
-        --green:var(--fmis-accent)
+        --green:var(--fmis-accent);
+        --fmis-container-gap:16px
+    }
+    /* Shared vertical rhythm for the system's major card/container layouts.
+       Inner table rows, field groups, button groups, and compact controls keep
+       their own tighter spacing. */
+    .app-shell :is(
+        .record-single-card,
+        .review-grid,
+        .settings-grid-reference,
+        .report-top,
+        .analytics-grid,
+        .analytics-main,
+        .analytics-grid-3,
+        .catalog-grid,
+        .dashboard-grid,
+        .inventory-page
+    ){
+        row-gap:var(--fmis-container-gap)!important
+    }
+    .app-shell .related-list{
+        gap:12px!important
     }
     .app-shell{
         display:block

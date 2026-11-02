@@ -18,7 +18,9 @@ class Farmer(models.Model):
         ("SEPARATED", "Separated"),
     ]
     LIVELIHOOD_CHOICES = [
-        ("FARMER", "Farmer"),
+        ("FARMER", "Crop Farmer"),
+        ("LIVESTOCK", "Livestock Raiser"),
+        ("POULTRY", "Poultry Raiser"),
         ("FARMWORKER", "Farm Worker / Laborer"),
         ("FISHERFOLK", "Fisherfolk"),
         ("AGRI_YOUTH", "Agri-Youth"),
