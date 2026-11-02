@@ -176,6 +176,8 @@ REMEMBER_LOGIN_DAYS = max(1, int(os.getenv("REMEMBER_LOGIN_DAYS", "7")))
 REMEMBER_LOGIN_SECONDS = REMEMBER_LOGIN_DAYS * 24 * 60 * 60
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1")
+# Which reader the Add Farmer RSBSA scan uses: auto, ocr (OpenRouter/Gemini/sample) or openai.
+RSBSA_SCAN_ENGINE = os.getenv("RSBSA_SCAN_ENGINE", "auto").strip().lower()
 RSBSA_OCR_MODEL = os.getenv("RSBSA_OCR_MODEL", "gpt-5.4-mini")
 RSBSA_OCR_TIMEOUT_SECONDS = max(
     15, min(120, int(os.getenv("RSBSA_OCR_TIMEOUT_SECONDS", "60")))

@@ -54,16 +54,25 @@ def _field_names(fields):
     return list(fields or ocr_setting("FIELDS"))
 
 
-def _read_with_model(provider, model, image, mime, names):
+def _read_with_model(provider, model, image, mime, names, instructions=""):
     """Ask one model and return parsed readings, counting the request against the cap."""
     if provider.name != "sample" and not reserve_request():
         raise OcrUnavailable("The daily OCR request limit has been reached.")
-    reply = provider.read(model, image, mime, build_prompt(names))
+    reply = provider.read(model, image, mime, build_prompt(names, instructions))
     parsed = parse_reply(reply, names)
     return {name: FieldReading(value, confidence) for name, (value, confidence) in parsed.items()}
 
 
-def extract(image_bytes, *, fields=None, provider=None):
+def is_configured(provider=None):
+    """True when the provider has what it needs (keys and models, or sample mode)."""
+    try:
+        get_provider(provider).check_configured()
+    except OcrUnavailable:
+        return False
+    return True
+
+
+def extract(image_bytes, *, fields=None, provider=None, instructions=""):
     """Read a form image, trying each configured model in order.
 
     Raises OcrUnavailable when nothing can answer; callers must then offer manual
@@ -79,7 +88,7 @@ def extract(image_bytes, *, fields=None, provider=None):
     attempts = []
     for model in provider.models():
         try:
-            readings = _read_with_model(provider, model, image, mime, names)
+            readings = _read_with_model(provider, model, image, mime, names, instructions)
         except OcrProviderError as error:
             logger.warning("OCR model %s failed: %s", model, error)
             attempts.append((model, str(error)))

@@ -2,16 +2,19 @@ import json
 import re
 
 from .exceptions import OcrProviderError
-from .fields import FIELD_DESCRIPTIONS
+from .fields import DEFAULT_DESCRIPTION, FIELD_DESCRIPTIONS
 
 
-def build_prompt(field_names):
+def build_prompt(field_names, instructions=""):
     """Prompt shared by every provider so models are compared fairly."""
-    lines = "\n".join(f'- "{name}": {FIELD_DESCRIPTIONS[name]}' for name in field_names)
+    lines = "\n".join(
+        f'- "{name}": {FIELD_DESCRIPTIONS.get(name, DEFAULT_DESCRIPTION)}' for name in field_names
+    )
     return (
         "You read a photographed, possibly handwritten farm registration form from "
         "Rosario, Batangas, Philippines. Copy only what is visibly written.\n"
-        "Rules:\n"
+        + (f"{instructions.strip()}\n" if instructions else "")
+        + "Rules:\n"
         "1. Never guess, correct or complete a value. Copy coordinates exactly as written, "
         "even if they look wrong.\n"
         '2. Use an empty string and confidence 0 when a value is absent or unreadable.\n'

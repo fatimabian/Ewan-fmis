@@ -9,3 +9,7 @@ FIELD_DESCRIPTIONS = {
     "commodity": "Main crop or livestock commodity written on the form.",
     "ownership_type": "Tenure written on the form: one of OWNED, TENANT, LEASED, ARB, OTHER, or the words written.",
 }
+
+# Used for fields without a specific description (for example the RSBSA profile fields).
+DEFAULT_DESCRIPTION = "Value written or checked for this field, exactly as shown, or an empty string."
+FIELD_DESCRIPTIONS["form_title"] = "The form title printed at the top of the page, exactly as printed."

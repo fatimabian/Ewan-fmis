@@ -145,6 +145,23 @@ SAMPLE_SCENARIOS = (
 )
 
 
+# Made-up RSBSA profile readings, used when the prompt asks for profile fields.
+SAMPLE_PROFILES = (
+    {  # clean
+        "form_title": ("RSBSA Enrollment Form", 0.97), "last_name": ("Dela Cruz", 0.95), "first_name": ("Juan", 0.96),
+        "middle_name": ("Santos", 0.9), "sex": ("MALE", 0.95), "birth_date": ("1980-05-17", 0.9),
+        "place_of_birth": ("Rosario, Batangas", 0.88), "mother_maiden_name": ("Maria Reyes", 0.85),
+        "barangay": ("Bulihan", 0.93), "phone_number": ("09171234567", 0.9), "civil_status": ("MARRIED", 0.9),
+        "livelihood": ("FARMER", 0.94), "philsys_registered": ("False", 0.8),
+    },
+    {  # unsure handwriting and a wrong date format
+        "form_title": ("RSBSA Enrollment Form", 0.95), "last_name": ("Bautista", 0.55), "first_name": ("Rosa", 0.9),
+        "sex": ("FEMALE", 0.95), "birth_date": ("17/05/1975", 0.5), "barangay": ("Maligaya", 0.6),
+        "phone_number": ("9181234567", 0.7), "civil_status": ("WIDOWED", 0.8), "livelihood": ("FARMER", 0.9),
+    },
+)
+
+
 class SampleProvider(BaseProvider):
     name = "sample"
 
@@ -155,7 +172,8 @@ class SampleProvider(BaseProvider):
         return None
 
     def read(self, model, image, mime, prompt):
-        scenario = SAMPLE_SCENARIOS[int(hashlib.sha256(image).hexdigest(), 16) % len(SAMPLE_SCENARIOS)]
+        scenarios = SAMPLE_PROFILES if '"last_name"' in prompt else SAMPLE_SCENARIOS
+        scenario = scenarios[int(hashlib.sha256(image).hexdigest(), 16) % len(scenarios)]
         return json.dumps(
             {"fields": {k: {"value": v, "confidence": c} for k, (v, c) in scenario.items()}}
         )

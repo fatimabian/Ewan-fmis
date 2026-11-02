@@ -36,7 +36,7 @@ from .forms import (
 from .models import Farmer, FarmerDocument
 from .history import farmer_snapshot, record_farmer_update
 from .rsbsa_pdf import farmer_record_pdf_response
-from .rsbsa_scan import RSBSAScanError, scan_rsbsa_profile
+from .rsbsa_scan import RSBSAScanError, rsbsa_scan_available, scan_rsbsa_profile
 from .duplicate_detection import (
     build_review_token,
     find_possible_duplicates,
@@ -292,7 +292,7 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             "crop_formset": crop_formset,
             "document_formset": document_formset,
             "registration_has_errors": registration_has_errors,
-            "rsbsa_scan_configured": bool(settings.OPENAI_API_KEY),
+            "rsbsa_scan_configured": rsbsa_scan_available(),
         }
 
     def get(self, request):

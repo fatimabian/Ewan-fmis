@@ -12,6 +12,9 @@ from django.core import signing
 from PIL import Image, UnidentifiedImageError
 
 from apps.common.constants import ROSARIO_BARANGAYS
+from apps.ocr import services as ocr
+from apps.ocr.conf import ocr_setting
+from apps.ocr.exceptions import OcrUnavailable
 
 from .forms import VALID_ID_CHOICES
 from .models import Farmer
@@ -286,7 +289,79 @@ def _normalize_fields(raw_fields, needs_review, warnings):
     return fields, sorted(review), unique_warnings[:8]
 
 
+def _ocr_instructions():
+    """Rules for the shared OCR reader; the same field rules the OpenAI prompt uses."""
+    valid_ids = ", ".join(sorted(ENUM_VALUES["valid_id_type"]))
+    return (
+        "This is page 1 of the official Philippine Department of Agriculture RSBSA Enrollment Form. "
+        "Put the printed form title in form_title. Extract only values visibly written or checked.\n"
+        "Formats: dates YYYY-MM-DD; phone numbers digits only (09XXXXXXXXX); "
+        "sex MALE or FEMALE; civil_status SINGLE, MARRIED, WIDOWED or SEPARATED; "
+        "livelihood FARMER, FARMWORKER, FISHERFOLK or AGRI_YOUTH; yes/no fields True or False; "
+        f"barangay exactly one of: {', '.join(ROSARIO_BARANGAYS)}; valid_id_type empty or one of: {valid_ids}.\n"
+        "Never extract signatures, fingerprints, pictures or an official RSBSA number."
+    )
+
+
+def ocr_engine_selected():
+    """True when the shared OCR service (OpenRouter, Gemini) should read the form.
+
+    RSBSA_SCAN_ENGINE: "ocr" always, "openai" never, "auto" when a real OCR provider is
+    configured. Sample mode is only used when "ocr" is chosen on purpose.
+    """
+    engine = getattr(settings, "RSBSA_SCAN_ENGINE", "auto")
+    if engine == "ocr":
+        return True
+    if engine == "openai":
+        return False
+    return ocr_setting("PROVIDER") != "sample" and ocr.is_configured()
+
+
+def rsbsa_scan_available():
+    """Whether the registration page should offer the scan button."""
+    return ocr_engine_selected() or bool(getattr(settings, "OPENAI_API_KEY", "").strip())
+
+
+def _scan_with_ocr(upload):
+    """Read the RSBSA page with the shared OCR service and apply the same normalising rules."""
+    raw, _mime, kind = _validated_upload(upload)
+    if kind == "pdf":
+        raise RSBSAScanError("This reader needs a JPG or PNG photo. Convert the PDF page to an image first.")
+    try:
+        result = ocr.extract(raw, fields=["form_title", *PROFILE_FIELDS], instructions=_ocr_instructions())
+    except OcrUnavailable as error:
+        logger.warning("RSBSA OCR unavailable: %s", error)
+        raise RSBSAScanError(
+            "RSBSA verification is temporarily unavailable. Try again shortly.", status=503
+        ) from error
+    if "rsbsa" not in result.fields["form_title"].value.casefold():
+        raise RSBSAScanError(
+            "This file does not match the official RSBSA enrollment form. Upload a clear, complete copy of page 1.",
+            status=422,
+        )
+    threshold = ocr_setting("CONFIDENCE_THRESHOLD")
+    readings = {name: result.fields[name] for name in PROFILE_FIELDS}
+    unsure = [name for name, reading in readings.items() if reading.value and reading.confidence < threshold]
+    fields, review, warnings = _normalize_fields(
+        {name: reading.value for name, reading in readings.items()}, unsure, []
+    )
+    if not any(fields.values()):
+        raise RSBSAScanError(
+            "No readable profile details were found. Retake the photo in brighter light and keep the whole page visible.",
+            status=422,
+        )
+    return {
+        "fields": fields,
+        "needs_review": review,
+        "warnings": warnings,
+        "form_version": "",
+        "scan_token": build_scan_token(raw),
+    }
+
+
 def scan_rsbsa_profile(upload):
+    if ocr_engine_selected():
+        return _scan_with_ocr(upload)
     api_key = getattr(settings, "OPENAI_API_KEY", "").strip()
     if not api_key:
         raise RSBSAScanError(
