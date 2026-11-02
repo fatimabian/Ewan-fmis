@@ -9,12 +9,12 @@
 {% block extra_css %}
   <style>
     .rsbsa-record-card{margin:14px 0 18px;padding:12px 14px;border:1px solid #a9d4bc;border-left:3px solid var(--fmis-accent);background:#f4fbf7}
-    .rsbsa-record-head{display:grid;gap:10px}
+    .rsbsa-record-head{display:flex;align-items:center;justify-content:space-between;gap:18px}
     .rsbsa-record-title{display:flex;align-items:center;gap:10px;min-width:260px}
     .rsbsa-record-title>i{display:grid;flex:0 0 32px;width:32px;height:32px;place-items:center;background:#e0f3e8;color:#08763e}
     .rsbsa-record-title h2{margin:0 0 2px;font-size:.95rem}
     .rsbsa-record-title p{margin:0;color:#52675b;font-size:.75rem;line-height:1.3}
-    .rsbsa-record-files{display:grid;gap:7px;padding-left:42px}
+    .rsbsa-record-scan{flex:0 0 auto;margin-left:auto}
     .rsbsa-file-picker{display:flex;align-items:center;gap:10px}
     .rsbsa-file-picker input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
     .rsbsa-file-actions{display:flex;align-items:center;flex:0 0 auto;gap:7px;margin-left:auto}
@@ -28,7 +28,6 @@
     .rsbsa-file-item-size{color:#52675b;font-weight:600;white-space:nowrap}
     .rsbsa-file-remove{display:grid;flex:0 0 30px;width:30px;height:30px;padding:0;border:0;border-radius:5px;background:transparent;color:#68756e;font-size:1rem;font-weight:800;place-items:center}
     .rsbsa-file-remove:hover,.rsbsa-file-remove:focus-visible{background:#dbe8e1;color:#174b35;outline:2px solid #168052;outline-offset:1px}
-    .rsbsa-record-note{margin:7px 0 0;color:#315847;font-size:.7rem}
     .rsbsa-camera-modal{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;padding:18px}
     .rsbsa-camera-modal[hidden]{display:none!important}
     .rsbsa-camera-backdrop{position:absolute;inset:0;border:0;background:rgba(10,22,17,.74)}
@@ -38,7 +37,7 @@
     .rsbsa-camera-video{display:block;width:100%;max-height:70vh;background:#111;object-fit:contain}
     .rsbsa-camera-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:14px}
     body[data-theme="dark"] .rsbsa-record-card{border-color:#426c53;background:#1f3027}
-    body[data-theme="dark"] .rsbsa-record-title p,body[data-theme="dark"] .rsbsa-record-note{color:#bed0c5}
+    body[data-theme="dark"] .rsbsa-record-title p{color:#bed0c5}
     body[data-theme="dark"] .rsbsa-file-summary,body[data-theme="dark"] .rsbsa-file-item-size{color:#bed0c5}
     body[data-theme="dark"] .rsbsa-file-item{border-color:#4a6758;background:#293a31}
     body[data-theme="dark"] .rsbsa-file-item-name{color:#8fc3ff}
@@ -72,12 +71,11 @@
     @media(max-width:900px){#registrationReview .review-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:560px){#registrationReview .review-data-grid{grid-template-columns:1fr}}
     @media(max-width:900px){.rsbsa-file-picker{align-items:flex-start;flex-wrap:wrap}.rsbsa-file-selection{flex-basis:100%}}
-    @media(max-width:760px){.rsbsa-record-files{padding-left:0}.rsbsa-file-actions{width:100%}.rsbsa-file-action{flex:1 1 135px}.rsbsa-file-selection{width:100%}.rsbsa-file-summary{margin:1px 0 0}.rsbsa-file-item{max-width:100%}.rsbsa-file-item-name{max-width:min(58vw,300px)}.rsbsa-camera-modal,.duplicate-review-modal,.duplicate-use-modal{padding:6px}.rsbsa-camera-dialog,.duplicate-review-dialog,.duplicate-use-dialog{padding:14px}.rsbsa-camera-video{max-height:72vh}.rsbsa-camera-actions .btn{flex:1}.duplicate-decision-guide{grid-template-columns:1fr}.duplicate-match{grid-template-columns:1fr 90px}.duplicate-match>:nth-child(2),.duplicate-match-actions{grid-column:1/-1}.duplicate-review-actions,.duplicate-use-actions{display:grid;grid-template-columns:1fr 1fr}.duplicate-review-actions .btn,.duplicate-use-actions .btn{width:100%}}
+    @media(max-width:760px){.rsbsa-record-head{align-items:stretch;flex-direction:column}.rsbsa-record-scan{width:100%;margin-left:0}.duplicate-review-modal,.duplicate-use-modal{padding:6px}.duplicate-review-dialog,.duplicate-use-dialog{padding:14px}.duplicate-decision-guide{grid-template-columns:1fr}.duplicate-match{grid-template-columns:1fr 90px}.duplicate-match>:nth-child(2),.duplicate-match-actions{grid-column:1/-1}.duplicate-review-actions,.duplicate-use-actions{display:grid;grid-template-columns:1fr 1fr}.duplicate-review-actions .btn,.duplicate-use-actions .btn{width:100%}}
   </style>
 {% endblock %}
 {% block content %}
   <div class="content registration-page">
-    {% include "form_scan/_scan_panel.html" %}
     <section class="panel registration-shell">
       <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" data-duplicate-check-url="{% url 'farmers:duplicate_check' %}" novalidate>
         {% csrf_token %}
@@ -88,27 +86,13 @@
               <i class="bi bi-camera" aria-hidden="true"></i>
               <div>
                 <h2 id="rsbsaRecordCopyTitle">RSBSA form <span style="font-weight:400">(optional)</span></h2>
-                <p>Upload or capture clear copies for record keeping.</p>
+                <p>Scan a clear form image to read and auto-fill the registration fields.</p>
               </div>
             </div>
-            <div class="rsbsa-record-files{% if profile_form.rsbsa_form.errors %} has-error{% endif %}">
-              <div class="rsbsa-file-picker">
-                <div class="rsbsa-file-selection">
-                  <span class="rsbsa-file-summary" id="rsbsaFileSummary">No files selected</span>
-                  <ul class="rsbsa-file-list" id="rsbsaFileList" aria-live="polite"></ul>
-                </div>
-                <div class="rsbsa-file-actions">
-                  {{ profile_form.rsbsa_form }}
-                  <label class="btn btn-add-outline rsbsa-file-action" for="{{ profile_form.rsbsa_form.id_for_label }}"><i class="bi bi-upload" aria-hidden="true"></i> Choose files</label>
-                  <button type="button" class="btn btn-add-outline rsbsa-file-action" id="rsbsaCameraOpen">
-                    <i class="bi bi-camera-fill" aria-hidden="true"></i> Use camera
-                  </button>
-                </div>
-              </div>
-              {{ profile_form.rsbsa_form.errors }}
+            <div class="rsbsa-record-scan">
+              {% include "form_scan/_scan_panel.html" with scan_inline=True %}
             </div>
           </div>
-          <p class="rsbsa-record-note">Add as many copies as needed. Accepted: JPG, PNG, or PDF up to 5 MB each. Copies are kept for records and will not fill the registration fields; use Scan &amp; Auto-Fill above for that.</p>
         </section>
       <ol class="registration-stepper" aria-label="Registration progress">
         <li class="active" data-step-link="1">
@@ -404,22 +388,8 @@
           <p>Please wait. Do not close or refresh this page.</p>
         </div>
       </div>
-      <div class="rsbsa-camera-modal" id="rsbsaCameraModal" hidden aria-hidden="true">
-        <button type="button" class="rsbsa-camera-backdrop" id="rsbsaCameraBackdrop" aria-label="Close camera"></button>
-        <section class="rsbsa-camera-dialog" role="dialog" aria-modal="true" aria-labelledby="rsbsaCameraTitle" aria-describedby="rsbsaCameraStatus">
-          <h2 id="rsbsaCameraTitle">Capture an RSBSA copy</h2>
-          <p id="rsbsaCameraStatus" role="status" aria-live="polite">Position the whole form inside the frame.</p>
-          <video class="rsbsa-camera-video" id="rsbsaCameraVideo" autoplay playsinline muted></video>
-          <canvas id="rsbsaCameraCanvas" hidden></canvas>
-          <div class="rsbsa-camera-actions">
-            <button type="button" class="btn btn-outline-secondary" id="rsbsaCameraCancel">Cancel</button>
-            <button type="button" class="btn btn-success" id="rsbsaCameraCapture" disabled><i class="bi bi-camera"></i> Capture photo</button>
-          </div>
-        </section>
-      </div>
     </section>
   </div>
-  <script defer src="{% static 'js/rsbsa-multi-upload.js' %}?v=1"></script>
   <script src="{% static 'js/registration-draft.js' %}"></script>
   <script>
     (()=>{
@@ -871,10 +841,8 @@
           }
 
           function documentReview() {
-              const rsbsaInput = form.elements.rsbsa_form;
-              const rsbsaFiles = [...(rsbsaInput?.files || [])].map(file => file.name).join(', ') || 'No RSBSA form uploaded';
               const records = activeRows('documents').map((row, index) => `<section class="review-record"><h4>Supporting document ${index + 1}</h4>${reviewData(reviewFields(row))}</section>`).join('');
-              return `<article class="review-summary-card"><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><section class="review-subsection"><h4>RSBSA form copies</h4>${reviewData([{label:'Selected files',value:rsbsaFiles}])}</section><section class="review-subsection"><h4>Supporting documents</h4><div class="review-records">${records || '<p class="review-empty">No supporting documents entered.</p>'}</div></section></article>`
+              return `<article class="review-summary-card"><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><section class="review-subsection"><h4>Supporting documents</h4><div class="review-records">${records || '<p class="review-empty">No supporting documents entered.</p>'}</div></section></article>`
           }
 
           function buildReview() {

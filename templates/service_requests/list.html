@@ -69,7 +69,7 @@
   }
   .request-table{
       width:100%;
-      min-width:1320px;
+      min-width:1360px;
       border-collapse:collapse;
       table-layout:fixed!important
   }
@@ -101,7 +101,7 @@
       width:130px!important
   }
   .request-table :is(th,td):nth-child(9){
-      width:80px!important;
+      width:120px!important;
       text-align:center!important
   }
   .request-table th{
@@ -197,11 +197,10 @@
   .timing-indicator.on-time .timing-label{color:#087f49!important}
   .timing-indicator small{display:block;max-width:100%;color:#111827!important;font-size:10px;font-weight:600;line-height:1.35;white-space:normal!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none!important}
   .request-actions{
-      display:grid;
-      grid-template-columns:24px 24px;
+      display:flex;
       gap:10px;
       align-items:center;
-      justify-content:start
+      justify-content:center
   }
   .request-actions form{
       margin:0
@@ -220,6 +219,21 @@
   }
   .request-actions button{
       color:#111827
+  }
+  .request-view-only{
+      display:inline-flex;
+      min-height:31px;
+      align-items:center;
+      justify-content:center;
+      padding:5px 12px;
+      border:1px solid #238553;
+      border-radius:8px;
+      background:transparent;
+      color:#111827;
+      font-size:12px;
+      font-weight:700;
+      line-height:1.2;
+      white-space:nowrap
   }
   .request-table th:last-child,.request-table td:last-child{
       padding-right:24px
@@ -351,11 +365,6 @@
                 </td>
                 <td>
                   <div class="request-actions">
-                    <a href="{% url 'service_requests:detail' item.pk %}"
-                       title="View {{ item.request_id }} details"
-                       aria-label="View {{ item.request_id }} details">
-                      <i class="bi bi-eye"></i>
-                    </a>
                     {% if not item.assigned_to or item.assigned_to == request.user %}
                     <a href="{% url 'service_requests:edit' item.pk %}"
                        title="Edit {{ item.request_id }}">
@@ -382,6 +391,8 @@
                         </button>
                       </form>
                     {% endif %}
+                    {% else %}
+                      <span class="request-view-only" title="Assigned to {{ item.assigned_to.display_name }}">View only</span>
                     {% endif %}
                   </div>
                 </td>

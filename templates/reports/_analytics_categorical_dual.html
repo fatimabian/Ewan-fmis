@@ -1,0 +1,21 @@
+<div class="analytics-line-chart analytics-dual-chart" role="img" aria-label="{{ title }} comparison line chart">
+  <div class="analytics-chart-heading">
+    <div><h3>{{ title }}</h3><p>{{ description }}</p></div>
+    <span class="analytics-chart-legend"><i></i> {{ first_label }} <i></i> {{ second_label }}</span>
+  </div>
+  {% if series.points %}
+    <div class="analytics-plot">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="4" y1="91" x2="96" y2="91"></line><line x1="4" y1="53" x2="96" y2="53"></line><line x1="4" y1="15" x2="96" y2="15"></line>
+        <polyline class="received-line" points="{{ series.first_polyline }}"></polyline>
+        <polyline class="completed-line" points="{{ series.second_polyline }}"></polyline>
+        {% for point in series.points %}
+          <circle class="received-point analytics-interactive-point" tabindex="0" role="button" aria-label="{{ point.label }}: {{ point.first }} {{ first_unit }}" cx="{{ point.x }}" cy="{{ point.first_y }}" r="1.15"><title>{{ point.label }}: {{ point.first }} {{ first_unit }}</title></circle>
+          <circle class="completed-point analytics-interactive-point" tabindex="0" role="button" aria-label="{{ point.label }}: {{ point.second|floatformat:'-2' }} {{ second_unit }}" cx="{{ point.x }}" cy="{{ point.second_y }}" r="1.15"><title>{{ point.label }}: {{ point.second|floatformat:'-2' }} {{ second_unit }}</title></circle>
+        {% endfor %}
+      </svg>
+    </div>
+    <div class="analytics-chart-axis">{% for point in series.points %}<span><b>{{ point.first }} / {{ point.second|floatformat:"-2" }}</b><small title="{{ point.label }}">{{ point.label }}</small></span>{% endfor %}</div>
+    <p class="analytics-scale-note">Each line uses its own labelled scale; values below show {{ first_label|lower }} / {{ second_label|lower }}.</p>
+  {% else %}<div class="analytics-empty"><i class="bi bi-info-circle"></i> No matching records.</div>{% endif %}
+</div>

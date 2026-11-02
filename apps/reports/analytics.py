@@ -164,6 +164,60 @@ def _comparison_rows(queryset, field_name, *, value_field=None, limit=5):
     ]
 
 
+def _categorical_series(rows, *, label_key="label", value_key="value"):
+    """Build line-chart points for ranked categorical analytics."""
+    values = [float(row.get(value_key) or 0) for row in rows]
+    peak = max(values, default=0) or 1
+    count = len(rows)
+    points = []
+    for index, row in enumerate(rows):
+        x = 4 if count <= 1 else 4 + (index * 92 / (count - 1))
+        value = row.get(value_key) or 0
+        points.append({
+            "label": row.get(label_key) or "Not recorded",
+            "value": value,
+            "x": round(x, 2),
+            "y": round(91 - (float(value) / peak * 76), 2),
+        })
+    return {
+        "points": points,
+        "polyline": " ".join(f'{point["x"]},{point["y"]}' for point in points),
+        "peak": peak,
+        "categorical": True,
+    }
+
+
+def _categorical_dual_series(first_rows, second_rows, *, first_key="value", second_key="value"):
+    """Compare two measures by label using independent, explicitly labelled scales."""
+    first_map = {row["label"]: row.get(first_key) or 0 for row in first_rows}
+    second_map = {row["label"]: row.get(second_key) or 0 for row in second_rows}
+    labels = list(dict.fromkeys([row["label"] for row in first_rows] + [row["label"] for row in second_rows]))
+    first_peak = max((float(first_map.get(label, 0)) for label in labels), default=0) or 1
+    second_peak = max((float(second_map.get(label, 0)) for label in labels), default=0) or 1
+    count = len(labels)
+    points = []
+    for index, label in enumerate(labels):
+        x = 4 if count <= 1 else 4 + (index * 92 / (count - 1))
+        first = first_map.get(label, 0)
+        second = second_map.get(label, 0)
+        points.append({
+            "label": label,
+            "first": first,
+            "second": second,
+            "x": round(x, 2),
+            "first_y": round(91 - (float(first) / first_peak * 76), 2),
+            "second_y": round(91 - (float(second) / second_peak * 76), 2),
+        })
+    return {
+        "points": points,
+        "first_polyline": " ".join(f'{point["x"]},{point["first_y"]}' for point in points),
+        "second_polyline": " ".join(f'{point["x"]},{point["second_y"]}' for point in points),
+        "first_peak": first_peak,
+        "second_peak": second_peak,
+        "categorical": True,
+    }
+
+
 def descriptive_analytics(tab="overview", date_range="all", filters=None):
     """Build privacy-safe descriptive analytics from the existing FMIS records.
 
@@ -452,7 +506,6 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         .annotate(quantity=Sum("quantity"))
         .order_by("-quantity", "item__name")[:8]
     ]
-    recent_inventory_movements = list(inventory_movements.order_by("-created_at", "-pk")[:8])
     inventory_findings = []
     if low_stock_items.exists():
         inventory_findings.append(
@@ -480,6 +533,16 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         }
     )
 
+    top_farmer_barangays = _comparison_rows(farmers, "barangay", limit=8)
+    top_parcel_count_barangays = _comparison_rows(parcels, "barangay", limit=8)
+    top_commodities = _comparison_rows(crops, "crop_type", limit=7)
+    top_commodity_areas = _comparison_rows(
+        crops.exclude(area_hectares__isnull=True),
+        "crop_type",
+        value_field="area_hectares",
+        limit=7,
+    )
+
     return {
         "tab": tab,
         "summary": summary,
@@ -499,10 +562,17 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             "completed_at",
         ),
         "intervention_series": _monthly_series(interventions, "intervention_date"),
-        "top_farmer_barangays": _comparison_rows(farmers, "barangay"),
-        "top_parcel_count_barangays": _comparison_rows(parcels, "barangay", limit=8),
+        "top_farmer_barangays": top_farmer_barangays,
+        "top_parcel_count_barangays": top_parcel_count_barangays,
+        "farmer_parcel_barangay_series": _categorical_dual_series(
+            top_farmer_barangays, top_parcel_count_barangays
+        ),
         "top_parcel_barangays": _comparison_rows(parcels, "barangay", value_field="area_hectares"),
-        "top_commodities": _comparison_rows(crops, "crop_type", limit=7),
+        "top_commodities": top_commodities,
+        "commodity_record_area_series": _categorical_dual_series(
+            top_commodities, top_commodity_areas
+        ),
+        "request_status_series": _categorical_series(request_status_rows),
         "top_services": [
             {"label": row["service__name"], "value": row["total"]}
             for row in requests.values("service__name").annotate(total=Count("pk")).order_by("-total", "service__name")[:6]
@@ -556,7 +626,6 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         "inventory_by_category": inventory_by_category,
         "inventory_by_location": inventory_by_location,
         "inventory_issued_items": issued_items,
-        "recent_inventory_movements": recent_inventory_movements,
         "inventory_findings": inventory_findings,
         "findings": findings[:3],
     }

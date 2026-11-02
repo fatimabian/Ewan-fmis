@@ -267,3 +267,49 @@ class FarmerUpdateHistory(models.Model):
 
     def __str__(self):
         return f"{self.get_update_type_display()} - {self.farmer}"
+
+
+class FarmerDuplicateReview(models.Model):
+    DECISION_CHOICES = [
+        ("SAME", "Same person — for consolidation"),
+        ("SEPARATE", "Separate farmers"),
+    ]
+
+    first_farmer = models.ForeignKey(
+        Farmer,
+        on_delete=models.CASCADE,
+        related_name="duplicate_reviews_as_first",
+    )
+    second_farmer = models.ForeignKey(
+        Farmer,
+        on_delete=models.CASCADE,
+        related_name="duplicate_reviews_as_second",
+    )
+    decision = models.CharField(max_length=10, choices=DECISION_CHOICES)
+    justification = models.TextField(max_length=500)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="farmer_duplicate_reviews",
+    )
+    reviewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-reviewed_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("first_farmer", "second_farmer"),
+                name="unique_farmer_duplicate_pair_review",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(first_farmer_id__lt=models.F("second_farmer_id")),
+                name="farmer_duplicate_pair_canonical_order",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.first_farmer.record_id} / {self.second_farmer.record_id}: "
+            f"{self.get_decision_display()}"
+        )

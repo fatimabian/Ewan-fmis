@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     FarmerDeleteView,
     FarmerDuplicateCheckView,
+    FarmerDuplicateReviewView,
     FarmerRecordDuplicateCheckView,
     FarmerDocumentDownloadView,
     FarmerDetailView,
@@ -27,6 +28,11 @@ urlpatterns = [
     path("", FarmerListView.as_view(), name="list"),
     path("new/", FarmerRegistrationView.as_view(), name="create"),
     path("new/duplicate-check/", FarmerDuplicateCheckView.as_view(), name="duplicate_check"),
+    path(
+        "duplicates/<int:first_pk>/<int:second_pk>/review/",
+        FarmerDuplicateReviewView.as_view(),
+        name="duplicate_review",
+    ),
     path("new/scan-rsbsa/", FarmerRSBSAScanView.as_view(), name="scan_rsbsa"),
     path("new/scan-rsbsa/applied/", FarmerRSBSAScanAppliedView.as_view(), name="scan_rsbsa_applied"),
     path("field/<str:token>/", FarmerSecureQRDetailView.as_view(), name="qr_access"),

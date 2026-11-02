@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.contrib.auth import get_user_model
+from django.core.paginator import Paginator
 from django.http import HttpResponseBadRequest
 from django.utils import timezone
 from django.views import View
@@ -239,7 +240,13 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                 analytics_date_range,
                 analytics_filters,
             )
-            descriptive["duplicate_scan"] = find_system_duplicate_pairs()
+            duplicate_scan = find_system_duplicate_pairs()
+            duplicate_page = Paginator(duplicate_scan["pairs"], 8).get_page(
+                self.request.GET.get("duplicate_page")
+            )
+            duplicate_scan["pairs"] = list(duplicate_page.object_list)
+            duplicate_scan["page_obj"] = duplicate_page
+            descriptive["duplicate_scan"] = duplicate_scan
             context["descriptive"] = descriptive
         return context
 

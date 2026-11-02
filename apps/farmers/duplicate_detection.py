@@ -17,7 +17,7 @@ from django.core.cache import cache
 from django.core import signing
 from django.db.models import Case, IntegerField, Q, Value, When
 
-from .models import Farmer
+from .models import Farmer, FarmerDuplicateReview
 
 
 REVIEW_SALT = "fmis.farmers.duplicate-review.v1"
@@ -337,9 +337,17 @@ def find_system_duplicate_pairs(*, limit=SYSTEM_SCAN_RESULT_LIMIT, use_cache=Tru
             for right in ordered[index + 1:index + window]:
                 candidate_pairs.add((left.pk, right.pk))
 
+    reviewed_pairs = set(
+        FarmerDuplicateReview.objects.values_list(
+            "first_farmer_id", "second_farmer_id"
+        )
+    )
     by_pk = {farmer.pk: farmer for farmer in farmers}
     pairs = []
     for left_pk, right_pk in candidate_pairs:
+        canonical_pair = (min(left_pk, right_pk), max(left_pk, right_pk))
+        if canonical_pair in reviewed_pairs:
+            continue
         left = by_pk[left_pk]
         right = by_pk[right_pk]
         values = {

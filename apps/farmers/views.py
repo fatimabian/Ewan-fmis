@@ -34,13 +34,14 @@ from .forms import (
     FarmerRegistrationStatusForm,
     ParcelRegistrationFormSet,
 )
-from .models import Farmer, FarmerDocument
+from .models import Farmer, FarmerDocument, FarmerDuplicateReview
 from .history import farmer_snapshot, record_farmer_update
 from .rsbsa_pdf import farmer_record_pdf_response
 from apps.form_scan.consent import CONSENT_MESSAGE, consent_given, photos_leave_the_system
 from apps.form_scan.events import quiet_request, scan_event
 from .rsbsa_scan import RSBSAScanError, rsbsa_scan_available, scan_rsbsa_profile
 from .duplicate_detection import (
+    SYSTEM_SCAN_CACHE_KEY,
     build_review_token,
     find_possible_duplicates,
     read_review_token,
@@ -617,6 +618,77 @@ class FarmerRecordDuplicateCheckView(FMISLoginRequiredMixin, StaffRequiredMixin,
                 ],
             }
         )
+
+
+class FarmerDuplicateReviewView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Compare and resolve one analytics duplicate flag without merging data."""
+
+    @staticmethod
+    def _record(farmer):
+        return {
+            "id": farmer.record_id,
+            "name": farmer.list_name,
+            "birth_date": farmer.birth_date.strftime("%b %d, %Y") if farmer.birth_date else "Not recorded",
+            "sex": farmer.get_sex_display() if farmer.sex else "Not recorded",
+            "barangay": farmer.barangay or "Not recorded",
+            "address": ", ".join(filter(None, [farmer.house_lot_purok, farmer.street_sitio, farmer.barangay, farmer.city_municipality])),
+            "phone": farmer.phone_number or "Not recorded",
+            "valid_id_type": farmer.valid_id_type or "Not recorded",
+            "valid_id_number": farmer.valid_id_number or "Not recorded",
+            "rsbsa_number": farmer.rsbsa_number or "Not assigned",
+            "registration_status": farmer.get_registration_status_display(),
+            "registered": farmer.created_at.strftime("%b %d, %Y"),
+            "detail_url": reverse("farmers:detail", args=[farmer.pk]),
+        }
+
+    def _farmers(self, first_pk, second_pk):
+        first_id, second_id = sorted((first_pk, second_pk))
+        first = get_object_or_404(Farmer, pk=first_id, is_active=True)
+        second = get_object_or_404(Farmer, pk=second_id, is_active=True)
+        return first, second
+
+    def get(self, request, first_pk, second_pk):
+        first, second = self._farmers(first_pk, second_pk)
+        existing = FarmerDuplicateReview.objects.filter(
+            first_farmer=first, second_farmer=second
+        ).first()
+        return JsonResponse({
+            "first": self._record(first),
+            "second": self._record(second),
+            "existing": ({
+                "decision": existing.decision,
+                "justification": existing.justification,
+            } if existing else None),
+        })
+
+    def post(self, request, first_pk, second_pk):
+        first, second = self._farmers(first_pk, second_pk)
+        decision = request.POST.get("decision", "").strip().upper()
+        justification = request.POST.get("justification", "").strip()
+        if decision not in {"SAME", "SEPARATE"}:
+            return JsonResponse({"error": "Choose whether these records belong to the same person or separate farmers."}, status=400)
+        if len(justification) < 10:
+            return JsonResponse({"error": "Enter a clear justification of at least 10 characters."}, status=400)
+        review, _ = FarmerDuplicateReview.objects.update_or_create(
+            first_farmer=first,
+            second_farmer=second,
+            defaults={
+                "decision": decision,
+                "justification": justification[:500],
+                "reviewed_by": request.user,
+            },
+        )
+        cache.delete(SYSTEM_SCAN_CACHE_KEY)
+        record_request_event(
+            request,
+            title="Duplicate Farmer Pair Reviewed",
+            module="Farmers",
+            description=(
+                f"{request.user.display_name} marked {first.record_id} and "
+                f"{second.record_id} as {review.get_decision_display()}."
+            ),
+        )
+        return JsonResponse({"ok": True, "message": "Duplicate review saved."})
 
 
 class FarmerRSBSAScanView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
