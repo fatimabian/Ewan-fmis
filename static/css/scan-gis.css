@@ -7,7 +7,7 @@
 .sg-help{margin:8px 0 12px;color:var(--sg-muted);font-size:13px}
 .sg-muted{color:var(--sg-muted);font-size:13px}
 .sg-error{margin:6px 0;color:var(--sg-red);font-size:13px}
-.sg-note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--sg-border);border-radius:10px;background:#fff;font-size:14px}
+.sg-note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--sg-border);border-radius:10px;background:var(--surface,#fff);font-size:14px}
 .sg-note-gold{border-color:var(--sg-gold);background:#fffaf0}
 .sg-status{display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:10px;border:2px solid;font-size:14px;background:#fff}
 .sg-status strong{letter-spacing:.5px}
@@ -22,7 +22,7 @@
 .sg-fields{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .sg-field{display:grid;gap:4px;align-content:start}
 .sg-field label{font-size:13px;font-weight:700}
-.sg-field input,.sg-field select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--sg-border);border-radius:8px;background:#fff;font-size:14px}
+.sg-field input,.sg-field select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--sg-border);border-radius:8px;background:var(--surface,#fff);font-size:14px}
 .sg-field.sg-low input,.sg-field.sg-low select{border:2px solid var(--sg-gold);background:#fffaf0}
 .sg-conf{margin-left:6px;color:var(--sg-muted);font-weight:400}
 .sg-low-note{color:#8a6a0b;font-size:12px}
@@ -45,3 +45,42 @@
 .sg-actions{display:flex;flex-wrap:wrap;gap:10px}
 .sg-actions .btn{min-height:44px}
 .sg-list li{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--sg-border)}
+
+/* GIS map */
+.gis-controls{display:grid;gap:12px}
+.gis-layers{display:flex;flex-wrap:wrap;gap:8px}
+.gis-layer-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px 14px;border:1px solid var(--sg-border);border-radius:999px;background:var(--surface,#fff);color:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.gis-layer-btn[aria-pressed=true]{border-color:var(--sg-green);background:var(--sg-green);color:#fff}
+.gis-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.gis-filters label{display:grid;gap:4px;min-width:170px;font-size:12px;font-weight:700}
+.gis-filters label[hidden]{display:none}
+.gis-filters select{min-height:42px;padding:8px 10px;border:1px solid var(--sg-border);border-radius:8px;background:var(--surface,#fff);font-size:14px}
+.gis-filters .btn{min-height:42px}
+.gis-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.gis-summary div{display:grid;padding:10px 14px;border:1px solid var(--sg-border);border-radius:10px;background:var(--surface,#fff)}
+.gis-summary strong{font-size:22px;line-height:1.2}
+.gis-summary span{color:var(--sg-muted);font-size:12px}
+.gis-main{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:960px){.gis-main{grid-template-columns:minmax(0,1fr) 300px}}
+.gis-map-wrap{position:relative;min-height:380px;border:1px solid var(--sg-border);border-radius:10px;overflow:hidden}
+#gisMap{height:min(68vh,640px);min-height:380px}
+.gis-empty,.gis-loading{position:absolute;top:12px;left:50%;z-index:500;transform:translateX(-50%);max-width:90%;margin:0;padding:8px 14px;border-radius:8px;background:var(--surface,#fff);box-shadow:0 4px 14px rgba(17,28,43,.25);font-size:13px;text-align:center}
+.gis-side{align-self:start}
+.gis-level{margin:0 0 12px;padding:8px 10px;border-radius:8px;background:#eaf8ef;font-size:13px}
+.gis-side h3{margin:0 0 10px}
+.gis-side dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 14px;font-size:14px}
+.gis-side dt{color:var(--sg-muted)}.gis-side dd{margin:0;font-weight:700;overflow-wrap:anywhere}
+.gis-side .btn{margin:0 6px 6px 0;min-height:40px}
+.gis-legend{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.gis-legend li{display:flex;align-items:center;gap:10px}
+.gis-pin{display:block;width:20px;height:20px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.55);box-sizing:border-box}
+.gis-static{display:inline-block;flex:none}
+.gis-circle{border-radius:50%}.gis-square{border-radius:3px}
+.gis-diamond{transform:rotate(45deg) scale(.85);border-radius:2px}
+.gis-triangle{width:22px;height:20px;border:0;border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%);box-shadow:none}
+.gis-good{background:var(--sg-green)}.gis-attention{background:var(--sg-gold)}.gis-neutral{background:var(--sg-navy)}
+.is-selected .gis-pin{outline:3px solid #fff;outline-offset:2px;filter:drop-shadow(0 0 5px #fff)}
+.gis-bubble{display:grid;place-items:center;border:3px solid #fff;border-radius:50%;background:var(--sg-navy);color:#fff;font-size:13px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.5);box-sizing:border-box}
+.gis-bubble-key{display:inline-block;width:20px;height:20px;border-width:2px;flex:none}
+.leaflet-marker-icon:focus-visible .gis-pin,.leaflet-marker-icon:focus-visible .gis-bubble{outline:3px solid #fff;outline-offset:2px}
+@media(max-width:600px){.gis-filters label{flex:1 1 100%}.gis-summary strong{font-size:18px}}

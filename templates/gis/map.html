@@ -1,0 +1,59 @@
+{% extends base_template %}
+{% load static %}
+{% block page_title %}GIS Map{% endblock %}
+{% block page_subtitle %}See where farmers, parcels, commodities and service requests are across Rosario{% endblock %}
+{% block content %}
+  <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+  <link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
+  <div class="content sg-page gis-page">
+    <section class="panel sg-panel gis-controls" aria-label="Map controls">
+      <div class="gis-layers" role="group" aria-label="Choose what to show">
+        {% for layer in layer_list %}
+          <button type="button" class="gis-layer-btn" data-layer="{{ layer.key }}" aria-pressed="false"><i class="bi {{ layer.icon }}"></i> {{ layer.label }}</button>
+        {% endfor %}
+      </div>
+      <div class="gis-filters">
+        <label>Barangay
+          <select id="gisBarangay"><option value="">All barangays</option></select>
+        </label>
+        <label id="gisCommodityWrap">Commodity
+          <select id="gisCommodity"><option value="">All commodities</option></select>
+        </label>
+        <label>Show
+          <select id="gisStatus"></select>
+        </label>
+        <button type="button" class="btn btn-outline-success" id="gisReset">Reset</button>
+      </div>
+    </section>
+
+    <div class="gis-summary" aria-live="polite">
+      <div><strong id="gisShown">0</strong><span>Shown on the map</span></div>
+      <div><strong id="gisUnmapped">0</strong><span>Without a location</span></div>
+      <div><strong id="gisAttention">0</strong><span>Need attention</span></div>
+    </div>
+
+    <div class="gis-main">
+      <div class="gis-map-wrap">
+        <div id="gisMap" role="application" aria-label="Interactive map of Rosario"></div>
+        <p class="gis-empty" id="gisEmpty" hidden></p>
+        <p class="gis-loading" id="gisLoading" hidden>Loading…</p>
+      </div>
+      <aside class="panel sg-panel gis-side" aria-label="Legend and details">
+        <p class="gis-level" id="gisLevel"></p>
+        <div id="gisDetail" hidden>
+          <h3 id="gisDetailTitle"></h3>
+          <dl id="gisDetailRows"></dl>
+          <a class="btn btn-success" id="gisDetailLink" href="#">Open record</a>
+          <button type="button" class="btn btn-outline-secondary" id="gisDetailClose">Back to legend</button>
+        </div>
+        <div id="gisLegendBox">
+          <h3>Legend</h3>
+          <ul class="sg-legend gis-legend" id="gisLegend"></ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+  {{ config|json_script:"gis-config" }}
+  <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+  <script src="{% static 'js/gis-map.js' %}"></script>
+{% endblock %}
