@@ -351,6 +351,11 @@
                 </td>
                 <td>
                   <div class="request-actions">
+                    <a href="{% url 'service_requests:detail' item.pk %}"
+                       title="View {{ item.request_id }} details"
+                       aria-label="View {{ item.request_id }} details">
+                      <i class="bi bi-eye"></i>
+                    </a>
                     {% if not item.assigned_to or item.assigned_to == request.user %}
                     <a href="{% url 'service_requests:edit' item.pk %}"
                        title="Edit {{ item.request_id }}">
@@ -377,7 +382,7 @@
                         </button>
                       </form>
                     {% endif %}
-                    {% else %}<span title="Assigned to {{ item.assigned_to.display_name }}">View only</span>{% endif %}
+                    {% endif %}
                   </div>
                 </td>
               </tr>

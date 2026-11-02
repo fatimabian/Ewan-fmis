@@ -35,4 +35,6 @@ def fmis_pagination(context, page_obj):
         "ellipsis": page_obj.paginator.ELLIPSIS,
         "preserved_fields": preserved_fields,
         "preserved_query": query.urlencode(),
+        "page_size_choices": context.get("page_size_choices", (25, 50, 100)),
+        "page_size": context.get("page_size", page_obj.paginator.per_page),
     }

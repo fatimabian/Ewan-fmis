@@ -52,7 +52,7 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertContains(response, "Generate Reports")
         self.assertNotContains(response, "phone_number")
 
-    def test_reports_navigation_lands_on_overview_for_staff_and_admin(self):
+    def test_reports_navigation_uses_staff_overview_and_admin_governance_reports(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("reports:home"))
         self.assertEqual(response.status_code, 200)
@@ -69,9 +69,9 @@ class DescriptiveAnalyticsTests(TestCase):
         self.client.force_login(administrator)
         response = self.client.get(reverse("reports:home"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["analytics_tab"], "overview")
-        self.assertContains(response, "Barangays with the Most Farmers")
-        self.assertNotContains(response, "Governance Reports")
+        self.assertEqual(response.context["analytics_tab"], "reports")
+        self.assertContains(response, "Governance Reports")
+        self.assertNotContains(response, 'class="analytics-tabs"')
 
     def test_admin_generate_reports_tab_keeps_governance_reports(self):
         administrator = get_user_model().objects.create_user(

@@ -127,9 +127,11 @@ class FarmerDuplicateDetectionTests(TestCase):
         self.assertNotContains(response, self.existing.valid_id_number)
 
         detail = self.client.get(reverse("farmers:detail", args=[other.pk]))
-        self.assertContains(detail, "Check for Duplicates")
-        self.assertContains(detail, reverse("farmers:record_duplicate_check", args=[other.pk]))
-        self.assertContains(detail, f"fmis-duplicate-audit-{other.pk}")
+        self.assertNotContains(detail, "Check for Duplicates")
+        self.assertNotContains(
+            detail, reverse("farmers:record_duplicate_check", args=[other.pk])
+        )
+        self.assertNotContains(detail, f"fmis-duplicate-audit-{other.pk}")
 
     def test_candidate_search_remains_one_bounded_database_query(self):
         Farmer.objects.bulk_create(

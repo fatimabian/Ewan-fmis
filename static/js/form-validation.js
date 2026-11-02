@@ -99,7 +99,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const destination = new URL(link.href, window.location.href);
     if (destination.origin !== window.location.origin) return;
     if (destination.pathname === window.location.pathname && destination.search === window.location.search && destination.hash) return;
-    showBlockingLoading("Loading page…", 400);
+    // Most FMIS page changes complete quickly. Avoid flashing or leaving a
+    // blocking overlay during browser history restoration; show it only for
+    // a genuinely slow navigation.
+    showBlockingLoading("Loading page…", 900);
   });
 
   document.querySelectorAll('input[name="phone_number"]').forEach((field) => {
@@ -194,7 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }).observe(document.body, {childList: true, subtree: true});
 
-  window.addEventListener("pageshow", () => {
+  const clearTransientLoading = () => {
     window.clearTimeout(blockingLoadingTimer);
     if (loadingOverlay) loadingOverlay.hidden = true;
     activeRequests = 0;
@@ -204,5 +207,10 @@ document.addEventListener("DOMContentLoaded", () => {
       button.disabled = false;
       button.removeAttribute("aria-busy");
     });
+  };
+  window.addEventListener("pageshow", clearTransientLoading);
+  window.addEventListener("focus", clearTransientLoading);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) clearTransientLoading();
   });
 });

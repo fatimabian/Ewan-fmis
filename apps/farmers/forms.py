@@ -500,11 +500,20 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
     MIXED_FIELDS = FarmerRegistrationForm.MIXED_FIELDS
     activities = None
     consent_given = forms.BooleanField(required=False, widget=forms.HiddenInput)
-    update_remarks = forms.CharField(
-        required=False,
-        label="Update remarks",
-        widget=forms.Textarea(attrs={"rows": 3}),
+    transaction_code = forms.CharField(max_length=80, label="Update record transaction code")
+    change_reason = forms.ChoiceField(
+        choices=FarmerUpdateHistory.CHANGE_REASON_CHOICES,
+        label="Reason for change",
     )
+    date_signed = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    date_received = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    agriculturist_name = forms.CharField(max_length=180, required=False)
     registrant_declaration = forms.BooleanField(
         required=True,
         label=(
@@ -527,6 +536,7 @@ class FarmerProfileUpdateForm(FarmerRegistrationForm):
         # Preserve the stored value on updates instead of silently replacing it.
         for name in ("is_indigenous", "is_pwd", "is_four_ps", "is_association_member"):
             self.fields[name].required = False
+        self.apply_styles()
 
     def clean(self):
         cleaned = super().clean()

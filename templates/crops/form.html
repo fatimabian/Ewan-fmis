@@ -72,7 +72,6 @@
       const livelihoodSummary = document.getElementById('farmerLivelihoodSummary');
       if (!commodity || !area) return;
 
-      const originalCommodityChildren = [...commodity.children].map(child => child.cloneNode(true));
       function showFarmerLivelihood(detail = {}) {
         if (!livelihoodSummary) return;
         const livelihood = detail.livelihood || parcel?.dataset.selectedLivelihood || '';
@@ -87,38 +86,7 @@
         livelihoodSummary.querySelector('[data-livelihood-label]').textContent = livelihood;
         livelihoodSummary.querySelector('[data-activities-label]').textContent = activitiesDisplay ? ` · ${activitiesDisplay}` : '';
 
-        let category = 'crop';
-        let recommendation = 'Only crop commodities can be recorded for this livelihood.';
-        if (['LIVESTOCK', 'POULTRY'].includes(livelihoodCode) || activities.includes('FARMER_POULTRY')) {
-          category = 'livestock';
-          recommendation = 'Only livestock and poultry commodities can be recorded for this livelihood.';
-        } else if (activities.includes('FARMER_LIVESTOCK')) {
-          category = 'livestock';
-          recommendation = 'Only livestock and poultry commodities can be recorded for this activity.';
-        } else if (livelihoodCode === 'FISHERFOLK' || activities.includes('FISH_')) {
-          category = 'fishery';
-          recommendation = 'Only fisheries and aquaculture commodities can be recorded for this livelihood.';
-        }
-        const allowed = new Set((
-          category === 'livestock' ? commodity.dataset.livestockValues
-            : category === 'fishery' ? commodity.dataset.fisheryValues
-              : commodity.dataset.cropValues
-        || '').split('|').filter(Boolean));
-        if (category === 'crop') allowed.add('Other Crop / Commodity');
-        const selected = commodity.value;
-        const children = originalCommodityChildren.map(child => child.cloneNode(true));
-        const filtered = children.filter(child => {
-          if (child.tagName === 'OPTGROUP') {
-            [...child.querySelectorAll('option')].forEach(option => {
-              if (!allowed.has(option.value)) option.remove();
-            });
-            return Boolean(child.querySelector('option'));
-          }
-          return child.tagName !== 'OPTION' || !child.value || allowed.has(child.value);
-        });
-        commodity.replaceChildren(...filtered);
-        commodity.value = allowed.has(selected) ? selected : '';
-        livelihoodSummary.querySelector('[data-recommendation-label]').textContent = recommendation;
+        livelihoodSummary.querySelector('[data-recommendation-label]').textContent = 'Record each specific crop, livestock, poultry, or fishery commodity managed by this farmer.';
         updateCommodityArea();
       }
 

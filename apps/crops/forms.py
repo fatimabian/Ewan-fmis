@@ -10,8 +10,6 @@ from apps.common.constants import (
     MONTH_CHOICES,
     ROSARIO_CROP_CHOICES,
     ROSARIO_COMMODITY_VALUES,
-    commodity_matches_livelihood,
-    livelihood_commodity_category,
 )
 from apps.common.forms import (
     InlineValidationMixin,
@@ -196,16 +194,6 @@ class CropRecordForm(InlineValidationMixin, forms.ModelForm):
         commodity = cleaned.get("crop_type")
         start_month = cleaned.get("cropping_start_month")
         end_month = cleaned.get("cropping_end_month")
-        if parcel and commodity and not commodity_matches_livelihood(
-            commodity, parcel.farmer.livelihood, parcel.farmer.activities
-        ):
-            expected = livelihood_commodity_category(
-                parcel.farmer.livelihood, parcel.farmer.activities
-            )
-            self.add_error(
-                "crop_type",
-                f"Choose a {expected} commodity that matches this farmer's recorded livelihood.",
-            )
         if commodity in LIVESTOCK_COMMODITIES:
             cleaned["area_hectares"] = None
             cleaned["cropping_schedule"] = ""

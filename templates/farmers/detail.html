@@ -101,7 +101,7 @@
         </div>
       </section>
 
-      {% if object.remarks %}
+      {% if object.remarks and 'TEST DATA ONLY' not in object.remarks and 'DUMMY-BATCH-' not in object.remarks %}
         <section class="record-single-section">
           <h3><i class="bi bi-journal-text"></i> Office Notes</h3>
           <p>{{ object.remarks|linebreaksbr }}</p>

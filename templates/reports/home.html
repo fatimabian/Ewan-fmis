@@ -1,9 +1,9 @@
 {% extends base_template %}
 {% block page_title %}
-  Reports &amp; Analytics
+  {% if request.user.is_admin %}Reports{% else %}Reports &amp; Analytics{% endif %}
 {% endblock %}
 {% block page_subtitle %}
-  View insights and generate reports to support data-driven decisions
+  {% if request.user.is_admin %}Review access, accountability, and governance records{% else %}View insights and generate reports to support data-driven decisions{% endif %}
 {% endblock %}
 {% block content %}
   <style>
@@ -48,7 +48,9 @@
   }
   #filteredReport .report-table-wrap{
       height:auto!important;
-      min-height:0!important
+      min-height:0!important;
+      max-height:520px!important;
+      overflow:auto!important
   }
   .status-badge{
       display:inline-block;
@@ -640,9 +642,9 @@
   @media(max-width:900px){.report-context-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media(max-width:520px){.report-context-metrics{grid-template-columns:1fr}}
   .report-table-wrap{
-      overflow-x:scroll!important;
+      overflow-x:auto!important;
       overflow-y:auto!important;
-      max-height:270px;
+      max-height:520px;
       border:1px solid #dce5e8;
       border-radius:7px
   }
@@ -662,6 +664,7 @@
   .farmer-master-preview{min-width:1180px}
   .report-preview-table{
       width:100%;
+      min-width:900px;
       border-collapse:collapse;
       font-size:11px
   }
@@ -879,7 +882,7 @@
   <div class="content reports-page">
     {% if analytics_tab != 'reports' %}
       {% include 'reports/_descriptive_analytics.html' %}
-    {% else %}
+    {% elif not request.user.is_admin %}
       <nav class="analytics-tabs" aria-label="Reports and analytics sections">
         {% for key,label in analytics_tabs %}<a href="?analytics_tab={{ key }}"{% if analytics_tab == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
       </nav>
@@ -990,7 +993,6 @@
                 <select name="format" required><option value="pdf">PDF Document</option><option value="csv">CSV Spreadsheet</option></select>
               </div>
               <div class="report-actions" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
-                <button type="submit" formmethod="get" name="view" value="1" class="btn btn-outline-success"><i class="bi bi-eye"></i> View Report</button>
                 <button type="submit" class="btn btn-success report-generate"><i class="bi bi-download"></i> Download Report</button>
                 <p class="report-download-status" role="status" aria-live="polite" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Please wait while FMIS prepares your report. The download will start automatically.</span></p>
               </div>
@@ -1002,6 +1004,10 @@
             <div class="preview-heading"><div><h3>{{ report_preview.title|upper }}</h3><p>View-only preview using the filters relevant to this governance report.</p></div><div><b>{{ report_preview.total_rows }}</b><p>matching rows</p></div></div>
             {% include "reports/_report_preview_analytics.html" %}
             <div class="report-table-wrap"><table class="report-preview-table"><thead><tr>{% for header in report_preview.headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>{% for row in report_preview.rows %}<tr>{% for cell in row %}<td>{{ cell|default:'-' }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="8">No records match the selected filters.</td></tr>{% endfor %}</tbody></table></div>
+            {% if report_preview.page_obj.paginator.num_pages > 1 %}
+              {% load pagination_tags %}
+              {% fmis_pagination report_preview.page_obj %}
+            {% endif %}
           </article>
         {% endif %}
       </section>
@@ -1018,6 +1024,7 @@
         </p>
         <form class="generate-form" id="reportGenerator" method="post" novalidate>
           {% csrf_token %}
+          <input type="hidden" name="analytics_tab" value="reports">
           <div class="report-filter-row" data-filter-row="category">
             <label>{% if request.user.is_admin %}System Report{% else %}Category{% endif %}</label>
             <select name="report_type" id="reportType"{% if report_error %} class="is-invalid" aria-invalid="true" aria-describedby="reportType_error"{% endif %}>
@@ -1144,9 +1151,6 @@
             </select>
           </div>
           <div class="report-actions"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
-            <button type="submit" formmethod="get" name="view" value="1" class="btn btn-outline-success">
-              <i class="bi bi-eye"></i> View Report
-            </button>
             <button type="submit" class="btn btn-success report-generate">
               <i class="bi bi-download">
               </i> Download Report
@@ -1207,13 +1211,17 @@
                 </tbody>
               </table>
             </div>
+            {% if report_preview.page_obj.paginator.num_pages > 1 %}
+              {% load pagination_tags %}
+              {% fmis_pagination report_preview.page_obj %}
+            {% endif %}
           {% else %}
             <p class="staff-chart-empty">
               <i class="bi bi-info-circle"></i> No records match the selected filters.
             </p>
           {% endif %}
           {% if report_preview.truncated %}
-            <p class="filtered-note">Showing the first 50 rows on screen. Download the report for the complete result.</p>
+            <p class="filtered-note">Showing 25 rows per page. Download the report for the complete result.</p>
           {% endif %}
         </article>
       {% else %}
@@ -1457,6 +1465,8 @@
               const params = new URLSearchParams(new FormData(form));
               params.delete('csrfmiddlewaretoken');
               params.delete('format');
+              params.set('analytics_tab', 'reports');
+              params.delete('page');
               const url = `${window.location.pathname}?${params.toString()}`;
               try {
                   const res = await fetch(url, {
@@ -1566,7 +1576,7 @@
                       button.disabled = false;
                       button.innerHTML = originalButton
                   }
-                  window.setTimeout(() => { status.hidden = true }, 3500)
+                  window.setTimeout(() => { status.hidden = true }, 700)
               }
           }
 

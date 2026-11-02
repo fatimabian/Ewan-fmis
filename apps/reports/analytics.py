@@ -1,4 +1,6 @@
 from collections import defaultdict
+
+from django.core.paginator import Paginator
 from datetime import date, datetime, timedelta
 
 from django.conf import settings
@@ -631,7 +633,7 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
     return queryset
 
 
-def report_preview(report_type, date_range, filters, system_report=False):
+def report_preview(report_type, date_range, filters, system_report=False, page=1, per_page=25):
     """Turn the selected generated report into a readable on-screen chart and table."""
     builder = build_system_report if system_report else build_report
     if not system_report and report_type == "farmer_master":
@@ -713,12 +715,15 @@ def report_preview(report_type, date_range, filters, system_report=False):
             }
         )
     summary, insights = _report_preview_analytics(report_type, rows, chart, value_label)
+    paginator = Paginator(rows, per_page)
+    page_obj = paginator.get_page(page)
     return {
         "title": title,
         "headers": headers,
-        "rows": rows[:50],
+        "rows": list(page_obj.object_list),
+        "page_obj": page_obj,
         "total_rows": len(rows),
-        "truncated": len(rows) > 50,
+        "truncated": paginator.num_pages > 1,
         "chart": chart,
         "value_label": value_label,
         "show_chart": show_chart,

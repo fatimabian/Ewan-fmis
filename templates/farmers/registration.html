@@ -107,7 +107,7 @@
               {{ profile_form.rsbsa_form.errors }}
             </div>
           </div>
-          <p class="rsbsa-record-note">Add as many copies as needed. Accepted: JPG, PNG, or PDF up to 5 MB each. Files are stored only and will not fill the registration fields.</p>
+          <p class="rsbsa-record-note">Add as many copies as needed. Accepted: JPG, PNG, or PDF up to 5 MB each.</p>
         </section>
       <ol class="registration-stepper" aria-label="Registration progress">
         <li class="active" data-step-link="1">
@@ -618,17 +618,17 @@
           });
 
           const idRules = {
-              'National ID': {pattern: '\\d{16}', placeholder: '16-digit PhilSys PCN', help: 'Enter the 16-digit PhilSys Card Number (PCN).', inputMode: 'numeric'},
-              'Passport': {pattern: '[A-Za-z]{1,2}\\d{7}', placeholder: 'P1234567', help: 'Use 1 or 2 letters followed by 7 numbers.'},
-              "Driver's License": {pattern: '[A-Za-z]\\d{2}-?\\d{2}-?\\d{6}', placeholder: 'N01-12-123456', help: "Use the Philippine driver's license format, for example N01-12-123456."},
-              'e-Card / UMID': {pattern: '\\d{12}', placeholder: '12-digit CRN', help: 'Enter the 12-digit CRN shown on the card.', inputMode: 'numeric'},
-              'SSS ID': {pattern: '\\d{10}', placeholder: '10-digit SSS number', help: 'Enter the 10-digit SSS number.', inputMode: 'numeric'},
-              'PRC ID': {pattern: '\\d{7}', placeholder: '7-digit PRC number', help: 'Enter the 7-digit PRC license number.', inputMode: 'numeric'},
-              'IBP ID': {pattern: '\\d{4,8}', placeholder: 'IBP roll number', help: 'Enter the 4 to 8-digit IBP roll number.', inputMode: 'numeric'},
-              'TIN ID': {pattern: '\\d{12}', placeholder: '12-digit TIN', help: 'Enter the 12-digit TIN, including the branch code.', inputMode: 'numeric'},
-              'Pag-IBIG ID': {pattern: '\\d{12}', placeholder: '12-digit Pag-IBIG MID', help: 'Enter the 12-digit Pag-IBIG MID number.', inputMode: 'numeric'},
-              '4Ps ID': {pattern: '\\d{12}', placeholder: '12-digit household ID', help: 'Enter the 12-digit 4Ps household ID number.', inputMode: 'numeric'},
-              'PhilHealth ID': {pattern: '\\d{12}', placeholder: '12-digit PhilHealth number', help: 'Enter the 12-digit PhilHealth identification number.', inputMode: 'numeric'}
+              'National ID': {pattern: '\\d{16}', maxLength: 16, placeholder: '16-digit PhilSys PCN', help: 'Enter the 16-digit PhilSys Card Number (PCN).', inputMode: 'numeric'},
+              'Passport': {pattern: '[A-Za-z]{1,2}\\d{7}', maxLength: 9, placeholder: 'P1234567', help: 'Use 1 or 2 letters followed by 7 numbers.'},
+              "Driver's License": {pattern: '[A-Za-z]\\d{2}-?\\d{2}-?\\d{6}', maxLength: 13, placeholder: 'N01-12-123456', help: "Use the Philippine driver's license format, for example N01-12-123456."},
+              'e-Card / UMID': {pattern: '\\d{12}', maxLength: 12, placeholder: '12-digit CRN', help: 'Enter the 12-digit CRN shown on the card.', inputMode: 'numeric'},
+              'SSS ID': {pattern: '\\d{10}', maxLength: 10, placeholder: '10-digit SSS number', help: 'Enter the 10-digit SSS number.', inputMode: 'numeric'},
+              'PRC ID': {pattern: '\\d{7}', maxLength: 7, placeholder: '7-digit PRC number', help: 'Enter the 7-digit PRC license number.', inputMode: 'numeric'},
+              'IBP ID': {pattern: '\\d{4,8}', maxLength: 8, placeholder: 'IBP roll number', help: 'Enter the 4 to 8-digit IBP roll number.', inputMode: 'numeric'},
+              'TIN ID': {pattern: '\\d{12}', maxLength: 12, placeholder: '12-digit TIN', help: 'Enter the 12-digit TIN, including the branch code.', inputMode: 'numeric'},
+              'Pag-IBIG ID': {pattern: '\\d{12}', maxLength: 12, placeholder: '12-digit Pag-IBIG MID', help: 'Enter the 12-digit Pag-IBIG MID number.', inputMode: 'numeric'},
+              '4Ps ID': {pattern: '\\d{12}', maxLength: 12, placeholder: '12-digit household ID', help: 'Enter the 12-digit 4Ps household ID number.', inputMode: 'numeric'},
+              'PhilHealth ID': {pattern: '\\d{12}', maxLength: 12, placeholder: '12-digit PhilHealth number', help: 'Enter the 12-digit PhilHealth identification number.', inputMode: 'numeric'}
           };
           const genericIdRule = {
               pattern: '[A-Za-z0-9][A-Za-z0-9 .#()/\\-]{2,39}',
@@ -645,18 +645,31 @@
               number.required = type.required || Boolean(type.value);
               if (!rule) {
                   number.removeAttribute('pattern');
+                  number.removeAttribute('maxlength');
                   number.inputMode = 'text';
                   number.placeholder = 'Select a valid ID type first';
                   if (help) help.textContent = 'Valid ID type and number are required for registration.';
                   return
               }
               number.pattern = rule.pattern;
+              number.maxLength = rule.maxLength || 40;
               number.inputMode = rule.inputMode || 'text';
+              if (rule.inputMode === 'numeric') {
+                  number.value = number.value.replace(/\D/g, '').slice(0, number.maxLength)
+              }
               number.placeholder = rule.placeholder;
               number.title = rule.help;
               if (help) help.textContent = rule.help;
               updateNextButtonState()
           }
+
+          form.querySelector('[data-valid-id-number]')?.addEventListener('input', event => {
+              const selectedType = form.querySelector('[data-valid-id-type]')?.value;
+              const rule = idRules[selectedType];
+              if (rule?.inputMode === 'numeric') {
+                  event.target.value = event.target.value.replace(/\D/g, '').slice(0, rule.maxLength)
+              }
+          });
 
           function updateOwnershipFields(row) {
               const ownership = row?.querySelector('[data-ownership-type]');
@@ -722,7 +735,6 @@
 
           function filterCommodityForLivelihood(row) {
               const commodity = row?.querySelector('[data-commodity-type]');
-              const livelihood = form.querySelector('[data-livelihood-type]')?.value || 'FARMER';
               if (!commodity) return;
               if (!commodityOptionTemplates.has(commodity)) {
                   commodityOptionTemplates.set(
@@ -731,31 +743,10 @@
                   )
               }
               const selected = commodity.value;
-              const livestock = new Set((commodity.dataset.livestockValues || '').split('|').filter(Boolean));
-              const fishery = new Set((commodity.dataset.fisheryValues || '').split('|').filter(Boolean));
-              const crops = new Set((commodity.dataset.cropValues || '').split('|').filter(Boolean));
-              const category = livelihood === 'FISHERFOLK'
-                  ? 'fishery'
-                  : ['LIVESTOCK', 'POULTRY'].includes(livelihood)
-                      ? 'livestock'
-                      : 'crop';
-              const allowed = category === 'fishery' ? fishery : crops;
-              if (category === 'crop') allowed.add('Other Crop / Commodity');
-              const children = commodityOptionTemplates.get(commodity).map(child => child.cloneNode(true));
-              const filteredChildren = children.filter(child => {
-                  if (child.tagName === 'OPTGROUP') {
-                      [...child.querySelectorAll('option')].forEach(option => {
-                          if (!allowed.has(option.value)) option.remove()
-                      });
-                      return Boolean(child.querySelector('option'))
-                  } else if (child.tagName === 'OPTION' && child.value && !allowed.has(child.value)) {
-                      return false
-                  }
-                  return true
-              });
-              commodity.replaceChildren(...filteredChildren);
-              commodity.value = allowed.has(selected) ? selected : '';
-              commodity.dataset.allowedCategory = category;
+              commodity.replaceChildren(
+                  ...commodityOptionTemplates.get(commodity).map(child => child.cloneNode(true))
+              );
+              commodity.value = selected;
               updateCommodityArea(row)
           }
 

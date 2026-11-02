@@ -104,7 +104,9 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
         system_report = self.request.user.is_admin
         # Reports & Analytics opens on the descriptive overview. The report
         # builder remains available as an explicit Generate Reports tab.
-        analytics_tab = source.get("analytics_tab", "overview")
+        analytics_tab = (
+            "reports" if system_report else source.get("analytics_tab", "overview")
+        )
         valid_analytics_tabs = {key for key, _label in ANALYTICS_TABS}
         if analytics_tab not in valid_analytics_tabs:
             analytics_tab = "overview"
@@ -149,6 +151,9 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             or any(analytics_filters.get(key) for key in analytics_filter_keys)
         )
         preview = None
+        preview_per_page = str(source.get("per_page", "25"))
+        if preview_per_page not in {"25", "50", "100"}:
+            preview_per_page = "25"
         report_error = ""
         try:
             date_range = resolve_date_range(date_range_choice, date_from, date_to)
@@ -158,6 +163,8 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                     date_range,
                     filters,
                     system_report=system_report,
+                    page=source.get("page", 1),
+                    per_page=int(preview_per_page),
                 )
         except ValueError as error:
             report_error = str(error)
@@ -219,6 +226,8 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             ) if selected_report_type else [],
             "commodity_report_types": COMMODITY_REPORT_KEYS,
             "report_preview": preview,
+            "page_size": int(preview_per_page),
+            "page_size_choices": (25, 50, 100),
             "report_error": report_error,
             "analytics_tabs": ANALYTICS_TABS,
             "analytics_tab": analytics_tab,
