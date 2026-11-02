@@ -45,7 +45,7 @@ Nothing is saved until staff press the form's own Save/Submit button. To use the
 
 ### GIS Map
 
-**GIS Map** (staff sidebar) shows one layer at a time: Farmers, Farm parcels, Commodities, Service requests or Interventions.
+**GIS Map** (staff sidebar) shows one map at a time, chosen with the **Map by** chips: Farmers, Parcels, Commodities, Requests or Interventions. Applied filters appear as removable chips under the filter row.
 
 - **Filters:** Barangay, Commodity and Show are always visible. **More filters** adds the ones that fit the layer: farmer number range (F-0001 is farmer 1) on every layer; livelihood, sex and special group (PWD, 4Ps, indigenous, association) for farmers; ownership, farm type, land type and area range for parcels; organic and area range for commodities; service type, priority and dates for requests; assistance type and dates for interventions.
 - **Three colours** (green good, gold needs attention, navy neutral), one icon per layer, and **three levels**: a square density grid (about 1 km squares, three tiers with their record ranges in the legend), clustered pins once a barangay is chosen, then a short record card with a link.

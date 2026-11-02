@@ -136,3 +136,12 @@
 .gis-svg{display:block;stroke:#fff;stroke-width:2;paint-order:stroke;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
 .gis-svg.gis-neutral{fill:var(--sg-navy,#111c2b)}
 .gis-svg text{fill:#fff;stroke:none;font-size:18px;font-weight:700}
+
+/* "Map by" chips and applied-filter chips */
+.gis-layers-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.gis-group-label{color:var(--sg-muted);font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.gis-chips{display:flex;flex-wrap:wrap;gap:8px}
+.gis-chips[hidden]{display:none}
+.gis-chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:2px 4px 2px 10px;border:1px solid var(--sg-green);background:transparent;color:inherit;font-size:13px}
+.gis-chip button{display:grid;place-items:center;width:26px;height:26px;border:0;background:transparent;color:inherit;font-size:18px;line-height:1;cursor:pointer}
+.gis-chip button:hover,.gis-chip button:focus-visible{background:var(--sg-green);color:#fff}

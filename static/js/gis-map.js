@@ -14,7 +14,7 @@
     loading: byId("gisLoading"), level: byId("gisLevel"), legend: byId("gisLegend"), legendTitle: byId("gisLegendTitle"),
     legendBox: byId("gisLegendBox"), detail: byId("gisDetail"), detailTitle: byId("gisDetailTitle"),
     detailRows: byId("gisDetailRows"), detailLink: byId("gisDetailLink"), detailClose: byId("gisDetailClose"),
-    insights: byId("gisInsights"), tabs: byId("gisTabs"), top: byId("gisTop"),
+    insights: byId("gisInsights"), tabs: byId("gisTabs"), top: byId("gisTop"), chips: byId("gisChips"),
   };
 
   // State: the layer, the three main filters, and the extra filters of the current layer.
@@ -87,6 +87,53 @@
     els.moreCount.textContent = active;
   }
 
+  // One removable chip per applied filter; ranges are shown as a single chip.
+  function appliedFilters() {
+    const layer = layers[state.layer];
+    const specs = config.filterSpecs;
+    const text = (key, value) => {
+      const options = specs[key].options || [];
+      return (options.find(([v]) => v === value) || [value, value])[1];
+    };
+    const list = [];
+    if (state.barangay) list.push({text: `Barangay: ${state.barangay}`, clear: () => { state.barangay = ""; }});
+    if (state.commodity) list.push({text: `Commodity: ${state.commodity}`, clear: () => { state.commodity = ""; }});
+    const statusLabel = (layer.status_options.find(([v]) => v === state.status) || [])[1];
+    if (state.status && state.status !== layer.status_options[0][0]) list.push({text: statusLabel, clear: () => { state.status = ""; }});
+    const done = new Set();
+    const range = (low, high, name) => {
+      if (!(low in state.extra) && !(high in state.extra)) return;
+      done.add(low); done.add(high);
+      const from = state.extra[low], to = state.extra[high];
+      const label = from && to ? `${name} ${from} to ${to}` : from ? `${name} from ${from}` : `${name} up to ${to}`;
+      list.push({text: label, clear: () => { delete state.extra[low]; delete state.extra[high]; }});
+    };
+    range("farmer_from", "farmer_to", "Farmer no.");
+    range("area_min", "area_max", "Area (ha)");
+    range("date_from", "date_to", "Date");
+    Object.keys(state.extra).filter((key) => !done.has(key)).forEach((key) => {
+      list.push({text: `${specs[key].label}: ${text(key, state.extra[key])}`, clear: () => { delete state.extra[key]; }});
+    });
+    return list;
+  }
+
+  function renderChips() {
+    const applied = appliedFilters();
+    els.chips.hidden = !applied.length;
+    els.chips.replaceChildren(...applied.map((item) => {
+      const chip = document.createElement("span");
+      chip.className = "gis-chip";
+      chip.append(item.text);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.setAttribute("aria-label", `Remove filter ${item.text}`);
+      remove.textContent = "×";
+      remove.addEventListener("click", () => { item.clear(); closeDetail(); load(); });
+      chip.append(remove);
+      return chip;
+    }));
+  }
+
   function syncControls() {
     const layer = layers[state.layer];
     document.querySelectorAll(".gis-layer-btn").forEach((button) => {
@@ -99,6 +146,7 @@
     els.barangay.value = state.barangay;
     els.commodity.value = state.commodity;
     renderMoreFilters();
+    renderChips();
     const query = new URLSearchParams();
     Object.entries({...state, ...state.extra}).forEach(([key, value]) => {
       if (key !== "extra" && value && value !== defaults[key]) query.set(key, value);

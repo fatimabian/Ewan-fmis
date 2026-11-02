@@ -60,8 +60,10 @@ class AccessTests(GISTestCase):
     def test_page_renders_and_navigation_links_to_it(self):
         response = self.client.get(reverse("gis:map"))
         self.assertContains(response, "GIS Map")
-        for layer in ("Farmers", "Farm parcels", "Commodities", "Service requests"):
-            self.assertContains(response, layer)
+        self.assertContains(response, "Map by")
+        for chip in ("Farmers", "Parcels", "Commodities", "Requests", "Interventions"):
+            self.assertContains(response, chip)
+        self.assertContains(response, 'id="gisChips"')
         self.assertContains(response, reverse("gis:map"))  # sidebar entry
         self.assertNotContains(response, reverse("form_scan:upload"))  # scanning lives inside the forms
 

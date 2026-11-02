@@ -43,6 +43,11 @@ class Layer:
     facet_title: str
     facet_filter: str  # the filter a click on the breakdown sets
 
+    @property
+    def short_label(self):
+        """The chip text under "Map by"."""
+        return {"parcels": "Parcels", "requests": "Requests"}.get(self.key, self.label)
+
 
 ATTENTION_OPTIONS = ((ALL, "Everything"), (ATTENTION_ONLY, "Needs attention only"))
 RANGE_FARMER = ("farmer_from", "farmer_to")

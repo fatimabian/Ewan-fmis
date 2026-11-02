@@ -9,10 +9,13 @@
   <link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
   <div class="content sg-page gis-page">
     <section class="panel sg-panel gis-controls" aria-label="Map controls">
-      <div class="gis-layers" id="gisLayers" role="group" aria-label="Choose what to show">
-        {% for layer in layer_list %}
-          <button type="button" class="gis-layer-btn" data-layer="{{ layer.key }}" aria-pressed="false"><i class="bi {{ layer.icon }}"></i> {{ layer.label }}</button>
-        {% endfor %}
+      <div class="gis-layers-row">
+        <span class="gis-group-label" id="gisLayersLabel">Map by</span>
+        <div class="gis-layers" id="gisLayers" role="group" aria-labelledby="gisLayersLabel">
+          {% for layer in layer_list %}
+            <button type="button" class="gis-layer-btn" data-layer="{{ layer.key }}" aria-pressed="false"><i class="bi {{ layer.icon }}"></i> {{ layer.short_label }}</button>
+          {% endfor %}
+        </div>
       </div>
       <div class="gis-filters">
         <label>Barangay
@@ -27,6 +30,7 @@
         <button type="button" class="btn btn-outline-success" id="gisMore" aria-expanded="false" aria-controls="gisMorePanel"><i class="bi bi-funnel" aria-hidden="true"></i> More filters <span class="gis-count" id="gisMoreCount" hidden></span></button>
         <button type="button" class="btn btn-outline-secondary" id="gisReset">Reset</button>
       </div>
+      <div class="gis-chips" id="gisChips" aria-label="Applied filters" hidden></div>
       <div class="gis-more" id="gisMorePanel" hidden>
         <div class="gis-more-grid" id="gisMoreGrid"></div>
       </div>
