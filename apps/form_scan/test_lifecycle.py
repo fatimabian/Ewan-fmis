@@ -283,8 +283,8 @@ class AuditAndNotificationTests(ScanTestCase):
 
         OcrDailyUsage.objects.create(date=timezone.localdate(), count=1)
         with override_settings(OCR=providers):
-            self.client.post(reverse("form_scan:upload"), {"photo": [upload(color=(1, 2, 3))], "target": "PARCEL"})
-            self.client.post(reverse("form_scan:upload"), {"photo": [upload(color=(3, 2, 1))], "target": "CROP"})
+            self.client.post(reverse("form_scan:upload"), {"photo": [upload(color=(1, 2, 3))], "target": "PARCEL", "consent": "1"})
+            self.client.post(reverse("form_scan:upload"), {"photo": [upload(color=(3, 2, 1))], "target": "CROP", "consent": "1"})
         warnings = ActivityLog.objects.filter(title="Daily Scan Limit Reached")
         self.assertEqual(warnings.count(), 1)
         self.assertEqual(warnings.get().status, "Warning")
@@ -298,7 +298,7 @@ class AuditAndNotificationTests(ScanTestCase):
 
         providers = {"PROVIDER": "openrouter", "OPENROUTER_API_KEY": "k", "MODELS": ["m1"], "DAILY_LIMIT": 30}
         with override_settings(OCR=providers), mock.patch("apps.ocr.providers.requests.post", return_value=mock.Mock(status_code=500)):
-            self.client.post(reverse("form_scan:upload"), {"photo": [upload()], "target": "PARCEL"})
+            self.client.post(reverse("form_scan:upload"), {"photo": [upload()], "target": "PARCEL", "consent": "1"})
         self.assertTrue(ActivityLog.objects.filter(title="Form Reader Not Responding", status="Warning").exists())
 
     def test_the_activity_log_page_lists_the_module_for_filtering(self):

@@ -35,7 +35,7 @@ class RsbsaOcrEngineTests(TestCase):
         self.client.force_login(self.staff)
 
     def scan(self, upload=None):
-        return self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": upload or photo()})
+        return self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": upload or photo(), "consent": "1"})
 
     @override_settings(RSBSA_SCAN_ENGINE="ocr", OCR=SAMPLE)
     def test_sample_engine_returns_profile_and_flags_unsure_fields(self):
@@ -91,14 +91,14 @@ class RsbsaOcrEngineTests(TestCase):
 
     @override_settings(RSBSA_SCAN_ENGINE="ocr", OCR=SAMPLE)
     def test_several_pages_are_read_together(self):
-        result = self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": [photo((1, 200, 200)), photo((2, 200, 200))]})
+        result = self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": [photo((1, 200, 200)), photo((2, 200, 200))], "consent": "1"})
         self.assertEqual(result.status_code, 200)
         self.assertTrue(result.json()["fields"]["last_name"])
 
     @override_settings(RSBSA_SCAN_ENGINE="ocr", OCR=SAMPLE)
     def test_too_many_pages_are_refused(self):
         files = [photo((i * 10, 200, 200)) for i in range(4)]
-        result = self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": files})
+        result = self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": files, "consent": "1"})
         self.assertEqual(result.status_code, 400)
         self.assertIn("at most 3 photos", result.json()["error"])
 

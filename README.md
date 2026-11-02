@@ -54,6 +54,10 @@ The Add Farmer scan has no review page. After reading, the dialog lists every sc
 
 **Audit log and notifications.** Each step writes one Activity Log entry under the module **Scan & Auto-Fill**: Form Scanned, Scan Confirmed, Scanned Form Saved, Scan Discarded, Unfinished Scans Cleared (farmer registration: Form Scanned and Scan Reviewed, with field names only). Entries never contain names or other values. The record itself (farm parcel, commodity, farmer) is still audited by its own normal entries and update history. Staff are not notified about scans. Administrators get a warning notification, at most once a day each, when the daily limit is reached or every configured model fails.
 
+### Privacy
+
+When the reader sends photos outside FMIS (any provider except `sample`), the dialog shows a notice and a required confirmation: *I am allowed to scan this form, and the farmer has been told it may be read by an outside reading service.* The server refuses the scan without it, and the confirmation is recorded in the scan's audit trail. The same wording is set out in the **Privacy Notice** (section "Scanning paper forms") and the **Terms of Use**. Have the Office's data protection officer review that wording before real forms are scanned, and name the actual provider there if the Office wants it listed.
+
 ### Setup
 
 1. `pip install -r requirements.txt` and `python manage.py migrate` (adds `ocr` and `form_scan` tables).

@@ -1,6 +1,8 @@
 from django import template
 
 from apps.ocr import services as ocr
+
+from ..consent import photos_leave_the_system
 from apps.ocr.conf import ocr_setting
 from apps.ocr.uploads import ALLOWED_EXTENSIONS, max_megabytes
 
@@ -19,3 +21,9 @@ def scan_limits():
         "left": ocr.requests_left_today(),
         "sample": ocr_setting("PROVIDER") == "sample",
     }
+
+
+@register.simple_tag
+def scan_needs_consent(target):
+    """Whether this page's scan must carry the privacy confirmation."""
+    return photos_leave_the_system(farmer_registration=(target == "FARMER"))

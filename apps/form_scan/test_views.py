@@ -178,7 +178,7 @@ class MultiPageTests(ScanTestCase):
             from django.utils import timezone
 
             OcrDailyUsage.objects.create(date=timezone.localdate(), count=2)
-            response = self.client.post(reverse("form_scan:upload"), {"photo": [upload()], "target": "PARCEL"}, follow=True)
+            response = self.client.post(reverse("form_scan:upload"), {"photo": [upload()], "target": "PARCEL", "consent": "1"}, follow=True)
         scan = FormScan.objects.get()
         self.assertFalse(scan.ocr_available)
         self.assertIn("daily limit of 2", scan.ocr_message)
@@ -215,7 +215,7 @@ class OcrFlowTests(ScanTestCase):
 
     @override_settings(OCR={"PROVIDER": "openrouter", "OPENROUTER_API_KEY": "", "MODELS": []})
     def test_unavailable_ocr_falls_back_to_manual_entry(self):
-        response = self.client.post(reverse("form_scan:upload"), {"photo": upload()}, follow=True)
+        response = self.client.post(reverse("form_scan:upload"), {"photo": upload(), "consent": "1"}, follow=True)
         scan = FormScan.objects.get()
         self.assertFalse(scan.ocr_available)
         self.assertContains(response, "Manual entry")
@@ -224,7 +224,7 @@ class OcrFlowTests(ScanTestCase):
 
     @override_settings(OCR={"PROVIDER": "openrouter", "OPENROUTER_API_KEY": "", "MODELS": []})
     def test_manual_entry_can_still_be_approved(self):
-        self.client.post(reverse("form_scan:upload"), {"photo": upload()})
+        self.client.post(reverse("form_scan:upload"), {"photo": upload(), "consent": "1"})
         scan = FormScan.objects.get()
         self.confirm(scan)
         scan.refresh_from_db()

@@ -183,3 +183,9 @@
 .sg-review-table tr[data-state=differs] td:nth-child(4) small{color:var(--ag-gold,#d8a62b)}
 .sg-review-table .sg-flag-note{display:inline;margin:0}
 .sg-dialog:has([data-scan-review]:not([hidden])){width:min(640px,calc(100vw - 32px))}
+
+/* Privacy confirmation in the dialog */
+.sg-consent{display:grid;gap:8px;padding:10px 12px;border:1px solid var(--ag-gold,#d8a62b);font-size:13px}
+.sg-consent p{margin:0}
+.sg-consent label{display:flex;gap:8px;align-items:flex-start;font-weight:700}
+.sg-consent input{width:18px;height:18px;margin-top:2px;flex:none}

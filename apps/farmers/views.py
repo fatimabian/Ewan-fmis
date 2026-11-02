@@ -37,6 +37,7 @@ from .forms import (
 from .models import Farmer, FarmerDocument
 from .history import farmer_snapshot, record_farmer_update
 from .rsbsa_pdf import farmer_record_pdf_response
+from apps.form_scan.consent import CONSENT_MESSAGE, consent_given, photos_leave_the_system
 from apps.form_scan.events import quiet_request, scan_event
 from .rsbsa_scan import RSBSAScanError, rsbsa_scan_available, scan_rsbsa_profile
 from .duplicate_detection import (
@@ -640,6 +641,8 @@ class FarmerRSBSAScanView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 {"error": "Capture or choose an RSBSA form image first."}, status=400
             )
         quiet_request(request)  # reading a form is not a farmer record change; log what really happened
+        if not consent_given(request.POST, farmer_registration=True):
+            return JsonResponse({"error": CONSENT_MESSAGE}, status=400)
         try:
             result = scan_rsbsa_profile(upload)
         except RSBSAScanError as error:
@@ -647,7 +650,8 @@ class FarmerRSBSAScanView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         scan_event(
             request.user, "Form Scanned",
             f"{request.user.display_name} scanned {len(uploads)} photo{'s' if len(uploads) != 1 else ''} for the Farmer Registration form"
-            f" (read by {result.get('reader') or 'the form reader'}). No photo was stored.",
+            f" (read by {result.get('reader') or 'the form reader'}). No photo was stored."
+            f"{' Staff confirmed the privacy notice.' if photos_leave_the_system(True) else ''}",
             request=request, path=request.path,
         )
         return JsonResponse(result)

@@ -120,7 +120,7 @@ def expire_stale_scans(hours=None):
 
 
 @transaction.atomic
-def create_scan(user, uploads, target=FormScan.TARGET_PARCEL):
+def create_scan(user, uploads, target=FormScan.TARGET_PARCEL, consent=False):
     """Store the photos privately, ask OCR, and fall back to manual entry when OCR cannot answer."""
     try:
         contents = read_uploads(uploads)
@@ -152,7 +152,7 @@ def create_scan(user, uploads, target=FormScan.TARGET_PARCEL):
     for position, raw in enumerate(contents[1:], start=2):
         page = FormScanPage(scan=scan, position=position, image_sha256=hashlib.sha256(raw).hexdigest())
         page.image.save("page.img", ContentFile(raw), save=True)
-    log(scan, user, "UPLOADED", target=target, pages=len(contents))
+    log(scan, user, "UPLOADED", target=target, pages=len(contents), consent_confirmed=consent)
     if result:
         log(scan, user, "OCR_DONE", provider=result.provider, model=result.model, fallbacks=result.attempts,
             pages=result.pages, unreadable_pages=result.unreadable_pages)

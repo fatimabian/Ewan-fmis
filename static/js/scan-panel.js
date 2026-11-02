@@ -277,6 +277,9 @@
       const files = panel.fileRules.chosen();
       if (!files.length) { say("Choose or capture a photo of the RSBSA form first.", true); return; }
       const data = new FormData();
+      const consent = panel.querySelector("[data-scan-consent]");
+      if (consent && !consent.checked) { say("Tick the confirmation first: you are allowed to scan this form and the farmer has been told.", true); return; }
+      if (consent) data.append("consent", "1");
       files.forEach((file) => data.append("rsbsa_scan", file));
       data.append("csrfmiddlewaretoken", csrf());
       run.disabled = true;

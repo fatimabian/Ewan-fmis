@@ -19,6 +19,7 @@ from apps.ocr.conf import ocr_setting
 
 from .forms import ScanReviewForm, ScanUploadForm
 from .models import FormScan
+from .consent import CONSENT_MESSAGE, consent_given
 from .events import TARGET_LABELS, quiet_request, scan_event
 from .services import GROUPS, TARGET_GROUPS, ScanError, confirm_scan, create_scan, discard_scan, recheck
 from .validation import validate
@@ -87,8 +88,11 @@ class ScanUploadView(ScanAccessMixin, View):
         form = ScanUploadForm(request.POST)
         target = form.cleaned_data["target"] if form.is_valid() else FormScan.TARGET_PARCEL
         farmer = form.cleaned_data["farmer"] if form.is_valid() else ""
+        if not consent_given(request.POST):
+            messages.error(request, CONSENT_MESSAGE)
+            return redirect(back_to_form(request, target))
         try:
-            scan = create_scan(request.user, request.FILES.getlist("photo"), target)
+            scan = create_scan(request.user, request.FILES.getlist("photo"), target, consent=True)
         except ScanError as error:
             messages.error(request, str(error))
             return redirect(back_to_form(request, target))

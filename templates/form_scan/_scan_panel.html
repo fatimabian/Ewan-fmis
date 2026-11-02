@@ -1,5 +1,6 @@
 {% load static scan_tags %}
 {% scan_limits as limits %}
+{% scan_needs_consent scan_target as needs_consent %}
 {% comment %}
   Shared "Scan & Auto-Fill" control. Include it at the top of any create form:
     {% include "form_scan/_scan_panel.html" %}
@@ -65,6 +66,12 @@
         <li><strong>Pages:</strong> up to {{ limits.max_files }} photos per scan (use Add page)</li>
         <li><strong>Daily limit:</strong> {{ limits.daily_limit }} photos a day for the whole office, <span data-scan-left-text>{{ limits.left }} left today</span></li>
       </ul>
+      {% if needs_consent %}
+        <div class="sg-consent">
+          <p><i class="bi bi-shield-lock" aria-hidden="true"></i> The photo is sent to an outside reading service, which can see the personal information on the form. FMIS deletes its own copy when the scan ends. <a href="{% url 'authentication:privacy' %}" target="_blank" rel="noopener">Privacy Notice</a> · <a href="{% url 'authentication:terms' %}" target="_blank" rel="noopener">Terms of Use</a></p>
+          <label><input type="checkbox" name="consent" value="1" data-scan-consent{% if scan_target != "FARMER" %} required{% endif %}> I am allowed to scan this form, and the farmer has been told it may be read by an outside reading service.</label>
+        </div>
+      {% endif %}
       <p class="sg-dialog-status" role="status" aria-live="polite" data-scan-status>{% if scan_target == "FARMER" and not rsbsa_scan_configured %}The form reader is not set up yet (see the OCR settings). You can still fill in the registration by hand.{% endif %}</p>
       <div class="sg-dialog-actions">
         {% if scan_target == "FARMER" %}

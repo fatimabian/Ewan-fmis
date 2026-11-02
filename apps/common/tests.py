@@ -1083,7 +1083,7 @@ class FMISRequirementTests(TestCase):
 
         response = self.client.post(
             reverse("farmers:scan_rsbsa"),
-            {"rsbsa_scan": self._rsbsa_scan_image()},
+            {"rsbsa_scan": self._rsbsa_scan_image(), "consent": "1"},
         )
 
         self.assertEqual(response.status_code, 503)
@@ -1151,7 +1151,7 @@ class FMISRequirementTests(TestCase):
 
         response = self.client.post(
             reverse("farmers:scan_rsbsa"),
-            {"rsbsa_scan": self._rsbsa_scan_image()},
+            {"rsbsa_scan": self._rsbsa_scan_image(), "consent": "1"},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -1176,6 +1176,7 @@ class FMISRequirementTests(TestCase):
             response = self.client.post(
                 reverse("farmers:scan_rsbsa"),
                 {
+                    "consent": "1",
                     "rsbsa_scan": SimpleUploadedFile(
                         "not-a-form.jpg", b"not an image", content_type="image/jpeg"
                     )
@@ -1225,7 +1226,7 @@ class FMISRequirementTests(TestCase):
 
         response = self.client.post(
             reverse("farmers:scan_rsbsa"),
-            {"rsbsa_scan": SimpleUploadedFile(
+            {"consent": "1", "rsbsa_scan": SimpleUploadedFile(
                 "rsbsa.pdf", pdf_bytes, content_type="application/pdf"
             )},
         )
@@ -1246,7 +1247,7 @@ class FMISRequirementTests(TestCase):
         })
         rejected = self.client.post(
             reverse("farmers:scan_rsbsa"),
-            {"rsbsa_scan": SimpleUploadedFile(
+            {"consent": "1", "rsbsa_scan": SimpleUploadedFile(
                 "unrelated.pdf", pdf_bytes, content_type="application/pdf"
             )},
         )
