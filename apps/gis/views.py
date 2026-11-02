@@ -15,6 +15,8 @@ from apps.farm_parcels.rosario_boundary import ROSARIO_BOUNDARY
 from . import layers
 
 MAX_POINTS = 1500
+MAX_HEAT_POINTS = 20000
+TOP_BARANGAYS = 5
 
 
 class GISAccessMixin(FMISLoginRequiredMixin, StaffRequiredMixin):
@@ -89,11 +91,15 @@ class GISDataView(GISAccessMixin, View):
                 bucket = totals.setdefault(record.barangay, {"count": 0, "attention": 0})
                 bucket["count"] += 1
                 bucket["attention"] += record.status == layers.ATTENTION
+            # Level one is a heat map of where records are; the totals are kept for hover and a short top list.
+            payload["heat"] = [[round(r.point[0], 5), round(r.point[1], 5)] for r in mapped[:MAX_HEAT_POINTS]]
             payload["bubbles"] = [
                 {"barangay": name, "lat": ROSARIO_BARANGAY_CENTERS[name][0], "lng": ROSARIO_BARANGAY_CENTERS[name][1], **counts}
                 for name, counts in sorted(totals.items())
                 if name in ROSARIO_BARANGAY_CENTERS
             ]
+            ranked = sorted(totals.items(), key=lambda item: (-item[1]["count"], item[0]))
+            payload["top"] = [{"barangay": name, **counts} for name, counts in ranked[:TOP_BARANGAYS]]
         return JsonResponse(payload)
 
 

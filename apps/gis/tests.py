@@ -57,12 +57,20 @@ class AccessTests(GISTestCase):
 
 
 class LevelTests(GISTestCase):
-    def test_level_one_groups_by_barangay_without_individual_points(self):
+    def test_level_one_is_a_heat_map_with_a_short_top_list(self):
         data = self.data(layer="parcels")
         self.assertEqual(data["level"], 1)
-        self.assertNotIn("points", data)
+        self.assertNotIn("points", data)  # no per-record ids or statuses at this level
+        self.assertEqual(sorted(data["heat"]), sorted([[13.7967, 121.2351], [13.8404, 121.2922], [14.5995, 120.9842]]))
+        self.assertEqual([(t["barangay"], t["count"]) for t in data["top"]], [("Alupay", 2), ("Bulihan", 1)])
         self.assertEqual({b["barangay"]: b["count"] for b in data["bubbles"]}, {"Bulihan": 1, "Alupay": 2})
         self.assertEqual((data["total"], data["mapped"], data["unmapped"]), (4, 3, 1))
+
+    def test_top_list_is_limited_and_follows_filters(self):
+        self.assertLessEqual(len(self.data(layer="parcels")["top"]), 5)
+        coconut = self.data(layer="parcels", commodity="Coconut")
+        self.assertEqual([t["barangay"] for t in coconut["top"]], ["Alupay"])
+        self.assertEqual(coconut["heat"], [[13.8404, 121.2922]])
 
     def test_level_two_returns_points_with_no_personal_data(self):
         data = self.data(layer="parcels", barangay="Alupay")

@@ -1,4 +1,4 @@
-// GIS map: one layer at a time, three levels (barangay totals, points, record card), three colours.
+// GIS map: one layer at a time, three levels (heat map, points, record card), three colours.
 (() => {
   const configNode = document.getElementById("gis-config");
   const mapNode = document.getElementById("gisMap");
@@ -27,6 +27,71 @@
   const outline = L.polygon(config.boundary, {color: "#2f7d5c", weight: 3, fill: false, interactive: false}).addTo(map);
   map.fitBounds(outline.getBounds());
   const markers = L.layerGroup().addTo(map);
+  // A small canvas heat layer (no external script is allowed): each point adds a soft blob,
+  // and the accumulated opacity is turned into the green to gold ramp.
+  const HEAT_STOPS = [[0, "rgba(47,125,92,0)"], [0.25, "rgba(47,125,92,0.75)"], [0.6, "rgba(216,166,43,0.9)"], [1, "rgba(255,244,204,1)"]];
+  const heatPalette = (() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1; canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+    HEAT_STOPS.forEach(([stop, color]) => gradient.addColorStop(stop, color));
+    ctx.fillStyle = gradient; ctx.fillRect(0, 0, 1, 256);
+    return ctx.getImageData(0, 0, 1, 256).data;
+  })();
+  const HeatLayer = L.Layer.extend({
+    initialize(points) { this._points = points; },
+    onAdd(leafletMap) {
+      this._map = leafletMap;
+      this._canvas = L.DomUtil.create("canvas", "gis-heat");
+      leafletMap.getPane("heatPane").appendChild(this._canvas);
+      leafletMap.on("moveend zoomend resize", this._redraw, this);
+      this._redraw();
+    },
+    onRemove(leafletMap) {
+      leafletMap.off("moveend zoomend resize", this._redraw, this);
+      this._canvas.remove();
+    },
+    _redraw() {
+      const size = this._map.getSize();
+      const canvas = this._canvas;
+      L.DomUtil.setPosition(canvas, this._map.containerPointToLayerPoint([0, 0]));
+      canvas.width = size.x; canvas.height = size.y;
+      const ctx = canvas.getContext("2d");
+      const radius = Math.max(14, Math.min(46, (this._map.getZoom() - 7) * 5));
+      const brush = document.createElement("canvas");
+      brush.width = brush.height = radius * 2;
+      const bctx = brush.getContext("2d");
+      const blob = bctx.createRadialGradient(radius, radius, 0, radius, radius, radius);
+      blob.addColorStop(0, "rgba(0,0,0,1)"); blob.addColorStop(1, "rgba(0,0,0,0)");
+      bctx.fillStyle = blob; bctx.fillRect(0, 0, radius * 2, radius * 2);
+      // Fewer points need a stronger blob; many points are softened so the map does not saturate.
+      ctx.globalAlpha = Math.max(0.04, Math.min(0.35, 60 / Math.max(this._points.length, 1)));
+      this._points.forEach(([lat, lng]) => {
+        const p = this._map.latLngToContainerPoint([lat, lng]);
+        if (p.x < -radius || p.y < -radius || p.x > size.x + radius || p.y > size.y + radius) return;
+        ctx.drawImage(brush, p.x - radius, p.y - radius);
+      });
+      const image = ctx.getImageData(0, 0, size.x, size.y);
+      const pixels = image.data;
+      // Colours are relative to the busiest spot in view, so the ramp always has contrast.
+      let peak = 1;
+      for (let i = 3; i < pixels.length; i += 4) if (pixels[i] > peak) peak = pixels[i];
+      const scale = 235 / peak;
+      for (let i = 3; i < pixels.length; i += 4) {
+        const alpha = pixels[i];
+        if (!alpha) continue;
+        const k = Math.min(255, Math.round(alpha * scale)) * 4;
+        pixels[i - 3] = heatPalette[k]; pixels[i - 2] = heatPalette[k + 1];
+        pixels[i - 1] = heatPalette[k + 2]; pixels[i] = heatPalette[k + 3];
+      }
+      ctx.globalAlpha = 1;
+      ctx.putImageData(image, 0, 0);
+    },
+  });
+  map.createPane("heatPane").style.zIndex = 350;
+  let heatLayer = null;
+
   let barangayShape = null;
   let selected = null;
   let request = null;
@@ -39,8 +104,6 @@
   const PIN_PATH = "M12 1C6 1 1.5 5.600 1.500 11.400c0 7.400 10.500 18.600 10.500 18.600s10.500-11.200 10.500-18.600C22.500 5.600 18 1 12 1z";
   const pinHtml = (icon, status, width = 30) =>
     `<span class="gis-marker gis-${status}" style="--w:${width}px"><svg viewBox="0 0 24 32" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg><i class="bi ${icon}" aria-hidden="true"></i></span>`;
-  const bubbleSvg = (count, size) =>
-    `<svg class="gis-svg gis-neutral gis-bubble" width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="21"/><text x="24" y="29" text-anchor="middle">${count}</text></svg>`;
 
   function syncControls() {
     const layer = layers[state.layer];
@@ -61,14 +124,6 @@
       item.append(swatch, label);
       return item;
     }));
-    if (!state.barangay) {
-      const item = document.createElement("li");
-      const swatch = document.createElement("span");
-      swatch.className = "gis-swatch";
-      swatch.innerHTML = bubbleSvg("#", 22);
-      item.append(swatch, "Barangay total (select to open)");
-      els.legend.append(item);
-    }
     const query = new URLSearchParams();
     Object.entries(state).forEach(([key, value]) => { if (value && value !== defaults[key]) query.set(key, value); });
     history.replaceState(null, "", query.toString() ? `?${query}` : window.location.pathname);
@@ -77,14 +132,9 @@
   function showLevel(level) {
     els.level.textContent = [
       "",
-      "Level 1 of 3: totals by barangay. Select a barangay to see each record.",
+      "Level 1 of 3: where records are. Pick a busy barangay to see each record.",
       "Level 2 of 3: each record. Select one for its details.",
     ][level] || "";
-  }
-
-  function bubbleSize(count, max) {
-    const share = count / max;
-    return share > 0.66 ? 46 : share > 0.25 ? 36 : 28;
   }
 
   function selectBarangay(name) {
@@ -93,20 +143,32 @@
     load();
   }
 
-  function renderBubbles(bubbles) {
-    const max = Math.max(...bubbles.map((bubble) => bubble.count), 1);
-    bubbles.forEach((bubble) => {
-      const size = bubbleSize(bubble.count, max);
-      const marker = L.marker([bubble.lat, bubble.lng], {
-        title: `${bubble.barangay}: ${bubble.count}`,
-        icon: L.divIcon({className: "", iconSize: [size, size], html: bubbleSvg(bubble.count, size)}),
-      });
+  function renderHeat(data) {
+    if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+    heatLayer = new HeatLayer(data.heat).addTo(map);
+    // Invisible targets give each barangay a hover total and a way in; keyboard users use the list.
+    data.bubbles.forEach((bubble) => {
+      const target = L.circleMarker([bubble.lat, bubble.lng], {radius: 16, stroke: false, fillOpacity: 0, interactive: true});
       const note = bubble.attention ? `, ${bubble.attention} need attention` : "";
-      marker.bindTooltip(`${bubble.barangay}: ${bubble.count}${note}`);
-      marker.on("click", () => selectBarangay(bubble.barangay));
-      markers.addLayer(marker);
+      target.bindTooltip(`${bubble.barangay}: ${bubble.count}${note}`);
+      target.on("click", () => selectBarangay(bubble.barangay));
+      markers.addLayer(target);
     });
-    if (bubbles.length) map.fitBounds(L.latLngBounds(bubbles.map((bubble) => [bubble.lat, bubble.lng])).pad(0.2));
+    const topList = document.getElementById("gisTop");
+    topList.replaceChildren(...data.top.map((item) => {
+      const row = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "gis-top-btn";
+      const name = document.createElement("span"); name.textContent = item.barangay;
+      const count = document.createElement("strong"); count.textContent = item.count.toLocaleString();
+      button.append(name, count);
+      button.addEventListener("click", () => selectBarangay(item.barangay));
+      row.append(button);
+      return row;
+    }));
+    map.invalidateSize();
+    if (data.bubbles.length) map.fitBounds(L.latLngBounds(data.bubbles.map((b) => [b.lat, b.lng])).pad(0.25));
     else map.fitBounds(outline.getBounds());
   }
 
@@ -126,6 +188,7 @@
     }
     const bounds = points.length ? L.latLngBounds(points.map((p) => [p.lat, p.lng])).pad(0.3)
       : barangayShape ? barangayShape.getBounds() : null;
+    map.invalidateSize();
     if (bounds) map.fitBounds(bounds, {maxZoom: 17});
     else if (config.centers[state.barangay]) map.setView(config.centers[state.barangay], 15);
   }
@@ -148,10 +211,15 @@
       if (!response.ok) throw new Error("bad response");
       const data = await response.json();
       markers.clearLayers();
+      if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
       if (barangayShape && !state.barangay) { map.removeLayer(barangayShape); barangayShape = null; }
       setSummary(data);
       showLevel(data.level);
-      if (data.level === 1) renderBubbles(data.bubbles); else renderPoints(data.points, data.barangay_geometry);
+      const overview = data.level === 1;
+      byId("gisHeatKey").hidden = !overview;
+      els.legend.hidden = overview;
+      byId("gisTopBox").hidden = !overview || !data.top.length;
+      if (overview) renderHeat(data); else renderPoints(data.points, data.barangay_geometry);
       const none = data.mapped === 0;
       els.empty.hidden = !none;
       if (none) els.empty.textContent = data.total
@@ -211,5 +279,7 @@
   });
   els.reset.addEventListener("click", () => { Object.assign(state, defaults); closeDetail(); load(); });
   els.detailClose.addEventListener("click", () => { closeDetail(); showLevel(state.barangay ? 2 : 1); });
+  window.addEventListener("load", () => map.invalidateSize());
+  setTimeout(() => map.invalidateSize(), 300);
   load();
 })();

@@ -45,7 +45,7 @@ Nothing is saved until staff press the form's own Save/Submit button. To use the
 
 ### GIS Map
 
-**GIS Map** (staff sidebar) shows one layer at a time: Farmers, Farm parcels, Commodities or Service requests. Filters: barangay, commodity and status. It uses three colours (green good, gold needs attention, navy neutral), one icon per layer, and three levels of information: barangay totals, individual pins, then a short record card with a link to the record.
+**GIS Map** (staff sidebar) shows one layer at a time: Farmers, Farm parcels, Commodities or Service requests. Filters: barangay, commodity and status. It uses three colours (green good, gold needs attention, navy neutral), one icon per layer, and three levels of information: a heat map of where records are (with a short list of the busiest barangays), individual pins once a barangay is chosen, then a short record card with a link to the record.
 
 ### Limitations
 
