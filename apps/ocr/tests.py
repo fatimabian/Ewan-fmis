@@ -2,6 +2,7 @@ import json
 from io import BytesIO
 from unittest import mock
 
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from PIL import Image
@@ -41,6 +42,9 @@ OPENROUTER = {"PROVIDER": "openrouter", "OPENROUTER_API_KEY": "k", "MODELS": ["m
 
 @override_settings(OCR=OPENROUTER)
 class FallbackTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
     @mock.patch("apps.ocr.providers.requests.post")
     def test_first_model_answers(self, post):
         post.return_value = openrouter_response(reply())
@@ -57,6 +61,16 @@ class FallbackTests(TestCase):
         result = services.extract(image_bytes(), fields=FIELDS)
         self.assertEqual(result.model, "m3")
         self.assertEqual(len(result.attempts), 2)
+
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_last_working_model_is_tried_first_on_the_next_scan(self, post):
+        failure = mock.Mock(status_code=429)
+        post.side_effect = [failure, openrouter_response(reply("First")), openrouter_response(reply("Second"))]
+        first = services.extract(image_bytes((1, 2, 3)), fields=FIELDS)
+        second = services.extract(image_bytes((4, 5, 6)), fields=FIELDS)
+        self.assertEqual((first.model, second.model), ("m2", "m2"))
+        self.assertEqual(post.call_count, 3)
+        self.assertEqual(second.fields["farmer_name"].value, "Second")
 
     @mock.patch("apps.ocr.providers.requests.post")
     def test_all_models_failing_raises_unavailable(self, post):

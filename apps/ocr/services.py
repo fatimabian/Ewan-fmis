@@ -1,6 +1,8 @@
+import hashlib
 import logging
 from dataclasses import dataclass, field
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
@@ -75,12 +77,23 @@ def is_configured(provider=None):
 def _read_page(provider, image, mime, names, instructions):
     """Try each model in order on one photo; return (readings, model, failed attempts)."""
     attempts = []
-    for model in provider.models():
+    configured = provider.models()
+    fingerprint = hashlib.sha256("\n".join(configured).encode("utf-8")).hexdigest()[:12]
+    preferred_key = f"fmis:ocr:preferred:{provider.name}:{fingerprint}"
+    preferred = cache.get(preferred_key)
+    models = ([preferred] if preferred in configured else []) + [model for model in configured if model != preferred]
+    healthy = [model for model in models if not cache.get(f"fmis:ocr:unhealthy:{provider.name}:{model}")]
+    if healthy:
+        models = healthy
+    for model in models:
         try:
-            return _read_with_model(provider, model, image, mime, names, instructions), model, attempts
+            readings = _read_with_model(provider, model, image, mime, names, instructions)
+            cache.set(preferred_key, model, 60 * 60 * 6)
+            return readings, model, attempts
         except OcrProviderError as error:
             logger.warning("OCR model %s failed: %s", model, error)
             attempts.append((model, str(error)))
+            cache.set(f"fmis:ocr:unhealthy:{provider.name}:{model}", True, 60 * 5)
     return None, "", attempts
 
 

@@ -58,6 +58,7 @@ class OpenRouterProvider(BaseProvider):
             {
                 "model": model,
                 "temperature": 0,
+                "max_tokens": 1600,
                 "messages": [
                     {
                         "role": "user",

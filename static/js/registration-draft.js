@@ -4,7 +4,8 @@
     var databaseName = "fmis-registration-drafts";
     var storeName = "uploads";
     var draftPrefix = "/farmers/new/:";
-    var maximumAge = 2 * 60 * 60 * 1000;
+    var valuesKey = draftPrefix + "form-values";
+    var saveTimer = null;
 
     function openDatabase() {
         return new Promise(function (resolve, reject) {
@@ -61,7 +62,7 @@
             request.onsuccess = function () { record = request.result; };
             return request;
         });
-        if (!record || Date.now() - record.savedAt > maximumAge) return;
+        if (!record) return;
         var transfer = new DataTransfer();
         record.files.forEach(function (file) { transfer.items.add(file); });
         input.files = transfer.files;
@@ -69,6 +70,7 @@
     }
 
     async function clearDrafts() {
+        window.localStorage.removeItem(valuesKey);
         await withStore("readwrite", function (store) {
             var request = store.openCursor();
             request.onsuccess = function () {
@@ -81,17 +83,64 @@
         });
     }
 
-    async function removeExpired() {
-        await withStore("readwrite", function (store) {
-            var request = store.openCursor();
-            request.onsuccess = function () {
-                var cursor = request.result;
-                if (!cursor) return;
-                if (Date.now() - cursor.value.savedAt > maximumAge) cursor.delete();
-                cursor.continue();
-            };
-            return request;
+    function serialiseForm(form) {
+        var values = {};
+        Array.from(form.elements).forEach(function (field) {
+            if (!field.name || field.type === "file" || field.type === "submit" || field.type === "button" || field.name === "csrfmiddlewaretoken") return;
+            if (!values[field.name]) values[field.name] = [];
+            values[field.name].push(
+                field.type === "checkbox" || field.type === "radio"
+                    ? {type: field.type, checked: field.checked, value: field.value}
+                    : {type: field.type, value: field.value}
+            );
         });
+        return values;
+    }
+
+    function saveValues(form) {
+        try {
+            window.localStorage.setItem(valuesKey, JSON.stringify(serialiseForm(form)));
+        } catch (error) {
+            // A full or unavailable localStorage must never block registration.
+        }
+    }
+
+    function queueSave(form) {
+        window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(function () { saveValues(form); }, 120);
+    }
+
+    function setField(field, record) {
+        if (!field || !record) return;
+        if (field.type === "checkbox" || field.type === "radio") field.checked = Boolean(record.checked);
+        else field.value = record.value == null ? "" : record.value;
+        field.dispatchEvent(new Event("input", {bubbles: true}));
+        field.dispatchEvent(new Event("change", {bubbles: true}));
+    }
+
+    function restoreValues(form) {
+        var values;
+        try { values = JSON.parse(window.localStorage.getItem(valuesKey) || "null"); }
+        catch (error) { return; }
+        if (!values) return;
+
+        // Recreate saved inline formset rows before restoring their controls.
+        ["parcels", "crops", "documents"].forEach(function (prefix) {
+            var wanted = Number((values[prefix + "-TOTAL_FORMS"] || [])[0]?.value || 0);
+            var button = form.querySelector('.add-form-row[data-prefix="' + prefix + '"]');
+            var total = form.querySelector('[name="' + prefix + '-TOTAL_FORMS"]');
+            while (button && total && Number(total.value) < wanted) button.click();
+        });
+
+        Object.keys(values).forEach(function (name) {
+            var fields = Array.from(form.elements).filter(function (field) { return field.name === name; });
+            var records = Array.isArray(values[name]) ? values[name] : [values[name]];
+            fields.forEach(function (field, index) {
+                var record = records[index] || records.find(function (item) { return item.value === field.value; });
+                setField(field, record);
+            });
+        });
+        form.dispatchEvent(new CustomEvent("fmis:registration-draft-restored", {bubbles: true}));
     }
 
     var clearMarker = document.querySelector("[data-clear-registration-draft]");
@@ -102,8 +151,10 @@
 
     var form = document.getElementById("rsbsaRegistration");
     if (!form) return;
-    removeExpired().catch(function () {});
+    window.setTimeout(function () { restoreValues(form); }, 0);
+    form.addEventListener("input", function () { queueSave(form); });
     form.addEventListener("change", function (event) {
+        queueSave(form);
         if (event.target.matches('input[type="file"]')) {
             saveInput(event.target).catch(function () {});
         }
@@ -116,4 +167,12 @@
     form.querySelectorAll('input[type="file"]').forEach(function (input) {
         restoreInput(input).catch(function () {});
     });
+    form.querySelectorAll("[data-cancel-registration]").forEach(function (link) {
+        link.addEventListener("click", function (event) {
+            event.preventDefault();
+            if (!window.confirm("Cancel this registration? All drafted information and selected files will be removed.")) return;
+            clearDrafts().finally(function () { window.location.assign(link.href); });
+        });
+    });
+    window.FMISRegistrationDraft = {save: function () { saveValues(form); }, clear: clearDrafts};
 })();

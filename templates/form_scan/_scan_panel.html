@@ -38,20 +38,23 @@
         <input type="hidden" name="farmer" value="{{ scan_farmer }}">
     {% endif %}
       <div class="sg-dialog-head">
-        <h2 id="scanDialogTitle"><i class="bi bi-camera" aria-hidden="true"></i> Scan &amp; Auto-Fill</h2>
+        <div>
+          <h2 id="scanDialogTitle"><i class="bi bi-camera" aria-hidden="true"></i> Scan &amp; Auto-Fill</h2>
+          <p class="sg-dialog-intro">Add clear photos of the RSBSA form. FMIS will read them and place the recognized information into this registration.</p>
+        </div>
         <button class="sg-dialog-close" type="button" data-scan-close aria-label="Close">&times;</button>
       </div>
       <div data-scan-upload>
       {% if limits.sample %}<p class="sg-sample-note"><i class="bi bi-info-circle" aria-hidden="true"></i> Sample data mode: nothing is sent anywhere and the values shown are made up.</p>{% endif %}
       <fieldset class="sg-files" data-scan-files data-max="{{ limits.max_files }}" data-max-mb="{{ limits.max_mb }}" data-left="{{ limits.left }}" data-daily="{{ limits.daily_limit }}" data-extensions="{{ limits.accept }}">
-        <legend class="sg-label">Photos of the form</legend>
+        <legend class="sg-label">RSBSA form photos</legend>
         <div class="sg-file-row" data-scan-row>
-          <input type="file" {% if scan_target != "FARMER" %}name="photo" required {% endif %}accept="{{ limits.accept }},image/jpeg,image/png,image/webp" capture="environment" aria-label="Photo 1" data-scan-file>
+          <input class="sg-file-input" type="file" {% if scan_target != "FARMER" %}name="photo" required {% endif %}accept="{{ limits.accept }},image/jpeg,image/png,image/webp" capture="environment" aria-label="Photo 1" data-scan-file>
           <button class="sg-file-remove" type="button" data-scan-remove aria-label="Remove photo 1" hidden>&times;</button>
         </div>
         <template data-scan-row-template>
           <div class="sg-file-row" data-scan-row>
-            <input type="file" {% if scan_target != "FARMER" %}name="photo" {% endif %}accept="{{ limits.accept }},image/jpeg,image/png,image/webp" capture="environment" data-scan-file>
+            <input class="sg-file-input" type="file" {% if scan_target != "FARMER" %}name="photo" {% endif %}accept="{{ limits.accept }},image/jpeg,image/png,image/webp" capture="environment" data-scan-file>
             <button class="sg-file-remove" type="button" data-scan-remove>&times;</button>
           </div>
         </template>
@@ -86,4 +89,4 @@
     {% if scan_target == "FARMER" %}</div>{% else %}</form>{% endif %}
   </dialog>
 </div>
-<script defer src="{% static 'js/scan-panel.js' %}"></script>
+<script defer src="{% static 'js/scan-panel.js' %}?v=3" data-module="scan-panel.js"></script>

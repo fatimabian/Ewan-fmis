@@ -30,6 +30,11 @@
     const tip = panel.querySelector(".sg-tip");
     const open = () => (dialog.showModal ? dialog.showModal() : dialog.setAttribute("open", ""));
     const close = () => (dialog.close ? dialog.close() : dialog.removeAttribute("open"));
+    // This dialog sits inside the registration form. Enter must never submit the
+    // registration while staff are selecting a photo or reviewing OCR results.
+    dialog.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && event.target.tagName !== "TEXTAREA") event.preventDefault();
+    });
     panel.querySelector("[data-scan-open]").addEventListener("click", open);
     panel.querySelectorAll("[data-scan-close]").forEach((button) => button.addEventListener("click", close));
     // A click on the dimmed backdrop (the dialog element itself) also closes it.
@@ -199,11 +204,35 @@
       });
       if (!rows.length) { say("Nothing readable was found on the photo.", true); return false; }
 
+      // Apply every readable value to an empty field immediately. This is an
+      // auto-fill workflow; review is only necessary when OCR would replace a
+      // value staff already entered or when the field needs human checking.
+      const autoApplied = [];
+      rows.forEach((row) => {
+        if (row.state === "empty" && fill(row.name, row.value)) {
+          autoApplied.push(row.name);
+          row.state = "same";
+          row.now = row.value;
+          if (row.unsure) flag(element(row.name));
+        }
+      });
+      window.FMISRegistrationDraft?.save?.();
+      const reviewRows = rows.filter((row) => row.state === "differs" || row.state === "missing");
+      if (!reviewRows.length) {
+        const flagged = autoApplied.filter((name) => unsure.has(name)).length;
+        summary.textContent = `Auto-filled ${autoApplied.length} registration field${autoApplied.length === 1 ? "" : "s"}.` +
+          `${flagged ? ` ${flagged} highlighted for checking.` : ""} Compare the values with the paper form before submitting. No photo was stored.`;
+        summary.hidden = false;
+        log({applied: autoApplied, kept: [], skipped: []});
+        closeDialog();
+        return true;
+      }
+
       const table = document.createElement("table");
       table.className = "sg-review-table";
       table.innerHTML = "<caption>Choose the scanned values to use. Your own typed values are kept unless you tick them.</caption><thead><tr><th>Use</th><th>Field</th><th>Now in the form</th><th>Scanned</th></tr></thead>";
       const body = document.createElement("tbody");
-      rows.forEach((row) => {
+      reviewRows.forEach((row) => {
         const tr = document.createElement("tr");
         tr.dataset.state = row.state;
         const use = document.createElement("input");
@@ -251,7 +280,7 @@
       });
       apply.addEventListener("click", () => {
         const applied = [], kept = [], skipped = [];
-        rows.forEach((row) => {
+        reviewRows.forEach((row) => {
           const chosen = boxes().find((b) => b.name === row.name)?.checked;
           if (row.state === "same") { return; }
           if (chosen && fill(row.name, row.value)) { applied.push(row.name); if (row.unsure) flag(element(row.name)); }
@@ -259,7 +288,9 @@
           else skipped.push(row.name);
         });
         const flagged = applied.filter((name) => unsure.has(name)).length;
-        summary.textContent = `Applied ${applied.length} scanned value${applied.length === 1 ? "" : "s"}.` +
+        applied.unshift(...autoApplied);
+        window.FMISRegistrationDraft?.save?.();
+        summary.textContent = `Auto-filled ${applied.length} scanned value${applied.length === 1 ? "" : "s"}.` +
           `${kept.length ? ` Kept ${kept.length} you had typed.` : ""}${skipped.length ? ` Skipped ${skipped.length}.` : ""}` +
           `${flagged ? ` ${flagged} highlighted for checking.` : ""} Compare every value with the paper form before you continue. No photo was stored.`;
         summary.hidden = false;
@@ -273,7 +304,9 @@
       return true;
     }
 
-    run.addEventListener("click", async () => {
+    run.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
       const files = panel.fileRules.chosen();
       if (!files.length) { say("Choose or capture a photo of the RSBSA form first.", true); return; }
       const data = new FormData();
@@ -283,6 +316,7 @@
       files.forEach((file) => data.append("rsbsa_scan", file));
       data.append("csrfmiddlewaretoken", csrf());
       run.disabled = true;
+      panel.dataset.scanBusy = "true";
       say("Reading the form. This can take a few seconds…");
       try {
         const response = await fetch(box.dataset.scanUrl, {method: "POST", body: data, headers: {Accept: "application/json"}});
@@ -300,6 +334,7 @@
         say("The form reader could not be reached. You can still fill in the registration by hand.", true);
       } finally {
         run.disabled = false;
+        delete panel.dataset.scanBusy;
       }
     });
   });
