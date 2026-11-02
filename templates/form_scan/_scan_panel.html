@@ -1,4 +1,5 @@
-{% load static %}
+{% load static scan_tags %}
+{% scan_limits as limits %}
 {% comment %}
   Shared "Scan & Auto-Fill" control. Include it at the top of any create form:
     {% include "form_scan/_scan_panel.html" %}
@@ -39,9 +40,30 @@
         <h2 id="scanDialogTitle"><i class="bi bi-camera" aria-hidden="true"></i> Scan &amp; Auto-Fill</h2>
         <button class="sg-dialog-close" type="button" data-scan-close aria-label="Close">&times;</button>
       </div>
-      <label class="sg-label" for="scanPhotoInput">Photo of the paper form</label>
-      <input id="scanPhotoInput" type="file" {% if scan_target != "FARMER" %}name="photo" required {% endif %}accept="image/jpeg,image/png,image/webp" capture="environment" data-scan-file>
-      <p class="sg-help">On a phone this opens the camera. JPG, PNG or WebP{% if scan_target != "FARMER" %}, up to 8 MB{% endif %}. Use only forms you are allowed to process.</p>
+      {% if limits.sample %}<p class="sg-sample-note"><i class="bi bi-info-circle" aria-hidden="true"></i> Sample data mode: nothing is sent anywhere and the values shown are made up.</p>{% endif %}
+      <fieldset class="sg-files" data-scan-files data-max="{{ limits.max_files }}" data-max-mb="{{ limits.max_mb }}" data-left="{{ limits.left }}" data-daily="{{ limits.daily_limit }}" data-extensions="{{ limits.accept }}">
+        <legend class="sg-label">Photos of the form</legend>
+        <div class="sg-file-row" data-scan-row>
+          <input type="file" {% if scan_target != "FARMER" %}name="photo" required {% endif %}accept="{{ limits.accept }},image/jpeg,image/png,image/webp" capture="environment" aria-label="Photo 1" data-scan-file>
+          <button class="sg-file-remove" type="button" data-scan-remove aria-label="Remove photo 1" hidden>&times;</button>
+        </div>
+        <template data-scan-row-template>
+          <div class="sg-file-row" data-scan-row>
+            <input type="file" {% if scan_target != "FARMER" %}name="photo" {% endif %}accept="{{ limits.accept }},image/jpeg,image/png,image/webp" capture="environment" data-scan-file>
+            <button class="sg-file-remove" type="button" data-scan-remove>&times;</button>
+          </div>
+        </template>
+        <div class="sg-files-bar">
+          <button class="btn btn-outline-success sg-add-page" type="button" data-scan-add><i class="bi bi-plus-lg" aria-hidden="true"></i> Add page</button>
+          <span class="sg-pages-count" data-scan-count aria-live="polite">1 of {{ limits.max_files }} photos</span>
+        </div>
+      </fieldset>
+      <ul class="sg-rules" aria-label="Photo rules">
+        <li><strong>File types:</strong> {{ limits.extensions|join:", " }}</li>
+        <li><strong>Size:</strong> up to {{ limits.max_mb }} MB per photo</li>
+        <li><strong>Pages:</strong> up to {{ limits.max_files }} photos per scan (use Add page)</li>
+        <li><strong>Daily limit:</strong> {{ limits.daily_limit }} photos a day for the whole office, <span data-scan-left-text>{{ limits.left }} left today</span></li>
+      </ul>
       <p class="sg-dialog-status" role="status" aria-live="polite" data-scan-status>{% if scan_target == "FARMER" and not rsbsa_scan_configured %}The form reader is not set up yet (see the OCR settings). You can still fill in the registration by hand.{% endif %}</p>
       <div class="sg-dialog-actions">
         {% if scan_target == "FARMER" %}

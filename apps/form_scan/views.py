@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views import View
 from django.views.generic import TemplateView
 
@@ -63,33 +64,34 @@ def farmer_query(farmer_id):
     return f"?farmer={farmer_id}" if str(farmer_id).isdigit() else ""
 
 
-class ScanUploadView(ScanAccessMixin, TemplateView):
-    template_name = "form_scan/upload.html"
+def back_to_form(request, target):
+    """Where to return after an upload problem: the form the scan was started from."""
+    referer = request.META.get("HTTP_REFERER", "")
+    if referer and url_has_allowed_host_and_scheme(referer, allowed_hosts={request.get_host()}):
+        return referer
+    return reverse("crops:create" if target == FormScan.TARGET_CROP else "farm_parcels:create")
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context.update(
-            base_template="base/staff_base.html",
-            form=kwargs.get("form") or ScanUploadForm(initial={"target": self.request.GET.get("target", FormScan.TARGET_PARCEL), "farmer": self.request.GET.get("farmer", "")}),
-            recent=FormScan.objects.filter(created_by=self.request.user)[:8],
-            provider=ocr_setting("PROVIDER"),
-            sample_mode=ocr_setting("PROVIDER") == "sample",
-            requests_left=ocr.requests_left_today(),
-        )
-        return context
 
-    def post(self, request, *args, **kwargs):
-        form = ScanUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            try:
-                scan = create_scan(request.user, form.cleaned_data["photo"], form.cleaned_data["target"])
-            except ScanError as error:
-                form.add_error("photo", str(error))
-            else:
-                if not scan.ocr_available:
-                    messages.warning(request, "The form reader is not available right now, so the form is open for manual entry. Compare the photo and type the values.")
-                return redirect(f"{reverse('form_scan:review', args=[scan.pk])}{farmer_query(form.cleaned_data['farmer'])}")
-        return self.render_to_response(self.get_context_data(form=form))
+class ScanUploadView(ScanAccessMixin, View):
+    """Receive the photos from the Scan & Auto-Fill dialog and open the review screen."""
+
+    def get(self, request):
+        # The upload dialog lives inside the forms; there is no separate page.
+        target = request.GET.get("target", FormScan.TARGET_PARCEL)
+        return redirect(back_to_form(request, target if target in dict(FormScan.TARGET_CHOICES) else FormScan.TARGET_PARCEL))
+
+    def post(self, request):
+        form = ScanUploadForm(request.POST)
+        target = form.cleaned_data["target"] if form.is_valid() else FormScan.TARGET_PARCEL
+        farmer = form.cleaned_data["farmer"] if form.is_valid() else ""
+        try:
+            scan = create_scan(request.user, request.FILES.getlist("photo"), target)
+        except ScanError as error:
+            messages.error(request, str(error))
+            return redirect(back_to_form(request, target))
+        if not scan.ocr_available:
+            messages.warning(request, f"{scan.ocr_message or 'The form reader is not available right now.'} The form is open for manual entry: compare the photo and type the values.")
+        return redirect(f"{reverse('form_scan:review', args=[scan.pk])}{farmer_query(farmer)}")
 
 
 class ScanReviewView(ScanAccessMixin, TemplateView):
@@ -146,6 +148,7 @@ class ScanReviewView(ScanAccessMixin, TemplateView):
             checks=[{**check.as_dict(), "fix_json": json.dumps(check.suggestion)} for check in result.checks],
             editable=scan.status in (FormScan.STATUS_DRAFT, FormScan.STATUS_CONFIRMED),
             continue_url=self.continue_url(), search=self.request.GET.get("q", ""),
+            pages=[{"number": number, "url": reverse("form_scan:page", args=[scan.pk, number])} for number in scan.page_numbers],
             barangays=ROSARIO_BARANGAYS, commodities=sorted(ROSARIO_COMMODITY_VALUES),
             map_data={
                 "boundary": [list(point) for point in ROSARIO_BOUNDARY],
@@ -188,10 +191,11 @@ class ScanReviewView(ScanAccessMixin, TemplateView):
 class ScanImageView(ScanAccessMixin, View):
     """Serve a stored form photo to signed-in staff only; it is never public."""
 
-    def get(self, request, pk):
+    def get(self, request, pk, page=1):
         scan = get_object_or_404(FormScan, pk=pk)
+        stored = scan.image if page == 1 else get_object_or_404(scan.extra_pages, position=page).image
         try:
-            handle = scan.image.open("rb")
+            handle = stored.open("rb")
         except (FileNotFoundError, ValueError):
             raise Http404
         response = FileResponse(handle, content_type="image/jpeg")

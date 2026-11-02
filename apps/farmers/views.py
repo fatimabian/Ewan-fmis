@@ -631,8 +631,9 @@ class FarmerRSBSAScanView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 {"error": "Too many scan attempts. Try again in one hour."}, status=429
             )
 
-        upload = request.FILES.get("rsbsa_scan")
-        if upload is None:
+        uploads = request.FILES.getlist("rsbsa_scan")
+        upload = uploads[0] if len(uploads) == 1 else uploads
+        if not uploads:
             return JsonResponse(
                 {"error": "Capture or choose an RSBSA form image first."}, status=400
             )

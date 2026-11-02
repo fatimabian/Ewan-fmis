@@ -8,4 +8,5 @@ urlpatterns = [
     path("", ScanUploadView.as_view(), name="upload"),
     path("<int:pk>/", ScanReviewView.as_view(), name="review"),
     path("<int:pk>/image/", ScanImageView.as_view(), name="image"),
+    path("<int:pk>/image/<int:page>/", ScanImageView.as_view(), name="page"),
 ]

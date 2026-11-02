@@ -87,7 +87,32 @@ class RsbsaOcrEngineTests(TestCase):
         pdf = SimpleUploadedFile("form.pdf", b"%PDF-1.4 content\n%%EOF", content_type="application/pdf")
         result = self.scan(pdf)
         self.assertEqual(result.status_code, 400)
-        self.assertIn("JPG or PNG", result.json()["error"])
+        self.assertIn("must be a JPG, JPEG, PNG, WEBP", result.json()["error"])
+
+    @override_settings(RSBSA_SCAN_ENGINE="ocr", OCR=SAMPLE)
+    def test_several_pages_are_read_together(self):
+        result = self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": [photo((1, 200, 200)), photo((2, 200, 200))]})
+        self.assertEqual(result.status_code, 200)
+        self.assertTrue(result.json()["fields"]["last_name"])
+
+    @override_settings(RSBSA_SCAN_ENGINE="ocr", OCR=SAMPLE)
+    def test_too_many_pages_are_refused(self):
+        files = [photo((i * 10, 200, 200)) for i in range(4)]
+        result = self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": files})
+        self.assertEqual(result.status_code, 400)
+        self.assertIn("at most 3 photos", result.json()["error"])
+
+    @override_settings(RSBSA_SCAN_ENGINE="auto", OCR={**OPENROUTER, "DAILY_LIMIT": 1})
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_the_daily_limit_gives_a_clear_message(self, post):
+        response = mock.Mock(status_code=200)
+        response.json.return_value = {"choices": [{"message": {"content": reply()}}]}
+        post.return_value = response
+        self.assertEqual(self.scan(photo((1, 1, 1))).status_code, 200)
+        second = self.scan(photo((2, 2, 2)))
+        self.assertEqual(second.status_code, 429)
+        self.assertIn("daily limit of 1", second.json()["error"])
+        self.assertEqual(post.call_count, 1)
 
     def test_engine_choice(self):
         with override_settings(RSBSA_SCAN_ENGINE="auto", OCR=SAMPLE, OPENAI_API_KEY=""):
@@ -119,6 +144,8 @@ class SharedScanPanelTests(TestCase):
             self.assertContains(page, f'data-scan-target="{target}"', msg_prefix=name)
             self.assertContains(page, "data-scan-panel", msg_prefix=name)
             self.assertContains(page, "Scan &amp; Auto-Fill", msg_prefix=name)
+            self.assertContains(page, "data-scan-add", msg_prefix=name)
+            self.assertContains(page, "up to 5 MB per photo", msg_prefix=name)
             self.assertTemplateUsed(page, "form_scan/_scan_panel.html")
 
     @override_settings(RSBSA_SCAN_ENGINE="ocr", OCR=SAMPLE)

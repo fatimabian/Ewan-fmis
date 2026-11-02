@@ -188,7 +188,9 @@ OCR = {
     "MODELS": [m.strip() for m in os.getenv("OCR_MODELS", "").split(",") if m.strip()],
     "OPENROUTER_API_KEY": os.getenv("OPENROUTER_API_KEY", ""),
     "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
-    "DAILY_LIMIT": max(1, int(os.getenv("OCR_DAILY_LIMIT", "40"))),
+    "DAILY_LIMIT": max(1, int(os.getenv("OCR_DAILY_LIMIT", "30"))),
+    "MAX_FILES": max(1, min(6, int(os.getenv("OCR_MAX_FILES", "3")))),
+    "MAX_IMAGE_BYTES": max(1, min(10, int(os.getenv("OCR_MAX_IMAGE_MB", "5")))) * 1024 * 1024,
     "TIMEOUT_SECONDS": max(10, min(120, int(os.getenv("OCR_TIMEOUT_SECONDS", "45")))),
     "CONFIDENCE_THRESHOLD": float(os.getenv("OCR_CONFIDENCE_THRESHOLD", "0.75")),
 }

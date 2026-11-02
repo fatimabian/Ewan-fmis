@@ -7,9 +7,12 @@ from django.test import TestCase, override_settings
 from PIL import Image
 
 from . import services
-from .exceptions import OcrProviderError, OcrUnavailable
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from .exceptions import OcrProviderError, OcrQuotaExceeded, OcrUnavailable, UploadRejected
 from .models import OcrDailyUsage
 from .parsing import parse_reply
+from .uploads import read_uploads
 
 FIELDS = ["farmer_name", "latitude"]
 
@@ -62,14 +65,45 @@ class FallbackTests(TestCase):
             services.extract(image_bytes(), fields=FIELDS)
 
     @mock.patch("apps.ocr.providers.requests.post")
-    def test_daily_limit_stops_requests(self, post):
+    def test_daily_limit_counts_photos_not_model_attempts(self, post):
         post.return_value = mock.Mock(status_code=500)
-        for _ in range(2):
+        for _ in range(5):
             with self.assertRaises(OcrUnavailable):
                 services.extract(image_bytes(), fields=FIELDS)
+        self.assertEqual(post.call_count, 15)  # three models tried for each of five photos
         self.assertEqual(OcrDailyUsage.objects.get().count, 5)
-        self.assertEqual(post.call_count, 5)
         self.assertEqual(services.requests_left_today(), 0)
+        with self.assertRaises(OcrQuotaExceeded):
+            services.extract(image_bytes(), fields=FIELDS)
+        self.assertEqual(post.call_count, 15)  # no provider call once the limit is reached
+
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_a_batch_that_does_not_fit_is_refused_whole(self, post):
+        post.return_value = openrouter_response(reply())
+        services.extract_many([image_bytes((1, 1, 1)), image_bytes((2, 2, 2)), image_bytes((3, 3, 3))], fields=FIELDS)
+        self.assertEqual(services.requests_left_today(), 2)
+        with self.assertRaises(OcrQuotaExceeded):
+            services.extract_many([image_bytes((4, 4, 4))] * 3, fields=FIELDS)
+        self.assertEqual(services.requests_left_today(), 2)  # nothing was reserved
+        self.assertEqual(post.call_count, 3)
+
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_pages_are_merged_by_best_reading(self, post):
+        first = json.dumps({"fields": {"farmer_name": {"value": "Juan", "confidence": 0.9}, "latitude": {"value": "", "confidence": 0}}})
+        second = json.dumps({"fields": {"farmer_name": {"value": "Juan C", "confidence": 0.6}, "latitude": {"value": "13.8", "confidence": 0.8}}})
+        post.side_effect = [openrouter_response(first), openrouter_response(second)]
+        result = services.extract_many([image_bytes((1, 1, 1)), image_bytes((2, 2, 2))], fields=FIELDS)
+        self.assertEqual((result.fields["farmer_name"].value, result.fields["latitude"].value), ("Juan", "13.8"))
+        self.assertEqual((result.pages, result.unreadable_pages), (2, []))
+        self.assertEqual(OcrDailyUsage.objects.get().count, 2)
+
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_an_unreadable_page_is_reported_but_others_are_kept(self, post):
+        failure = mock.Mock(status_code=500)
+        post.side_effect = [openrouter_response(reply()), failure, failure, failure]
+        result = services.extract_many([image_bytes((1, 1, 1)), image_bytes((2, 2, 2))], fields=FIELDS)
+        self.assertEqual(result.unreadable_pages, [2])
+        self.assertEqual(result.fields["farmer_name"].value, "Juan")
 
     @mock.patch("apps.ocr.providers.requests.post", side_effect=__import__("requests").Timeout)
     def test_timeout_is_handled(self, post):
@@ -132,6 +166,51 @@ class SampleProviderTests(TestCase):
         self.assertEqual(first.provider, "sample")
         self.assertEqual(first.fields, second.fields)
         self.assertFalse(OcrDailyUsage.objects.exists())
+
+
+def upload_file(name="form.png", content=None, size=(900, 1200), color=(200, 200, 200)):
+    if content is None:
+        buffer = BytesIO()
+        Image.new("RGB", size, color).save(buffer, format="PNG")
+        content = buffer.getvalue()
+    return SimpleUploadedFile(name, content, content_type="image/png")
+
+
+@override_settings(OCR={"MAX_FILES": 3, "MAX_IMAGE_BYTES": 5 * 1024 * 1024, "DAILY_LIMIT": 30})
+class UploadRuleTests(TestCase):
+    def reject(self, files, message):
+        with self.assertRaises(UploadRejected) as caught:
+            read_uploads(files)
+        self.assertIn(message, str(caught.exception))
+
+    def test_valid_photos_are_returned_in_order(self):
+        contents = read_uploads([upload_file(color=(1, 2, 3)), upload_file("page2.JPG", color=(9, 9, 9))])
+        self.assertEqual(len(contents), 2)
+
+    def test_allowed_extensions(self):
+        for name in ("a.jpg", "a.JPEG", "a.png", "a.webp"):
+            read_uploads([upload_file(name)])
+        for name in ("a.gif", "a.pdf", "a.heic", "a", "a.png.exe"):
+            self.reject([upload_file(name)], "must be a JPG, JPEG, PNG, WEBP file")
+
+    def test_size_limit_names_the_photo_and_the_limit(self):
+        with override_settings(OCR={"MAX_FILES": 3, "MAX_IMAGE_BYTES": 1024 * 1024}):
+            big = upload_file(content=b"x" * (2 * 1024 * 1024))
+            self.reject([big], "Each photo must be 1 MB or smaller")
+            self.reject([upload_file(color=(5, 5, 5)), big], "Photo 2 is 2.0 MB")
+
+    def test_page_limit(self):
+        files = [upload_file(color=(i, i, i)) for i in range(4)]
+        self.reject(files, "at most 3 photos")
+        self.reject([], "Choose at least one photo")
+
+    def test_content_must_be_a_real_image_of_a_good_size(self):
+        self.reject([upload_file(content=b"%PDF-1.4 fake")], "not a readable")
+        self.reject([upload_file(size=(200, 200))], "too small")
+
+    def test_the_same_photo_twice_is_refused(self):
+        photo = upload_file().read()
+        self.reject([upload_file(content=photo), upload_file("again.png", content=photo)], "same photo")
 
 
 class ParsingTests(TestCase):

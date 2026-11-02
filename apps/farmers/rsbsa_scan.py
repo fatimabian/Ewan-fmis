@@ -14,7 +14,8 @@ from PIL import Image, UnidentifiedImageError
 from apps.common.constants import ROSARIO_BARANGAYS
 from apps.ocr import services as ocr
 from apps.ocr.conf import ocr_setting
-from apps.ocr.exceptions import OcrUnavailable
+from apps.ocr.exceptions import OcrQuotaExceeded, OcrUnavailable, UploadRejected
+from apps.ocr.uploads import read_uploads
 
 from .forms import VALID_ID_CHOICES
 from .models import Farmer
@@ -322,13 +323,16 @@ def rsbsa_scan_available():
     return ocr_engine_selected() or bool(getattr(settings, "OPENAI_API_KEY", "").strip())
 
 
-def _scan_with_ocr(upload):
-    """Read the RSBSA page with the shared OCR service and apply the same normalising rules."""
-    raw, _mime, kind = _validated_upload(upload)
-    if kind == "pdf":
-        raise RSBSAScanError("This reader needs a JPG or PNG photo. Convert the PDF page to an image first.")
+def _scan_with_ocr(uploads):
+    """Read the RSBSA page (one or more photos) with the shared OCR service and apply the same normalising rules."""
     try:
-        result = ocr.extract(raw, fields=["form_title", *PROFILE_FIELDS], instructions=_ocr_instructions())
+        contents = read_uploads(uploads)
+    except UploadRejected as error:
+        raise RSBSAScanError(str(error)) from error
+    try:
+        result = ocr.extract_many(contents, fields=["form_title", *PROFILE_FIELDS], instructions=_ocr_instructions())
+    except OcrQuotaExceeded as error:
+        raise RSBSAScanError(f"{error} You can still fill in the registration by hand.", status=429) from error
     except OcrUnavailable as error:
         logger.warning("RSBSA OCR unavailable: %s", error)
         raise RSBSAScanError(
@@ -342,8 +346,9 @@ def _scan_with_ocr(upload):
     threshold = ocr_setting("CONFIDENCE_THRESHOLD")
     readings = {name: result.fields[name] for name in PROFILE_FIELDS}
     unsure = [name for name, reading in readings.items() if reading.value and reading.confidence < threshold]
+    notes = [f"Photo {number} could not be read." for number in result.unreadable_pages]
     fields, review, warnings = _normalize_fields(
-        {name: reading.value for name, reading in readings.items()}, unsure, []
+        {name: reading.value for name, reading in readings.items()}, unsure, notes
     )
     if not any(fields.values()):
         raise RSBSAScanError(
@@ -355,13 +360,18 @@ def _scan_with_ocr(upload):
         "needs_review": review,
         "warnings": warnings,
         "form_version": "",
-        "scan_token": build_scan_token(raw),
+        "scan_token": build_scan_token(contents[0]),
     }
 
 
 def scan_rsbsa_profile(upload):
+    """Read an RSBSA page; `upload` is one file, or a list of files (pages) for the OCR reader."""
+    uploads = list(upload) if isinstance(upload, (list, tuple)) else [upload]
     if ocr_engine_selected():
-        return _scan_with_ocr(upload)
+        return _scan_with_ocr(uploads)
+    if len(uploads) > 1:
+        raise RSBSAScanError("Several pages need the OpenRouter or Gemini reader. Send one photo at a time.")
+    upload = uploads[0]
     api_key = getattr(settings, "OPENAI_API_KEY", "").strip()
     if not api_key:
         raise RSBSAScanError(

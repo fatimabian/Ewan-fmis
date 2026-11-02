@@ -26,15 +26,82 @@
     tipButton.addEventListener("keydown", (event) => { if (event.key === "Escape") showTip(false); });
   });
 
+  // File rows: a first photo row, "Add page" for more, a remove button on added rows, and rule checks
+  // before anything is sent (the server checks again).
+  const fileRules = (panel) => {
+    const box = panel.querySelector("[data-scan-files]");
+    const template = box.querySelector("[data-scan-row-template]");
+    const add = box.querySelector("[data-scan-add]");
+    const count = box.querySelector("[data-scan-count]");
+    const max = Number(box.dataset.max);
+    const maxBytes = Number(box.dataset.maxMb) * 1024 * 1024;
+    const extensions = box.dataset.extensions.split(",");
+    const status = panel.querySelector("[data-scan-status]");
+    const rows = () => box.querySelectorAll("[data-scan-row]");
+    const inputs = () => [...box.querySelectorAll("[data-scan-file]")];
+
+    const refresh = () => {
+      const all = rows();
+      all.forEach((row, index) => {
+        const input = row.querySelector("[data-scan-file]");
+        input.setAttribute("aria-label", `Photo ${index + 1}`);
+        const remove = row.querySelector("[data-scan-remove]");
+        remove.hidden = index === 0 && all.length === 1;
+        remove.setAttribute("aria-label", `Remove photo ${index + 1}`);
+      });
+      count.textContent = `${all.length} of ${max} photos`;
+      add.disabled = all.length >= max;
+      add.title = all.length >= max ? `A scan can have at most ${max} photos.` : "";
+    };
+
+    const check = (input) => {
+      const file = input.files[0];
+      if (!file) return true;
+      const name = file.name.toLowerCase();
+      if (!extensions.some((extension) => name.endsWith(extension))) {
+        status.textContent = `${file.name} is not allowed. Use ${extensions.map((e) => e.slice(1).toUpperCase()).join(", ")}.`;
+        status.classList.add("sg-error");
+        input.value = "";
+        return false;
+      }
+      if (file.size > maxBytes) {
+        status.textContent = `${file.name} is ${(file.size / 1048576).toFixed(1)} MB. Each photo must be ${box.dataset.maxMb} MB or smaller.`;
+        status.classList.add("sg-error");
+        input.value = "";
+        return false;
+      }
+      status.textContent = "";
+      status.classList.remove("sg-error");
+      return true;
+    };
+
+    box.addEventListener("change", (event) => { if (event.target.matches("[data-scan-file]")) check(event.target); });
+    add.addEventListener("click", () => {
+      if (rows().length >= max) return;
+      box.insertBefore(template.content.cloneNode(true), box.querySelector(".sg-files-bar"));
+      refresh();
+      inputs().at(-1).focus();
+    });
+    box.addEventListener("click", (event) => {
+      const remove = event.target.closest("[data-scan-remove]");
+      if (!remove) return;
+      remove.closest("[data-scan-row]").remove();
+      refresh();
+    });
+    refresh();
+    return {chosen: () => inputs().flatMap((input) => [...input.files]), box};
+  };
+
+  panels.forEach((panel) => { panel.fileRules = fileRules(panel); });
+
   document.querySelectorAll('[data-scan-panel][data-scan-target="FARMER"]').forEach((panel) => {
     const box = panel.querySelector("[data-scan-url]");
     const run = panel.querySelector("[data-scan-run]");
-    const fileInput = panel.querySelector("[data-scan-file]");
     const status = panel.querySelector("[data-scan-status]");
     const summary = panel.querySelector("[data-scan-summary]");
     const dialog = panel.querySelector("[data-scan-dialog]");
     const form = document.getElementById(panel.querySelector("[data-scan-form]").dataset.scanForm);
-    if (!box || !run || !fileInput || !form) return;
+    if (!box || !run || !form) return;
 
     const say = (message, isError = false) => {
       status.textContent = message;
@@ -91,17 +158,23 @@
     };
 
     run.addEventListener("click", async () => {
-      const file = fileInput.files[0];
-      if (!file) { say("Choose or capture a photo of the RSBSA form first.", true); return; }
+      const files = panel.fileRules.chosen();
+      if (!files.length) { say("Choose or capture a photo of the RSBSA form first.", true); return; }
       const token = form.querySelector("[name=csrfmiddlewaretoken]")?.value || "";
       const data = new FormData();
-      data.append("rsbsa_scan", file);
+      files.forEach((file) => data.append("rsbsa_scan", file));
       data.append("csrfmiddlewaretoken", token);
       run.disabled = true;
       say("Reading the form. This can take a few seconds…");
       try {
         const response = await fetch(box.dataset.scanUrl, {method: "POST", body: data, headers: {Accept: "application/json"}});
         const result = await response.json();
+        // Photos read today count against the shared daily limit.
+        if (response.ok) {
+          const left = Math.max(0, Number(panel.fileRules.box.dataset.left) - files.length);
+          panel.fileRules.box.dataset.left = left;
+          panel.querySelector("[data-scan-left-text]").textContent = `${left} left today`;
+        }
         if (!response.ok) { say(result.error || "The form could not be read. Try a clearer photo.", true); return; }
         clearPrevious();
         let filled = 0;

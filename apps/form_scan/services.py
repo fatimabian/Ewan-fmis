@@ -1,10 +1,8 @@
 import hashlib
-from io import BytesIO
 
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
-from PIL import Image, UnidentifiedImageError
 
 from apps.activity_logs.services import record_event
 from apps.common.constants import ROSARIO_COMMODITY_VALUES
@@ -13,12 +11,12 @@ from apps.farm_parcels.models import FarmParcel
 from apps.ocr import services as ocr
 from apps.ocr.conf import ocr_setting
 from apps.ocr.exceptions import OcrUnavailable
-from apps.ocr.imaging import ALLOWED_FORMATS
+from apps.ocr.exceptions import UploadRejected
+from apps.ocr.uploads import read_uploads
 
-from .models import FieldCorrection, FormScan, FormScanAudit
+from .models import FieldCorrection, FormScan, FormScanAudit, FormScanPage
 from .validation import RED, normalize_barangay, parse_area_hectares, validate
 
-MIN_SIDE_PIXELS = 400
 OWNERSHIP_CODES = {code: code for code, _ in FarmParcel.OWNERSHIP_CHOICES}
 OWNERSHIP_WORDS = {
     "owner": "OWNED", "owned": "OWNED", "registered owner": "OWNED",
@@ -29,26 +27,6 @@ OWNERSHIP_WORDS = {
 
 class ScanError(Exception):
     """A problem the staff member can fix; the message is shown to them."""
-
-
-def read_upload(upload):
-    """Validate type and size by content (not by name or declared type); return the bytes."""
-    limit = ocr_setting("MAX_IMAGE_BYTES")
-    if upload.size > limit:
-        raise ScanError(f"The photo must be {limit // (1024 * 1024)} MB or smaller.")
-    raw = upload.read()
-    try:
-        with Image.open(BytesIO(raw)) as image:
-            image.verify()
-        with Image.open(BytesIO(raw)) as image:
-            image_format, width, height = image.format, *image.size
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
-        raise ScanError("That file is not a readable JPG, PNG or WebP photo.")
-    if image_format not in ALLOWED_FORMATS:
-        raise ScanError("Only JPG, PNG or WebP photos can be scanned.")
-    if min(width, height) < MIN_SIDE_PIXELS:
-        raise ScanError(f"The photo is too small. Use one at least {MIN_SIDE_PIXELS} pixels on the short side.")
-    return raw
 
 
 def log(scan, actor, action, **detail):
@@ -78,29 +56,39 @@ def normalize_ownership(text):
 
 
 @transaction.atomic
-def create_scan(user, upload, target=FormScan.TARGET_PARCEL):
-    """Store the photo privately, ask OCR, and fall back to manual entry when OCR cannot answer."""
-    raw = read_upload(upload)
-    scan = FormScan(created_by=user, image_sha256=hashlib.sha256(raw).hexdigest(), target=target)
-    scan.image.save("scan.img", ContentFile(raw), save=False)
-    names = ocr_setting("FIELDS")
-    scan.fields = {name: "" for name in names}
+def create_scan(user, uploads, target=FormScan.TARGET_PARCEL):
+    """Store the photos privately, ask OCR, and fall back to manual entry when OCR cannot answer."""
     try:
-        result = ocr.extract(raw)
+        contents = read_uploads(uploads)
+    except UploadRejected as error:
+        raise ScanError(str(error)) from error
+    scan = FormScan(created_by=user, image_sha256=hashlib.sha256(contents[0]).hexdigest(), target=target)
+    scan.image.save("scan.img", ContentFile(contents[0]), save=False)
+    scan.fields = {name: "" for name in ocr_setting("FIELDS")}
+    result = None
+    try:
+        result = ocr.extract_many(contents)
     except OcrUnavailable as error:
         scan.ocr_message = str(error)[:500]
-        scan.save()
-        log(scan, user, "UPLOADED", target=target)
-        log(scan, user, "OCR_UNAVAILABLE", reason=scan.ocr_message)
     else:
         scan.ocr_available = True
         scan.ocr_provider, scan.ocr_model = result.provider, result.model
         scan.ocr_fields = {n: {"value": r.value, "confidence": r.confidence} for n, r in result.fields.items()}
         scan.fields = {n: r.value for n, r in result.fields.items()}
         scan.fields["ownership_type"] = normalize_ownership(scan.fields.get("ownership_type", ""))
-        scan.save()
-        log(scan, user, "UPLOADED", target=target)
-        log(scan, user, "OCR_DONE", provider=result.provider, model=result.model, fallbacks=result.attempts)
+        if result.unreadable_pages:
+            pages = ", ".join(str(number) for number in result.unreadable_pages)
+            scan.ocr_message = f"Page {pages} could not be read. Check those values by hand."
+    scan.save()
+    for position, raw in enumerate(contents[1:], start=2):
+        page = FormScanPage(scan=scan, position=position, image_sha256=hashlib.sha256(raw).hexdigest())
+        page.image.save("page.img", ContentFile(raw), save=True)
+    log(scan, user, "UPLOADED", target=target, pages=len(contents))
+    if result:
+        log(scan, user, "OCR_DONE", provider=result.provider, model=result.model, fallbacks=result.attempts,
+            pages=result.pages, unreadable_pages=result.unreadable_pages)
+    else:
+        log(scan, user, "OCR_UNAVAILABLE", reason=scan.ocr_message)
     run_validation(scan)
     scan.save(update_fields=["traffic_light", "checks"])
     return scan

@@ -7,9 +7,11 @@ DEFAULTS = {
     "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
     "GEMINI_API_KEY": "",
     "GEMINI_BASE_URL": "https://generativelanguage.googleapis.com/v1beta",
-    "DAILY_LIMIT": 40,
+    # Photos read per day, counted once per photo (a three page form uses three).
+    "DAILY_LIMIT": 30,
     "TIMEOUT_SECONDS": 45,
-    "MAX_IMAGE_BYTES": 8 * 1024 * 1024,
+    "MAX_IMAGE_BYTES": 5 * 1024 * 1024,
+    "MAX_FILES": 3,
     "MAX_IMAGE_SIDE": 1600,
     "CONFIDENCE_THRESHOLD": 0.75,
     "FIELDS": [

@@ -32,13 +32,22 @@ Nothing is saved until staff press the form's own Save/Submit button. To use the
 
 **Audit trail:** every scan keeps who uploaded, who confirmed, what OCR suggested, which provider and model answered, what was changed and when. Each changed value is also stored in `FieldCorrection` (OCR value, final value, confidence, model) for later learning. Nothing is trained yet.
 
+### Limits
+
+The dialog states these rules, which come from the same settings that enforce them (the browser checks first, the server checks again):
+
+- **File types:** JPG, JPEG, PNG or WebP (no PDF or HEIC).
+- **Size:** 5 MB per photo.
+- **Pages:** up to 3 photos per scan. **Add page** adds another photo for multi-page forms, and the readings of all pages are merged field by field.
+- **Daily limit:** 30 photos a day for the whole office, counted once per photo however many models are tried (a 3-page scan uses 3). When the limit is reached the photos are kept and the form opens for manual entry. Sample mode is not counted.
+
 ### Setup
 
 1. `pip install -r requirements.txt` and `python manage.py migrate` (adds `ocr` and `form_scan` tables).
 2. Copy `.env.example` to `.env` and set:
    - `OCR_PROVIDER`: `openrouter` (default), `gemini` (direct Google API) or `sample` (made-up readings, no key, nothing leaves the machine).
    - `OPENROUTER_API_KEY` or `GEMINI_API_KEY`, and `OCR_MODELS` (comma separated, tried in order).
-   - Optional: `OCR_DAILY_LIMIT` (default 40), `OCR_TIMEOUT_SECONDS`, `OCR_CONFIDENCE_THRESHOLD` (default 0.75).
+   - Optional: `OCR_DAILY_LIMIT` (default 30), `OCR_MAX_FILES` (default 3), `OCR_MAX_IMAGE_MB` (default 5), `OCR_TIMEOUT_SECONDS`, `OCR_CONFIDENCE_THRESHOLD` (default 0.75).
 3. Choose the models by testing them on **dummy or consented** forms: `python manage.py ocr_compare form1.jpg form2.jpg`. Images are sent to the outside provider.
 4. Import the barangay boundaries (`import_rosario_barangay_boundaries`) so the "pin inside barangay" check is exact. Without them the check compares with the published barangay reference points and says it is approximate.
 5. Uploaded photos are stored in `private_media/` (override with `FMIS_PRIVATE_MEDIA_ROOT`), outside `MEDIA_ROOT`, with no public URL, and are served only to signed-in staff.
@@ -53,7 +62,7 @@ Nothing is saved until staff press the form's own Save/Submit button. To use the
 
 ### Limitations
 
-- OCR uses a free-tier or paid outside service: there is a daily request cap (`OCR_DAILY_LIMIT`), models change, and the system needs internet access for it. When OCR is unavailable the form simply opens for manual entry.
+- OCR uses a free-tier or paid outside service: there is a daily cap of photos (`OCR_DAILY_LIMIT`, 30), models change, and the system needs internet access for it. When OCR is unavailable the form simply opens for manual entry.
 - Handwriting accuracy varies by model and photo quality. Always compare with the photo; the low-confidence highlight is a hint, not a guarantee.
 - The database is MySQL, so geometry runs in plain Python (no PostGIS). Overlap checks scan the pinned parcels and are meant for municipal scale.
 - Parcels have no drawn polygon field yet, so the area-versus-polygon check only runs when a polygon is supplied to a scan.

@@ -3,6 +3,7 @@ from io import BytesIO
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.messages import get_messages
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -83,36 +84,58 @@ class AccessTests(ScanTestCase):
         self.assertEqual(self.client.post(reverse("form_scan:upload"), {"photo": upload()}).status_code, 302)
         self.assertFalse(FormScan.objects.exclude(pk=scan.pk).exists())
 
-    def test_staff_can_open_the_page(self):
+    def test_the_upload_address_sends_staff_back_to_the_form(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("form_scan:upload"))
-        self.assertContains(response, "Scan &amp; Auto-Fill")
-        self.assertContains(response, "Sample data mode")
+        self.assertRedirects(response, reverse("farm_parcels:create"))
+
+    def test_the_dialog_states_the_limits(self):
+        self.client.force_login(self.staff)
+        page = self.client.get(reverse("farm_parcels:create"))
+        self.assertContains(page, "File types:</strong> JPG, JPEG, PNG, WEBP")
+        self.assertContains(page, "up to 5 MB per photo")
+        self.assertContains(page, "up to 3 photos per scan")
+        self.assertContains(page, "30 photos a day for the whole office")
+        self.assertContains(page, "data-scan-add")
+        self.assertContains(page, 'data-scan-count')
+        self.assertContains(page, "Sample data mode")
 
 
 class UploadValidationTests(ScanTestCase):
     def setUp(self):
         self.client.force_login(self.staff)
 
-    def post(self, file):
-        return self.client.post(reverse("form_scan:upload"), {"photo": file})
+    def post(self, *files, target="PARCEL"):
+        return self.client.post(reverse("form_scan:upload"), {"photo": list(files), "target": target})
+
+    def refused(self, response):
+        """The upload is refused: back to the form with a message and no scan."""
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(FormScan.objects.exists())
+        return " ".join(str(m) for m in get_messages(response.wsgi_request))
 
     def test_rejects_a_file_that_is_not_an_image(self):
-        response = self.post(upload(b"%PDF-1.4 not an image", name="form.png"))
-        self.assertContains(response, "not a readable JPG, PNG or WebP")
-        self.assertFalse(FormScan.objects.exists())
+        self.assertIn("not a readable", self.refused(self.post(upload(b"%PDF-1.4 not an image", name="form.png"))))
 
-    def test_rejects_a_disallowed_image_type(self):
-        response = self.post(upload(photo(fmt="GIF"), name="form.png"))
-        self.assertContains(response, "Only JPG, PNG or WebP")
+    def test_rejects_a_disallowed_file_type(self):
+        self.assertIn("must be a JPG, JPEG, PNG, WEBP", self.refused(self.post(upload(photo(), name="form.gif"))))
+        self.assertIn("must be a JPG, JPEG, PNG, WEBP", self.refused(self.post(upload(b"%PDF-1.4", name="form.pdf"))))
 
-    def test_rejects_oversized_files(self):
-        with override_settings(OCR={**settings.OCR, "MAX_IMAGE_BYTES": 1000}):
-            response = self.post(upload())
-        self.assertContains(response, "or smaller")
+    def test_rejects_oversized_files_with_the_limit_in_the_message(self):
+        with override_settings(OCR={**settings.OCR, "MAX_IMAGE_BYTES": 1024 * 1024}):
+            message = self.refused(self.post(upload(b"x" * (2 * 1024 * 1024), name="big.png")))
+        self.assertIn("2.0 MB", message)
+        self.assertIn("1 MB or smaller", message)
 
     def test_rejects_tiny_images(self):
-        self.assertContains(self.post(upload(size=(200, 200))), "too small")
+        self.assertIn("too small", self.refused(self.post(upload(size=(200, 200)))))
+
+    def test_rejects_too_many_pages(self):
+        files = [upload(color=(i * 20, 0, 0)) for i in range(4)]
+        self.assertIn("at most 3 photos", self.refused(self.post(*files)))
+
+    def test_rejects_a_missing_photo(self):
+        self.assertIn("Choose at least one photo", self.refused(self.post()))
 
     def test_accepts_a_real_photo_and_ignores_the_file_name(self):
         response = self.post(upload(name="../../evil.php.png"))
@@ -121,6 +144,45 @@ class UploadValidationTests(ScanTestCase):
         self.assertNotIn("evil", scan.image.name)
         self.assertEqual(scan.created_by, self.staff)
 
+
+class MultiPageTests(ScanTestCase):
+    def setUp(self):
+        self.client.force_login(self.staff)
+
+    def test_three_pages_are_stored_privately_and_shown_on_the_review_screen(self):
+        files = [upload(color=(10 * i, 50, 50)) for i in range(1, 4)]
+        self.client.post(reverse("form_scan:upload"), {"photo": files, "target": "PARCEL"})
+        scan = FormScan.objects.get()
+        self.assertEqual(scan.page_numbers, [1, 2, 3])
+        for page in (1, 2, 3):
+            url = reverse("form_scan:page", args=[scan.pk, page])
+            self.assertEqual(self.client.get(url).status_code, 200, page)
+        self.assertEqual(self.client.get(reverse("form_scan:page", args=[scan.pk, 4])).status_code, 404)
+        review = self.client.get(reverse("form_scan:review", args=[scan.pk]))
+        self.assertContains(review, "Page 3 of 3")
+        for page in scan.extra_pages.all():
+            self.assertTrue(str(page.image.path).startswith(str(settings.PRIVATE_MEDIA_ROOT)))
+        self.assertEqual(scan.audit.get(action="UPLOADED").detail["pages"], 3)
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse("form_scan:page", args=[scan.pk, 2])).status_code, 302)
+
+    def test_a_single_photo_shows_no_page_labels(self):
+        self.client.post(reverse("form_scan:upload"), {"photo": [upload()], "target": "PARCEL"})
+        review = self.client.get(reverse("form_scan:review", args=[FormScan.objects.get().pk]))
+        self.assertNotContains(review, "Page 1 of 1")
+
+    def test_the_daily_limit_keeps_the_photos_but_uses_manual_entry(self):
+        providers = {"PROVIDER": "openrouter", "OPENROUTER_API_KEY": "k", "MODELS": ["m1"], "DAILY_LIMIT": 2}
+        with override_settings(OCR=providers):
+            from apps.ocr.models import OcrDailyUsage
+            from django.utils import timezone
+
+            OcrDailyUsage.objects.create(date=timezone.localdate(), count=2)
+            response = self.client.post(reverse("form_scan:upload"), {"photo": [upload()], "target": "PARCEL"}, follow=True)
+        scan = FormScan.objects.get()
+        self.assertFalse(scan.ocr_available)
+        self.assertIn("daily limit of 2", scan.ocr_message)
+        self.assertContains(response, "Manual entry")
 
 class PrivateStorageTests(ScanTestCase):
     def test_image_is_stored_privately_and_served_only_to_staff(self):
@@ -157,7 +219,7 @@ class OcrFlowTests(ScanTestCase):
         scan = FormScan.objects.get()
         self.assertFalse(scan.ocr_available)
         self.assertContains(response, "Manual entry")
-        self.assertContains(response, "form reader is not available")
+        self.assertContains(response, "open for manual entry")
         self.assertIn("OCR_UNAVAILABLE", scan.audit.values_list("action", flat=True))
 
     @override_settings(OCR={"PROVIDER": "openrouter", "OPENROUTER_API_KEY": "", "MODELS": []})

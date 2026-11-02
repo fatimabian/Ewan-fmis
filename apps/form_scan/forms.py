@@ -7,16 +7,10 @@ from .models import FormScan
 
 
 class ScanUploadForm(forms.Form):
-    """Photo upload; type and size are checked by content in the service layer."""
+    """Upload context. The photos themselves are read from request.FILES and checked by content."""
 
     target = forms.ChoiceField(choices=FormScan.TARGET_CHOICES, initial=FormScan.TARGET_PARCEL, required=False, widget=forms.HiddenInput)
     farmer = forms.CharField(required=False, widget=forms.HiddenInput)
-    photo = forms.FileField(
-        label="Photo of the farmer form",
-        widget=forms.ClearableFileInput(attrs={"accept": "image/jpeg,image/png,image/webp", "capture": "environment"}),
-    )
-
-
     def clean_target(self):
         return self.cleaned_data.get("target") or FormScan.TARGET_PARCEL
 

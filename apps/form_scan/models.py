@@ -71,6 +71,24 @@ class FormScan(models.Model):
     def __str__(self):
         return f"Scan #{self.pk}"
 
+    @property
+    def page_numbers(self):
+        """Page numbers that have a stored photo (1 is the first photo)."""
+        return [1, *[page.position for page in self.extra_pages.all()]]
+
+
+class FormScanPage(models.Model):
+    """Pages after the first of a multi page form (page one is FormScan.image)."""
+
+    scan = models.ForeignKey(FormScan, on_delete=models.CASCADE, related_name="extra_pages")
+    image = models.FileField(upload_to=scan_upload_path, storage=private_storage)
+    image_sha256 = models.CharField(max_length=64)
+    position = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ["position"]
+        constraints = [models.UniqueConstraint(fields=["scan", "position"], name="unique_scan_page_position")]
+
 
 class FormScanAudit(models.Model):
     """Append only trail of what happened to a scan."""
