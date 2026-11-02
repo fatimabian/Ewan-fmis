@@ -1,0 +1,7 @@
+{% load static %}
+{# Shown on a create form that was opened from a confirmed scan; carries the scan id back on save. #}
+<link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
+<div class="sg-note sg-note-gold" role="status">
+  <i class="bi bi-camera"></i>
+  <span><strong>Filled in from scan #{{ scan.pk }}</strong> (traffic light {{ scan.traffic_light|title }}). Check every value against the <a href="{% url 'form_scan:image' scan.pk %}" target="_blank" rel="noopener">form photo</a> before saving. Anything you change is kept as a correction. <a href="{% url 'form_scan:review' scan.pk %}">Back to review</a></span>
+</div>

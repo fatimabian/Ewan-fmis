@@ -36,6 +36,7 @@ from apps.common.record_history import activity_rows, farmer_update_rows
 from apps.farmers.history import farmer_snapshot, record_farmer_update
 from apps.crops.models import CropRecord
 from .forms import FarmParcelForm, FarmParcelPhotoUploadForm
+from apps.form_scan.integration import ScanPrefillMixin
 from .geocamera import extract_geocamera_metadata, reconcile_geotagged_photos
 from .coordinate_services import (
     apply_coordinate_change_immediately,
@@ -1065,6 +1066,7 @@ class FarmParcelCreateView(
     FMISLoginRequiredMixin,
     StaffRequiredMixin,
     RoleAwareParcelMixin,
+    ScanPrefillMixin,
     ParcelSlipBAuditMixin,
     CreateView,
 ):

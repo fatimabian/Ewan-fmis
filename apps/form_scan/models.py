@@ -15,13 +15,18 @@ class FormScan(models.Model):
     """One photographed farmer form, what OCR suggested, and what staff finally saved."""
 
     STATUS_DRAFT = "DRAFT"
+    STATUS_CONFIRMED = "CONFIRMED"
     STATUS_APPROVED = "APPROVED"
     STATUS_DISCARDED = "DISCARDED"
     STATUS_CHOICES = [
         (STATUS_DRAFT, "Awaiting review"),
-        (STATUS_APPROVED, "Approved"),
+        (STATUS_CONFIRMED, "Confirmed, waiting to be saved in the form"),
+        (STATUS_APPROVED, "Saved"),
         (STATUS_DISCARDED, "Discarded"),
     ]
+    TARGET_PARCEL = "PARCEL"
+    TARGET_CROP = "CROP"
+    TARGET_CHOICES = [(TARGET_PARCEL, "Farm parcel form"), (TARGET_CROP, "Commodity form")]
     LIGHT_CHOICES = [("GREEN", "Green"), ("YELLOW", "Yellow"), ("RED", "Red")]
 
     created_by = models.ForeignKey(
@@ -31,6 +36,8 @@ class FormScan(models.Model):
     image = models.FileField(upload_to=scan_upload_path, storage=private_storage)
     image_sha256 = models.CharField(max_length=64, db_index=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_DRAFT)
+    # The form this scan fills in: it is opened with the confirmed values already entered.
+    target = models.CharField(max_length=10, choices=TARGET_CHOICES, default=TARGET_PARCEL)
     ocr_available = models.BooleanField(default=False)
     ocr_provider = models.CharField(max_length=30, blank=True)
     ocr_model = models.CharField(max_length=120, blank=True)
@@ -48,6 +55,11 @@ class FormScan(models.Model):
     parcel = models.ForeignKey(
         "farm_parcels.FarmParcel", null=True, blank=True, on_delete=models.SET_NULL, related_name="form_scans"
     )
+    crop = models.ForeignKey(
+        "crops.CropRecord", null=True, blank=True, on_delete=models.SET_NULL, related_name="form_scans"
+    )
+    # Values handed to the target form once staff confirm the scan.
+    prefill = models.JSONField(default=dict, blank=True)
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_form_scans"
     )
@@ -68,7 +80,8 @@ class FormScanAudit(models.Model):
         ("OCR_DONE", "OCR read the form"),
         ("OCR_UNAVAILABLE", "OCR unavailable; manual entry"),
         ("CHECKED", "Checks re-run"),
-        ("APPROVED", "Approved and saved"),
+        ("CONFIRMED", "Confirmed by staff"),
+        ("SAVED", "Saved in the record"),
         ("DISCARDED", "Discarded"),
     ]
 

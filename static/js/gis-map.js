@@ -34,7 +34,13 @@
   config.barangays.forEach((name) => els.barangay.add(new Option(name, name)));
   config.commodities.forEach((name) => els.commodity.add(new Option(name, name)));
 
-  const shapeClass = (layer) => `gis-pin gis-${layer.shape}`;
+  // Each layer has its own icon inside a map pin; the pin colour is the status.
+  // The pin is SVG because the system's global shape rule squares every CSS box.
+  const PIN_PATH = "M12 1C6 1 1.5 5.600 1.500 11.400c0 7.400 10.500 18.600 10.500 18.600s10.500-11.200 10.500-18.600C22.500 5.600 18 1 12 1z";
+  const pinHtml = (icon, status, width = 30) =>
+    `<span class="gis-marker gis-${status}" style="--w:${width}px"><svg viewBox="0 0 24 32" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg><i class="bi ${icon}" aria-hidden="true"></i></span>`;
+  const bubbleSvg = (count, size) =>
+    `<svg class="gis-svg gis-neutral gis-bubble" width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="21"/><text x="24" y="29" text-anchor="middle">${count}</text></svg>`;
 
   function syncControls() {
     const layer = layers[state.layer];
@@ -50,14 +56,16 @@
     els.legend.replaceChildren(...layer.legend.map(([status, label]) => {
       const item = document.createElement("li");
       const swatch = document.createElement("span");
-      swatch.className = `${shapeClass(layer)} gis-${status} gis-static`;
+      swatch.className = "gis-swatch";
+      swatch.innerHTML = pinHtml(layer.icon, status, 22);
       item.append(swatch, label);
       return item;
     }));
     if (!state.barangay) {
       const item = document.createElement("li");
       const swatch = document.createElement("span");
-      swatch.className = "gis-bubble gis-bubble-key";
+      swatch.className = "gis-swatch";
+      swatch.innerHTML = bubbleSvg("#", 22);
       item.append(swatch, "Barangay total (select to open)");
       els.legend.append(item);
     }
@@ -76,7 +84,7 @@
 
   function bubbleSize(count, max) {
     const share = count / max;
-    return share > 0.66 ? 56 : share > 0.25 ? 44 : 34;
+    return share > 0.66 ? 46 : share > 0.25 ? 36 : 28;
   }
 
   function selectBarangay(name) {
@@ -91,7 +99,7 @@
       const size = bubbleSize(bubble.count, max);
       const marker = L.marker([bubble.lat, bubble.lng], {
         title: `${bubble.barangay}: ${bubble.count}`,
-        icon: L.divIcon({className: "", iconSize: [size, size], html: `<div class="gis-bubble" style="width:${size}px;height:${size}px">${bubble.count}</div>`}),
+        icon: L.divIcon({className: "", iconSize: [size, size], html: bubbleSvg(bubble.count, size)}),
       });
       const note = bubble.attention ? `, ${bubble.attention} need attention` : "";
       marker.bindTooltip(`${bubble.barangay}: ${bubble.count}${note}`);
@@ -107,7 +115,7 @@
     points.forEach((point) => {
       const marker = L.marker([point.lat, point.lng], {
         title: layer.label,
-        icon: L.divIcon({className: "", iconSize: [24, 24], html: `<span class="${shapeClass(layer)} gis-${point.status}"></span>`}),
+        icon: L.divIcon({className: "", iconSize: [30, 40], iconAnchor: [15, 38], html: pinHtml(layer.icon, point.status)}),
       });
       marker.on("click", () => openDetail(point.id, marker));
       markers.addLayer(marker);
@@ -119,6 +127,7 @@
     const bounds = points.length ? L.latLngBounds(points.map((p) => [p.lat, p.lng])).pad(0.3)
       : barangayShape ? barangayShape.getBounds() : null;
     if (bounds) map.fitBounds(bounds, {maxZoom: 17});
+    else if (config.centers[state.barangay]) map.setView(config.centers[state.barangay], 15);
   }
 
   function setSummary(data) {

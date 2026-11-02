@@ -53,7 +53,7 @@ class AccessTests(GISTestCase):
         for layer in ("Farmers", "Farm parcels", "Commodities", "Service requests"):
             self.assertContains(response, layer)
         self.assertContains(response, reverse("gis:map"))  # sidebar entry
-        self.assertContains(response, reverse("form_scan:upload"))
+        self.assertNotContains(response, reverse("form_scan:upload"))  # scanning lives inside the forms
 
 
 class LevelTests(GISTestCase):

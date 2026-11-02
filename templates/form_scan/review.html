@@ -43,7 +43,7 @@
           <datalist id="commodityList">{% for name in commodities %}<option value="{{ name }}">{% endfor %}</datalist>
 
           <div class="sg-field sg-farmer">
-            <label for="{{ form.farmer.id_for_label }}">Save under farmer</label>
+            <label for="{{ form.farmer.id_for_label }}">Farmer (optional here; you can also choose it in the form)</label>
             {{ form.farmer }}
             {% for error in form.farmer.errors %}<small class="sg-error">{{ error }}</small>{% endfor %}
             <small class="sg-help">Matches for the name on the form. Not listed? <a href="{% url 'farmers:list' %}">Find or register the farmer first</a>, then search here:</small>
@@ -82,13 +82,14 @@
       </section>
 
       {% if editable %}
+        {% if scan.status == 'CONFIRMED' %}<div class="sg-note"><i class="bi bi-check2-circle"></i><span>Confirmed by {{ scan.approved_by.display_name|default:"staff" }}. <a href="{{ continue_url }}">Continue to the form</a> to save it.</span></div>{% endif %}
         <div class="sg-actions">
           <button class="btn btn-outline-success" type="submit" name="action" value="check"><i class="bi bi-arrow-repeat"></i> Re-run checks</button>
-          <button class="btn btn-success" type="submit" name="action" value="approve" {% if result.status == 'RED' %}disabled title="Correct the red items first"{% endif %}><i class="bi bi-check2-circle"></i> Approve and save parcel</button>
+          <button class="btn btn-success" type="submit" name="action" value="confirm" {% if result.status == 'RED' %}disabled title="Correct the red items first"{% endif %}><i class="bi bi-check2-circle"></i> Confirm and continue to {% if scan.target == 'CROP' %}commodity{% else %}farm parcel{% endif %} form</button>
           <button class="btn btn-outline-secondary" type="submit" name="action" value="discard" formnovalidate onclick="return confirm('Discard this scan?')">Discard</button>
         </div>
       {% else %}
-        <div class="sg-note"><i class="bi bi-lock"></i><span>{{ scan.get_status_display }}{% if scan.parcel %}: <a href="{% url 'farm_parcels:detail' scan.parcel.pk %}">{{ scan.parcel.display_name }}</a>{% endif %}.</span></div>
+        <div class="sg-note"><i class="bi bi-lock"></i><span>{{ scan.get_status_display }}{% if scan.crop %}: <a href="{% url 'crops:detail' scan.crop.pk %}">commodity record</a>{% elif scan.parcel %}: <a href="{% url 'farm_parcels:detail' scan.parcel.pk %}">{{ scan.parcel.display_name }}</a>{% endif %}.</span></div>
       {% endif %}
     </form>
 

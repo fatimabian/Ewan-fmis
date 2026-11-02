@@ -31,7 +31,6 @@ class Layer:
     key: str
     label: str
     icon: str
-    shape: str
     legend: tuple  # at most three (status, label) pairs
     status_options: tuple  # (value, label)
     uses_commodity: bool
@@ -41,16 +40,16 @@ ATTENTION_OPTIONS = ((ALL, "Everything"), (ATTENTION_ONLY, "Needs attention only
 LAYERS = {
     layer.key: layer
     for layer in (
-        Layer("farmers", "Farmers", "bi-person", "circle",
+        Layer("farmers", "Farmers", "bi-person-fill",
               ((GOOD, "Registration completed"), (ATTENTION, "Registration not completed")),
               ATTENTION_OPTIONS, True),
-        Layer("parcels", "Farm parcels", "bi-grid", "square",
+        Layer("parcels", "Farm parcels", "bi-pentagon-fill",
               ((GOOD, "Pin verified"), (ATTENTION, "Pin needs verification")),
               ATTENTION_OPTIONS, True),
-        Layer("commodities", "Commodities", "bi-flower1", "diamond",
+        Layer("commodities", "Commodities", "bi-tree-fill",
               ((GOOD, "Pin verified"), (ATTENTION, "Pin needs verification")),
               ATTENTION_OPTIONS, True),
-        Layer("requests", "Service requests", "bi-headset", "triangle",
+        Layer("requests", "Service requests", "bi-clipboard-check-fill",
               ((ATTENTION, "Pending"), (NEUTRAL, "In progress"), (GOOD, "Completed")),
               (("open", "Open requests"), ("PENDING", "Pending only"),
                ("IN_PROGRESS", "In progress only"), ("COMPLETED", "Completed")), False),

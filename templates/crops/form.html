@@ -11,6 +11,8 @@
 {% block page_subtitle %}Maintain an existing registrant's commodity information{% endblock %}
 {% block content %}
   <div class="content">
+    {% if not object and not scan %}{% include "form_scan/_entry.html" %}{% endif %}
+    {% if scan %}{% include "form_scan/_filled_banner.html" %}{% endif %}
     <section class="panel form-panel rsbsa-update-form">
       <div class="registration-note">
         <i class="bi bi-info-circle">
@@ -25,6 +27,7 @@
       </div>
       <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
+        {% if scan %}<input type="hidden" name="scan" value="{{ scan.pk }}">{% endif %}
         <div class="registration-note" id="farmerLivelihoodSummary"
              {% if not source_parcel and not object %}hidden{% endif %}>
           <i class="bi bi-person-check"></i>

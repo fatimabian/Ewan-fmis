@@ -3,6 +3,8 @@
 {% block page_subtitle %}{% if object %}Change of farm parcel information{% else %}Record land information for an existing farmer{% endif %}{% endblock %}
 {% block content %}
   <div class="content">
+    {% if not object and not scan %}{% include "form_scan/_entry.html" %}{% endif %}
+    {% if scan %}{% include "form_scan/_filled_banner.html" %}{% endif %}
     <section class="panel form-panel rsbsa-update-form">
       <div class="registration-note">
         <i class="bi bi-info-circle"></i>
@@ -10,6 +12,7 @@
       </div>
       <form method="post" enctype="multipart/form-data" id="parcelForm" novalidate>
         {% csrf_token %}
+        {% if scan %}<input type="hidden" name="scan" value="{{ scan.pk }}">{% endif %}
         <section class="form-section">
           <h3><i class="bi bi-map"></i> Parcel &amp; Land Information</h3>
           <div class="registration-grid three">

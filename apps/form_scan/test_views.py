@@ -17,7 +17,7 @@ from apps.farmers.models import Farmer
 from .models import FieldCorrection, FormScan, FormScanAudit
 
 GOOD = {
-    "farmer_name": "Dela Cruz, Juan", "barangay": "Bulihan", "parcel_name": "Bukid", "latitude": "13.7967",
+    "farmer_name": "Dela Cruz, Juan", "barangay": "Bulihan", "latitude": "13.7967",
     "longitude": "121.2351", "area_hectares": "1.5", "commodity": "Rice", "ownership_type": "OWNED",
 }
 
@@ -45,20 +45,28 @@ class ScanTestCase(TestCase):
         super().tearDownClass()
         shutil.rmtree(settings.PRIVATE_MEDIA_ROOT, ignore_errors=True)
 
-    def make_scan(self, fields=None, ocr_fields=None, ocr=True):
+    def make_scan(self, fields=None, ocr_fields=None, ocr=True, target="PARCEL"):
         fields = {**GOOD, **(fields or {})}
         scan = FormScan(
             created_by=self.staff, image_sha256="0" * 64, ocr_available=ocr, ocr_provider="openrouter" if ocr else "",
-            ocr_model="m1" if ocr else "", fields=fields,
+            ocr_model="m1" if ocr else "", fields=fields, target=target,
             ocr_fields=(ocr_fields if ocr_fields is not None else {k: {"value": v, "confidence": 0.95} for k, v in GOOD.items()}) if ocr else {},
         )
         scan.image.save("x.img", ContentFile(photo()), save=False)
         scan.save()
         return scan
 
-    def approve(self, scan, **changes):
-        data = {**GOOD, **changes, "farmer": self.farmer.pk, "action": "approve"}
+    def confirm(self, scan, **changes):
+        data = {**GOOD, **changes, "farmer": self.farmer.pk, "action": "confirm"}
         return self.client.post(reverse("form_scan:review", args=[scan.pk]), data)
+
+    def parcel_form(self, scan, **changes):
+        """What the Add Farm Parcel form posts after it was opened from the scan."""
+        data = {"farmer": self.farmer.pk, "barangay": "Bulihan", "municipality": "Rosario", "province": "Batangas",
+                "area_hectares": "1.50", "ownership_type": "OWNED", "land_type": "UPLAND", "farm_type": "Irrigated",
+                "is_rsbsa_recorded": "False", "coordinates": "13.7967000, 121.2351000",
+                "is_active": "on", "scan": scan.pk, **changes}
+        return self.client.post(reverse("farm_parcels:create"), data)
 
 
 class AccessTests(ScanTestCase):
@@ -156,9 +164,9 @@ class OcrFlowTests(ScanTestCase):
     def test_manual_entry_can_still_be_approved(self):
         self.client.post(reverse("form_scan:upload"), {"photo": upload()})
         scan = FormScan.objects.get()
-        self.approve(scan)
+        self.confirm(scan)
         scan.refresh_from_db()
-        self.assertEqual(scan.status, "APPROVED")
+        self.assertEqual(scan.status, "CONFIRMED")
         self.assertEqual(scan.corrections.count(), 0)  # nothing from OCR to compare against
 
 
@@ -188,8 +196,15 @@ class ReviewScreenTests(ScanTestCase):
         Farmer.objects.create(first_name="Zed", last_name="Other", barangay="Alupay")
         scan = self.make_scan()
         response = self.client.get(reverse("form_scan:review", args=[scan.pk]))
-        names = [farmer.last_name for farmer in response.context["form"].fields["farmer"].queryset]
-        self.assertEqual(names, ["Dela Cruz"])
+        labels = [label for _value, label in response.context["form"].fields["farmer"].choices if _value]
+        self.assertEqual(labels, ["Juan Dela Cruz · Bulihan"])
+
+    def test_best_name_matches_come_first(self):
+        Farmer.objects.create(first_name="Mario", last_name="Cruz", barangay="Alupay")
+        scan = self.make_scan()
+        response = self.client.get(reverse("form_scan:review", args=[scan.pk]))
+        labels = [label for _value, label in response.context["form"].fields["farmer"].choices if _value]
+        self.assertEqual(labels[0], "Juan Dela Cruz · Bulihan")
 
     def test_recheck_stores_edits_and_logs_them(self):
         scan = self.make_scan({"latitude": "121.2351", "longitude": "13.7967"})
@@ -206,82 +221,158 @@ class ReviewScreenTests(ScanTestCase):
         self.assertEqual(scan.ocr_fields["latitude"]["value"], "13.7967")
 
 
-class ApprovalTests(ScanTestCase):
+class ConfirmTests(ScanTestCase):
     def setUp(self):
         self.client.force_login(self.staff)
 
-    def test_red_blocks_approval_on_the_server(self):
+    def test_confirm_stores_prefill_and_sends_staff_to_the_parcel_form(self):
+        scan = self.make_scan()
+        response = self.confirm(scan)
+        self.assertRedirects(response, f"{reverse('farm_parcels:create')}?scan={scan.pk}&farmer={self.farmer.pk}")
+        scan.refresh_from_db()
+        self.assertEqual(scan.status, "CONFIRMED")
+        self.assertEqual(scan.approved_by, self.staff)
+        self.assertEqual(scan.prefill, {"farmer": self.farmer.pk, "barangay": "Bulihan", "area_hectares": "1.50",
+                                         "ownership_type": "OWNED", "coordinates": "13.7967000, 121.2351000"})
+        self.assertFalse(FarmParcel.objects.exists())  # nothing is saved until the form is saved
+
+    def test_red_cannot_be_confirmed(self):
         scan = self.make_scan({"latitude": "14.5995", "longitude": "120.9842"})
-        response = self.approve(scan, latitude="14.5995", longitude="120.9842")
+        response = self.confirm(scan, latitude="14.5995", longitude="120.9842")
         self.assertContains(response, "Red checks must be corrected")
-        self.assertFalse(FarmParcel.objects.exists())
         scan.refresh_from_db()
         self.assertEqual((scan.status, scan.traffic_light), ("DRAFT", "RED"))
 
-    def test_overlap_blocks_approval(self):
+    def test_overlap_cannot_be_confirmed(self):
         FarmParcel.objects.create(farmer=self.farmer, barangay="Bulihan", area_hectares="1", ownership_type="OWNED", coordinates="13.7967000, 121.2351000")
-        response = self.approve(self.make_scan())
-        self.assertContains(response, "Red checks must be corrected")
-        self.assertEqual(FarmParcel.objects.count(), 1)
-
-    def test_green_approval_saves_parcel_crop_audit_and_activity(self):
-        scan = self.make_scan()
-        response = self.approve(scan)
-        self.assertRedirects(response, reverse("form_scan:review", args=[scan.pk]))
-        parcel = FarmParcel.objects.get()
-        self.assertEqual((parcel.farmer, parcel.barangay, str(parcel.area_hectares)), (self.farmer, "Bulihan", "1.50"))
-        self.assertEqual(parcel.coordinates, "13.7967000, 121.2351000")
-        self.assertEqual(CropRecord.objects.get().crop_type, "Rice")
-        scan.refresh_from_db()
-        self.assertEqual((scan.status, scan.approved_by, scan.parcel), ("APPROVED", self.staff, parcel))
-        approved = scan.audit.get(action="APPROVED")
-        self.assertEqual(approved.detail["model"], "m1")
-        self.assertEqual(approved.detail["status"], "GREEN")
-        self.assertTrue(ActivityLog.objects.filter(title="Farm Parcel Created from Scan").exists())
-
-    def test_corrections_store_original_and_final_values(self):
-        scan = self.make_scan()
-        self.approve(scan, area_hectares="2.5", commodity="Corn")
-        corrections = {c.field_name: (c.ocr_value, c.final_value, c.ocr_model, c.corrected_by) for c in FieldCorrection.objects.all()}
-        self.assertEqual(set(corrections), {"area_hectares", "commodity"})
-        self.assertEqual(corrections["area_hectares"], ("1.5", "2.5", "m1", self.staff))
-        self.assertEqual(scan.audit.get(action="APPROVED").detail["changed"], ["area_hectares", "commodity"])
-        self.assertEqual(str(FarmParcel.objects.get().area_hectares), "2.50")
-
-    def test_yellow_can_be_approved(self):
-        ocr_fields = {k: {"value": v, "confidence": 0.3} for k, v in GOOD.items()}
-        scan = self.make_scan(ocr_fields=ocr_fields)
-        self.approve(scan)
-        self.assertEqual(FarmParcel.objects.count(), 1)
-        self.assertEqual(FormScan.objects.get().audit.get(action="APPROVED").detail["status"], "YELLOW")
-
-    def test_dms_is_saved_as_decimal_and_flagged(self):
-        scan = self.make_scan({"barangay": "San Isidro"})
-        self.approve(scan, barangay="San Isidro", latitude="13°48'26.6\"N", longitude="121°18'54.7\"E")
-        self.assertEqual(FarmParcel.objects.get().coordinates, "13.8073889, 121.3151944")
-        self.assertTrue(FormScan.objects.get().audit.get(action="APPROVED").detail["converted_from_dms"])
+        self.assertContains(self.confirm(self.make_scan()), "Red checks must be corrected")
 
     def test_missing_requirements_are_refused(self):
         scan = self.make_scan()
-        self.assertContains(self.approve(scan, ownership_type=""), "Choose the ownership type")
-        self.assertContains(self.approve(scan, area_hectares="0"), "Enter the farm area")
-        self.assertContains(self.approve(scan, barangay="Nowhere"), "Choose a valid Rosario barangay")
-        response = self.client.post(reverse("form_scan:review", args=[scan.pk]), {**GOOD, "action": "approve"})
-        self.assertContains(response, "Choose the farmer")
-        self.assertFalse(FarmParcel.objects.exists())
+        self.assertContains(self.confirm(scan, area_hectares="0"), "Enter the farm area")
+        self.assertContains(self.confirm(scan, barangay="Nowhere"), "Choose a valid Rosario barangay")
+        scan.refresh_from_db()
+        self.assertEqual(scan.status, "DRAFT")
 
-    def test_cannot_approve_twice_or_after_discard(self):
-        scan = self.make_scan()
-        self.approve(scan)
-        self.approve(scan)
-        self.assertEqual(FarmParcel.objects.count(), 1)
+    def test_dms_is_confirmed_as_decimal_and_flagged(self):
+        scan = self.make_scan({"barangay": "San Isidro"})
+        self.confirm(scan, barangay="San Isidro", latitude="13°48'26.6\"N", longitude="121°18'54.7\"E")
+        scan.refresh_from_db()
+        self.assertEqual(scan.prefill["coordinates"], "13.8073889, 121.3151944")
+        self.assertTrue(scan.audit.get(action="CONFIRMED").detail["converted_from_dms"])
 
-    def test_discard_keeps_the_record_and_creates_nothing(self):
+    def test_discard_keeps_the_record(self):
         scan = self.make_scan()
         self.client.post(reverse("form_scan:review", args=[scan.pk]), {"action": "discard"})
         scan.refresh_from_db()
         self.assertEqual(scan.status, "DISCARDED")
         self.assertTrue(scan.audit.filter(action="DISCARDED").exists())
+
+    def test_commodity_target_needs_a_listed_commodity(self):
+        scan = self.make_scan(target="CROP")
+        self.assertContains(self.confirm(scan, commodity="Moon dust"), "Choose a commodity from the list")
+        response = self.confirm(scan, commodity="rice", area_hectares="1.5")
+        self.assertRedirects(response, f"{reverse('crops:create')}?scan={scan.pk}&farmer={self.farmer.pk}")
+        scan.refresh_from_db()
+        self.assertEqual(scan.prefill, {"crop_type": "Rice", "area_hectares": "1.50"})
+
+
+class FormIntegrationTests(ScanTestCase):
+    """The scan lives inside the existing forms: entry panel, prefill, save, audit."""
+
+    def setUp(self):
+        self.client.force_login(self.staff)
+
+    def test_forms_offer_the_scan_and_navigation_does_not(self):
+        parcel = self.client.get(reverse("farm_parcels:create"))
+        self.assertContains(parcel, "Have the paper form?")
+        self.assertContains(parcel, 'name="target" value="PARCEL"')
+        crop = self.client.get(reverse("crops:create"))
+        self.assertContains(crop, 'name="target" value="CROP"')
+        self.assertNotContains(parcel, "Scan &amp; Auto-Fill</span>")  # no sidebar item
+
+    def test_entry_panel_is_not_shown_when_editing(self):
+        parcel = FarmParcel.objects.create(farmer=self.farmer, barangay="Bulihan", area_hectares="1", ownership_type="OWNED")
+        self.assertNotContains(self.client.get(reverse("farm_parcels:edit", args=[parcel.pk])), "Have the paper form?")
+
+    def test_upload_from_the_form_goes_to_review_with_the_target_and_farmer(self):
+        response = self.client.post(reverse("form_scan:upload"), {"photo": upload(), "target": "CROP", "farmer": self.farmer.pk})
+        scan = FormScan.objects.get()
+        self.assertEqual(scan.target, "CROP")
+        self.assertRedirects(response, f"{reverse('form_scan:review', args=[scan.pk])}?farmer={self.farmer.pk}")
+
+    def test_confirmed_values_prefill_the_parcel_form(self):
+        scan = self.make_scan()
+        self.confirm(scan)
+        page = self.client.get(reverse("farm_parcels:create"), {"scan": scan.pk, "farmer": self.farmer.pk})
+        self.assertContains(page, f"Filled in from scan #{scan.pk}")
+        self.assertContains(page, f'name="scan" value="{scan.pk}"')
+        initial = page.context["form"].initial
+        self.assertEqual((initial["barangay"], initial["area_hectares"], initial["coordinates"]), ("Bulihan", "1.50", "13.7967000, 121.2351000"))
+        self.assertNotContains(page, "Have the paper form?")
+
+    def test_unconfirmed_or_wrong_target_scans_do_not_prefill(self):
+        draft, crop = self.make_scan(), self.make_scan(target="CROP")
+        self.confirm(crop, commodity="Rice")
+        for scan in (draft, crop):
+            page = self.client.get(reverse("farm_parcels:create"), {"scan": scan.pk})
+            self.assertNotContains(page, "Filled in from scan")
+
+    def test_saving_the_form_finalizes_the_scan_with_audit_and_corrections(self):
+        scan = self.make_scan()
+        self.confirm(scan)
+        response = self.parcel_form(scan, area_hectares="2.50")  # staff change the area in the form
+        self.assertEqual(response.status_code, 302, getattr(response, "context", None) and response.context["form"].errors)
+        parcel = FarmParcel.objects.get()
+        scan.refresh_from_db()
+        self.assertEqual((scan.status, scan.parcel, scan.farmer, scan.approved_by), ("APPROVED", parcel, self.farmer, self.staff))
+        saved = scan.audit.get(action="SAVED")
+        self.assertEqual((saved.detail["model"], saved.detail["changed"]), ("m1", ["area_hectares"]))
+        correction = FieldCorrection.objects.get()
+        self.assertEqual((correction.field_name, correction.ocr_value, correction.final_value, correction.ocr_model, correction.corrected_by),
+                         ("area_hectares", "1.5", "2.50", "m1", self.staff))
+        self.assertTrue(ActivityLog.objects.filter(title="Record Saved from Scan").exists())
+
+    def test_unchanged_values_make_no_corrections(self):
+        scan = self.make_scan()
+        self.confirm(scan)
+        self.parcel_form(scan)
+        self.assertFalse(FieldCorrection.objects.exists())
+
+    def test_a_scan_is_saved_only_once(self):
+        scan = self.make_scan()
+        self.confirm(scan)
+        self.parcel_form(scan)
+        self.parcel_form(scan, coordinates="13.8100000, 121.2400000")
+        scan.refresh_from_db()
+        self.assertEqual(scan.audit.filter(action="SAVED").count(), 1)
+
+    def test_a_red_edit_in_the_form_is_blocked(self):
+        scan = self.make_scan()
+        self.confirm(scan)
+        response = self.parcel_form(scan, coordinates="14.5995000, 120.9842000")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The scan check is red")
         self.assertFalse(FarmParcel.objects.exists())
-        self.approve(scan)
-        self.assertFalse(FarmParcel.objects.exists())
+        scan.refresh_from_db()
+        self.assertEqual(scan.status, "CONFIRMED")
+
+    def test_form_without_a_scan_saves_as_before(self):
+        response = self.client.post(reverse("farm_parcels:create"), {
+            "farmer": self.farmer.pk, "barangay": "Bulihan", "municipality": "Rosario", "province": "Batangas",
+            "area_hectares": "1.00", "ownership_type": "OWNED", "land_type": "UPLAND", "farm_type": "Irrigated",
+            "is_rsbsa_recorded": "False", "is_active": "on"})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(FarmParcel.objects.count(), 1)
+        self.assertFalse(FormScan.objects.exists())
+
+    def test_commodity_form_prefill_and_save(self):
+        parcel = FarmParcel.objects.create(farmer=self.farmer, barangay="Bulihan", area_hectares="2", ownership_type="OWNED")
+        scan = self.make_scan(target="CROP")
+        self.confirm(scan, commodity="Rice", area_hectares="1.5")
+        page = self.client.get(reverse("crops:create"), {"scan": scan.pk, "farmer": self.farmer.pk})
+        self.assertEqual((page.context["form"].initial["crop_type"], page.context["form"].initial["area_hectares"]), ("Rice", "1.50"))
+        response = self.client.post(reverse("crops:create"), {"parcel": parcel.pk, "crop_type": "Rice", "area_hectares": "1.50", "is_organic": "False", "is_intercrop": "False", "scan": scan.pk})
+        self.assertEqual(response.status_code, 302, getattr(response, "context", None) and response.context["form"].errors)
+        scan.refresh_from_db()
+        self.assertEqual((scan.status, scan.crop.crop_type), ("APPROVED", "Rice"))

@@ -3,11 +3,12 @@
 {% block page_title %}GIS Map{% endblock %}
 {% block page_subtitle %}See where farmers, parcels, commodities and service requests are across Rosario{% endblock %}
 {% block content %}
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
   <link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
   <div class="content sg-page gis-page">
     <section class="panel sg-panel gis-controls" aria-label="Map controls">
-      <div class="gis-layers" role="group" aria-label="Choose what to show">
+      <div class="gis-layers" id="gisLayers" role="group" aria-label="Choose what to show">
         {% for layer in layer_list %}
           <button type="button" class="gis-layer-btn" data-layer="{{ layer.key }}" aria-pressed="false"><i class="bi {{ layer.icon }}"></i> {{ layer.label }}</button>
         {% endfor %}

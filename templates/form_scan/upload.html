@@ -13,7 +13,7 @@
       <form method="post" enctype="multipart/form-data" novalidate>
         {% csrf_token %}
         <label class="sg-label" for="{{ form.photo.id_for_label }}">{{ form.photo.label }}</label>
-        {{ form.photo }}
+        {{ form.target }}{{ form.farmer }}{{ form.photo }}
         {% for error in form.photo.errors %}<p class="sg-error">{{ error }}</p>{% endfor %}
         <p class="sg-help">On a phone this opens the camera. JPG, PNG or WebP, up to 8 MB. Photos are stored privately and are visible to signed-in staff only.</p>
         <button class="btn btn-success" type="submit"><i class="bi bi-upload"></i> Scan form</button>

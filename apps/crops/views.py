@@ -16,6 +16,8 @@ from apps.activity_logs.models import ActivityLog
 from apps.common.record_history import activity_rows, farmer_update_rows
 from apps.farmers.history import farmer_snapshot, record_farmer_update
 from apps.farm_parcels.models import FarmParcel
+from apps.form_scan.integration import ScanPrefillMixin
+from apps.form_scan.models import FormScan
 from apps.farmers.models import Farmer
 from .forms import CropRecordForm
 from .models import CropRecord
@@ -229,11 +231,13 @@ class CropCreateView(
     FMISLoginRequiredMixin,
     StaffRequiredMixin,
     RoleAwareCropMixin,
+    ScanPrefillMixin,
     CropHistoryMixin,
     CreateView,
 ):
     form_class = CropRecordForm
     template_name = "crops/form.html"
+    scan_target = FormScan.TARGET_CROP
 
     def get_form(self, form_class=None):
         form = super().get_form(form_class)

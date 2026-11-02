@@ -7,39 +7,39 @@
 .sg-help{margin:8px 0 12px;color:var(--sg-muted);font-size:13px}
 .sg-muted{color:var(--sg-muted);font-size:13px}
 .sg-error{margin:6px 0;color:var(--sg-red);font-size:13px}
-.sg-note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--sg-border);border-radius:10px;background:var(--surface,#fff);font-size:14px}
-.sg-note-gold{border-color:var(--sg-gold);background:#fffaf0}
-.sg-status{display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:10px;border:2px solid;font-size:14px;background:#fff}
+.sg-note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid var(--sg-border);border-radius:10px;background:var(--surface,#fff);color:inherit;font-size:14px}
+.sg-note-gold{border-color:var(--sg-gold)}
+.sg-status{display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:10px;border:2px solid;font-size:14px;background:var(--surface,#fff);color:inherit}
 .sg-status strong{letter-spacing:.5px}
 .sg-green.sg-status{border-color:var(--sg-green)}.sg-green.sg-status strong{color:var(--sg-green)}
-.sg-yellow.sg-status{border-color:var(--sg-gold)}.sg-yellow.sg-status strong{color:#8a6a0b}
+.sg-yellow.sg-status{border-color:var(--sg-gold)}.sg-yellow.sg-status strong{color:var(--sg-gold)}
 .sg-red.sg-status{border-color:var(--sg-red)}.sg-red.sg-status strong{color:var(--sg-red)}
 .sg-chip{padding:2px 9px;border-radius:999px;border:1px solid currentColor;font-size:12px;font-weight:700}
-.sg-chip.sg-green{color:var(--sg-green)}.sg-chip.sg-yellow{color:#8a6a0b}.sg-chip.sg-red{color:var(--sg-red)}
+.sg-chip.sg-green{color:var(--sg-green)}.sg-chip.sg-yellow{color:var(--sg-gold)}.sg-chip.sg-red{color:var(--sg-red)}
 .sg-split{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
 @media(min-width:960px){.sg-split{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .sg-photo{display:block;width:100%;max-height:640px;object-fit:contain;border:1px solid var(--sg-border);border-radius:8px;background:#f3f7f4}
 .sg-fields{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
 .sg-field{display:grid;gap:4px;align-content:start}
 .sg-field label{font-size:13px;font-weight:700}
-.sg-field input,.sg-field select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--sg-border);border-radius:8px;background:var(--surface,#fff);font-size:14px}
-.sg-field.sg-low input,.sg-field.sg-low select{border:2px solid var(--sg-gold);background:#fffaf0}
+.sg-field input,.sg-field select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--sg-border);border-radius:8px;background:var(--surface,#fff);color:inherit;font-size:14px}
+.sg-field.sg-low input,.sg-field.sg-low select{border:2px solid var(--sg-gold)}
 .sg-conf{margin-left:6px;color:var(--sg-muted);font-weight:400}
-.sg-low-note{color:#8a6a0b;font-size:12px}
+.sg-low-note{color:var(--sg-gold);font-size:12px}
 .sg-farmer{margin-top:14px;padding-top:14px;border-top:1px solid var(--sg-border)}
 .sg-search{display:flex;gap:8px;margin-top:6px}.sg-search input{flex:1}
 .sg-map{height:340px;border:1px solid var(--sg-border);border-radius:10px;overflow:hidden}
-.sg-map-note{padding:6px 10px;border-radius:8px;background:#fff;font-size:12px}
+.sg-map-note{padding:6px 10px;border-radius:8px;background:var(--surface,#fff);color:inherit;font-size:12px}
 .sg-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:10px 0 0;padding:0;list-style:none;font-size:13px}
 .sg-legend li{display:flex;align-items:center;gap:6px}
 .sg-dot{display:inline-block;width:12px;height:12px;border-radius:50%}
 .sg-dot.sg-green{background:var(--sg-green)}.sg-dot.sg-yellow{background:var(--sg-gold)}.sg-dot.sg-red{background:var(--sg-red)}
-.sg-dot.sg-ring{border:2px dashed var(--sg-navy);background:#fff}
+.sg-dot.sg-ring{border:2px dashed currentColor;background:transparent}
 .sg-checks,.sg-list{margin:0;padding:0;list-style:none;display:grid;gap:8px}
-.sg-check{display:flex;gap:10px;padding:10px 12px;border:1px solid var(--sg-border);border-left-width:4px;border-radius:8px;background:#fff}
+.sg-check{display:flex;gap:10px;padding:10px 12px;border:1px solid var(--sg-border);border-left-width:4px;border-radius:8px;background:var(--surface,#fff);color:inherit}
 .sg-check p{margin:2px 0 0;font-size:14px}
 .sg-check.sg-ok{border-left-color:var(--sg-green)}.sg-check.sg-ok>i{color:var(--sg-green)}
-.sg-check.sg-warn{border-left-color:var(--sg-gold)}.sg-check.sg-warn>i{color:#8a6a0b}
+.sg-check.sg-warn{border-left-color:var(--sg-gold)}.sg-check.sg-warn>i{color:var(--sg-gold)}
 .sg-check.sg-fail{border-left-color:var(--sg-red)}.sg-check.sg-fail>i{color:var(--sg-red)}
 .sg-apply{margin-top:8px;min-height:36px}
 .sg-actions{display:flex;flex-wrap:wrap;gap:10px}
@@ -50,11 +50,10 @@
 .gis-controls{display:grid;gap:12px}
 .gis-layers{display:flex;flex-wrap:wrap;gap:8px}
 .gis-layer-btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px 14px;border:1px solid var(--sg-border);border-radius:999px;background:var(--surface,#fff);color:inherit;font-size:14px;font-weight:700;cursor:pointer}
-.gis-layer-btn[aria-pressed=true]{border-color:var(--sg-green);background:var(--sg-green);color:#fff}
 .gis-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .gis-filters label{display:grid;gap:4px;min-width:170px;font-size:12px;font-weight:700}
 .gis-filters label[hidden]{display:none}
-.gis-filters select{min-height:42px;padding:8px 10px;border:1px solid var(--sg-border);border-radius:8px;background:var(--surface,#fff);font-size:14px}
+.gis-filters select{min-height:42px;padding:8px 10px;border:1px solid var(--sg-border);border-radius:8px;background:var(--surface,#fff);color:inherit;font-size:14px}
 .gis-filters .btn{min-height:42px}
 .gis-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .gis-summary div{display:grid;padding:10px 14px;border:1px solid var(--sg-border);border-radius:10px;background:var(--surface,#fff)}
@@ -66,21 +65,32 @@
 #gisMap{height:min(68vh,640px);min-height:380px}
 .gis-empty,.gis-loading{position:absolute;top:12px;left:50%;z-index:500;transform:translateX(-50%);max-width:90%;margin:0;padding:8px 14px;border-radius:8px;background:var(--surface,#fff);box-shadow:0 4px 14px rgba(17,28,43,.25);font-size:13px;text-align:center}
 .gis-side{align-self:start}
-.gis-level{margin:0 0 12px;padding:8px 10px;border-radius:8px;background:#eaf8ef;font-size:13px}
+.gis-level{margin:0 0 12px;padding:8px 10px;border:1px solid var(--sg-border);border-left:4px solid var(--sg-green);background:transparent;font-size:13px}
 .gis-side h3{margin:0 0 10px}
 .gis-side dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 14px;font-size:14px}
 .gis-side dt{color:var(--sg-muted)}.gis-side dd{margin:0;font-weight:700;overflow-wrap:anywhere}
 .gis-side .btn{margin:0 6px 6px 0;min-height:40px}
 .gis-legend{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .gis-legend li{display:flex;align-items:center;gap:10px}
-.gis-pin{display:block;width:20px;height:20px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.55);box-sizing:border-box}
-.gis-static{display:inline-block;flex:none}
-.gis-circle{border-radius:50%}.gis-square{border-radius:3px}
-.gis-diamond{transform:rotate(45deg) scale(.85);border-radius:2px}
-.gis-triangle{width:22px;height:20px;border:0;border-radius:0;clip-path:polygon(50% 0,100% 100%,0 100%);box-shadow:none}
-.gis-good{background:var(--sg-green)}.gis-attention{background:var(--sg-gold)}.gis-neutral{background:var(--sg-navy)}
-.is-selected .gis-pin{outline:3px solid #fff;outline-offset:2px;filter:drop-shadow(0 0 5px #fff)}
-.gis-bubble{display:grid;place-items:center;border:3px solid #fff;border-radius:50%;background:var(--sg-navy);color:#fff;font-size:13px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.5);box-sizing:border-box}
-.gis-bubble-key{display:inline-block;width:20px;height:20px;border-width:2px;flex:none}
-.leaflet-marker-icon:focus-visible .gis-pin,.leaflet-marker-icon:focus-visible .gis-bubble{outline:3px solid #fff;outline-offset:2px}
+.gis-swatch{display:inline-flex;flex:none}
+.gis-marker{position:relative;display:block;width:var(--w,30px);height:calc(var(--w,30px)*1.333)}
+.gis-marker svg{display:block;width:100%;height:100%;stroke:#fff;stroke-width:1.4;filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))}
+.gis-marker i{position:absolute;top:calc(var(--w,30px)*.2);left:0;width:100%;text-align:center;font-size:calc(var(--w,30px)*.42);line-height:1;color:#fff}
+.gis-marker.gis-good path{fill:var(--sg-green)}.gis-marker.gis-attention path{fill:var(--sg-gold)}.gis-marker.gis-neutral path{fill:var(--sg-navy)}
+.gis-marker.gis-attention i{color:var(--sg-navy)}
+.gis-swatch .gis-marker{display:inline-block}
+.is-selected .gis-marker svg{stroke-width:2.6;filter:drop-shadow(0 0 5px #fff) drop-shadow(0 0 2px #fff)}
+.leaflet-marker-icon:focus-visible .gis-marker svg{filter:drop-shadow(0 0 5px #fff) drop-shadow(0 0 2px #fff)}
+.gis-svg{display:block;stroke:#fff;stroke-width:2;paint-order:stroke;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.gis-svg.gis-neutral{fill:var(--sg-navy)}
+.gis-bubble text{fill:#fff;stroke:none;font-size:18px;font-weight:700}
+.gis-layers#gisLayers .gis-layer-btn[aria-pressed=true]{border-color:var(--sg-green)!important;background:var(--sg-green)!important;color:#fff!important}
 @media(max-width:600px){.gis-filters label{flex:1 1 100%}.gis-summary strong{font-size:18px}}
+
+/* Entry panel inside create forms */
+.sg-entry{padding:14px 16px}
+.sg-entry form{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.sg-entry-text{display:grid;gap:2px;max-width:560px;font-size:14px}
+.sg-entry-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.sg-entry-actions input[type=file]{max-width:260px;font-size:13px}
+.sg-entry-actions .btn{min-height:44px}

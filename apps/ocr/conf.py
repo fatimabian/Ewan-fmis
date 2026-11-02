@@ -15,7 +15,6 @@ DEFAULTS = {
     "FIELDS": [
         "farmer_name",
         "barangay",
-        "parcel_name",
         "latitude",
         "longitude",
         "area_hectares",

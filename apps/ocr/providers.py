@@ -113,38 +113,32 @@ class GeminiProvider(BaseProvider):
 # in several of them to show each validation rule.
 SAMPLE_SCENARIOS = (
     {  # clean
-        "farmer_name": ("Dela Cruz, Juan", 0.96), "barangay": ("Bulihan", 0.94),
-        "parcel_name": ("Bukid ni Juan", 0.9), "latitude": ("13.7967", 0.93),
+        "farmer_name": ("Dela Cruz, Juan", 0.96), "barangay": ("Bulihan", 0.94), "latitude": ("13.7967", 0.93),
         "longitude": ("121.2351", 0.93), "area_hectares": ("1.5", 0.92),
         "commodity": ("Rice", 0.95), "ownership_type": ("OWNED", 0.9),
     },
     {  # latitude and longitude swapped
-        "farmer_name": ("Santos, Maria", 0.95), "barangay": ("Namuco", 0.91),
-        "parcel_name": ("", 0.0), "latitude": ("121.2036", 0.88),
+        "farmer_name": ("Santos, Maria", 0.95), "barangay": ("Namuco", 0.91), "latitude": ("121.2036", 0.88),
         "longitude": ("13.8382", 0.88), "area_hectares": ("0.8", 0.9),
         "commodity": ("Banana", 0.9), "ownership_type": ("TENANT", 0.85),
     },
     {  # missing decimal points
-        "farmer_name": ("Reyes, Pedro", 0.93), "barangay": ("Alupay", 0.92),
-        "parcel_name": ("Upper field", 0.8), "latitude": ("138404", 0.82),
+        "farmer_name": ("Reyes, Pedro", 0.93), "barangay": ("Alupay", 0.92), "latitude": ("138404", 0.82),
         "longitude": ("1212922", 0.82), "area_hectares": ("2", 0.9),
         "commodity": ("Coconut", 0.9), "ownership_type": ("OWNED", 0.9),
     },
     {  # degrees, minutes, seconds
-        "farmer_name": ("Garcia, Ana", 0.95), "barangay": ("San Isidro", 0.9),
-        "parcel_name": ("", 0.0), "latitude": ("13°48'26.6\"N", 0.86),
+        "farmer_name": ("Garcia, Ana", 0.95), "barangay": ("San Isidro", 0.9), "latitude": ("13°48'26.6\"N", 0.86),
         "longitude": ("121°18'54.7\"E", 0.86), "area_hectares": ("1.2", 0.88),
         "commodity": ("Corn", 0.9), "ownership_type": ("LEASED", 0.8),
     },
     {  # outside Rosario
-        "farmer_name": ("Lopez, Jose", 0.94), "barangay": ("Mabato", 0.9),
-        "parcel_name": ("Far plot", 0.8), "latitude": ("14.5995", 0.9),
+        "farmer_name": ("Lopez, Jose", 0.94), "barangay": ("Mabato", 0.9), "latitude": ("14.5995", 0.9),
         "longitude": ("120.9842", 0.9), "area_hectares": ("1", 0.9),
         "commodity": ("Rice", 0.9), "ownership_type": ("OTHER", 0.8),
     },
     {  # low confidence handwriting
-        "farmer_name": ("Bautista, Rosa", 0.55), "barangay": ("Maligaya", 0.6),
-        "parcel_name": ("", 0.0), "latitude": ("13.8182", 0.5),
+        "farmer_name": ("Bautista, Rosa", 0.55), "barangay": ("Maligaya", 0.6), "latitude": ("13.8182", 0.5),
         "longitude": ("121.2742", 0.52), "area_hectares": ("1.0", 0.45),
         "commodity": ("Mango", 0.7), "ownership_type": ("OWNED", 0.7),
     },
