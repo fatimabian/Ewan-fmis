@@ -81,12 +81,7 @@
 .gis-swatch .gis-marker{display:inline-block}
 .is-selected .gis-marker svg{stroke-width:2.6;filter:drop-shadow(0 0 5px #fff) drop-shadow(0 0 2px #fff)}
 .leaflet-marker-icon:focus-visible .gis-marker svg{filter:drop-shadow(0 0 5px #fff) drop-shadow(0 0 2px #fff)}
-.gis-heat{position:absolute;left:0;top:0;max-width:none!important;max-height:none!important;pointer-events:none}
 .gis-top-btn span{margin-right:12px}
-.gis-heat-key{display:grid;gap:4px;margin-bottom:6px}
-.gis-heat-key[hidden]{display:none}
-.gis-heat-bar{display:block;height:12px;border:1px solid var(--sg-border);background:linear-gradient(90deg,rgba(47,125,92,.15),#2f7d5c 25%,#d8a62b 60%,#fff4cc)}
-.gis-heat-labels{display:flex;justify-content:space-between;color:var(--sg-muted);font-size:12px}
 .gis-top{display:grid;gap:6px;margin:0;padding:0;list-style:none}
 .gis-top-btn{display:flex;justify-content:space-between;width:100%;min-height:38px;padding:6px 10px;border:1px solid var(--sg-border);background:transparent;color:inherit;font-size:14px;cursor:pointer}
 .gis-top-btn:hover,.gis-top-btn:focus-visible{border-color:var(--sg-green)}
@@ -121,3 +116,23 @@
 /* Flags on fields the reader was unsure about */
 .sg-flag input,.sg-flag select,.sg-flag textarea{border-color:var(--ag-gold,#d8a62b)!important;outline:2px solid var(--ag-gold,#d8a62b)!important;outline-offset:0}
 .sg-flag-note{display:block;margin-top:4px;color:var(--ag-gold,#d8a62b);font-size:12px}
+
+/* Filters, insights, density squares */
+.gis-count{display:inline-grid;place-items:center;min-width:20px;height:20px;margin-left:4px;padding:0 5px;background:var(--sg-green);color:#fff;font-size:12px}
+.gis-count[hidden]{display:none}
+.gis-more{margin-top:4px;padding-top:12px;border-top:1px solid var(--sg-border)}
+.gis-more[hidden]{display:none}
+.gis-more-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.gis-more-grid label{display:grid;gap:4px;font-size:12px;font-weight:700}
+.gis-more-grid input,.gis-more-grid select{min-height:40px;padding:6px 10px;border:1px solid var(--sg-border);background:var(--surface,#fff);color:inherit;font-size:14px}
+.gis-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.gis-tab{min-height:34px;padding:4px 10px;border:1px solid var(--sg-border);background:transparent;color:inherit;font-size:13px;cursor:pointer}
+.gis-tab[aria-selected=true]{border-color:var(--sg-green)!important;background:var(--sg-green)!important;color:#fff!important}
+.gis-tier{display:inline-block;width:20px;height:20px;border:1.5px solid #fff;flex:none}
+.gis-tier-1{background:#2f7d5c}.gis-tier-2{background:#d8a62b}.gis-tier-3{background:#fff;border-color:#111c2b}
+.marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:transparent}
+
+/* Cluster badges (grouped pins) */
+.gis-svg{display:block;stroke:#fff;stroke-width:2;paint-order:stroke;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.gis-svg.gis-neutral{fill:var(--sg-navy,#111c2b)}
+.gis-svg text{fill:#fff;stroke:none;font-size:18px;font-weight:700}

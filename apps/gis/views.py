@@ -15,8 +15,6 @@ from apps.farm_parcels.rosario_boundary import ROSARIO_BOUNDARY
 from . import layers
 
 MAX_POINTS = 1500
-MAX_HEAT_POINTS = 20000
-TOP_BARANGAYS = 5
 
 
 class GISAccessMixin(FMISLoginRequiredMixin, StaffRequiredMixin):
@@ -30,8 +28,10 @@ class GISMapView(GISAccessMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        specs = layers.filter_specs()
         config = {
             "layers": [asdict(layer) for layer in layers.LAYERS.values()],
+            "filterSpecs": specs,
             "barangays": list(ROSARIO_BARANGAYS),
             "commodities": layers.COMMODITY_GROUPS,
             "boundary": [list(point) for point in ROSARIO_BOUNDARY],
@@ -43,63 +43,35 @@ class GISMapView(GISAccessMixin, TemplateView):
         return context
 
 
-def read_filters(request):
-    """Validate the query string; return (filters, error message)."""
-    layer = request.GET.get("layer", "parcels")
-    barangay = request.GET.get("barangay", "")
-    commodity = request.GET.get("commodity", "")
-    status = request.GET.get("status", "")
-    if layer not in layers.LAYERS:
-        return None, "Choose a valid layer."
-    if barangay and barangay not in ROSARIO_BARANGAYS:
-        return None, "Choose a valid Rosario barangay."
-    if commodity and commodity not in layers.COMMODITY_GROUPS:
-        return None, "Choose a valid commodity."
-    if status not in {value for value, _ in layers.LAYERS[layer].status_options} | {""}:
-        return None, "Choose a valid status."
-    return {"layer": layer, "barangay": barangay, "commodity": commodity if layers.LAYERS[layer].uses_commodity else "", "status": status}, None
-
-
 class GISDataView(GISAccessMixin, View):
-    """Level one (barangay totals) or level two (individual points) for the chosen layer."""
+    """Level one (density grid) or level two (individual points) for the chosen layer."""
 
     def get(self, request):
-        filters, error = read_filters(request)
+        params, error = layers.parse_params(request.GET)
         if error:
             return JsonResponse({"message": error}, status=400)
-        found = layers.records(**filters)
+        layer = layers.LAYERS[params.layer]
+        found = layers.records(params)
         mapped = [record for record in found if record.point]
         payload = {
-            "layer": filters["layer"],
+            "layer": params.layer,
             "total": len(found),
             "mapped": len(mapped),
             "unmapped": len(found) - len(mapped),
             "attention": sum(1 for record in found if record.status == layers.ATTENTION),
-            "level": 2 if filters["barangay"] else 1,
+            "level": 2 if params.barangay else 1,
+            "insights": layers.insights(found, layer),
         }
-        if filters["barangay"]:
+        if params.barangay:
             payload["truncated"] = len(mapped) > MAX_POINTS
             payload["points"] = [
                 {"id": r.pk, "lat": r.point[0], "lng": r.point[1], "status": r.status}
                 for r in mapped[:MAX_POINTS]
             ]
-            boundary = RosarioBarangayBoundary.objects.filter(is_active=True, barangay_name=filters["barangay"]).first()
+            boundary = RosarioBarangayBoundary.objects.filter(is_active=True, barangay_name=params.barangay).first()
             payload["barangay_geometry"] = boundary.geometry if boundary else None
         else:
-            totals = {}
-            for record in mapped:
-                bucket = totals.setdefault(record.barangay, {"count": 0, "attention": 0})
-                bucket["count"] += 1
-                bucket["attention"] += record.status == layers.ATTENTION
-            # Level one is a heat map of where records are; the totals are kept for hover and a short top list.
-            payload["heat"] = [[round(r.point[0], 5), round(r.point[1], 5)] for r in mapped[:MAX_HEAT_POINTS]]
-            payload["bubbles"] = [
-                {"barangay": name, "lat": ROSARIO_BARANGAY_CENTERS[name][0], "lng": ROSARIO_BARANGAY_CENTERS[name][1], **counts}
-                for name, counts in sorted(totals.items())
-                if name in ROSARIO_BARANGAY_CENTERS
-            ]
-            ranked = sorted(totals.items(), key=lambda item: (-item[1]["count"], item[0]))
-            payload["top"] = [{"barangay": name, **counts} for name, counts in ranked[:TOP_BARANGAYS]]
+            payload.update(layers.grid(mapped))
         return JsonResponse(payload)
 
 

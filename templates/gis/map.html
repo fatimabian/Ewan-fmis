@@ -5,6 +5,7 @@
 {% block content %}
   <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/leaflet-markercluster/MarkerCluster.css' %}">
   <link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
   <div class="content sg-page gis-page">
     <section class="panel sg-panel gis-controls" aria-label="Map controls">
@@ -23,7 +24,11 @@
         <label>Show
           <select id="gisStatus"></select>
         </label>
-        <button type="button" class="btn btn-outline-success" id="gisReset">Reset</button>
+        <button type="button" class="btn btn-outline-success" id="gisMore" aria-expanded="false" aria-controls="gisMorePanel"><i class="bi bi-funnel" aria-hidden="true"></i> More filters <span class="gis-count" id="gisMoreCount" hidden></span></button>
+        <button type="button" class="btn btn-outline-secondary" id="gisReset">Reset</button>
+      </div>
+      <div class="gis-more" id="gisMorePanel" hidden>
+        <div class="gis-more-grid" id="gisMoreGrid"></div>
       </div>
     </section>
 
@@ -48,15 +53,12 @@
           <button type="button" class="btn btn-outline-secondary" id="gisDetailClose">Back to legend</button>
         </div>
         <div id="gisLegendBox">
-          <h3>Legend</h3>
-          <div class="gis-heat-key" id="gisHeatKey" hidden>
-            <span class="gis-heat-bar" aria-hidden="true"></span>
-            <span class="gis-heat-labels"><span>Fewer records</span><span>More records</span></span>
-          </div>
+          <h3 id="gisLegendTitle">Legend</h3>
           <ul class="sg-legend gis-legend" id="gisLegend"></ul>
         </div>
-        <div id="gisTopBox" hidden>
-          <h3>Busiest barangays</h3>
+        <div id="gisInsights" hidden>
+          <h3>Insights</h3>
+          <div class="gis-tabs" id="gisTabs" role="tablist" aria-label="Insights"></div>
           <ol class="gis-top" id="gisTop"></ol>
         </div>
       </aside>
@@ -64,5 +66,6 @@
   </div>
   {{ config|json_script:"gis-config" }}
   <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+  <script src="{% static 'vendor/leaflet-markercluster/leaflet.markercluster.js' %}"></script>
   <script src="{% static 'js/gis-map.js' %}"></script>
 {% endblock %}
