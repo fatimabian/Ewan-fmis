@@ -41,6 +41,9 @@ INSTALLED_APPS = [
     "apps.activity_logs",
     "apps.notifications",
     "apps.settings_page",
+    "apps.ocr",
+    "apps.form_scan",
+    "apps.gis",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -177,6 +180,18 @@ RSBSA_OCR_MODEL = os.getenv("RSBSA_OCR_MODEL", "gpt-5.4-mini")
 RSBSA_OCR_TIMEOUT_SECONDS = max(
     15, min(120, int(os.getenv("RSBSA_OCR_TIMEOUT_SECONDS", "60")))
 )
+# Scan & Auto-Fill. Secrets come from the environment only; see .env.example.
+OCR = {
+    "PROVIDER": os.getenv("OCR_PROVIDER", "openrouter").strip().lower(),
+    "MODELS": [m.strip() for m in os.getenv("OCR_MODELS", "").split(",") if m.strip()],
+    "OPENROUTER_API_KEY": os.getenv("OPENROUTER_API_KEY", ""),
+    "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY", ""),
+    "DAILY_LIMIT": max(1, int(os.getenv("OCR_DAILY_LIMIT", "40"))),
+    "TIMEOUT_SECONDS": max(10, min(120, int(os.getenv("OCR_TIMEOUT_SECONDS", "45")))),
+    "CONFIDENCE_THRESHOLD": float(os.getenv("OCR_CONFIDENCE_THRESHOLD", "0.75")),
+}
+# Uploaded form images contain personal data: kept outside MEDIA_ROOT, never served directly.
+PRIVATE_MEDIA_ROOT = Path(os.getenv("FMIS_PRIVATE_MEDIA_ROOT", BASE_DIR / "private_media"))
 FMIS_REQUIRE_MFA = os.getenv("FMIS_REQUIRE_MFA", "True").lower() == "true"
 FMIS_TRUSTED_DEVICE_DAYS = max(
     1, min(90, int(os.getenv("FMIS_TRUSTED_DEVICE_DAYS", "30")))

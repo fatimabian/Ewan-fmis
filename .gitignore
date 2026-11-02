@@ -11,3 +11,5 @@ tmp/
 backups/
 logs/
 media/
+!.env.example
+private_media/

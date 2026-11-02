@@ -12,3 +12,5 @@ MEDIA_ROOT = BASE_DIR / "tmp" / "test-media"
 BACKUP_ROOT = BASE_DIR / "tmp" / "test-backups"
 FMIS_REQUIRE_MFA = False
 DASHBOARD_CACHE_SECONDS = 0
+PRIVATE_MEDIA_ROOT = BASE_DIR / "tmp" / "test-private-media"
+OCR = {**OCR, "PROVIDER": "sample", "MODELS": [], "DAILY_LIMIT": 40}
