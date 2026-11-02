@@ -5,6 +5,13 @@
   if (!dataNode || !form) return;
   const data = JSON.parse(dataNode.textContent);
 
+  // The site disables a submit button while posting, which drops its value, so the
+  // chosen action also travels in a hidden field set at click time.
+  const action = document.getElementById("scanAction");
+  form.querySelectorAll('button[name="action"]').forEach((button) => {
+    button.addEventListener("click", () => { if (action) action.value = button.value; });
+  });
+
   // Staff pick a suggestion explicitly; nothing is ever applied silently.
   form.querySelectorAll(".sg-apply").forEach((button) => {
     button.addEventListener("click", () => {
@@ -13,8 +20,8 @@
         const input = form.elements[name];
         if (input) input.value = value;
       });
-      const check = form.querySelector('button[name="action"][value="check"]');
-      if (check) form.requestSubmit(check);
+      if (action) action.value = "check";
+      form.requestSubmit();
     });
   });
 

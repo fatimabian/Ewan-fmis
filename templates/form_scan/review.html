@@ -18,6 +18,7 @@
 
     <form method="post" id="scanForm" novalidate>
       {% csrf_token %}
+      <input type="hidden" name="action" id="scanAction" value="check">
       <div class="sg-split">
         <section class="panel sg-panel">
           <h3><i class="bi bi-image"></i> Form photo</h3>
