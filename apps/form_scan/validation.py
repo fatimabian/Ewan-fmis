@@ -53,7 +53,7 @@ def normalize_barangay(text):
     lookup = {name.casefold(): name for name in ROSARIO_BARANGAYS}
     if cleaned.casefold() in lookup:
         return lookup[cleaned.casefold()], None
-    close = get_close_matches(cleaned.casefold(), list(lookup), n=1, cutoff=0.75)
+    close = get_close_matches(cleaned.casefold(), list(lookup), n=1, cutoff=0.85)
     return None, (lookup[close[0]] if close else None)
 
 
