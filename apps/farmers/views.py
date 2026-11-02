@@ -293,6 +293,8 @@ class FarmerRegistrationView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             "document_formset": document_formset,
             "registration_has_errors": registration_has_errors,
             "rsbsa_scan_configured": rsbsa_scan_available(),
+            "scan_target": "FARMER",
+            "scan_form_id": "rsbsaRegistration",
         }
 
     def get(self, request):

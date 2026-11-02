@@ -94,3 +94,10 @@
 .sg-entry-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .sg-entry-actions input[type=file]{max-width:260px;font-size:13px}
 .sg-entry-actions .btn{min-height:44px}
+
+/* Inline (farmer registration) mode */
+.sg-entry-form{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.sg-entry-status{flex:1 1 100%;margin:0;color:var(--ag-muted,#64748b);font-size:13px}
+.sg-entry-status:empty{display:none}
+.sg-flag input,.sg-flag select,.sg-flag textarea{border-color:var(--ag-gold,#d8a62b)!important;outline:2px solid var(--ag-gold,#d8a62b)!important;outline-offset:0}
+.sg-flag-note{display:block;margin-top:4px;color:var(--ag-gold,#d8a62b);font-size:12px}

@@ -1,0 +1,42 @@
+{% load static %}
+{% comment %}
+  Shared "Scan & Auto-Fill" panel. Include it at the top of any create form:
+    {% include "form_scan/_scan_panel.html" %}
+  Needs in the context:
+    scan_target  PARCEL or CROP (opens the review screen, then this form pre-filled)
+                 FARMER (fills the profile fields on this page; unsure fields are highlighted)
+    scan_farmer  optional farmer id to carry through (PARCEL and CROP)
+  FARMER also uses rsbsa_scan_configured and scan_form_id (the id of the form to fill).
+{% endcomment %}
+<link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
+<section class="panel sg-entry" aria-labelledby="scanEntryTitle" data-scan-panel data-scan-target="{{ scan_target }}">
+  {% if scan_target == "FARMER" %}
+    <div class="sg-entry-form" data-scan-form="{{ scan_form_id }}"{% if rsbsa_scan_configured %} data-scan-url="{% url 'farmers:scan_rsbsa' %}"{% endif %}>
+  {% else %}
+    <form class="sg-entry-form" method="post" action="{% url 'form_scan:upload' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input type="hidden" name="target" value="{{ scan_target }}">
+      <input type="hidden" name="farmer" value="{{ scan_farmer }}">
+  {% endif %}
+    <div class="sg-entry-text">
+      <strong id="scanEntryTitle"><i class="bi bi-camera"></i> Have the paper form?</strong>
+      {% if scan_target == "FARMER" %}
+        <span>Take or choose a photo of page 1 of the RSBSA form. The profile fields below are filled in and any the reader was unsure about are highlighted. Nothing is saved until you submit the registration.</span>
+      {% else %}
+        <span>Take or choose a photo. The values are read, checked and entered below for you to confirm.</span>
+      {% endif %}
+    </div>
+    <div class="sg-entry-actions">
+      <input type="file" {% if scan_target != "FARMER" %}name="photo" required {% endif %}accept="image/jpeg,image/png,image/webp" capture="environment" aria-label="Photo of the paper form" data-scan-file{% if scan_target == "FARMER" and not rsbsa_scan_configured %} disabled{% endif %}>
+      {% if scan_target == "FARMER" %}
+        <button class="btn btn-outline-success" type="button" data-scan-run{% if not rsbsa_scan_configured %} disabled{% endif %}><i class="bi bi-upload"></i> Scan &amp; Auto-Fill</button>
+      {% else %}
+        <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> Scan &amp; Auto-Fill</button>
+      {% endif %}
+    </div>
+    {% if scan_target == "FARMER" %}
+      <p class="sg-entry-status" role="status" aria-live="polite" data-scan-status>{% if not rsbsa_scan_configured %}The form reader is not set up yet (see OCR settings). You can still fill in the registration by hand.{% endif %}</p>
+    {% endif %}
+  {% if scan_target == "FARMER" %}</div>{% else %}</form>{% endif %}
+</section>
+{% if scan_target == "FARMER" %}<script defer src="{% static 'js/scan-panel.js' %}"></script>{% endif %}

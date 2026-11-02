@@ -17,7 +17,12 @@ Open `http://127.0.0.1:8000/` to view the public landing page, then choose **Sig
 
 ## Scan & Auto-Fill (AI-assisted form digitization and location validation)
 
-Scan & Auto-Fill lives inside the **Add Farm Parcel** and **Add Commodity** forms (the "Have the paper form?" panel at the top). Staff photograph a handwritten farmer form, review the values next to the photo, confirm them, and the form opens already filled in. Nothing is saved until staff press the form's own Save button.
+Scan & Auto-Fill is one shared panel (`templates/form_scan/_scan_panel.html`, "Have the paper form?") used by three pages:
+
+- **Add Farm Parcel** and **Add Commodity**: staff photograph a handwritten form, review the values next to the photo, confirm them, and the form opens already filled in.
+- **Farmer Registration**: the RSBSA page 1 photo fills the profile fields in place; fields the reader was unsure about are highlighted. The RSBSA record copies upload below it is unchanged and never fills the form.
+
+Nothing is saved until staff press the form's own Save/Submit button. To use the panel on another form, include it and provide `scan_target` (`PARCEL`, `CROP` or `FARMER`).
 
 **Flow:** photo upload (type and size checked by content) → OCR with per-field confidence → rule checks → review screen with the photo, a Leaflet map and a traffic light → staff confirm or edit → the target form opens pre-filled → on Save the audit trail and corrections are written.
 
@@ -48,7 +53,7 @@ Scan & Auto-Fill lives inside the **Add Farm Parcel** and **Add Commodity** form
 - Handwriting accuracy varies by model and photo quality. Always compare with the photo; the low-confidence highlight is a hint, not a guarantee.
 - The database is MySQL, so geometry runs in plain Python (no PostGIS). Overlap checks scan the pinned parcels and are meant for municipal scale.
 - Parcels have no drawn polygon field yet, so the area-versus-polygon check only runs when a polygon is supplied to a scan.
-- The scan fills parcel and commodity forms. Farmer profile registration keeps its existing RSBSA scanner.
+- The farmer registration scan reads JPG or PNG photos (not PDFs) and only RSBSA page 1. Choose its reader with `RSBSA_SCAN_ENGINE` (`auto` uses OpenRouter/Gemini when configured, otherwise the older OpenAI reader; `ocr` or `openai` force one).
 
 ## Roles and standard requests
 

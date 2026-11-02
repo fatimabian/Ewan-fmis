@@ -100,3 +100,44 @@ class RsbsaOcrEngineTests(TestCase):
             self.assertTrue(rsbsa_scan_available())
         with override_settings(RSBSA_SCAN_ENGINE="openai", OCR=OPENROUTER):
             self.assertFalse(ocr_engine_selected())
+
+
+class SharedScanPanelTests(TestCase):
+    """One panel template serves the farmer, parcel and commodity pages."""
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = get_user_model().objects.create_user(username="panelstaff", password="Strong-password-731!", role="STAFF")
+
+    def setUp(self):
+        self.client.force_login(self.staff)
+
+    def test_all_three_pages_use_the_same_panel(self):
+        for name, target in (("farmers:create", "FARMER"), ("farm_parcels:create", "PARCEL"), ("crops:create", "CROP")):
+            page = self.client.get(reverse(name))
+            self.assertContains(page, "data-scan-panel", msg_prefix=name)
+            self.assertContains(page, f'data-scan-target="{target}"', msg_prefix=name)
+            self.assertContains(page, "Have the paper form?", msg_prefix=name)
+            self.assertContains(page, "Scan &amp; Auto-Fill", msg_prefix=name)
+            self.assertTemplateUsed(page, "form_scan/_scan_panel.html")
+
+    @override_settings(RSBSA_SCAN_ENGINE="ocr", OCR=SAMPLE)
+    def test_farmer_panel_reads_in_place_through_the_scan_endpoint(self):
+        page = self.client.get(reverse("farmers:create"))
+        self.assertContains(page, f'data-scan-url="{reverse("farmers:scan_rsbsa")}"')
+        self.assertContains(page, 'data-scan-form="rsbsaRegistration"')
+        self.assertContains(page, "scan-panel.js")
+        self.assertNotContains(page, reverse("form_scan:upload"))  # no separate review page for farmers
+
+    @override_settings(RSBSA_SCAN_ENGINE="auto", OCR=SAMPLE, OPENAI_API_KEY="")
+    def test_farmer_panel_is_disabled_until_a_reader_is_configured(self):
+        page = self.client.get(reverse("farmers:create"))
+        self.assertNotContains(page, "data-scan-url")
+        self.assertContains(page, "The form reader is not set up yet")
+        self.assertContains(page, "data-scan-run disabled")
+
+    def test_parcel_and_commodity_panels_open_the_review_screen(self):
+        for name, target in (("farm_parcels:create", "PARCEL"), ("crops:create", "CROP")):
+            page = self.client.get(reverse(name))
+            self.assertContains(page, f'action="{reverse("form_scan:upload")}"')
+            self.assertContains(page, f'name="target" value="{target}"')

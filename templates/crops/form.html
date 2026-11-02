@@ -11,7 +11,7 @@
 {% block page_subtitle %}Maintain an existing registrant's commodity information{% endblock %}
 {% block content %}
   <div class="content">
-    {% if not object and not scan %}{% include "form_scan/_entry.html" %}{% endif %}
+    {% if not object and not scan %}{% include "form_scan/_scan_panel.html" %}{% endif %}
     {% if scan %}{% include "form_scan/_filled_banner.html" %}{% endif %}
     <section class="panel form-panel rsbsa-update-form">
       <div class="registration-note">

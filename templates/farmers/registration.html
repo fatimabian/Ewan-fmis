@@ -77,6 +77,7 @@
 {% endblock %}
 {% block content %}
   <div class="content registration-page">
+    {% include "form_scan/_scan_panel.html" %}
     <section class="panel registration-shell">
       <form method="post" enctype="multipart/form-data" id="rsbsaRegistration" data-duplicate-check-url="{% url 'farmers:duplicate_check' %}" novalidate>
         {% csrf_token %}
@@ -107,7 +108,7 @@
               {{ profile_form.rsbsa_form.errors }}
             </div>
           </div>
-          <p class="rsbsa-record-note">Add as many copies as needed. Accepted: JPG, PNG, or PDF up to 5 MB each.</p>
+          <p class="rsbsa-record-note">Add as many copies as needed. Accepted: JPG, PNG, or PDF up to 5 MB each. Copies are kept for records and will not fill the registration fields; use Scan &amp; Auto-Fill above for that.</p>
         </section>
       <ol class="registration-stepper" aria-label="Registration progress">
         <li class="active" data-step-link="1">

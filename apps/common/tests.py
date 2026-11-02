@@ -1050,9 +1050,9 @@ class FMISRequirementTests(TestCase):
         )
         self.assertFalse(response.context["profile_form"].fields["rsbsa_form"].required)
         self.assertContains(response, "Use camera")
-        self.assertNotContains(response, reverse("farmers:scan_rsbsa"))
+        # Scan & Auto-Fill is a separate panel; the record copies above never fill the form.
+        self.assertContains(response, 'data-scan-target="FARMER"')
         self.assertContains(response, "rsbsa-camera")
-        self.assertNotContains(response, "prefill")
         self.assertContains(response, 'data-rsbsa-file-input')
         self.assertContains(response, "Choose files")
         self.assertNotContains(response, "Selected files:")
