@@ -65,6 +65,7 @@
     const status = panel.querySelector("[data-scan-status]");
     const rows = () => box.querySelectorAll("[data-scan-row]");
     const inputs = () => [...box.querySelectorAll("[data-scan-file]")];
+    const chosen = () => inputs().flatMap((input) => [...input.files]);
 
     const refresh = () => {
       const all = rows();
@@ -75,9 +76,12 @@
         remove.hidden = index === 0 && all.length === 1;
         remove.setAttribute("aria-label", `Remove photo ${index + 1}`);
       });
-      count.textContent = `${all.length} photo${all.length === 1 ? "" : "s"} selected`;
+      const selected = chosen().length;
+      count.textContent = `${selected} photo${selected === 1 ? "" : "s"} selected`;
       add.disabled = all.length >= max;
       add.title = all.length >= max ? `A scan can have at most ${max} photos.` : "";
+      const run = panel.querySelector("[data-scan-run]");
+      if (run && panel.dataset.scanBusy !== "true") run.disabled = selected < 1;
     };
 
     const check = (input) => {
@@ -101,7 +105,10 @@
       return true;
     };
 
-    box.addEventListener("change", (event) => { if (event.target.matches("[data-scan-file]")) check(event.target); });
+    box.addEventListener("change", (event) => {
+      if (event.target.matches("[data-scan-file]")) check(event.target);
+      refresh();
+    });
     add.addEventListener("click", () => {
       if (rows().length >= max) return;
       box.insertBefore(template.content.cloneNode(true), box.querySelector(".sg-files-bar"));
@@ -115,7 +122,7 @@
       refresh();
     });
     refresh();
-    return {chosen: () => inputs().flatMap((input) => [...input.files]), box};
+    return {chosen, box, refresh};
   };
 
   panels.forEach((panel) => { panel.fileRules = fileRules(panel); });
@@ -333,8 +340,8 @@
       } catch (error) {
         say("The form reader could not be reached. You can still fill in the registration by hand.", true);
       } finally {
-        run.disabled = false;
         delete panel.dataset.scanBusy;
+        panel.fileRules.refresh();
       }
     });
   });

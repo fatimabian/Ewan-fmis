@@ -157,9 +157,9 @@ class SharedScanPanelTests(TestCase):
         self.assertNotContains(page, reverse("form_scan:upload"))  # no separate review page for farmers
 
     @override_settings(RSBSA_SCAN_ENGINE="auto", OCR=SAMPLE, OPENAI_API_KEY="")
-    def test_farmer_panel_is_disabled_until_a_reader_is_configured(self):
+    def test_farmer_panel_keeps_endpoint_and_starts_disabled_until_a_photo_is_selected(self):
         page = self.client.get(reverse("farmers:create"))
-        self.assertNotContains(page, "data-scan-url")
+        self.assertContains(page, f'data-scan-url="{reverse("farmers:scan_rsbsa")}"')
         self.assertContains(page, "The form reader is not set up yet")
         self.assertContains(page, "data-scan-run disabled")
 

@@ -30,7 +30,7 @@
 
   <dialog class="sg-dialog" data-scan-dialog aria-labelledby="scanDialogTitle">
     {% if scan_target == "FARMER" %}
-      <div class="sg-dialog-body" data-scan-form="{{ scan_form_id }}"{% if rsbsa_scan_configured %} data-scan-url="{% url 'farmers:scan_rsbsa' %}" data-scan-log-url="{% url 'farmers:scan_rsbsa_applied' %}"{% endif %}>
+      <div class="sg-dialog-body" data-scan-form="{{ scan_form_id }}" data-scan-url="{% url 'farmers:scan_rsbsa' %}" data-scan-log-url="{% url 'farmers:scan_rsbsa_applied' %}">
     {% else %}
       <form class="sg-dialog-body" method="post" action="{% url 'form_scan:upload' %}" enctype="multipart/form-data">
         {% csrf_token %}
@@ -78,7 +78,7 @@
       <p class="sg-dialog-status" role="status" aria-live="polite" data-scan-status>{% if scan_target == "FARMER" and not rsbsa_scan_configured %}The form reader is not set up yet (see the OCR settings). You can still fill in the registration by hand.{% endif %}</p>
       <div class="sg-dialog-actions">
         {% if scan_target == "FARMER" %}
-          <button class="btn btn-success" type="button" data-scan-run{% if not rsbsa_scan_configured %} disabled{% endif %}><i class="bi bi-upload" aria-hidden="true"></i> Scan &amp; Auto-Fill</button>
+          <button class="btn btn-success" type="button" data-scan-run disabled><i class="bi bi-upload" aria-hidden="true"></i> Scan &amp; Auto-Fill</button>
         {% else %}
           <button class="btn btn-success" type="submit"><i class="bi bi-upload" aria-hidden="true"></i> Scan &amp; Auto-Fill</button>
         {% endif %}
