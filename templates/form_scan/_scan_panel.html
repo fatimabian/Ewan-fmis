@@ -59,14 +59,14 @@
           </div>
         </template>
         <div class="sg-files-bar">
+          <span class="sg-pages-count" data-scan-count aria-live="polite">1 photo selected</span>
           <button class="btn btn-outline-success sg-add-page" type="button" data-scan-add><i class="bi bi-plus-lg" aria-hidden="true"></i> Add page</button>
-          <span class="sg-pages-count" data-scan-count aria-live="polite">1 of {{ limits.max_files }} photos</span>
         </div>
       </fieldset>
       <ul class="sg-rules" aria-label="Photo rules">
         <li><strong>File types:</strong> {{ limits.extensions|join:", " }}</li>
         <li><strong>Size:</strong> up to {{ limits.max_mb }} MB per photo</li>
-        <li><strong>Pages:</strong> up to {{ limits.max_files }} photos per scan (use Add page)</li>
+        <li><strong>Pages:</strong> add every page needed for this form</li>
         <li><strong>Daily limit:</strong> {{ limits.daily_limit }} photos a day for the whole office, <span data-scan-left-text>{{ limits.left }} left today</span></li>
       </ul>
       {% if needs_consent %}

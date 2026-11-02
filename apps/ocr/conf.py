@@ -11,7 +11,7 @@ DEFAULTS = {
     "DAILY_LIMIT": 30,
     "TIMEOUT_SECONDS": 45,
     "MAX_IMAGE_BYTES": 5 * 1024 * 1024,
-    "MAX_FILES": 3,
+    "MAX_FILES": 30,
     # Unfinished scans (and their photos) are cleared after this many hours.
     "RETENTION_HOURS": 24,
     "MAX_IMAGE_SIDE": 1600,

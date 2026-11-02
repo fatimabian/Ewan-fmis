@@ -75,7 +75,7 @@
         remove.hidden = index === 0 && all.length === 1;
         remove.setAttribute("aria-label", `Remove photo ${index + 1}`);
       });
-      count.textContent = `${all.length} of ${max} photos`;
+      count.textContent = `${all.length} photo${all.length === 1 ? "" : "s"} selected`;
       add.disabled = all.length >= max;
       add.title = all.length >= max ? `A scan can have at most ${max} photos.` : "";
     };

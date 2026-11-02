@@ -94,7 +94,7 @@ class AccessTests(ScanTestCase):
         page = self.client.get(reverse("farm_parcels:create"))
         self.assertContains(page, "File types:</strong> JPG, JPEG, PNG, WEBP")
         self.assertContains(page, "up to 5 MB per photo")
-        self.assertContains(page, "up to 3 photos per scan")
+        self.assertContains(page, "add every page needed for this form")
         self.assertContains(page, "30 photos a day for the whole office")
         self.assertContains(page, "data-scan-add")
         self.assertContains(page, 'data-scan-count')
@@ -131,8 +131,8 @@ class UploadValidationTests(ScanTestCase):
         self.assertIn("too small", self.refused(self.post(upload(size=(200, 200)))))
 
     def test_rejects_too_many_pages(self):
-        files = [upload(color=(i * 20, 0, 0)) for i in range(4)]
-        self.assertIn("at most 3 photos", self.refused(self.post(*files)))
+        files = [upload(color=(i, 0, 0)) for i in range(31)]
+        self.assertIn("at most 30 photos", self.refused(self.post(*files)))
 
     def test_rejects_a_missing_photo(self):
         self.assertIn("Choose at least one photo", self.refused(self.post()))

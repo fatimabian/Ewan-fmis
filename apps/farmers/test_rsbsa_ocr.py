@@ -97,10 +97,10 @@ class RsbsaOcrEngineTests(TestCase):
 
     @override_settings(RSBSA_SCAN_ENGINE="ocr", OCR=SAMPLE)
     def test_too_many_pages_are_refused(self):
-        files = [photo((i * 10, 200, 200)) for i in range(4)]
+        files = [photo((i, 200, 200)) for i in range(31)]
         result = self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": files, "consent": "1"})
         self.assertEqual(result.status_code, 400)
-        self.assertIn("at most 3 photos", result.json()["error"])
+        self.assertIn("at most 30 photos", result.json()["error"])
 
     @override_settings(RSBSA_SCAN_ENGINE="auto", OCR={**OPENROUTER, "DAILY_LIMIT": 1})
     @mock.patch("apps.ocr.providers.requests.post")
