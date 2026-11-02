@@ -17,7 +17,7 @@ Open `http://127.0.0.1:8000/` to view the public landing page, then choose **Sig
 
 ## Scan & Auto-Fill (AI-assisted form digitization and location validation)
 
-Scan & Auto-Fill is one shared panel (`templates/form_scan/_scan_panel.html`, "Have the paper form?") used by three pages:
+Scan & Auto-Fill is one shared control (`templates/form_scan/_scan_panel.html`) used by three pages. It shows only a **Scan & Auto-Fill** button with an (i) tip; the upload module opens in a dialog when the button is used:
 
 - **Add Farm Parcel** and **Add Commodity**: staff photograph a handwritten form, review the values next to the photo, confirm them, and the form opens already filled in.
 - **Farmer Registration**: the RSBSA page 1 photo fills the profile fields in place; fields the reader was unsure about are highlighted. The RSBSA record copies upload below it is unchanged and never fills the form.

@@ -285,7 +285,7 @@ class FormIntegrationTests(ScanTestCase):
 
     def test_forms_offer_the_scan_and_navigation_does_not(self):
         parcel = self.client.get(reverse("farm_parcels:create"))
-        self.assertContains(parcel, "Have the paper form?")
+        self.assertContains(parcel, "data-scan-panel")
         self.assertContains(parcel, 'name="target" value="PARCEL"')
         crop = self.client.get(reverse("crops:create"))
         self.assertContains(crop, 'name="target" value="CROP"')
@@ -293,7 +293,7 @@ class FormIntegrationTests(ScanTestCase):
 
     def test_entry_panel_is_not_shown_when_editing(self):
         parcel = FarmParcel.objects.create(farmer=self.farmer, barangay="Bulihan", area_hectares="1", ownership_type="OWNED")
-        self.assertNotContains(self.client.get(reverse("farm_parcels:edit", args=[parcel.pk])), "Have the paper form?")
+        self.assertNotContains(self.client.get(reverse("farm_parcels:edit", args=[parcel.pk])), "data-scan-panel")
 
     def test_upload_from_the_form_goes_to_review_with_the_target_and_farmer(self):
         response = self.client.post(reverse("form_scan:upload"), {"photo": upload(), "target": "CROP", "farmer": self.farmer.pk})
@@ -309,7 +309,7 @@ class FormIntegrationTests(ScanTestCase):
         self.assertContains(page, f'name="scan" value="{scan.pk}"')
         initial = page.context["form"].initial
         self.assertEqual((initial["barangay"], initial["area_hectares"], initial["coordinates"]), ("Bulihan", "1.50", "13.7967000, 121.2351000"))
-        self.assertNotContains(page, "Have the paper form?")
+        self.assertNotContains(page, "data-scan-panel")
 
     def test_unconfirmed_or_wrong_target_scans_do_not_prefill(self):
         draft, crop = self.make_scan(), self.make_scan(target="CROP")

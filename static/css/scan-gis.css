@@ -87,17 +87,30 @@
 .gis-layers#gisLayers .gis-layer-btn[aria-pressed=true]{border-color:var(--sg-green)!important;background:var(--sg-green)!important;color:#fff!important}
 @media(max-width:600px){.gis-filters label{flex:1 1 100%}.gis-summary strong{font-size:18px}}
 
-/* Entry panel inside create forms */
-.sg-entry{padding:14px 16px}
-.sg-entry form{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
-.sg-entry-text{display:grid;gap:2px;max-width:560px;font-size:14px}
-.sg-entry-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.sg-entry-actions input[type=file]{max-width:260px;font-size:13px}
-.sg-entry-actions .btn{min-height:44px}
+/* Scan & Auto-Fill control: a button, an (i) tip, and a dialog */
+.sg-scan{margin:0 0 12px}
+.sg-scan-bar{display:flex;align-items:center;gap:8px}
+.sg-scan-open{min-height:42px}
+.sg-info-wrap{position:relative;display:inline-flex}
+.sg-info{display:inline-grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--sg-border,#dce7e0);background:transparent;color:var(--ag-muted,#64748b);font-size:17px;cursor:pointer}
+.sg-info:hover,.sg-info:focus-visible,.sg-info[aria-expanded=true]{color:var(--ag-green,#2f7d5c);border-color:var(--ag-green,#2f7d5c)}
+.sg-tip{position:absolute;top:calc(100% + 6px);left:0;z-index:30;width:min(320px,80vw);padding:10px 12px;border:1px solid var(--ag-border,#dce7e0);background:var(--surface,#fff);color:inherit;box-shadow:0 8px 22px rgba(17,28,43,.25);font-size:13px;line-height:1.45}
+.sg-tip[hidden]{display:none}
+.sg-scan-summary{margin:8px 0 0;padding:8px 12px;border:1px solid var(--ag-gold,#d8a62b);border-left-width:4px;background:var(--surface,#fff);color:inherit;font-size:13px}
+.sg-scan-summary[hidden]{display:none}
+.sg-dialog{width:min(480px,calc(100vw - 32px));padding:0;border:1px solid var(--ag-border,#dce7e0);background:var(--surface,#fff);color:inherit;box-shadow:0 20px 50px rgba(0,0,0,.4)}
+.sg-dialog::backdrop{background:rgba(10,22,17,.7)}
+.sg-dialog-body{display:grid;gap:10px;padding:18px}
+.sg-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.sg-dialog-head h2{margin:0;font-size:1.05rem}
+.sg-dialog-close{width:36px;height:36px;border:1px solid var(--ag-border,#dce7e0);background:transparent;color:inherit;font-size:22px;line-height:1;cursor:pointer}
+.sg-dialog input[type=file]{width:100%;max-width:100%;font-size:13px}
+.sg-dialog .sg-help{margin:0}
+.sg-dialog-status{min-height:1.2em;margin:0;color:var(--ag-muted,#64748b);font-size:13px}
+.sg-dialog-status.sg-error{color:var(--sg-red,#b42318)}
+.sg-dialog-actions{display:flex;flex-wrap:wrap;gap:10px}
+.sg-dialog-actions .btn{min-height:44px}
 
-/* Inline (farmer registration) mode */
-.sg-entry-form{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
-.sg-entry-status{flex:1 1 100%;margin:0;color:var(--ag-muted,#64748b);font-size:13px}
-.sg-entry-status:empty{display:none}
+/* Flags on fields the reader was unsure about */
 .sg-flag input,.sg-flag select,.sg-flag textarea{border-color:var(--ag-gold,#d8a62b)!important;outline:2px solid var(--ag-gold,#d8a62b)!important;outline-offset:0}
 .sg-flag-note{display:block;margin-top:4px;color:var(--ag-gold,#d8a62b);font-size:12px}

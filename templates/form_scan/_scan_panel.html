@@ -1,7 +1,8 @@
 {% load static %}
 {% comment %}
-  Shared "Scan & Auto-Fill" panel. Include it at the top of any create form:
+  Shared "Scan & Auto-Fill" control. Include it at the top of any create form:
     {% include "form_scan/_scan_panel.html" %}
+  It shows only a button and an (i) tip; the upload module opens in a dialog when the button is used.
   Needs in the context:
     scan_target  PARCEL or CROP (opens the review screen, then this form pre-filled)
                  FARMER (fills the profile fields on this page; unsure fields are highlighted)
@@ -9,34 +10,48 @@
   FARMER also uses rsbsa_scan_configured and scan_form_id (the id of the form to fill).
 {% endcomment %}
 <link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
-<section class="panel sg-entry" aria-labelledby="scanEntryTitle" data-scan-panel data-scan-target="{{ scan_target }}">
-  {% if scan_target == "FARMER" %}
-    <div class="sg-entry-form" data-scan-form="{{ scan_form_id }}"{% if rsbsa_scan_configured %} data-scan-url="{% url 'farmers:scan_rsbsa' %}"{% endif %}>
-  {% else %}
-    <form class="sg-entry-form" method="post" action="{% url 'form_scan:upload' %}" enctype="multipart/form-data">
-      {% csrf_token %}
-      <input type="hidden" name="target" value="{{ scan_target }}">
-      <input type="hidden" name="farmer" value="{{ scan_farmer }}">
-  {% endif %}
-    <div class="sg-entry-text">
-      <strong id="scanEntryTitle"><i class="bi bi-camera"></i> Have the paper form?</strong>
-      {% if scan_target == "FARMER" %}
-        <span>Take or choose a photo of page 1 of the RSBSA form. The profile fields below are filled in and any the reader was unsure about are highlighted. Nothing is saved until you submit the registration.</span>
-      {% else %}
-        <span>Take or choose a photo. The values are read, checked and entered below for you to confirm.</span>
-      {% endif %}
-    </div>
-    <div class="sg-entry-actions">
-      <input type="file" {% if scan_target != "FARMER" %}name="photo" required {% endif %}accept="image/jpeg,image/png,image/webp" capture="environment" aria-label="Photo of the paper form" data-scan-file{% if scan_target == "FARMER" and not rsbsa_scan_configured %} disabled{% endif %}>
-      {% if scan_target == "FARMER" %}
-        <button class="btn btn-outline-success" type="button" data-scan-run{% if not rsbsa_scan_configured %} disabled{% endif %}><i class="bi bi-upload"></i> Scan &amp; Auto-Fill</button>
-      {% else %}
-        <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> Scan &amp; Auto-Fill</button>
-      {% endif %}
-    </div>
+<div class="sg-scan" data-scan-panel data-scan-target="{{ scan_target }}">
+  <div class="sg-scan-bar">
+    <button class="btn btn-outline-success sg-scan-open" type="button" data-scan-open aria-haspopup="dialog"><i class="bi bi-camera" aria-hidden="true"></i> Scan &amp; Auto-Fill</button>
+    <span class="sg-info-wrap">
+      <button class="sg-info" type="button" data-scan-tip aria-label="About Scan and Auto-Fill" aria-describedby="scanTip" aria-expanded="false"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
+      <span class="sg-tip" id="scanTip" role="tooltip" hidden>
+        {% if scan_target == "FARMER" %}
+          Photograph page 1 of the RSBSA form. The profile fields are filled in and anything the reader was unsure about is highlighted. Nothing is saved until you submit.
+        {% else %}
+          Photograph the paper form. The values are read and checked, you confirm them, and this form opens already filled in. Nothing is saved until you save the form.
+        {% endif %}
+      </span>
+    </span>
+  </div>
+  <p class="sg-scan-summary" role="status" aria-live="polite" data-scan-summary hidden></p>
+
+  <dialog class="sg-dialog" data-scan-dialog aria-labelledby="scanDialogTitle">
     {% if scan_target == "FARMER" %}
-      <p class="sg-entry-status" role="status" aria-live="polite" data-scan-status>{% if not rsbsa_scan_configured %}The form reader is not set up yet (see OCR settings). You can still fill in the registration by hand.{% endif %}</p>
+      <div class="sg-dialog-body" data-scan-form="{{ scan_form_id }}"{% if rsbsa_scan_configured %} data-scan-url="{% url 'farmers:scan_rsbsa' %}"{% endif %}>
+    {% else %}
+      <form class="sg-dialog-body" method="post" action="{% url 'form_scan:upload' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="target" value="{{ scan_target }}">
+        <input type="hidden" name="farmer" value="{{ scan_farmer }}">
     {% endif %}
-  {% if scan_target == "FARMER" %}</div>{% else %}</form>{% endif %}
-</section>
-{% if scan_target == "FARMER" %}<script defer src="{% static 'js/scan-panel.js' %}"></script>{% endif %}
+      <div class="sg-dialog-head">
+        <h2 id="scanDialogTitle"><i class="bi bi-camera" aria-hidden="true"></i> Scan &amp; Auto-Fill</h2>
+        <button class="sg-dialog-close" type="button" data-scan-close aria-label="Close">&times;</button>
+      </div>
+      <label class="sg-label" for="scanPhotoInput">Photo of the paper form</label>
+      <input id="scanPhotoInput" type="file" {% if scan_target != "FARMER" %}name="photo" required {% endif %}accept="image/jpeg,image/png,image/webp" capture="environment" data-scan-file>
+      <p class="sg-help">On a phone this opens the camera. JPG, PNG or WebP{% if scan_target != "FARMER" %}, up to 8 MB{% endif %}. Use only forms you are allowed to process.</p>
+      <p class="sg-dialog-status" role="status" aria-live="polite" data-scan-status>{% if scan_target == "FARMER" and not rsbsa_scan_configured %}The form reader is not set up yet (see the OCR settings). You can still fill in the registration by hand.{% endif %}</p>
+      <div class="sg-dialog-actions">
+        {% if scan_target == "FARMER" %}
+          <button class="btn btn-success" type="button" data-scan-run{% if not rsbsa_scan_configured %} disabled{% endif %}><i class="bi bi-upload" aria-hidden="true"></i> Scan &amp; Auto-Fill</button>
+        {% else %}
+          <button class="btn btn-success" type="submit"><i class="bi bi-upload" aria-hidden="true"></i> Scan &amp; Auto-Fill</button>
+        {% endif %}
+        <button class="btn btn-outline-secondary" type="button" data-scan-close>Cancel</button>
+      </div>
+    {% if scan_target == "FARMER" %}</div>{% else %}</form>{% endif %}
+  </dialog>
+</div>
+<script defer src="{% static 'js/scan-panel.js' %}"></script>

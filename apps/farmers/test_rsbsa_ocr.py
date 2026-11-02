@@ -117,7 +117,7 @@ class SharedScanPanelTests(TestCase):
             page = self.client.get(reverse(name))
             self.assertContains(page, "data-scan-panel", msg_prefix=name)
             self.assertContains(page, f'data-scan-target="{target}"', msg_prefix=name)
-            self.assertContains(page, "Have the paper form?", msg_prefix=name)
+            self.assertContains(page, "data-scan-panel", msg_prefix=name)
             self.assertContains(page, "Scan &amp; Auto-Fill", msg_prefix=name)
             self.assertTemplateUsed(page, "form_scan/_scan_panel.html")
 

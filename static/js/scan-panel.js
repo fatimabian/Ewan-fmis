@@ -1,10 +1,38 @@
-// Shared Scan & Auto-Fill panel, inline mode: read the photo, fill this page's form, flag unsure fields.
+// Shared Scan & Auto-Fill control: a button and an (i) tip that open the upload dialog.
+// FARMER panels also read the photo in place, fill this page's form and flag unsure fields.
 (() => {
+  const panels = document.querySelectorAll("[data-scan-panel]");
+
+  panels.forEach((panel) => {
+    const dialog = panel.querySelector("[data-scan-dialog]");
+    const tipButton = panel.querySelector("[data-scan-tip]");
+    const tip = panel.querySelector(".sg-tip");
+    const open = () => (dialog.showModal ? dialog.showModal() : dialog.setAttribute("open", ""));
+    const close = () => (dialog.close ? dialog.close() : dialog.removeAttribute("open"));
+    panel.querySelector("[data-scan-open]").addEventListener("click", open);
+    panel.querySelectorAll("[data-scan-close]").forEach((button) => button.addEventListener("click", close));
+    // A click on the dimmed backdrop (the dialog element itself) also closes it.
+    dialog.addEventListener("click", (event) => { if (event.target === dialog) close(); });
+
+    const showTip = (visible) => {
+      tip.hidden = !visible;
+      tipButton.setAttribute("aria-expanded", String(visible));
+    };
+    tipButton.addEventListener("click", () => showTip(tip.hidden));
+    tipButton.addEventListener("mouseenter", () => showTip(true));
+    tipButton.addEventListener("mouseleave", () => showTip(false));
+    tipButton.addEventListener("focus", () => showTip(true));
+    tipButton.addEventListener("blur", () => showTip(false));
+    tipButton.addEventListener("keydown", (event) => { if (event.key === "Escape") showTip(false); });
+  });
+
   document.querySelectorAll('[data-scan-panel][data-scan-target="FARMER"]').forEach((panel) => {
     const box = panel.querySelector("[data-scan-url]");
     const run = panel.querySelector("[data-scan-run]");
     const fileInput = panel.querySelector("[data-scan-file]");
     const status = panel.querySelector("[data-scan-status]");
+    const summary = panel.querySelector("[data-scan-summary]");
+    const dialog = panel.querySelector("[data-scan-dialog]");
     const form = document.getElementById(panel.querySelector("[data-scan-form]").dataset.scanForm);
     if (!box || !run || !fileInput || !form) return;
 
@@ -90,7 +118,11 @@
         const unsure = (result.needs_review || []).length;
         const notes = [...(result.warnings || [])];
         if (skipped.length) notes.push(`Could not enter: ${skipped.join(", ")}.`);
-        say(`Filled in ${filled} field${filled === 1 ? "" : "s"}. ${unsure ? `${unsure} highlighted for checking. ` : ""}Compare every value with the paper form before you continue. ${notes.join(" ")}`);
+        // Success closes the dialog; the result is summarised under the button.
+        summary.textContent = `Filled in ${filled} field${filled === 1 ? "" : "s"}. ${unsure ? `${unsure} highlighted for checking. ` : ""}Compare every value with the paper form before you continue. ${notes.join(" ")}`;
+        summary.hidden = false;
+        say("");
+        dialog.close ? dialog.close() : dialog.removeAttribute("open");
       } catch (error) {
         say("The form reader could not be reached. You can still fill in the registration by hand.", true);
       } finally {
