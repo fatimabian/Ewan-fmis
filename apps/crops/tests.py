@@ -149,30 +149,8 @@ class GroupedCropListTests(TestCase):
         self.assertEqual(form.cleaned_data["cropping_schedule"], "")
         self.assertFalse(form.cleaned_data["is_intercrop"])
 
-    def test_farmer_crop_livelihood_rejects_livestock_commodity(self):
-        form = CropRecordForm(
-            data={
-                "parcel": self.parcel.pk,
-                "crop_type": "Swine",
-                "cropping_start_month": "",
-                "cropping_end_month": "",
-                "area_hectares": "",
-                "number_of_heads": "10",
-                "is_organic": "False",
-                "is_intercrop": "False",
-            }
-        )
-        self.assertFalse(form.is_valid())
-        self.assertIn("crop_type", form.errors)
-        self.assertIn(
-            "matches this farmer's recorded livelihood",
-            form.errors["crop_type"][0],
-        )
-
-    def test_livestock_raiser_accepts_livestock_and_rejects_crop_commodity(self):
-        self.farmer.livelihood = "LIVESTOCK"
-        self.farmer.activities = ""
-        self.farmer.save(update_fields=["livelihood", "activities"])
+    def test_commodity_is_not_tied_to_the_farmers_livelihood(self):
+        """The livelihood match rule was removed from the form: either kind of commodity is accepted."""
         livestock = CropRecordForm(
             data={
                 "parcel": self.parcel.pk,
@@ -182,19 +160,21 @@ class GroupedCropListTests(TestCase):
                 "is_intercrop": "False",
             }
         )
+        self.assertTrue(livestock.is_valid(), livestock.errors)
+        self.farmer.livelihood = "LIVESTOCK"
+        self.farmer.activities = ""
+        self.farmer.save(update_fields=["livelihood", "activities"])
         crop = CropRecordForm(
             data={
                 "parcel": self.parcel.pk,
                 "crop_type": "Rice",
                 "area_hectares": "0.50",
                 "is_organic": "False",
-                "is_intercrop": "False",
+                "is_intercrop": "True",
             }
         )
-
-        self.assertTrue(livestock.is_valid(), livestock.errors)
-        self.assertFalse(crop.is_valid())
-        self.assertIn("crop_type", crop.errors)
+        self.assertTrue(crop.is_valid(), crop.errors)
+        self.assertNotIn("crop_type", crop.errors)
 
     def test_catalog_uses_specific_leafy_vegetables(self):
         form = CropRecordForm()

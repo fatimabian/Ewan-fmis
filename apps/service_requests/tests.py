@@ -159,10 +159,12 @@ class ServiceManagementTests(TestCase):
         self.client.force_login(self.staff)
         preview = self.client.get(
             reverse("reports:home"),
-            {"report_type": "service_effectiveness", "date_range": "all"},
+            # The preview lives on the Reports tab of the page.
+            {"analytics_tab": "reports", "report_type": "service_effectiveness", "date_range": "all"},
         )
         self.assertEqual(preview.status_code, 200)
-        self.assertContains(preview, "Service Effectiveness Report")
+        # The preview heading is upper-cased by the template.
+        self.assertContains(preview, "SERVICE EFFECTIVENESS REPORT")
 
     def test_metrics_keep_bounded_queries_above_five_thousand_requests(self):
         now = timezone.now()

@@ -1697,7 +1697,9 @@ class FMISRequirementTests(TestCase):
         self.assertContains(history_page, "Date")
         self.assertContains(history_page, "Time")
         self.assertContains(history_page, "Update status: Completed")
-        self.assertEqual(history_page.context["history_entries"][0]["transaction_code"], "")
+        # Slip A updates now keep the transaction code in the history entry.
+        self.assertEqual(history_page.context["history_entries"][0]["transaction_code"], "SLIP-A-001")
+        self.assertContains(history_page, "Transaction code: SLIP-A-001")
         farmer_list = self.client.get(reverse("farmers:list"))
         self.assertNotContains(farmer_list, "Last Updated By")
         self.assertNotContains(farmer_list, "Latest Change")

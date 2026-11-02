@@ -39,4 +39,4 @@ class WeatherTriggeredRequestRemovalTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "Weather Risk Events")
         self.assertNotContains(response, "Awaiting Weather Review")
-        self.assertContains(response, "SERVICE REQUEST STATUS")
+        self.assertContains(response, "Request Status")
