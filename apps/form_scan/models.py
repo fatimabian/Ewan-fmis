@@ -18,12 +18,15 @@ class FormScan(models.Model):
     STATUS_CONFIRMED = "CONFIRMED"
     STATUS_APPROVED = "APPROVED"
     STATUS_DISCARDED = "DISCARDED"
+    STATUS_EXPIRED = "EXPIRED"
     STATUS_CHOICES = [
         (STATUS_DRAFT, "Awaiting review"),
         (STATUS_CONFIRMED, "Confirmed, waiting to be saved in the form"),
         (STATUS_APPROVED, "Saved"),
         (STATUS_DISCARDED, "Discarded"),
+        (STATUS_EXPIRED, "Not finished, cleared automatically"),
     ]
+    OPEN_STATUSES = (STATUS_DRAFT, STATUS_CONFIRMED)
     TARGET_PARCEL = "PARCEL"
     TARGET_CROP = "CROP"
     TARGET_CHOICES = [(TARGET_PARCEL, "Farm parcel form"), (TARGET_CROP, "Commodity form")]
@@ -33,7 +36,12 @@ class FormScan(models.Model):
         settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="form_scans"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    image = models.FileField(upload_to=scan_upload_path, storage=private_storage)
+    updated_at = models.DateTimeField(auto_now=True)
+    image = models.FileField(upload_to=scan_upload_path, storage=private_storage, blank=True)
+    # Set when the photos are deleted at the end of the scan cycle; the text audit trail stays.
+    files_deleted_at = models.DateTimeField(null=True, blank=True)
+    # Field groups staff chose not to use (for example "location"); their values are never carried to the form.
+    rejected_groups = models.JSONField(default=list, blank=True)
     image_sha256 = models.CharField(max_length=64, db_index=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_DRAFT)
     # The form this scan fills in: it is opened with the confirmed values already entered.
@@ -73,7 +81,9 @@ class FormScan(models.Model):
 
     @property
     def page_numbers(self):
-        """Page numbers that have a stored photo (1 is the first photo)."""
+        """Page numbers that have a stored photo (1 is the first photo); none once the photos are deleted."""
+        if self.files_deleted_at or not self.image:
+            return []
         return [1, *[page.position for page in self.extra_pages.all()]]
 
 
@@ -101,6 +111,8 @@ class FormScanAudit(models.Model):
         ("CONFIRMED", "Confirmed by staff"),
         ("SAVED", "Saved in the record"),
         ("DISCARDED", "Discarded"),
+        ("EXPIRED", "Cleared automatically (not finished)"),
+        ("FILES_DELETED", "Photos deleted"),
     ]
 
     scan = models.ForeignKey(FormScan, on_delete=models.CASCADE, related_name="audit")

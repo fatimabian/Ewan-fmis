@@ -393,7 +393,7 @@ class FormIntegrationTests(ScanTestCase):
         correction = FieldCorrection.objects.get()
         self.assertEqual((correction.field_name, correction.ocr_value, correction.final_value, correction.ocr_model, correction.corrected_by),
                          ("area_hectares", "1.5", "2.50", "m1", self.staff))
-        self.assertTrue(ActivityLog.objects.filter(title="Record Saved from Scan").exists())
+        self.assertTrue(ActivityLog.objects.filter(title="Scanned Form Saved", module="Scan & Auto-Fill").exists())
 
     def test_unchanged_values_make_no_corrections(self):
         scan = self.make_scan()

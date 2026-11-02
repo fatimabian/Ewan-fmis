@@ -12,6 +12,8 @@ DEFAULTS = {
     "TIMEOUT_SECONDS": 45,
     "MAX_IMAGE_BYTES": 5 * 1024 * 1024,
     "MAX_FILES": 3,
+    # Unfinished scans (and their photos) are cleared after this many hours.
+    "RETENTION_HOURS": 24,
     "MAX_IMAGE_SIDE": 1600,
     "CONFIDENCE_THRESHOLD": 0.75,
     "FIELDS": [

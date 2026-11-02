@@ -41,13 +41,26 @@ The dialog states these rules, which come from the same settings that enforce th
 - **Pages:** up to 3 photos per scan. **Add page** adds another photo for multi-page forms, and the readings of all pages are merged field by field.
 - **Daily limit:** 30 photos a day for the whole office, counted once per photo however many models are tried (a 3-page scan uses 3). When the limit is reached the photos are kept and the form opens for manual entry. Sample mode is not counted.
 
+### Life of a scan (and what happens to the photos)
+
+1. **Scan.** Staff add up to 3 photos in the dialog. If the form already has typed values, the parcel and commodity dialogs warn that scanning restarts the form.
+2. **Review** (parcel and commodity). Each value has a **Use this value in the form** tick; location (latitude and longitude) is one choice. Unticked values are not carried to the form and are ignored by the checks. Red checks block confirming.
+3. **Confirm.** The form opens with only the ticked values, with a banner and a **Discard scan** button.
+4. **Save.** Saving the form records what staff changed (corrections table and audit trail) and then **deletes the photos**.
+
+The Add Farmer scan has no review page. After reading, the dialog lists every scanned value beside what is already in the form: empty fields start ticked, values you typed are kept unless you tick them, and **Cancel** applies nothing. No photo is ever stored for it.
+
+**Photos are deleted when a scan ends**: saved, discarded (from the review or the form banner), replaced by a newer scan for the same form, or not finished within `OCR_RETENTION_HOURS` (default 24). Unfinished scans are cleared automatically whenever someone starts a scan, and `python manage.py purge_form_scans` does the same on demand (schedule it daily on the server). The text audit trail stays: who scanned, confirmed and saved, which reader answered, the OCR values, the final values and what was corrected.
+
+**Audit log and notifications.** Each step writes one Activity Log entry under the module **Scan & Auto-Fill**: Form Scanned, Scan Confirmed, Scanned Form Saved, Scan Discarded, Unfinished Scans Cleared (farmer registration: Form Scanned and Scan Reviewed, with field names only). Entries never contain names or other values. The record itself (farm parcel, commodity, farmer) is still audited by its own normal entries and update history. Staff are not notified about scans. Administrators get a warning notification, at most once a day each, when the daily limit is reached or every configured model fails.
+
 ### Setup
 
 1. `pip install -r requirements.txt` and `python manage.py migrate` (adds `ocr` and `form_scan` tables).
 2. Copy `.env.example` to `.env` and set:
    - `OCR_PROVIDER`: `openrouter` (default), `gemini` (direct Google API) or `sample` (made-up readings, no key, nothing leaves the machine).
    - `OPENROUTER_API_KEY` or `GEMINI_API_KEY`, and `OCR_MODELS` (comma separated, tried in order).
-   - Optional: `OCR_DAILY_LIMIT` (default 30), `OCR_MAX_FILES` (default 3), `OCR_MAX_IMAGE_MB` (default 5), `OCR_TIMEOUT_SECONDS`, `OCR_CONFIDENCE_THRESHOLD` (default 0.75).
+   - Optional: `OCR_DAILY_LIMIT` (default 30), `OCR_MAX_FILES` (default 3), `OCR_MAX_IMAGE_MB` (default 5), `OCR_RETENTION_HOURS` (default 24), `OCR_TIMEOUT_SECONDS`, `OCR_CONFIDENCE_THRESHOLD` (default 0.75).
 3. Choose the models by testing them on **dummy or consented** forms: `python manage.py ocr_compare form1.jpg form2.jpg`. Images are sent to the outside provider.
 4. Import the barangay boundaries (`import_rosario_barangay_boundaries`) so the "pin inside barangay" check is exact. Without them the check compares with the published barangay reference points and says it is approximate.
 5. Uploaded photos are stored in `private_media/` (override with `FMIS_PRIVATE_MEDIA_ROOT`), outside `MEDIA_ROOT`, with no public URL, and are served only to signed-in staff.

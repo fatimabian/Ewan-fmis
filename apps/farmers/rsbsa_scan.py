@@ -14,7 +14,8 @@ from PIL import Image, UnidentifiedImageError
 from apps.common.constants import ROSARIO_BARANGAYS
 from apps.ocr import services as ocr
 from apps.ocr.conf import ocr_setting
-from apps.ocr.exceptions import OcrQuotaExceeded, OcrUnavailable, UploadRejected
+from apps.form_scan.events import warn_admins_once
+from apps.ocr.exceptions import OcrAllModelsFailed, OcrQuotaExceeded, OcrUnavailable, UploadRejected
 from apps.ocr.uploads import read_uploads
 
 from .forms import VALID_ID_CHOICES
@@ -332,8 +333,11 @@ def _scan_with_ocr(uploads):
     try:
         result = ocr.extract_many(contents, fields=["form_title", *PROFILE_FIELDS], instructions=_ocr_instructions())
     except OcrQuotaExceeded as error:
+        warn_admins_once("Daily Scan Limit Reached", f"The office reached its limit of {ocr_setting('DAILY_LIMIT')} scanned photos for today. Staff continue by manual entry until tomorrow.")
         raise RSBSAScanError(f"{error} You can still fill in the registration by hand.", status=429) from error
     except OcrUnavailable as error:
+        if isinstance(error, OcrAllModelsFailed):
+            warn_admins_once("Form Reader Not Responding", "Every configured model failed to read a scanned form. Check the OCR provider, key and models. Staff continue by manual entry.")
         logger.warning("RSBSA OCR unavailable: %s", error)
         raise RSBSAScanError(
             "RSBSA verification is temporarily unavailable. Try again shortly.", status=503
@@ -360,6 +364,7 @@ def _scan_with_ocr(uploads):
         "needs_review": review,
         "warnings": warnings,
         "form_version": "",
+        "reader": result.model,
         "scan_token": build_scan_token(contents[0]),
     }
 

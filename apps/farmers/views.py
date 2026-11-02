@@ -1,3 +1,4 @@
+import json
 import base64
 import logging
 import mimetypes
@@ -36,6 +37,7 @@ from .forms import (
 from .models import Farmer, FarmerDocument
 from .history import farmer_snapshot, record_farmer_update
 from .rsbsa_pdf import farmer_record_pdf_response
+from apps.form_scan.events import quiet_request, scan_event
 from .rsbsa_scan import RSBSAScanError, rsbsa_scan_available, scan_rsbsa_profile
 from .duplicate_detection import (
     build_review_token,
@@ -637,11 +639,47 @@ class FarmerRSBSAScanView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
             return JsonResponse(
                 {"error": "Capture or choose an RSBSA form image first."}, status=400
             )
+        quiet_request(request)  # reading a form is not a farmer record change; log what really happened
         try:
             result = scan_rsbsa_profile(upload)
         except RSBSAScanError as error:
             return JsonResponse({"error": str(error)}, status=error.status)
+        scan_event(
+            request.user, "Form Scanned",
+            f"{request.user.display_name} scanned {len(uploads)} photo{'s' if len(uploads) != 1 else ''} for the Farmer Registration form"
+            f" (read by {result.get('reader') or 'the form reader'}). No photo was stored.",
+            request=request, path=request.path,
+        )
         return JsonResponse(result)
+
+
+class FarmerRSBSAScanAppliedView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Record which scanned fields staff applied, kept or skipped (field names only, never the values)."""
+
+    def post(self, request):
+        quiet_request(request)
+        try:
+            data = json.loads(request.body or b"{}")
+        except ValueError:
+            return JsonResponse({"error": "Invalid request."}, status=400)
+        from .rsbsa_scan import PROFILE_FIELDS
+
+        names = {
+            key: [name for name in data.get(key, []) if name in PROFILE_FIELDS]
+            for key in ("applied", "kept", "skipped")
+        }
+        if data.get("cancelled"):
+            text = f"{request.user.display_name} closed the scan review without applying any scanned value."
+        else:
+            text = (
+                f"{request.user.display_name} reviewed a scanned Farmer Registration form: "
+                f"{len(names['applied'])} applied, {len(names['kept'])} kept as typed, {len(names['skipped'])} skipped."
+            )
+        scan_event(
+            request.user, "Scan Reviewed", text, request=request, path=request.path,
+            details=[{"field": key.title(), "before": "", "after": ", ".join(value) or "none"} for key, value in names.items()],
+        )
+        return JsonResponse({"ok": True})
 
 
 class FarmerRegistrationCompleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):

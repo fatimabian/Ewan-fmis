@@ -6,7 +6,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from .conf import ocr_setting
-from .exceptions import OcrProviderError, OcrQuotaExceeded, OcrUnavailable
+from .exceptions import OcrAllModelsFailed, OcrProviderError, OcrQuotaExceeded, OcrUnavailable
 from .imaging import prepare_image
 from .models import OcrDailyUsage
 from .parsing import build_prompt, parse_reply
@@ -123,7 +123,7 @@ def extract_many(images, *, fields=None, provider=None, instructions=""):
         models.append(model)
     if not readings:
         detail = "; ".join(f"{model}: {why}" for model, why in attempts)
-        raise OcrUnavailable(f"No OCR model could read the form ({detail}).")
+        raise OcrAllModelsFailed(f"No OCR model could read the form ({detail}).")
     return OcrResult(_merge(readings, names), provider.name, models[0], attempts, len(prepared), unreadable)
 
 

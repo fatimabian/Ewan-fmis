@@ -163,3 +163,23 @@
 .sg-rules{display:grid;gap:3px;margin:0;padding:10px 12px;border:1px solid var(--sg-border,#dce7e0);list-style:none;font-size:13px}
 .sg-sample-note{margin:0;padding:8px 10px;border:1px solid var(--ag-gold,#d8a62b);font-size:13px}
 .sg-dialog{max-height:calc(100vh - 32px);overflow:auto}
+
+/* Accept or reject a scanned value */
+.sg-accept{display:flex;align-items:center;gap:6px;margin-top:2px;font-size:12px;font-weight:400}
+.sg-accept input{width:auto;min-height:0}
+.sg-field.sg-rejected input,.sg-field.sg-rejected select{opacity:.55}
+.sg-banner-actions{display:flex;gap:14px;align-items:center;margin-left:auto;white-space:nowrap}
+.sg-banner-actions form{margin:0}
+.sg-link-btn{border:0;background:transparent;color:var(--ag-green,#2f7d5c);text-decoration:underline;cursor:pointer;font:inherit;padding:0}
+
+/* Review of scanned values on the farmer page */
+.sg-review{display:grid;gap:12px}
+.sg-review[hidden],[data-scan-upload][hidden]{display:none}
+.sg-review-table{width:100%;border-collapse:collapse;font-size:13px}
+.sg-review-table caption{padding:0 0 8px;color:var(--ag-muted,#64748b);text-align:left}
+.sg-review-table th,.sg-review-table td{padding:6px 8px;border-bottom:1px solid var(--sg-border,#dce7e0);text-align:left;vertical-align:top}
+.sg-review-table td:first-child{width:1%}
+.sg-review-table input[type=checkbox]{width:18px;height:18px}
+.sg-review-table tr[data-state=differs] td:nth-child(4) small{color:var(--ag-gold,#d8a62b)}
+.sg-review-table .sg-flag-note{display:inline;margin:0}
+.sg-dialog:has([data-scan-review]:not([hidden])){width:min(640px,calc(100vw - 32px))}

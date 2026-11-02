@@ -29,7 +29,7 @@
 
   <dialog class="sg-dialog" data-scan-dialog aria-labelledby="scanDialogTitle">
     {% if scan_target == "FARMER" %}
-      <div class="sg-dialog-body" data-scan-form="{{ scan_form_id }}"{% if rsbsa_scan_configured %} data-scan-url="{% url 'farmers:scan_rsbsa' %}"{% endif %}>
+      <div class="sg-dialog-body" data-scan-form="{{ scan_form_id }}"{% if rsbsa_scan_configured %} data-scan-url="{% url 'farmers:scan_rsbsa' %}" data-scan-log-url="{% url 'farmers:scan_rsbsa_applied' %}"{% endif %}>
     {% else %}
       <form class="sg-dialog-body" method="post" action="{% url 'form_scan:upload' %}" enctype="multipart/form-data">
         {% csrf_token %}
@@ -40,6 +40,7 @@
         <h2 id="scanDialogTitle"><i class="bi bi-camera" aria-hidden="true"></i> Scan &amp; Auto-Fill</h2>
         <button class="sg-dialog-close" type="button" data-scan-close aria-label="Close">&times;</button>
       </div>
+      <div data-scan-upload>
       {% if limits.sample %}<p class="sg-sample-note"><i class="bi bi-info-circle" aria-hidden="true"></i> Sample data mode: nothing is sent anywhere and the values shown are made up.</p>{% endif %}
       <fieldset class="sg-files" data-scan-files data-max="{{ limits.max_files }}" data-max-mb="{{ limits.max_mb }}" data-left="{{ limits.left }}" data-daily="{{ limits.daily_limit }}" data-extensions="{{ limits.accept }}">
         <legend class="sg-label">Photos of the form</legend>
@@ -73,6 +74,8 @@
         {% endif %}
         <button class="btn btn-outline-secondary" type="button" data-scan-close>Cancel</button>
       </div>
+      </div>
+      {% if scan_target == "FARMER" %}<div class="sg-review" data-scan-review hidden></div>{% endif %}
     {% if scan_target == "FARMER" %}</div>{% else %}</form>{% endif %}
   </dialog>
 </div>

@@ -12,3 +12,7 @@ class OcrQuotaExceeded(OcrUnavailable):
 
 class UploadRejected(Exception):
     """A photo breaks the file rules; the message tells staff exactly which rule."""
+
+
+class OcrAllModelsFailed(OcrUnavailable):
+    """Every configured model failed on the photo; usually a key, model or provider problem."""

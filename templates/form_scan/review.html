@@ -19,9 +19,11 @@
     <form method="post" id="scanForm" novalidate>
       {% csrf_token %}
       <input type="hidden" name="action" id="scanAction" value="check">
+      <input type="hidden" name="accept_sent" value="1">
       <div class="sg-split">
         <section class="panel sg-panel">
           <h3><i class="bi bi-image"></i> Form photo{% if pages|length > 1 %}s{% endif %}</h3>
+          {% if scan.files_deleted_at %}<p class="sg-help"><i class="bi bi-trash3" aria-hidden="true"></i> The photos were deleted on {{ scan.files_deleted_at|date:"M j, Y g:i A" }} when this scan ended. The audit trail below is kept.</p>{% endif %}
           {% for page in pages %}
             {% if pages|length > 1 %}<p class="sg-page-label">Page {{ page.number }} of {{ pages|length }}</p>{% endif %}
             <a href="{{ page.url }}" target="_blank" rel="noopener"><img class="sg-photo" src="{{ page.url }}" alt="Photographed farmer form, page {{ page.number }}"></a>
@@ -33,12 +35,21 @@
           {% if form.non_field_errors %}<p class="sg-error">{{ form.non_field_errors }}</p>{% endif %}
           <div class="sg-fields">
             {% for row in rows %}
-              <div class="sg-field{% if row.low %} sg-low{% endif %}">
+              <div class="sg-field{% if row.low %} sg-low{% endif %}{% if row.applies and not row.ticked and editable %} sg-rejected{% endif %}">
                 <label for="{{ row.field.id_for_label }}">{{ row.label }}
                   {% if row.confidence is not None and row.field.value %}<small class="sg-conf">{{ row.confidence }}% sure</small>{% endif %}
                 </label>
                 {{ row.field }}
                 {% if row.low %}<small class="sg-low-note">Low confidence. Check against the photo.</small>{% endif %}
+                {% if editable %}
+                  {% if row.shows_checkbox %}
+                    <label class="sg-accept"><input type="checkbox" name="accept" value="{{ row.group }}"{% if row.ticked %} checked{% endif %}> Use {% if row.group == 'location' %}this location{% else %}this value{% endif %} in the form</label>
+                  {% elif row.applies %}
+                    <small class="sg-muted">Follows the location choice above.</small>
+                  {% elif row.group %}
+                    <small class="sg-muted">Not used in this form.</small>
+                  {% endif %}
+                {% endif %}
                 {% for error in row.field.errors %}<small class="sg-error">{{ error }}</small>{% endfor %}
               </div>
             {% endfor %}
@@ -90,7 +101,7 @@
         <div class="sg-actions">
           <button class="btn btn-outline-success" type="submit" name="action" value="check"><i class="bi bi-arrow-repeat"></i> Re-run checks</button>
           <button class="btn btn-success" type="submit" name="action" value="confirm" {% if result.status == 'RED' %}disabled title="Correct the red items first"{% endif %}><i class="bi bi-check2-circle"></i> Confirm and continue to {% if scan.target == 'CROP' %}commodity{% else %}farm parcel{% endif %} form</button>
-          <button class="btn btn-outline-secondary" type="submit" name="action" value="discard" formnovalidate onclick="return confirm('Discard this scan?')">Discard</button>
+          <button class="btn btn-outline-secondary" type="submit" name="action" value="discard" formnovalidate onclick="return confirm('Discard this scan? The photos will be deleted and nothing will be saved.')">Discard scan</button>
         </div>
       {% else %}
         <div class="sg-note"><i class="bi bi-lock"></i><span>{{ scan.get_status_display }}{% if scan.crop %}: <a href="{% url 'crops:detail' scan.crop.pk %}">commodity record</a>{% elif scan.parcel %}: <a href="{% url 'farm_parcels:detail' scan.parcel.pk %}">{{ scan.parcel.display_name }}</a>{% endif %}.</span></div>
