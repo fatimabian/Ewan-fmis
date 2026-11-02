@@ -234,13 +234,12 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         ).distinct()
     if commodity:
         crops = crops.filter(crop_type=commodity)
-        if tab == "interventions":
-            interventions = interventions.filter(
-                recipients__is_active=True,
-                recipients__farmer__parcels__is_active=True,
-                recipients__farmer__parcels__crops__is_active=True,
-                recipients__farmer__parcels__crops__crop_type=commodity,
-            ).distinct()
+        interventions = interventions.filter(
+            recipients__is_active=True,
+            recipients__farmer__parcels__is_active=True,
+            recipients__farmer__parcels__crops__is_active=True,
+            recipients__farmer__parcels__crops__crop_type=commodity,
+        ).distinct()
     if request_status:
         requests = requests.filter(status=request_status)
     if request_priority:
@@ -714,7 +713,6 @@ def report_preview(report_type, date_range, filters, system_report=False, page=1
                 "width": max(2, round(float(value) / peak * 100)) if value else 0,
             }
         )
-    summary, insights = _report_preview_analytics(report_type, rows, chart, value_label)
     paginator = Paginator(rows, per_page)
     page_obj = paginator.get_page(page)
     return {
@@ -728,8 +726,6 @@ def report_preview(report_type, date_range, filters, system_report=False, page=1
         "value_label": value_label,
         "show_chart": show_chart,
         "is_farmer_master": report_type == "farmer_master",
-        "analytics_summary": summary,
-        "analytics_insights": insights,
     }
 
 

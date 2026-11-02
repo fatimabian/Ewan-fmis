@@ -13,9 +13,9 @@ from apps.notifications.models import Notification
 from apps.reports.export import build_report
 from apps.service_catalog.models import ServiceCatalog
 
-from .models import ServiceLevelPolicy, ServiceRequest, ServiceRequestEscalation, ServiceRequestHistory
+from .models import ServiceRequest, ServiceRequestEscalation, ServiceRequestHistory
 from .forms import ServiceRequestForm
-from .services import ensure_service_level_policies, service_effectiveness_metrics
+from .services import service_effectiveness_metrics
 
 
 class ServiceManagementTests(TestCase):
@@ -39,7 +39,6 @@ class ServiceManagementTests(TestCase):
                 "processing_time": "Depends on assessment",
             },
         )
-        ensure_service_level_policies()
 
     def request(self, **values):
         defaults = {
@@ -52,7 +51,7 @@ class ServiceManagementTests(TestCase):
         defaults.update(values)
         return ServiceRequest.objects.create(**defaults)
 
-    def test_proposed_priority_windows_create_separate_deadlines(self):
+    def test_fixed_priority_windows_create_separate_deadlines(self):
         expected = {"HIGH": (24, 72), "MEDIUM": (72, 96), "LOW": (120, 168)}
         for priority, hours in expected.items():
             with self.subTest(priority=priority):
@@ -61,7 +60,6 @@ class ServiceManagementTests(TestCase):
                     item.first_response_due_at - item.created_at, timedelta(hours=hours[0])
                 )
                 self.assertEqual(item.due_at - item.created_at, timedelta(hours=hours[1]))
-                self.assertFalse(ServiceLevelPolicy.objects.get(priority=priority).is_approved)
 
     def test_overdue_is_separate_from_workflow_status_and_explains_age(self):
         item = self.request(status="IN_PROGRESS")
@@ -141,14 +139,10 @@ class ServiceManagementTests(TestCase):
         self.assertEqual(metrics["resolution_rate_display"], "N/A")
         self.assertEqual(metrics["average_response_display"], "N/A")
 
-    def test_only_admin_can_change_service_targets(self):
-        self.client.force_login(self.staff)
-        denied = self.client.get(reverse("service_requests:service_levels"))
-        self.assertEqual(denied.status_code, 302)
+    def test_service_target_configuration_is_not_exposed(self):
         self.client.force_login(self.admin)
-        allowed = self.client.get(reverse("service_requests:service_levels"))
-        self.assertEqual(allowed.status_code, 200)
-        self.assertContains(allowed, "proposed operational defaults")
+        response = self.client.get("/requests/service-levels/")
+        self.assertEqual(response.status_code, 404)
 
     def test_effectiveness_report_uses_shared_metric_service(self):
         self.request()
@@ -160,7 +154,11 @@ class ServiceManagementTests(TestCase):
         preview = self.client.get(
             reverse("reports:home"),
             # The preview lives on the Reports tab of the page.
-            {"analytics_tab": "reports", "report_type": "service_effectiveness", "date_range": "all"},
+            {
+                "analytics_tab": "reports",
+                "report_type": "service_effectiveness",
+                "date_range": "all",
+            },
         )
         self.assertEqual(preview.status_code, 200)
         # The preview heading is upper-cased by the template.

@@ -40,25 +40,34 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("authentication:login"), response.url)
 
-    def test_overview_uses_database_values_and_shows_all_tabs(self):
+    def test_reports_page_uses_database_values_and_shows_all_analytics_sections(self):
         self.client.force_login(self.staff)
         response = self.client.get(
             reverse("reports:home"),
             {"analytics_tab": "overview", "analytics_date_range": "all"},
         )
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["analytics_tab"], "reports")
         self.assertEqual(response.context["descriptive"]["summary"][0]["value"], 1)
         self.assertContains(response, "Barangays with the Most Farmers")
-        self.assertContains(response, "Generate Reports")
+        self.assertContains(response, "Report Filters")
+        self.assertContains(response, "Municipal Overview")
+        self.assertContains(response, "Farmer Analytics")
+        self.assertContains(response, "Farm Parcel Analytics")
+        self.assertContains(response, "Commodity Analytics")
+        self.assertContains(response, "Service Request Analytics")
+        self.assertContains(response, "Intervention Analytics")
+        self.assertContains(response, "Inventory Analytics")
+        self.assertNotContains(response, 'class="analytics-tabs"')
         self.assertNotContains(response, "phone_number")
 
     def test_reports_navigation_uses_staff_overview_and_admin_governance_reports(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("reports:home"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["analytics_tab"], "overview")
+        self.assertEqual(response.context["analytics_tab"], "reports")
         self.assertContains(response, "Barangays with the Most Farmers")
-        self.assertNotContains(response, "Report Filters")
+        self.assertContains(response, "Report Filters")
 
         administrator = get_user_model().objects.create_user(
             username="analytics-admin",
@@ -177,19 +186,12 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertEqual(values["PWD Farmers"], 1)
         self.assertEqual(values["Indigenous Farmers"], 1)
         self.assertContains(response, "Farmer Statistics")
-        self.assertContains(response, '<span class="analytics-kpi-icon"', count=7)
+        self.assertContains(response, '<span class="analytics-kpi-icon"')
 
-    def test_generate_reports_tab_preserves_report_builder(self):
+    def test_one_page_reports_preserves_report_builder(self):
         self.client.force_login(self.staff)
-        with patch(
-            "apps.reports.views.descriptive_analytics",
-            side_effect=AssertionError("analytics must be lazy on the report generator"),
-        ) as analytics_builder:
-            response = self.client.get(
-                reverse("reports:home"), {"analytics_tab": "reports"}
-            )
+        response = self.client.get(reverse("reports:home"))
         self.assertEqual(response.status_code, 200)
-        analytics_builder.assert_not_called()
         self.assertContains(response, "Report Filters")
         self.assertContains(response, 'name="report_type"')
         self.assertContains(response, 'name="date_range"')
@@ -198,7 +200,7 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertContains(response, 'name="format"')
         self.assertContains(response, "Download Report")
 
-    def test_generated_report_preview_analytics_use_the_filtered_report_rows(self):
+    def test_generated_report_preview_omits_redundant_filtered_analytics_cards(self):
         self.client.force_login(self.staff)
         response = self.client.get(
             reverse("reports:home"),
@@ -212,49 +214,33 @@ class DescriptiveAnalyticsTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["report_preview"]["total_rows"], 1)
-        self.assertEqual(
-            response.context["report_preview"]["analytics_summary"][0]["value"],
-            "1",
-        )
-        self.assertContains(response, "Filtered Report Analytics")
-        self.assertContains(response, "Matching farmers")
+        self.assertNotContains(response, "Filtered Report Analytics")
+        self.assertNotContains(response, "Descriptive totals calculated from the same records")
+        self.assertContains(response, "FARMER MASTER LIST")
 
-    def test_every_descriptive_tab_renders(self):
+    def test_legacy_analytics_tab_parameters_resolve_to_the_one_page_workspace(self):
         self.client.force_login(self.staff)
-        for tab in (
-            "overview",
-            "farmers",
-            "parcels",
-            "commodities",
-            "requests",
-            "interventions",
-            "inventory",
-        ):
-            with self.subTest(tab=tab):
-                response = self.client.get(
-                    reverse("reports:home"),
-                    {"analytics_tab": tab, "analytics_date_range": "all"},
-                )
-                self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.context["analytics_tab"], tab)
+        response = self.client.get(
+            reverse("reports:home"),
+            {"analytics_tab": "farmers", "analytics_date_range": "all"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["analytics_tab"], "reports")
+        self.assertContains(response, "Municipal Overview")
+        self.assertContains(response, "Inventory Analytics")
 
     def test_each_analytics_measure_uses_an_appropriate_visual(self):
         self.client.force_login(self.staff)
 
-        farmers = self.client.get(reverse("reports:home"), {"analytics_tab": "farmers"})
-        parcels = self.client.get(reverse("reports:home"), {"analytics_tab": "parcels"})
-        commodities = self.client.get(reverse("reports:home"), {"analytics_tab": "commodities"})
-        requests = self.client.get(reverse("reports:home"), {"analytics_tab": "requests"})
-        interventions = self.client.get(reverse("reports:home"), {"analytics_tab": "interventions"})
-        inventory = self.client.get(reverse("reports:home"), {"analytics_tab": "inventory"})
+        response = self.client.get(reverse("reports:home"))
 
-        self.assertContains(farmers, "Barangays with the Most Farmers")
-        self.assertContains(parcels, "Barangays with the Most Farm Parcels")
-        self.assertContains(commodities, "Most Planted or Raised Commodities")
-        self.assertContains(requests, 'aria-label="Service Requests Over Time line chart"')
-        self.assertContains(requests, "fill:#fff;stroke:#2f7d5c;stroke-width:4!important")
-        self.assertContains(interventions, 'aria-label="Interventions Given by Month bar chart"')
-        self.assertContains(inventory, 'aria-label="Inventory receipts and releases grouped bar chart"')
+        self.assertContains(response, "Barangays with the Most Farmers")
+        self.assertContains(response, "Barangays with the Most Farm Parcels")
+        self.assertContains(response, "Most Planted or Raised Commodities")
+        self.assertContains(response, 'aria-label="Service Requests Over Time line chart"')
+        self.assertContains(response, "fill:#fff;stroke:#2f7d5c;stroke-width:4!important")
+        self.assertContains(response, 'aria-label="Interventions Given by Month bar chart"')
+        self.assertContains(response, 'aria-label="Inventory receipts and releases grouped bar chart"')
 
     def test_bar_chart_axis_shows_months_with_one_shared_year_label(self):
         series = _monthly_series(Farmer.objects.all(), "created_at")
@@ -274,29 +260,21 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertContains(response, "Reconcile released stock")
         self.assertNotContains(response, "How to read this summary")
 
-        reports = self.client.get(reverse("reports:home"), {"analytics_tab": "reports"})
-        self.assertNotContains(reports, 'class="analytics-filter-toolbar')
+        reports = self.client.get(reverse("reports:home"))
+        self.assertContains(reports, 'class="analytics-filter-toolbar', count=1)
 
-    def test_analytics_filters_use_module_specific_popover_fields(self):
+    def test_one_page_analytics_filter_contains_all_relevant_fields(self):
         self.client.force_login(self.staff)
-        request_response = self.client.get(
-            reverse("reports:home"), {"analytics_tab": "requests"}
-        )
-        self.assertContains(request_response, "Filter Service Requests")
-        self.assertContains(request_response, 'data-filter-popover')
-        self.assertContains(request_response, 'name="analytics_request_status"')
-        self.assertContains(request_response, 'name="analytics_request_priority"')
-        self.assertNotContains(request_response, 'name="analytics_inventory_category"')
-
-        inventory_response = self.client.get(
-            reverse("reports:home"), {"analytics_tab": "inventory"}
-        )
-        self.assertContains(inventory_response, "Filter Inventory")
-        self.assertContains(inventory_response, 'name="analytics_inventory_category"')
-        self.assertContains(
-            inventory_response, 'name="analytics_inventory_movement_type"'
-        )
-        self.assertNotContains(inventory_response, 'name="analytics_barangay"')
+        response = self.client.get(reverse("reports:home"))
+        self.assertContains(response, "Filter All Analytics")
+        self.assertContains(response, 'data-filter-popover')
+        self.assertContains(response, 'name="analytics_barangay"')
+        self.assertContains(response, 'name="analytics_commodity"')
+        self.assertContains(response, 'name="analytics_request_status"')
+        self.assertContains(response, 'name="analytics_request_priority"')
+        self.assertContains(response, 'name="analytics_intervention_type"')
+        self.assertContains(response, 'name="analytics_inventory_category"')
+        self.assertContains(response, 'name="analytics_inventory_movement_type"')
 
     def test_inventory_analytics_describes_stock_and_movements(self):
         item = InventoryItem.objects.create(

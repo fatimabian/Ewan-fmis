@@ -1,7 +1,6 @@
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Case, IntegerField, Prefetch, Q, Value, When
-from django.forms import modelformset_factory
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -10,15 +9,14 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from apps.common.mixins import FMISLoginRequiredMixin
 from apps.common.filters import parse_inclusive_date_range
-from apps.common.permissions import AdminRequiredMixin, StaffRequiredMixin
+from apps.common.permissions import StaffRequiredMixin
 from apps.activity_logs.services import record_request_event
 from apps.common.record_history import service_request_rows
 from apps.interventions.services import complete_registered_request_intervention
 from apps.authentication.models import CustomUser
 from apps.service_catalog.models import ServiceCatalog
-from .forms import ServiceLevelPolicyForm, ServiceRequestForm
-from .models import ServiceLevelPolicy, ServiceRequest, ServiceRequestHistory
-from .services import ensure_service_level_policies, recalculate_open_deadlines
+from .forms import ServiceRequestForm
+from .models import ServiceRequest, ServiceRequestHistory
 
 
 def _history_value(field, value):
@@ -352,63 +350,6 @@ class ServiceRequestUpdateView(
             target_label=self.object.request_id,
         )
         return response
-
-
-class ServiceLevelPolicyView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
-    template_name = "service_requests/service_levels.html"
-    formset_class = modelformset_factory(
-        ServiceLevelPolicy,
-        form=ServiceLevelPolicyForm,
-        extra=0,
-    )
-
-    @staticmethod
-    def _queryset():
-        return ServiceLevelPolicy.objects.annotate(
-            priority_order=Case(
-                When(priority="HIGH", then=Value(0)),
-                When(priority="MEDIUM", then=Value(1)),
-                default=Value(2),
-                output_field=IntegerField(),
-            )
-        ).order_by("priority_order")
-
-    def get(self, request):
-        ensure_service_level_policies()
-        formset = self.formset_class(queryset=self._queryset())
-        return self._render(request, formset)
-
-    def post(self, request):
-        ensure_service_level_policies()
-        formset = self.formset_class(request.POST, queryset=self._queryset())
-        if formset.is_valid():
-            with transaction.atomic():
-                policies = formset.save(commit=False)
-                for policy in policies:
-                    policy.updated_by = request.user
-                    policy.full_clean()
-                    policy.save()
-                recalculate_open_deadlines()
-            record_request_event(
-                request,
-                title="Service Targets Updated",
-                module="Settings",
-                description=f"{request.user.display_name} updated the proposed service request targets.",
-                target_label="Service request targets",
-            )
-            messages.success(request, "Service request targets were updated and open deadlines recalculated.")
-            return redirect("service_requests:service_levels")
-        return self._render(request, formset, status=400)
-
-    def _render(self, request, formset, status=200):
-        from django.shortcuts import render
-
-        return render(
-            request,
-            self.template_name,
-            {"formset": formset, "base_template": "base/admin_base.html"},
-            status=status,
-        )
 
 
 class ServiceRequestDeleteView(FMISLoginRequiredMixin, StaffRequiredMixin, View):

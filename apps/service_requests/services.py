@@ -8,45 +8,22 @@ from django.utils import timezone
 
 from apps.notifications.models import Notification
 
-from .models import ServiceLevelPolicy, ServiceRequest, ServiceRequestEscalation, ServiceRequestHistory
-
-
-PROPOSED_POLICY_DEFAULTS = {
-    "HIGH": (24, 72),
-    "MEDIUM": (72, 96),
-    "LOW": (120, 168),
-}
-
-
-def ensure_service_level_policies():
-    policies = []
-    for priority, (response_hours, completion_hours) in PROPOSED_POLICY_DEFAULTS.items():
-        policy, _ = ServiceLevelPolicy.objects.get_or_create(
-            priority=priority,
-            defaults={
-                "first_response_hours": response_hours,
-                "completion_hours": completion_hours,
-                "is_approved": False,
-            },
-        )
-        policies.append(policy)
-    order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-    return sorted(policies, key=lambda item: order[item.priority])
+from .models import ServiceRequest, ServiceRequestEscalation, ServiceRequestHistory
 
 
 def recalculate_open_deadlines():
     """Recalculate open targets in three bounded database updates."""
     updated = 0
-    for policy in ensure_service_level_policies():
-        updated += ServiceRequest.objects.filter(priority=policy.priority).exclude(
+    for priority, (response_hours, completion_hours) in ServiceRequest.FIXED_TARGET_HOURS.items():
+        updated += ServiceRequest.objects.filter(priority=priority).exclude(
             status__in=("COMPLETED", "CANCELLED")
         ).update(
             first_response_due_at=ExpressionWrapper(
-                F("created_at") + timedelta(hours=policy.first_response_hours),
+                F("created_at") + timedelta(hours=response_hours),
                 output_field=ServiceRequest._meta.get_field("first_response_due_at"),
             ),
             due_at=ExpressionWrapper(
-                F("created_at") + timedelta(hours=policy.completion_hours),
+                F("created_at") + timedelta(hours=completion_hours),
                 output_field=ServiceRequest._meta.get_field("due_at"),
             ),
         )

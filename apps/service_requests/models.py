@@ -9,7 +9,7 @@ from apps.service_catalog.models import ServiceCatalog
 
 
 class ServiceLevelPolicy(models.Model):
-    """Administrator-controlled proposed OAS service targets by priority."""
+    """Legacy policy records retained for audit compatibility; no longer editable."""
 
     PRIORITY_CHOICES = [("HIGH", "High"), ("MEDIUM", "Medium"), ("LOW", "Low")]
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, unique=True)
@@ -42,6 +42,11 @@ class ServiceLevelPolicy(models.Model):
 
 
 class ServiceRequest(models.Model):
+    FIXED_TARGET_HOURS = {
+        "HIGH": (24, 72),
+        "MEDIUM": (72, 96),
+        "LOW": (120, 168),
+    }
     SOURCE_MANUAL = "MANUAL"
     SOURCE_WEATHER = "WEATHER"
     SOURCE_CHOICES = [
@@ -151,20 +156,8 @@ class ServiceRequest(models.Model):
         ]
 
     def _policy_hours(self):
-        defaults = {
-            "HIGH": (24, 72),
-            "MEDIUM": (72, 96),
-            "LOW": (120, 168),
-        }
-        try:
-            policy = ServiceLevelPolicy.objects.filter(priority=self.priority).first()
-        except Exception:
-            policy = None
-        return (
-            (policy.first_response_hours, policy.completion_hours)
-            if policy
-            else defaults[self.priority]
-        )
+        """Return the office-wide fixed service targets for this priority."""
+        return self.FIXED_TARGET_HOURS[self.priority]
 
     def recalculate_deadlines(self, *, save=True):
         if not self.created_at:

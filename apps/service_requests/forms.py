@@ -8,7 +8,7 @@ from apps.farmers.form_fields import FarmerChoiceField, active_farmer_queryset
 from apps.farmers.models import Farmer
 from apps.service_catalog.models import ServiceCatalog
 from apps.common.forms import InlineValidationMixin
-from .models import ServiceLevelPolicy, ServiceRequest
+from .models import ServiceRequest
 
 
 class ServiceCatalogChoiceField(forms.ModelChoiceField):
@@ -196,22 +196,3 @@ class ServiceRequestForm(InlineValidationMixin, forms.ModelForm):
                 "Register this service request in Interventions before marking it Completed."
             )
         return status
-
-
-class ServiceLevelPolicyForm(forms.ModelForm):
-    class Meta:
-        model = ServiceLevelPolicy
-        fields = ("first_response_hours", "completion_hours", "is_approved")
-        labels = {
-            "first_response_hours": "First response (hours)",
-            "completion_hours": "Completion (hours)",
-            "is_approved": "Approved by OAS",
-        }
-
-    def clean(self):
-        cleaned = super().clean()
-        response = cleaned.get("first_response_hours")
-        completion = cleaned.get("completion_hours")
-        if response and completion and completion < response:
-            self.add_error("completion_hours", "Completion must be later than first response.")
-        return cleaned

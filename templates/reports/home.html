@@ -878,15 +878,14 @@
   }
   .analytics-tabs a:hover{color:#14243a;background:#f7f9f8}
   .analytics-tabs a[aria-current="page"]{border-bottom-color:#148653;color:#14243a;background:#edf7f1}
+  .one-page-analytics{display:grid;gap:0;margin-top:22px}
+  .analytics-module-section{padding:26px 0;border-top:2px solid #cfdcd4}
+  .analytics-module-section:first-child{padding-top:0;border-top:0}
+  .analytics-module-heading{display:flex;align-items:center;gap:10px;margin:0 0 14px;color:#14243a;font-size:17px;font-weight:850}
+  .analytics-module-heading::after{content:"";height:1px;flex:1;background:#dbe4df}
+  @media(max-width:700px){.analytics-module-section{padding:20px 0}.analytics-module-heading{font-size:15px}}
   </style>
   <div class="content reports-page">
-    {% if analytics_tab != 'reports' %}
-      {% include 'reports/_descriptive_analytics.html' %}
-    {% elif not request.user.is_admin %}
-      <nav class="analytics-tabs" aria-label="Reports and analytics sections">
-        {% for key,label in analytics_tabs %}<a href="?analytics_tab={{ key }}"{% if analytics_tab == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
-      </nav>
-    {% endif %}
     {% if request.user.is_admin and analytics_tab == 'reports' %}
       <section class="report-metrics">
         <article class="report-metric">
@@ -917,22 +916,6 @@
           <b>{{ admin_accounts }}</b>
           <em>{{ staff_accounts }} staff accounts</em>
         </article>
-      </section>
-    {% endif %}
-    {% if not request.user.is_admin and analytics_tab == 'reports' %}
-      <section class="farmer-statistics-strip" aria-label="Verified Rosario farmer statistics">
-        <header class="farmer-statistics-heading">
-          <h2>FARMER STATISTICS</h2>
-        </header>
-        <div class="report-metrics farmer-statistics-metrics">
-          {% for item in farmer_statistics %}
-            <article class="report-metric">
-              <i class="bi bi-person-vcard"></i>
-              <small>{{ item.label }}</small>
-              <b>{{ item.total }}</b>
-            </article>
-          {% endfor %}
-        </div>
       </section>
     {% endif %}
     {% if request.user.is_admin and analytics_tab == 'reports' %}
@@ -1002,7 +985,6 @@
         {% if report_preview %}
           <article class="report-card" id="filteredReport">
             <div class="preview-heading"><div><h3>{{ report_preview.title|upper }}</h3><p>View-only preview using the filters relevant to this governance report.</p></div><div><b>{{ report_preview.total_rows }}</b><p>matching rows</p></div></div>
-            {% include "reports/_report_preview_analytics.html" %}
             <div class="report-table-wrap"><table class="report-preview-table"><thead><tr>{% for header in report_preview.headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>{% for row in report_preview.rows %}<tr>{% for cell in row %}<td>{{ cell|default:'-' }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="8">No records match the selected filters.</td></tr>{% endfor %}</tbody></table></div>
             {% if report_preview.page_obj.paginator.num_pages > 1 %}
               {% load pagination_tags %}
@@ -1189,7 +1171,6 @@
               {% endfor %}
             </div>
           {% endif %}
-          {% include "reports/_report_preview_analytics.html" %}
           {% if report_preview.rows %}
             <div class="report-table-wrap{% if report_preview.is_farmer_master %} farmer-master-table-wrap{% endif %}">
               <table class="report-preview-table{% if report_preview.is_farmer_master %} farmer-master-preview{% endif %}">
@@ -1238,7 +1219,39 @@
       {% endif %}
     </section>
     {% endif %}
-    {% if analytics_tab == 'reports' %}
+    {% if not request.user.is_admin %}
+      <section class="one-page-analytics" aria-label="All FMIS analytics">
+        <section class="analytics-module-section" id="analytics-overview">
+          <h2 class="analytics-module-heading">Municipal Overview</h2>
+          {% include 'reports/_descriptive_analytics.html' with analytics_tab='overview' analytics_tab_label='Overview' analytics_one_page=True %}
+        </section>
+        <section class="analytics-module-section" id="analytics-farmers">
+          <h2 class="analytics-module-heading">Farmer Analytics</h2>
+          {% include 'reports/_descriptive_analytics.html' with analytics_tab='farmers' analytics_tab_label='Farmers' analytics_embedded=True %}
+        </section>
+        <section class="analytics-module-section" id="analytics-parcels">
+          <h2 class="analytics-module-heading">Farm Parcel Analytics</h2>
+          {% include 'reports/_descriptive_analytics.html' with analytics_tab='parcels' analytics_tab_label='Farm Parcels' analytics_embedded=True %}
+        </section>
+        <section class="analytics-module-section" id="analytics-commodities">
+          <h2 class="analytics-module-heading">Commodity Analytics</h2>
+          {% include 'reports/_descriptive_analytics.html' with analytics_tab='commodities' analytics_tab_label='Commodities' analytics_embedded=True %}
+        </section>
+        <section class="analytics-module-section" id="analytics-requests">
+          <h2 class="analytics-module-heading">Service Request Analytics</h2>
+          {% include 'reports/_descriptive_analytics.html' with analytics_tab='requests' analytics_tab_label='Service Requests' analytics_embedded=True %}
+        </section>
+        <section class="analytics-module-section" id="analytics-interventions">
+          <h2 class="analytics-module-heading">Intervention Analytics</h2>
+          {% include 'reports/_descriptive_analytics.html' with analytics_tab='interventions' analytics_tab_label='Interventions' analytics_embedded=True %}
+        </section>
+        <section class="analytics-module-section" id="analytics-inventory">
+          <h2 class="analytics-module-heading">Inventory Analytics</h2>
+          {% include 'reports/_descriptive_analytics.html' with analytics_tab='inventory' analytics_tab_label='Inventory' analytics_embedded=True %}
+        </section>
+      </section>
+    {% endif %}
+    {% if request.user.is_admin and analytics_tab == 'reports' %}
     <section class="analytics-grid">
       {% if request.user.is_admin %}
         <article class="report-card">

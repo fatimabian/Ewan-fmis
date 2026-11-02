@@ -13,6 +13,7 @@ from apps.crops.models import CropRecord
 from apps.activity_logs.models import ActivityLog
 from apps.activity_logs.services import record_request_event
 from apps.farmers.models import Farmer
+from apps.farmers.duplicate_detection import find_system_duplicate_pairs
 from apps.interventions.models import Intervention
 from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.service_requests.models import ServiceRequest
@@ -102,14 +103,10 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
         date_from = source.get("date_from", "")
         date_to = source.get("date_to", "")
         system_report = self.request.user.is_admin
-        # Reports & Analytics opens on the descriptive overview. The report
-        # builder remains available as an explicit Generate Reports tab.
-        analytics_tab = (
-            "reports" if system_report else source.get("analytics_tab", "overview")
-        )
-        valid_analytics_tabs = {key for key, _label in ANALYTICS_TABS}
-        if analytics_tab not in valid_analytics_tabs:
-            analytics_tab = "overview"
+        # Reports is a single continuous workspace. Administrators receive
+        # governance reports; staff receive the report builder followed by all
+        # descriptive analytics sections on the same page.
+        analytics_tab = "reports"
         analytics_date_choice = source.get("analytics_date_range", "all")
         if analytics_date_choice not in DATE_RANGES:
             analytics_date_choice = "all"
@@ -137,15 +134,7 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                 "analytics_inventory_movement_type", ""
             ),
         }
-        analytics_filter_keys = {
-            "overview": ("barangay",),
-            "farmers": ("barangay",),
-            "parcels": ("barangay",),
-            "commodities": ("barangay", "commodity"),
-            "requests": ("barangay", "request_status", "request_priority"),
-            "interventions": ("barangay", "commodity", "intervention_type"),
-            "inventory": ("inventory_category", "inventory_movement_type"),
-        }.get(analytics_tab, ())
+        analytics_filter_keys = tuple(analytics_filters)
         analytics_filters_active = (
             analytics_date_choice != "all"
             or any(analytics_filters.get(key) for key in analytics_filter_keys)
@@ -240,16 +229,18 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             "analytics_filters_active": analytics_filters_active,
             "analytics_error": analytics_error,
         }
-        # The report generator must remain independent from descriptive
-        # analytics. Do not execute analytics queries while the user is on the
-        # Generate Reports tab; a data-specific analytics failure must never
-        # take the established report workflow offline.
-        if analytics_tab != "reports":
-            context["descriptive"] = descriptive_analytics(
-                analytics_tab,
+        if not system_report:
+            # A single inventory-mode build returns the shared farmer, parcel,
+            # commodity, request and intervention aggregates plus inventory.
+            # Reusing it for every rendered section avoids repeating the same
+            # database work seven times on the one-page dashboard.
+            descriptive = descriptive_analytics(
+                "inventory",
                 analytics_date_range,
                 analytics_filters,
             )
+            descriptive["duplicate_scan"] = find_system_duplicate_pairs()
+            context["descriptive"] = descriptive
         return context
 
     def post(self, request, *args, **kwargs):
