@@ -8,8 +8,9 @@
   const layers = Object.fromEntries(config.layers.map((layer) => [layer.key, layer]));
   const els = {
     barangay: byId("gisBarangay"), commodity: byId("gisCommodity"), commodityWrap: byId("gisCommodityWrap"),
-    status: byId("gisStatus"), reset: byId("gisReset"), more: byId("gisMore"), morePanel: byId("gisMorePanel"),
-    moreGrid: byId("gisMoreGrid"), moreCount: byId("gisMoreCount"), shown: byId("gisShown"),
+    status: byId("gisStatus"), reset: byId("gisReset"), apply: byId("gisApply"),
+    filterToggle: byId("gisFilterToggle"), filterLabel: byId("gisFilterLabel"), filterCount: byId("gisFilterCount"),
+    filterTitle: byId("gisFiltersTitle"), filterPanel: byId("gisFilters"), moreGrid: byId("gisMoreGrid"), shown: byId("gisShown"),
     unmapped: byId("gisUnmapped"), attention: byId("gisAttention"), empty: byId("gisEmpty"),
     loading: byId("gisLoading"), level: byId("gisLevel"), legend: byId("gisLegend"), legendTitle: byId("gisLegendTitle"),
     legendBox: byId("gisLegendBox"), detail: byId("gisDetail"), detailTitle: byId("gisDetailTitle"),
@@ -77,14 +78,35 @@
       input.value = state.extra[key] || "";
       input.addEventListener("change", () => {
         if (input.value) state.extra[key] = input.value; else delete state.extra[key];
-        closeDetail(); load();
+        updateFilterButton();
       });
+      label.className = "fmis-filter-field";
       label.append(input);
       return label;
     }));
-    const active = Object.keys(state.extra).length;
-    els.moreCount.hidden = !active;
-    els.moreCount.textContent = active;
+  }
+
+  function activeFilterCount() {
+    const layer = layers[state.layer];
+    const defaultStatus = layer.status_options[0]?.[0] || "";
+    return Number(Boolean(state.barangay)) + Number(Boolean(state.commodity && layer.uses_commodity))
+      + Number(Boolean(state.status && state.status !== defaultStatus)) + Object.keys(state.extra).length;
+  }
+
+  function updateFilterButton() {
+    const count = activeFilterCount();
+    const name = layers[state.layer].short_label;
+    els.filterLabel.textContent = `Filter ${name}`;
+    els.filterTitle.textContent = `Filter ${name}`;
+    els.filterToggle.classList.toggle("has-active-filters", count > 0);
+    els.filterCount.hidden = !count;
+    els.filterCount.textContent = count ? String(count) : "";
+  }
+
+  function closeFilters() {
+    els.filterPanel.hidden = true;
+    els.filterToggle.setAttribute("aria-expanded", "false");
+    els.filterToggle.focus();
   }
 
   // One removable chip per applied filter; ranges are shown as a single chip.
@@ -97,7 +119,7 @@
     };
     const list = [];
     if (state.barangay) list.push({text: `Barangay: ${state.barangay}`, clear: () => { state.barangay = ""; }});
-    if (state.commodity) list.push({text: `Commodity: ${state.commodity}`, clear: () => { state.commodity = ""; }});
+    if (state.commodity && layer.uses_commodity) list.push({text: `Commodity: ${state.commodity}`, clear: () => { state.commodity = ""; }});
     const statusLabel = (layer.status_options.find(([v]) => v === state.status) || [])[1];
     if (state.status && state.status !== layer.status_options[0][0]) list.push({text: statusLabel, clear: () => { state.status = ""; }});
     const done = new Set();
@@ -146,9 +168,11 @@
     els.barangay.value = state.barangay;
     els.commodity.value = state.commodity;
     renderMoreFilters();
+    updateFilterButton();
     renderChips();
     const query = new URLSearchParams();
     Object.entries({...state, ...state.extra}).forEach(([key, value]) => {
+      if (key === "commodity" && !layer.uses_commodity) return;
       if (key !== "extra" && value && value !== defaults[key]) query.set(key, value);
     });
     history.replaceState(null, "", query.toString() ? `?${query}` : window.location.pathname);
@@ -364,16 +388,15 @@
     });
   });
   [["barangay", els.barangay], ["commodity", els.commodity], ["status", els.status]].forEach(([key, select]) => {
-    select.addEventListener("change", () => { state[key] = select.value; closeDetail(); load(); });
+    select.addEventListener("change", () => { state[key] = select.value; updateFilterButton(); });
   });
-  els.more.addEventListener("click", () => {
-    const open = els.morePanel.hidden;
-    els.morePanel.hidden = !open;
-    els.more.setAttribute("aria-expanded", String(open));
+  els.reset.addEventListener("click", () => {
+    Object.assign(state, {barangay: "", commodity: "", status: "", extra: {}});
+    closeDetail();
+    load();
   });
-  els.reset.addEventListener("click", () => { Object.assign(state, defaults, {extra: {}}); closeDetail(); load(); });
+  els.apply.addEventListener("click", () => { closeFilters(); closeDetail(); load(); });
   els.detailClose.addEventListener("click", () => { closeDetail(); showLevel(state.barangay ? 2 : 1); });
-  if (Object.keys(state.extra).length) { els.morePanel.hidden = false; els.more.setAttribute("aria-expanded", "true"); }
   window.addEventListener("load", () => map.invalidateSize());
   setTimeout(() => map.invalidateSize(), 300);
   load();

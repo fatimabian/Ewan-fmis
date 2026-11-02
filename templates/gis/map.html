@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="{% static 'vendor/leaflet-markercluster/MarkerCluster.css' %}">
   <link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
   <div class="content sg-page gis-page">
-    <section class="panel sg-panel gis-controls" aria-label="Map controls">
+    <section class="panel sg-panel gis-controls" aria-label="Map controls" data-table-toolbar>
       <div class="gis-layers-row">
         <span class="gis-group-label" id="gisLayersLabel">Map by</span>
         <div class="gis-layers" id="gisLayers" role="group" aria-labelledby="gisLayersLabel">
@@ -16,24 +16,35 @@
             <button type="button" class="gis-layer-btn" data-layer="{{ layer.key }}" aria-pressed="false"><i class="bi {{ layer.icon }}"></i> {{ layer.short_label }}</button>
           {% endfor %}
         </div>
+        <button class="fmis-toolbar-button gis-filter-toggle" type="button" id="gisFilterToggle" data-filter-toggle aria-expanded="false" aria-controls="gisFilters">
+          <i class="bi bi-funnel" aria-hidden="true"></i>
+          <span id="gisFilterLabel">Filter Parcels</span>
+          <span class="fmis-filter-active" id="gisFilterCount" hidden></span>
+        </button>
       </div>
-      <div class="gis-filters">
-        <label>Barangay
-          <select id="gisBarangay"><option value="">All barangays</option></select>
-        </label>
-        <label id="gisCommodityWrap">Commodity
-          <select id="gisCommodity"><option value="">All commodities</option></select>
-        </label>
-        <label>Show
-          <select id="gisStatus"></select>
-        </label>
-        <button type="button" class="btn btn-outline-success" id="gisMore" aria-expanded="false" aria-controls="gisMorePanel"><i class="bi bi-funnel" aria-hidden="true"></i> More filters <span class="gis-count" id="gisMoreCount" hidden></span></button>
-        <button type="button" class="btn btn-outline-secondary" id="gisReset">Reset</button>
-      </div>
+      <section class="fmis-filter-popover gis-filter-popover" id="gisFilters" data-filter-popover hidden aria-labelledby="gisFiltersTitle">
+        <div class="fmis-filter-heading">
+          <h2 id="gisFiltersTitle">Filter Parcels</h2>
+          <button class="fmis-filter-close" type="button" data-filter-close aria-label="Close map filters"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="fmis-filter-grid">
+          <label class="fmis-filter-field">Barangay
+            <select id="gisBarangay"><option value="">All barangays</option></select>
+          </label>
+          <label class="fmis-filter-field" id="gisCommodityWrap">Commodity
+            <select id="gisCommodity"><option value="">All commodities</option></select>
+          </label>
+          <label class="fmis-filter-field is-wide">Show
+            <select id="gisStatus"></select>
+          </label>
+          <div class="gis-more-grid" id="gisMoreGrid"></div>
+          <div class="fmis-filter-actions">
+            <button type="button" class="fmis-filter-reset" id="gisReset">Reset</button>
+            <button type="button" class="fmis-filter-apply" id="gisApply">Apply Filters</button>
+          </div>
+        </div>
+      </section>
       <div class="gis-chips" id="gisChips" aria-label="Applied filters" hidden></div>
-      <div class="gis-more" id="gisMorePanel" hidden>
-        <div class="gis-more-grid" id="gisMoreGrid"></div>
-      </div>
     </section>
 
     <div class="gis-summary" aria-live="polite">

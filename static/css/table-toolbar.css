@@ -52,6 +52,7 @@
     box-shadow:0 18px 40px rgba(15,40,27,.2)
 }
 .fmis-filter-popover[hidden]{display:none!important}
+.fmis-filter-popover.is-viewport-positioned{position:fixed!important;inset:auto!important;z-index:5000!important}
 .fmis-filter-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
 .fmis-filter-heading h2{margin:0;font-size:17px}
 .fmis-filter-close{display:grid;width:36px;height:36px;place-items:center;border:1px solid #cbd9d0;background:transparent;color:inherit}

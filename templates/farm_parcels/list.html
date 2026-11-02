@@ -174,7 +174,6 @@
       </label>
       <div class="fmis-toolbar-actions">
         <button class="fmis-toolbar-button{% if request.GET.barangay or request.GET.ownership or request.GET.area or request.GET.status or request.GET.date_from or request.GET.date_to %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="parcelFilters"><i class="bi bi-funnel"></i> Filter Parcels <span class="fmis-filter-active">Active</span></button>
-        <a class="btn btn-outline-success" href="{% url 'farm_parcels:map' %}"><i class="bi bi-geo-alt"></i> Map View</a>
         <a class="btn btn-success btn-add-outline" href="{% url 'farm_parcels:create' %}"><i class="bi bi-plus-lg"></i> Add Parcel</a>
       </div>
       <section class="fmis-filter-popover" id="parcelFilters" data-filter-popover hidden aria-labelledby="parcelFiltersTitle">

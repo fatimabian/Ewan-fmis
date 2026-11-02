@@ -64,8 +64,14 @@ class AccessTests(GISTestCase):
         for chip in ("Farmers", "Parcels", "Commodities", "Requests", "Interventions"):
             self.assertContains(response, chip)
         self.assertContains(response, 'id="gisChips"')
+        self.assertContains(response, 'id="gisFilterToggle"')
+        self.assertContains(response, "Apply Filters")
         self.assertContains(response, reverse("gis:map"))  # sidebar entry
         self.assertNotContains(response, reverse("form_scan:upload"))  # scanning lives inside the forms
+
+    def test_parcel_list_uses_gis_instead_of_a_separate_map_button(self):
+        response = self.client.get(reverse("farm_parcels:list"))
+        self.assertNotContains(response, "Map View")
 
 
 class LevelTests(GISTestCase):
