@@ -220,6 +220,10 @@ class AccountDeleteView(FMISLoginRequiredMixin, AdminRequiredMixin, DeleteView):
     def get_queryset(self):
         return CustomUser.objects.filter(deleted_at__isnull=True)
 
+    def get(self, request, *args, **kwargs):
+        """This address only accepts the form buttons (POST); a typed or bookmarked link goes to the account page."""
+        return redirect("accounts:detail", pk=kwargs["pk"])
+
     def post(self, request, *args, **kwargs):
         account = self.get_object()
         requested_action = request.POST.get("action", "deactivate")

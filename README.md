@@ -98,7 +98,7 @@ The shared logo is `static/images/brand/fmis-logo.png`. Replace that file with a
 ## Verification and production
 
 - Rebuild optimized frontend bundles after changing shared CSS with `python scripts/build_frontend_assets.py`; CI verifies that committed bundles are current with `python scripts/build_frontend_assets.py --check`.
-- Run the isolated automated suite with `python manage.py test --settings=config.settings_test`.
+- Run the isolated automated suite with `python manage.py test --settings=config.settings_test`. It includes a route smoke test (`apps/common/test_route_smoke.py`) that requests every named page as anonymous, staff and admin and fails on any crash or any page open to the wrong role.
 - Every push and pull request runs the same tests, migration-drift detection, and production security checks through `.github/workflows/quality.yml`.
 - Run deployment checks with production environment values using `python manage.py check --deploy`.
 - Copy `deployment.env.example` to the server-only `.env`, then use `docs/PRODUCTION_DEPLOYMENT_CHECKLIST.md`. Production requires HTTPS, secure cookies, a unique secret, MySQL credentials, and SMTP.
