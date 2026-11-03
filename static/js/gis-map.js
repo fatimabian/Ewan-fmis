@@ -7,6 +7,7 @@
   const byId = (id) => document.getElementById(id);
   const layers = Object.fromEntries(config.layers.map((layer) => [layer.key, layer]));
   const els = {
+    search: byId("gisSearch"),
     barangay: byId("gisBarangay"), commodity: byId("gisCommodity"), commodityWrap: byId("gisCommodityWrap"),
     status: byId("gisStatus"), reset: byId("gisReset"), apply: byId("gisApply"),
     filterToggle: byId("gisFilterToggle"), filterLabel: byId("gisFilterLabel"), filterCount: byId("gisFilterCount"),
@@ -26,7 +27,7 @@
   };
 
   // State: the layer, the three main filters, and the extra filters of the current layer.
-  const defaults = {layer: "parcels", barangay: "", commodity: "", status: ""};
+  const defaults = {layer: "parcels", search: "", barangay: "", commodity: "", status: ""};
   const params = new URLSearchParams(window.location.search);
   const state = {...defaults, extra: {}};
   Object.keys(defaults).forEach((key) => { if (params.has(key)) state[key] = params.get(key); });
@@ -43,11 +44,11 @@
 
   // Pins are SVG because the system's global shape rule squares every CSS box.
   const PIN_PATH = "M12 1C6 1 1.5 5.6 1.5 11.4c0 7.4 10.5 18.6 10.5 18.6s10.5-11.2 10.5-18.6C22.5 5.6 18 1 12 1z";
-  const pinHtml = (icon, status, width = 30) =>
+  const pinHtml = (icon, status, width = 22) =>
     `<span class="gis-marker gis-${status}" style="--w:${width}px"><svg viewBox="0 0 24 32" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg><i class="bi ${icon}" aria-hidden="true"></i></span>`;
   const clusterIcon = (cluster) => {
     const count = cluster.getChildCount();
-    const size = count > 50 ? 46 : count > 10 ? 38 : 32;
+    const size = count > 50 ? 38 : count > 10 ? 32 : 28;
     return L.divIcon({className: "", iconSize: [size, size],
       html: `<svg class="gis-svg gis-neutral" width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21"/><text x="24" y="30" text-anchor="middle">${count}</text></svg>`});
   };
@@ -60,6 +61,7 @@
   let parcelListRequest = null;
   let parcelPage = 1;
   let parcelSearchTimer = null;
+  let mapSearchTimer = null;
   const markerByRecord = new Map();
 
   config.barangays.forEach((name) => els.barangay.add(new Option(name, name)));
@@ -104,9 +106,8 @@
 
   function updateFilterButton() {
     const count = activeFilterCount();
-    const name = layers[state.layer].short_label;
-    els.filterLabel.textContent = `Filter ${name}`;
-    els.filterTitle.textContent = `Filter ${name}`;
+    els.filterLabel.textContent = "Filter";
+    els.filterTitle.textContent = "Filter Map";
     els.filterToggle.classList.toggle("has-active-filters", count > 0);
     els.filterCount.hidden = !count;
     els.filterCount.textContent = count ? String(count) : "";
@@ -174,6 +175,7 @@
     els.status.replaceChildren(...layer.status_options.map(([value, label]) => new Option(label, value)));
     if (!layer.status_options.some(([value]) => value === state.status)) state.status = layer.status_options[0][0];
     els.status.value = state.status;
+    els.search.value = state.search;
     els.barangay.value = state.barangay;
     els.commodity.value = state.commodity;
     renderMoreFilters();
@@ -282,9 +284,9 @@
         title: `${cell.count} records near ${cell.barangay}`,
         icon: L.divIcon({
           className: "",
-          iconSize: [32, 43],
-          iconAnchor: [16, 41],
-          html: pinHtml(layer.icon, TIER_STATUS[cell.tier], 32),
+          iconSize: [24, 32],
+          iconAnchor: [12, 31],
+          html: pinHtml(layer.icon, TIER_STATUS[cell.tier], 24),
         }),
       });
       const note = cell.attention ? `, ${cell.attention} need attention` : "";
@@ -305,7 +307,7 @@
     points.forEach((point) => {
       const marker = L.marker([point.lat, point.lng], {
         title: layer.label,
-        icon: L.divIcon({className: "", iconSize: [30, 40], iconAnchor: [15, 38], html: pinHtml(layer.icon, point.status)}),
+        icon: L.divIcon({className: "", iconSize: [22, 29], iconAnchor: [11, 28], html: pinHtml(layer.icon, point.status)}),
       });
       marker.on("click", () => openDetail(point.id, marker));
       pins.addLayer(marker);
@@ -453,7 +455,7 @@
     request = new AbortController();
     els.loading.hidden = false;
     els.empty.hidden = true;
-    const query = new URLSearchParams({layer: state.layer, barangay: state.barangay, commodity: state.commodity, status: state.status, ...state.extra});
+    const query = new URLSearchParams({layer: state.layer, search: state.search, barangay: state.barangay, commodity: state.commodity, status: state.status, ...state.extra});
     try {
       const response = await fetch(`${config.dataUrl}?${query}`, {signal: request.signal, headers: {Accept: "application/json"}});
       const data = await response.json();
@@ -532,6 +534,14 @@
     load();
   });
   els.apply.addEventListener("click", () => { closeFilters(); closeDetail(); load(); });
+  els.search.addEventListener("input", () => {
+    clearTimeout(mapSearchTimer);
+    mapSearchTimer = setTimeout(() => {
+      state.search = els.search.value.trim();
+      closeDetail();
+      load();
+    }, 300);
+  });
   els.detailClose.addEventListener("click", () => { closeDetail(); showLevel(state.barangay ? 2 : 1); });
   els.parcelSearch.addEventListener("input", () => {
     clearTimeout(parcelSearchTimer);

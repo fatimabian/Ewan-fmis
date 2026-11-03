@@ -171,6 +171,18 @@ class LayerTests(GISTestCase):
 
 
 class FilterTests(GISTestCase):
+    def test_search_finds_farmer_and_record_references_across_layers(self):
+        expectations = {
+            "farmers": ("Maria", 1),
+            "parcels": (f"P-{self.p1.pk:04d}", 1),
+            "commodities": ("Rice", 1),
+            "requests": ("Seed Assistance", 1),
+            "interventions": (f"INT-{self.intervention.pk:04d}", 2),
+        }
+        for layer, (search, expected) in expectations.items():
+            status = "" if layer != "requests" else "open"
+            self.assertEqual(self.data(layer=layer, search=search, status=status)["total"], expected, layer)
+
     def test_farmer_number_range_applies_to_every_layer(self):
         low, high = self.maria.pk, self.maria.pk
         for layer, expected in (("farmers", 1), ("parcels", 1), ("commodities", 1), ("requests", 1), ("interventions", 1)):

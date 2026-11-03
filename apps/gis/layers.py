@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
+from django.db.models import Q
 from django.urls import reverse
 
 from apps.common.constants import COMMODITY_DETAIL_TO_GROUP, ROSARIO_BARANGAYS, commodity_group
@@ -112,6 +113,7 @@ class Params:
     """Validated filters for one request."""
 
     layer: str
+    search: str = ""
     barangay: str = ""
     commodity: str = ""
     status: str = ""
@@ -125,6 +127,7 @@ def parse_params(query, specs=None):
     if layer_key not in LAYERS:
         return None, "Choose a valid layer."
     layer = LAYERS[layer_key]
+    search = (query.get("search") or "").strip()[:100]
     barangay, commodity, status = query.get("barangay", ""), query.get("commodity", ""), query.get("status", "")
     if barangay and barangay not in ROSARIO_BARANGAYS:
         return None, "Choose a valid Rosario barangay."
@@ -158,7 +161,15 @@ def parse_params(query, specs=None):
     for low, high in (("farmer_from", "farmer_to"), ("area_min", "area_max"), ("date_from", "date_to")):
         if low in extra and high in extra and extra[low] > extra[high]:
             return None, f"{FILTER_SPECS[low]['label']} must not be after {FILTER_SPECS[high]['label'].lower()}."
-    return Params(layer_key, barangay, commodity if layer.uses_commodity else "", status, extra), None
+    return Params(layer_key, search, barangay, commodity if layer.uses_commodity else "", status, extra), None
+
+
+def _number_from_search(value, prefix):
+    """Return the numeric part of an FMIS reference such as F-0123 or P-0123."""
+    compact = (value or "").strip().upper().replace(" ", "")
+    if compact.startswith(f"{prefix}-"):
+        compact = compact[len(prefix) + 1:]
+    return int(compact) if compact.isdigit() else None
 
 
 def parse_point(text):
@@ -222,6 +233,20 @@ def _in_area_range(queryset, params, field_name):
 
 def _parcel_records(params):
     parcels = FarmParcel.objects.filter(is_active=True, farmer__is_active=True)
+    if params.search:
+        number = _number_from_search(params.search, "P")
+        farmer_number = _number_from_search(params.search, "F")
+        lookup = (
+            Q(farmer__first_name__icontains=params.search)
+            | Q(farmer__middle_name__icontains=params.search)
+            | Q(farmer__last_name__icontains=params.search)
+            | Q(farmer__rsbsa_number__icontains=params.search)
+        )
+        if number is not None:
+            lookup |= Q(pk=number)
+        if farmer_number is not None:
+            lookup |= Q(farmer_id=farmer_number)
+        parcels = parcels.filter(lookup)
     if params.barangay:
         parcels = parcels.filter(barangay=params.barangay)
     if params.commodity:
@@ -241,6 +266,21 @@ def _parcel_records(params):
 
 def _commodity_records(params):
     crops = CropRecord.objects.filter(is_active=True, parcel__is_active=True, parcel__farmer__is_active=True)
+    if params.search:
+        parcel_number = _number_from_search(params.search, "P")
+        farmer_number = _number_from_search(params.search, "F")
+        lookup = (
+            Q(crop_type__icontains=params.search)
+            | Q(parcel__farmer__first_name__icontains=params.search)
+            | Q(parcel__farmer__middle_name__icontains=params.search)
+            | Q(parcel__farmer__last_name__icontains=params.search)
+            | Q(parcel__farmer__rsbsa_number__icontains=params.search)
+        )
+        if parcel_number is not None:
+            lookup |= Q(parcel_id=parcel_number)
+        if farmer_number is not None:
+            lookup |= Q(parcel__farmer_id=farmer_number)
+        crops = crops.filter(lookup)
     if params.barangay:
         crops = crops.filter(parcel__barangay=params.barangay)
     if "organic" in params.extra:
@@ -259,6 +299,17 @@ def _commodity_records(params):
 
 def _farmer_records(params):
     farmers = Farmer.objects.filter(is_active=True)
+    if params.search:
+        farmer_number = _number_from_search(params.search, "F")
+        lookup = (
+            Q(first_name__icontains=params.search)
+            | Q(middle_name__icontains=params.search)
+            | Q(last_name__icontains=params.search)
+            | Q(rsbsa_number__icontains=params.search)
+        )
+        if farmer_number is not None:
+            lookup |= Q(pk=farmer_number)
+        farmers = farmers.filter(lookup)
     if params.barangay:
         farmers = farmers.filter(barangay=params.barangay)
     if params.commodity:
@@ -285,6 +336,21 @@ REQUEST_STATUS = {"PENDING": ATTENTION, "IN_PROGRESS": NEUTRAL, "COMPLETED": GOO
 
 def _request_records(params):
     requests = ServiceRequest.objects.filter(scope="INDIVIDUAL", farmer__is_active=True)
+    if params.search:
+        request_number = _number_from_search(params.search, "SR")
+        farmer_number = _number_from_search(params.search, "F")
+        lookup = (
+            Q(farmer__first_name__icontains=params.search)
+            | Q(farmer__middle_name__icontains=params.search)
+            | Q(farmer__last_name__icontains=params.search)
+            | Q(farmer__rsbsa_number__icontains=params.search)
+            | Q(service__name__icontains=params.search)
+        )
+        if request_number is not None:
+            lookup |= Q(pk=request_number)
+        if farmer_number is not None:
+            lookup |= Q(farmer_id=farmer_number)
+        requests = requests.filter(lookup)
     requests = requests.filter(status__in=OPEN_REQUESTS if params.status in ("", "open") else [params.status])
     if params.barangay:
         requests = requests.filter(farmer__barangay=params.barangay)
@@ -313,6 +379,21 @@ def _intervention_records(params):
         is_active=True, farmer__is_active=True,
         intervention__status__in=["SCHEDULED", "ONGOING", "COMPLETED"],
     )
+    if params.search:
+        intervention_number = _number_from_search(params.search, "INT")
+        farmer_number = _number_from_search(params.search, "F")
+        lookup = (
+            Q(farmer__first_name__icontains=params.search)
+            | Q(farmer__middle_name__icontains=params.search)
+            | Q(farmer__last_name__icontains=params.search)
+            | Q(farmer__rsbsa_number__icontains=params.search)
+            | Q(intervention__description__icontains=params.search)
+        )
+        if intervention_number is not None:
+            lookup |= Q(intervention_id=intervention_number)
+        if farmer_number is not None:
+            lookup |= Q(farmer_id=farmer_number)
+        recipients = recipients.filter(lookup)
     if params.status == "OTHER":
         recipients = recipients.filter(status__in=["DECLINED", "NO_SHOW"])
     elif params.status:
