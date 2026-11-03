@@ -33,6 +33,7 @@ from apps.farm_parcels.models import FarmParcel
 from apps.farm_parcels.coordinate_services import validate_coordinate_text_for_barangay
 
 from .models import Farmer, FarmerDocument, FarmerUpdateHistory
+from .duplicate_detection import normalize_id_number, normalized_id_number_expression
 
 
 LETTERS_ONLY_PATTERN = re.compile(r"^[^\W\d_]+(?:[ .,'’\-]+[^\W\d_]+)*\.?$", re.UNICODE)
@@ -462,16 +463,20 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
                     "Enter 3 to 40 letters and numbers exactly as shown on the ID. Spaces, hyphens, slashes, periods, parentheses, and # are allowed.",
                 )
         if valid_id_type and valid_id_number:
-            duplicate = Farmer.objects.filter(
+            duplicate = Farmer.objects.annotate(
+                normalized_valid_id=normalized_id_number_expression()
+            ).filter(
                 valid_id_type__iexact=valid_id_type,
-                valid_id_number__iexact=valid_id_number,
+                normalized_valid_id=normalize_id_number(valid_id_number),
                 is_active=True,
             )
             if self.instance and self.instance.pk:
                 duplicate = duplicate.exclude(pk=self.instance.pk)
             if duplicate.exists():
+                existing = duplicate.only("pk", "first_name", "middle_name", "last_name", "extension_name").first()
                 self.add_error(
-                    "valid_id_number", "This ID is already linked to another active farmer record."
+                    "valid_id_number",
+                    f"Possible duplicate: this ID type and number already belong to {existing.record_id} — {existing.list_name}. Use the existing farmer record instead.",
                 )
         if cleaned.get("is_indigenous") and not cleaned.get("indigenous_group"):
             self.add_error("indigenous_group", "Enter the Indigenous People or ICC group name.")
@@ -488,10 +493,12 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             and "spouse_name" not in self.errors
         ):
             self.add_error("spouse_name", "Enter the spouse's name for a married registrant.")
-        if cleaned.get("philsys_registered") is True and not cleaned.get("philsys_pcn"):
+        philsys_registered = cleaned.get("philsys_registered")
+        if philsys_registered is True and not cleaned.get("philsys_pcn"):
             self.add_error("philsys_pcn", "Enter the PhilID / ePhilID PCN.")
-        if cleaned.get("philsys_registered") is False and not cleaned.get("philsys_trn"):
-            self.add_error("philsys_trn", "Enter the PhilSys transaction reference number (TRN).")
+        if philsys_registered is False:
+            cleaned["philsys_pcn"] = ""
+            cleaned["philsys_trn"] = ""
         return cleaned
 
 

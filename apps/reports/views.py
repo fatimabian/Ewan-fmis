@@ -104,10 +104,12 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
         date_from = source.get("date_from", "")
         date_to = source.get("date_to", "")
         system_report = self.request.user.is_admin
-        # Reports is a single continuous workspace. Administrators receive
-        # governance reports; staff receive the report builder followed by all
-        # descriptive analytics sections on the same page.
-        analytics_tab = "reports"
+        # Administrators stay in governance reports. Staff use compact tabs.
+        requested_tab = source.get("analytics_tab", "overview")
+        valid_tabs = {key for key, _label in ANALYTICS_TABS}
+        analytics_tab = "reports" if system_report else (
+            requested_tab if requested_tab in valid_tabs else "overview"
+        )
         analytics_date_choice = source.get("analytics_date_range", "all")
         if analytics_date_choice not in DATE_RANGES:
             analytics_date_choice = "all"

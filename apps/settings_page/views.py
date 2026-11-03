@@ -1,14 +1,21 @@
 import mimetypes
+import uuid
+from pathlib import Path
 
 from django.contrib import messages
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
 from django.http import FileResponse, Http404
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.views import View
 from django.views.generic import FormView
 from apps.common.mixins import FMISLoginRequiredMixin
-from apps.common.backups import create_verified_backup, offsite_backup_configured
+from apps.common.backups import (
+    create_verified_backup,
+    offsite_backup_configured,
+    verify_existing_backup,
+)
 from apps.common.permissions import AdminRequiredMixin
 from apps.activity_logs.services import record_request_event
 from .forms import ProfileForm, SettingsPasswordChangeForm
@@ -223,3 +230,61 @@ class ManualBackupView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
                 "Backup verified in encrypted server storage. Configure off-site storage to complete disaster protection.",
             )
         return redirect("settings_page:home")
+
+
+class PrepareRestoreView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
+    """Password-gate, authenticate, and stage a recovery archive for maintenance restore."""
+
+    max_upload_bytes = 2 * 1024 * 1024 * 1024
+
+    @staticmethod
+    def settings_redirect():
+        return redirect(f"{reverse('settings_page:home')}#system")
+
+    def post(self, request):
+        password = request.POST.get("restore_password", "")
+        archive = request.FILES.get("restore_archive")
+        if not request.user.check_password(password):
+            messages.error(request, "Your administrator password is incorrect. No restore was prepared.")
+            return self.settings_redirect()
+        if not archive or not archive.name.lower().endswith(".fmisbak"):
+            messages.error(request, "Choose a valid FMIS encrypted backup file (.fmisbak).")
+            return self.settings_redirect()
+        if archive.size > self.max_upload_bytes:
+            messages.error(request, "The selected recovery file is larger than the supported 2 GB upload limit.")
+            return self.settings_redirect()
+
+        staging_root = Path(settings.BACKUP_ROOT).expanduser().resolve() / "restore-staging"
+        staging_root.mkdir(parents=True, exist_ok=True)
+        staged_path = staging_root / f"restore-{uuid.uuid4().hex}.fmisbak"
+        try:
+            with staged_path.open("wb") as output:
+                for chunk in archive.chunks():
+                    output.write(chunk)
+            checksum = verify_existing_backup(staged_path)
+        except Exception:
+            staged_path.unlink(missing_ok=True)
+            record_request_event(
+                request,
+                title="Restore Preparation Failed",
+                module="Security",
+                description="An uploaded recovery archive failed authentication.",
+                status="Failed",
+                target_label="FMIS recovery restore",
+            )
+            messages.error(request, "FMIS could not authenticate this backup. No live records were changed.")
+            return self.settings_redirect()
+
+        record_request_event(
+            request,
+            title="Restore Package Prepared",
+            module="Security",
+            description=f"{request.user.display_name} authenticated a recovery archive for maintenance restore.",
+            target_label=staged_path.name,
+            details=[{"field": "SHA-256", "after": checksum}],
+        )
+        messages.success(
+            request,
+            "Backup authenticated and staged. No live records were changed. The technical administrator can now complete the restore during maintenance mode.",
+        )
+        return self.settings_redirect()

@@ -545,6 +545,42 @@
       background:#f0faf4;
       color:#245c3a
   }
+  .restore-preparation{
+      display:grid;
+      gap:10px;
+      padding-top:16px;
+      border-top:1px solid #dce7e0
+  }
+  .restore-preparation h4,
+  .restore-preparation p{
+      margin:0
+  }
+  .restore-preparation h4{
+      color:#24364b;
+      font-size:14px
+  }
+  .restore-preparation p{
+      color:#64748b;
+      font-size:11px;
+      line-height:1.5
+  }
+  .restore-preparation label{
+      display:grid;
+      gap:6px;
+      color:#24364b;
+      font-size:12px;
+      font-weight:700
+  }
+  .restore-preparation input{
+      width:100%;
+      min-height:42px;
+      padding:9px 11px;
+      border:1px solid #cddbd3;
+      border-radius:7px;
+      background:#fff;
+      color:#24364b;
+      font:inherit
+  }
   body[data-theme="dark"] .backup-status-grid>div{
       border-color:#454545;
       background:#252525
@@ -561,6 +597,20 @@
       border-color:#3e654d;
       background:#223128;
       color:#b9dfc7
+  }
+  body[data-theme="dark"] .restore-preparation{
+      border-color:#454545
+  }
+  body[data-theme="dark"] .restore-preparation :is(h4,label){
+      color:#f1f1f1
+  }
+  body[data-theme="dark"] .restore-preparation p{
+      color:#c4c4c4
+  }
+  body[data-theme="dark"] .restore-preparation input{
+      border-color:#555;
+      background:#252525;
+      color:#f1f1f1
   }
   @media(max-width:560px){
       .backup-status-grid{grid-template-columns:1fr}
@@ -800,6 +850,24 @@
                   <i class="bi bi-cloud-arrow-up">
                   </i> Back Up Now
                 </button>
+                <div class="restore-preparation mt-3">
+                  <h4>Restore from backup</h4>
+                  <p>Select an encrypted FMIS recovery file and confirm your administrator password. FMIS authenticates and stages it first; live records are not overwritten while the system is online.</p>
+                  <label>Encrypted backup file
+                    <input type="file" name="restore_archive" accept=".fmisbak,application/octet-stream">
+                  </label>
+                  <label>Administrator password
+                    <input type="password" name="restore_password" autocomplete="current-password">
+                  </label>
+                  <button class="btn btn-outline-success"
+                          type="submit"
+                          formaction="{% url 'settings_page:prepare_restore' %}"
+                          formmethod="post"
+                          formenctype="multipart/form-data"
+                          {% if not backup_encryption_configured %}disabled aria-disabled="true" title="Configure the protected backup encryption key first"{% endif %}>
+                    <i class="bi bi-shield-check"></i> Authenticate &amp; Prepare Restore
+                  </button>
+                </div>
               </article>
             </div>
           </div>

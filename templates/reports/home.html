@@ -707,18 +707,23 @@
       background:#111b28!important
   }
   .admin-report-library{
+      display:grid;
+      grid-template-columns:minmax(300px,430px) minmax(0,1fr);
+      align-items:start;
+      gap:14px;
       margin-top:16px
   }
   .admin-governance-filter{
-      grid-template-columns:minmax(300px,430px);
-      margin-top:12px
+      display:block;
+      min-width:0;
+      margin:0
   }
   .admin-governance-filter .report-filter-card{
       width:100%;
       margin-bottom:0
   }
   .admin-report-library-heading{
-      margin-bottom:10px
+      display:none
   }
   .admin-report-library-heading h2{
       margin:0 0 3px;
@@ -728,6 +733,13 @@
       margin:0;
       color:#687587;
       font-size:11px
+  }
+  .admin-report-library>#filteredReport{
+      min-width:0;
+      margin:0
+  }
+  @media(max-width:900px){
+      .admin-report-library{grid-template-columns:1fr}
   }
   .admin-report-cards{
       display:grid;
@@ -921,12 +933,12 @@
     {% if request.user.is_admin and analytics_tab == 'reports' %}
       <section class="admin-report-library" aria-labelledby="adminReportLibraryTitle">
         <div class="admin-report-library-heading">
-          <h2 id="adminReportLibraryTitle">Governance Reports</h2>
-          <p>Download only the records administrators need for access review, accountability, and turnover.</p>
+          <h2 id="adminReportLibraryTitle">Governance Report Filters</h2>
+          <p>Choose an administrator report and apply only the filters relevant to it.</p>
         </div>
         <div class="report-top admin-governance-filter">
           <article class="report-card report-filter-card">
-            <h3>Report Filters</h3>
+            <h3>Governance Report Filters</h3>
             <p>Choose an administrator report, then apply only the filters relevant to it.</p>
             <form class="generate-form" id="reportGenerator" method="post" novalidate data-admin-governance>
               {% csrf_token %}
@@ -990,6 +1002,13 @@
               {% load pagination_tags %}
               {% fmis_pagination report_preview.page_obj %}
             {% endif %}
+          </article>
+        {% else %}
+          <article class="report-card report-preview-empty" id="filteredReport">
+            <div>
+              <h3>No governance report selected yet</h3>
+              <p>Choose a report under <strong>Category</strong>. Its paginated preview will appear here automatically.</p>
+            </div>
           </article>
         {% endif %}
       </section>
@@ -1219,7 +1238,9 @@
       {% endif %}
     </section>
     {% endif %}
-    {% if not request.user.is_admin %}
+    {% if not request.user.is_admin and analytics_tab != 'reports' %}
+      {% include 'reports/_descriptive_analytics.html' %}
+    {% comment %}
       <section class="one-page-analytics" aria-label="All FMIS analytics">
         <section class="analytics-module-section" id="analytics-overview">
           <h2 class="analytics-module-heading">Municipal Overview</h2>
@@ -1250,6 +1271,7 @@
           {% include 'reports/_descriptive_analytics.html' with analytics_tab='inventory' analytics_tab_label='Inventory' analytics_embedded=True %}
         </section>
       </section>
+    {% endcomment %}
     {% endif %}
     {% if request.user.is_admin and analytics_tab == 'reports' %}
     <section class="analytics-grid">

@@ -16,6 +16,7 @@ from datetime import date
 from django.core.cache import cache
 from django.core import signing
 from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models.functions import Lower, Replace
 
 from .models import Farmer, FarmerDuplicateReview
 
@@ -36,6 +37,18 @@ def normalize_text(value):
     value = unicodedata.normalize("NFKD", str(value or ""))
     value = "".join(character for character in value if not unicodedata.combining(character))
     return " ".join(re.sub(r"[^a-z0-9]+", " ", value.casefold()).split())
+
+
+def normalize_id_number(value):
+    """Compare ID numbers independent of display punctuation and spacing."""
+    return re.sub(r"[^a-z0-9]+", "", str(value or "").casefold())
+
+
+def normalized_id_number_expression(field_name="valid_id_number"):
+    expression = Lower(field_name)
+    for character in (" ", "-", "/", ".", "(", ")", "#"):
+        expression = Replace(expression, Value(character), Value(""))
+    return expression
 
 
 def normalize_suffix(value):
@@ -93,7 +106,7 @@ def identity_values(values):
         "birth_date": str(_birth_date(values.get("birth_date")) or ""),
         "barangay": normalize_text(values.get("barangay")),
         "valid_id_type": normalize_text(values.get("valid_id_type")),
-        "valid_id_number": normalize_text(values.get("valid_id_number")).replace(" ", ""),
+        "valid_id_number": normalize_id_number(values.get("valid_id_number")),
     }
 
 
@@ -118,12 +131,9 @@ def _candidate_queryset(values, *, exclude_pk=None):
     if birth:
         filters |= Q(birth_date=birth)
     valid_id_type = str(values.get("valid_id_type") or "").strip()
-    valid_id_number = str(values.get("valid_id_number") or "").strip()
+    valid_id_number = normalize_id_number(values.get("valid_id_number"))
     if valid_id_type and valid_id_number:
-        filters |= Q(
-            valid_id_type__iexact=valid_id_type,
-            valid_id_number__iexact=valid_id_number,
-        )
+        filters |= Q(valid_id_type__iexact=valid_id_type, normalized_valid_id=valid_id_number)
     if not filters:
         return Farmer.objects.none()
 
@@ -168,7 +178,9 @@ def _candidate_queryset(values, *, exclude_pk=None):
     if barangay:
         priority_conditions.append(When(barangay__iexact=barangay, then=Value(7)))
 
-    queryset = Farmer.objects.filter(is_active=True).filter(filters)
+    queryset = Farmer.objects.filter(is_active=True).annotate(
+        normalized_valid_id=normalized_id_number_expression()
+    ).filter(filters)
     if exclude_pk:
         queryset = queryset.exclude(pk=exclude_pk)
     return queryset.annotate(

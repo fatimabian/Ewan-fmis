@@ -55,6 +55,8 @@
     body[data-theme="dark"] .duplicate-review-dialog,body[data-theme="dark"] .duplicate-review-close,body[data-theme="dark"] .duplicate-match{border-color:#52675b;background:#1c2735;color:#f1f5f9}body[data-theme="dark"] .duplicate-new-record{background:#243442}body[data-theme="dark"] .duplicate-new-record strong{color:#f1f5f9}
     body[data-theme="dark"] .duplicate-use-dialog{border-color:#52675b;background:#1c2735;color:#f1f5f9}body[data-theme="dark"] .duplicate-use-dialog p{color:#cbd5e1}
     .registration-step .next-step:disabled{cursor:not-allowed;opacity:.48;box-shadow:none!important;transform:none!important}
+    .step-validation-summary{margin:0 0 14px;padding:11px 13px;border:1px solid #dc3545;background:#fff5f5;color:#842029;font-size:13px;line-height:1.45}
+    .step-validation-summary[hidden]{display:none}
     #registrationReview.review-grid article.review-summary-card{display:block!important;min-height:0;padding:18px}
     .review-summary-card h3{margin:0 0 14px}
     .review-subsection+.review-subsection{margin-top:18px;padding-top:16px;border-top:1px solid #dce6df}
@@ -511,17 +513,45 @@
                   const next = step.querySelector('.next-step');
                   if (!next) return;
                   const complete = stepIsComplete(step);
-                  next.disabled = !complete;
+                  next.disabled = false;
                   next.setAttribute('aria-disabled', String(!complete));
                   next.title = complete ? '' : 'Complete all required fields in this step to continue.'
               })
           }
 
           document.querySelectorAll('.next-step').forEach(btn => btn.addEventListener('click', () => {
-              if (btn.disabled || !stepIsComplete(btn.closest('.registration-step'))) return;
+              const step = btn.closest('.registration-step');
+              if (!stepIsComplete(step)) {
+                  let summary = step.querySelector('.step-validation-summary');
+                  if (!summary) {
+                      summary = document.createElement('div');
+                      summary.className = 'step-validation-summary';
+                      summary.setAttribute('role', 'alert');
+                      btn.closest('.step-actions')?.insertAdjacentElement('beforebegin', summary);
+                  }
+                  const invalid = [...step.querySelectorAll('input,select,textarea')].filter(field => !stepControlIsComplete(field));
+                  invalid.forEach(field => { field.setAttribute('aria-invalid', 'true'); field.classList.add('is-invalid') });
+                  summary.textContent = invalid.length === 1 ? 'Complete the highlighted required field before continuing.' : `Complete the ${invalid.length} highlighted required fields before continuing.`;
+                  summary.hidden = false;
+                  invalid[0]?.focus();
+                  invalid[0]?.scrollIntoView({behavior: 'smooth', block: 'center'});
+                  return;
+              }
+              const summary = step.querySelector('.step-validation-summary');
+              if (summary) summary.hidden = true;
               showStep(Math.min(5, current + 1))
           }));
           document.querySelectorAll('.prev-step').forEach(btn => btn.addEventListener('click', () => showStep(Math.max(1, current - 1))));
+          document.querySelectorAll('.registration-step input,.registration-step select,.registration-step textarea').forEach(field => {
+              const clearFieldError = () => {
+                  if (stepControlIsComplete(field)) {
+                      field.removeAttribute('aria-invalid');
+                      field.classList.remove('is-invalid');
+                  }
+              };
+              field.addEventListener('input', clearFieldError);
+              field.addEventListener('change', clearFieldError);
+          });
           form.addEventListener('input', updateNextButtonState);
           form.addEventListener('change', updateNextButtonState);
 

@@ -639,7 +639,37 @@ class FMISRequirementTests(TestCase):
             },
         )
         self.assertFalse(form.is_valid())
-        self.assertIn("already linked", form.errors["valid_id_number"][0])
+        self.assertIn("Possible duplicate", form.errors["valid_id_number"][0])
+
+    def test_duplicate_valid_id_ignores_display_punctuation(self):
+        farmer = Farmer.objects.filter(valid_id_type="National ID").first()
+        farmer.valid_id_type = "Voter's ID"
+        farmer.valid_id_number = "VOTER-1234-5678"
+        farmer.save(update_fields=["valid_id_type", "valid_id_number"])
+        form = FarmerRegistrationForm(
+            data={
+                "last_name": "Different",
+                "first_name": "Person",
+                "sex": "FEMALE",
+                "birth_date": "1990-01-02",
+                "place_of_birth": "Rosario",
+                "mother_maiden_name": "Reyes",
+                "house_lot_purok": "Purok 2",
+                "barangay": "Bulihan",
+                "city_municipality": "Rosario",
+                "province": "Batangas",
+                "region": "CALABARZON Region IV-A",
+                "phone_number": "09170000001",
+                "civil_status": "SINGLE",
+                "valid_id_type": "Voter's ID",
+                "valid_id_number": "VOTER 1234 5678",
+                "livelihood": "FARMER",
+                "activities": "FARMER_CROPS",
+                "consent_given": "on",
+            },
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("Possible duplicate", form.errors["valid_id_number"][0])
 
     def test_shared_validation_rejects_blank_and_non_numeric_input_and_normalizes_spacing(self):
         class AuditForm(InlineValidationMixin, django_forms.Form):
@@ -1011,6 +1041,34 @@ class FMISRequirementTests(TestCase):
         missing_choices.is_valid()
         for name in ("is_indigenous", "is_pwd", "is_four_ps", "is_association_member"):
             self.assertIn(name, missing_choices.errors)
+
+    def test_philsys_numbers_are_not_required_when_registration_is_no(self):
+        form = FarmerRegistrationForm(
+            data={
+                "last_name": "Ramirez",
+                "first_name": "Fatima",
+                "sex": "FEMALE",
+                "birth_date": "1990-01-02",
+                "place_of_birth": "Rosario",
+                "mother_maiden_name": "Perea",
+                "barangay": "Bagong Pook",
+                "phone_number": "09953092018",
+                "civil_status": "SINGLE",
+                "valid_id_type": "PhilHealth ID",
+                "valid_id_number": "124587965412",
+                "philsys_registered": "False",
+                "livelihood": "FARMER",
+                "activities": "FARMER_CROPS",
+                "is_indigenous": "False",
+                "is_pwd": "False",
+                "is_four_ps": "False",
+                "is_association_member": "False",
+                "consent_given": "on",
+            }
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["philsys_pcn"], "")
+        self.assertEqual(form.cleaned_data["philsys_trn"], "")
 
     def test_invalid_registration_explains_that_nothing_was_saved(self):
         self.client.force_login(self.staff)
@@ -4937,6 +4995,36 @@ class FMISRequirementTests(TestCase):
             denied = self.client.post(reverse("settings_page:manual_backup"))
             self.assertEqual(denied.status_code, 302)
             self.assertEqual(denied.url, reverse("dashboard:home"))
+
+    def test_restore_preparation_requires_admin_password_and_authenticates_archive(self):
+        encryption_key = base64.urlsafe_b64encode(b"x" * 32).decode()
+        with tempfile.TemporaryDirectory() as temp_dir, override_settings(
+            BACKUP_ROOT=Path(temp_dir),
+            FMIS_BACKUP_ENCRYPTION_KEY=encryption_key,
+        ), patch("apps.settings_page.views.verify_existing_backup", return_value="a" * 64) as verify:
+            self.client.force_login(self.admin)
+            denied = self.client.post(
+                reverse("settings_page:prepare_restore"),
+                {
+                    "restore_password": "wrong-password",
+                    "restore_archive": SimpleUploadedFile("backup.fmisbak", b"encrypted"),
+                },
+            )
+            self.assertEqual(denied.status_code, 302)
+            self.assertFalse((Path(temp_dir) / "restore-staging").exists())
+            verify.assert_not_called()
+
+            accepted = self.client.post(
+                reverse("settings_page:prepare_restore"),
+                {
+                    "restore_password": "StrongPass123!",
+                    "restore_archive": SimpleUploadedFile("backup.fmisbak", b"encrypted"),
+                },
+            )
+            self.assertEqual(accepted.status_code, 302)
+            staged = list((Path(temp_dir) / "restore-staging").glob("restore-*.fmisbak"))
+            self.assertEqual(len(staged), 1)
+            verify.assert_called_once_with(staged[0])
 
     def test_backup_screen_is_nontechnical_and_reports_real_configuration(self):
         self.client.force_login(self.admin)
