@@ -6,20 +6,30 @@ def user_preference(request):
     if request.user.is_authenticated:
         from .models import SystemSetting, UserPreference
         from apps.notifications.models import Notification
-        from django.db.models import Count, Q, Window
-
+        from django.db.models import Count, IntegerField, Subquery, Value
+        from django.db.models.functions import Coalesce
         preference, _ = UserPreference.objects.get_or_create(
             user=request.user, defaults={"linked_email": request.user.email}
         )
         if preference.in_app_notifications:
-            # One windowed query supplies both the five preview rows and the
-            # unread total. Previously every authenticated page paid for a
-            # separate COUNT query before loading the same notification table.
+            # A scalar indexed count plus the five recent rows avoids a window
+            # function over the user's complete notification history while
+            # preserving one notification query per authenticated page.
+            unread_subquery = (
+                Notification.objects.filter(
+                    recipient=request.user,
+                    is_read=False,
+                )
+                .values("recipient")
+                .annotate(total=Count("pk"))
+                .values("total")[:1]
+            )
             user_notifications = Notification.objects.filter(
                 recipient=request.user
             ).annotate(
-                unread_total=Window(
-                    expression=Count("pk", filter=Q(is_read=False))
+                unread_total=Coalesce(
+                    Subquery(unread_subquery, output_field=IntegerField()),
+                    Value(0),
                 )
             )
             notifications = list(user_notifications[:5])

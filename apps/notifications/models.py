@@ -25,6 +25,16 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-pk"]
+        indexes = [
+            models.Index(
+                fields=("recipient", "is_read"),
+                name="notif_recipient_read_idx",
+            ),
+            models.Index(
+                fields=("recipient", "-created_at", "-id"),
+                name="notif_recipient_recent_idx",
+            ),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=("recipient", "source_activity"),

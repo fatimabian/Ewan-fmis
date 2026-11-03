@@ -1,4 +1,5 @@
 from collections import defaultdict
+import hashlib
 
 from django.core.paginator import Paginator
 from datetime import date, datetime, timedelta
@@ -21,6 +22,7 @@ from .export import _filter_period, build_report, build_system_report
 
 
 REPORT_METRICS_CACHE_KEY = "fmis:reports:metrics:all:v1"
+REPORT_PREVIEW_CACHE_SECONDS = 45
 
 ANALYTICS_TABS = (
     ("overview", "Overview"),
@@ -308,6 +310,254 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             movement_type=inventory_movement_type
         )
 
+    # Each analytics tab must only evaluate the records it displays.  The
+    # former implementation calculated every module (including the fuzzy
+    # duplicate scan) for every tab, which made ordinary navigation scale
+    # with the size of the entire FMIS database.
+    if tab == "farmers":
+        today = timezone.localdate()
+        try:
+            senior_cutoff = today.replace(year=today.year - 60)
+        except ValueError:
+            senior_cutoff = today.replace(year=today.year - 60, day=28)
+        statistics = farmers.aggregate(
+            active=Count("pk", distinct=True),
+            female=Count("pk", filter=Q(sex="FEMALE"), distinct=True),
+            male=Count("pk", filter=Q(sex="MALE"), distinct=True),
+            senior=Count("pk", filter=Q(birth_date__lte=senior_cutoff), distinct=True),
+            four_ps=Count("pk", filter=Q(is_four_ps=True), distinct=True),
+            pwd=Count("pk", filter=Q(is_pwd=True), distinct=True),
+            indigenous=Count("pk", filter=Q(is_indigenous=True), distinct=True),
+        )
+        return {
+            "tab": tab,
+            "summary": [{"label": "Active Farmers", "value": statistics["active"]}],
+            "farmer_demographics": [
+                {"label": "Female Farmers", "value": statistics["female"], "icon": "bi-person-vcard"},
+                {"label": "Male Farmers", "value": statistics["male"], "icon": "bi-person-vcard"},
+                {"label": "Senior Farmers", "value": statistics["senior"], "icon": "bi-person-vcard"},
+                {"label": "4Ps Beneficiaries", "value": statistics["four_ps"], "icon": "bi-person-vcard"},
+                {"label": "PWD Farmers", "value": statistics["pwd"], "icon": "bi-person-vcard"},
+                {"label": "Indigenous Farmers", "value": statistics["indigenous"], "icon": "bi-person-vcard"},
+            ],
+            "top_farmer_barangays": _comparison_rows(farmers, "barangay", limit=8),
+            "duplicate_scan": find_system_duplicate_pairs(),
+        }
+
+    if tab == "parcels":
+        totals = parcels.aggregate(total=Count("pk"), area=Sum("area_hectares"))
+        unpinned = parcels.filter(Q(coordinates="") | Q(coordinates__isnull=True)).count()
+        total = totals["total"] or 0
+        return {
+            "tab": tab,
+            "parcel_total": total,
+            "parcel_area": totals["area"] or 0,
+            "pinned_parcels": total - unpinned,
+            "unpinned_parcels": unpinned,
+            "top_parcel_count_barangays": _comparison_rows(parcels, "barangay", limit=8),
+        }
+
+    if tab == "commodities":
+        totals = crops.aggregate(
+            total=Count("pk"),
+            distinct=Count("crop_type", distinct=True),
+            area=Sum("area_hectares"),
+        )
+        top = (
+            crops.values("crop_type")
+            .annotate(total=Count("pk"))
+            .order_by("-total", "crop_type")
+            .first()
+        )
+        return {
+            "tab": tab,
+            "crop_record_total": totals["total"] or 0,
+            "distinct_commodities": totals["distinct"] or 0,
+            "recorded_crop_area": totals["area"] or 0,
+            "most_recorded_commodity": top["crop_type"] if top else "No records",
+            "top_commodities": _comparison_rows(crops, "crop_type", limit=7),
+        }
+
+    if tab == "requests":
+        now = timezone.now()
+        open_requests = requests.exclude(status__in=("COMPLETED", "CANCELLED"))
+        overdue_requests = open_requests.filter(
+            Q(first_responded_at__isnull=True, first_response_due_at__lt=now)
+            | Q(first_responded_at__isnull=False, due_at__lt=now)
+        ).distinct()
+        status_counts = {
+            row["status"]: row["total"]
+            for row in requests.values("status").annotate(total=Count("pk"))
+        }
+        total = sum(status_counts.values())
+        status_rows = []
+        for value, label in ServiceRequest.STATUS_CHOICES:
+            value_total = status_counts.get(value, 0)
+            status_rows.append(
+                {
+                    "label": label,
+                    "value": value_total,
+                    "percent": round(value_total / total * 100, 1) if total else 0,
+                    "tone": "positive" if value == "COMPLETED" else ("danger" if value == "CANCELLED" else "neutral"),
+                }
+            )
+        response_duration = ExpressionWrapper(
+            F("first_responded_at") - F("created_at"), output_field=DurationField()
+        )
+        completion_duration = ExpressionWrapper(
+            F("completed_at") - F("created_at"), output_field=DurationField()
+        )
+        timing = requests.aggregate(
+            average_response=Avg(response_duration, filter=Q(first_responded_at__isnull=False)),
+            average_completion=Avg(completion_duration, filter=Q(completed_at__isnull=False)),
+        )
+
+        def duration_hours(value):
+            return round(value.total_seconds() / 3600, 1) if value else None
+
+        return {
+            "tab": tab,
+            "request_total": total,
+            "open_requests": open_requests.count(),
+            "overdue_requests": overdue_requests.count(),
+            "average_response_hours": duration_hours(timing["average_response"]),
+            "average_completion_hours": duration_hours(timing["average_completion"]),
+            "request_status_rows": status_rows,
+            "request_dual_series": _monthly_dual_series(
+                requests,
+                "created_at",
+                requests.filter(completed_at__isnull=False),
+                "completed_at",
+            ),
+            "top_services": [
+                {"label": row["service__name"], "value": row["total"]}
+                for row in requests.values("service__name")
+                .annotate(total=Count("pk"))
+                .order_by("-total", "service__name")[:6]
+            ],
+            "recent_requests": list(
+                requests.select_related("farmer", "service").order_by("-created_at", "-pk")[:5]
+            ),
+        }
+
+    if tab == "interventions":
+        totals = interventions.aggregate(
+            total=Count("pk", distinct=True),
+            farmers=Count(
+                "recipients__farmer",
+                filter=Q(recipients__is_active=True),
+                distinct=True,
+            ),
+        )
+        reached_barangays = set(
+            interventions.exclude(target_barangay="").values_list("target_barangay", flat=True)
+        )
+        reached_barangays.update(
+            interventions.filter(recipients__is_active=True)
+            .exclude(recipients__farmer__barangay="")
+            .values_list("recipients__farmer__barangay", flat=True)
+        )
+        labels = dict(Intervention.TYPE_CHOICES)
+        types = [
+            {
+                "label": labels.get(row["intervention_type"], row["intervention_type"]),
+                "value": row["total"],
+                "farmers": row["farmers"],
+            }
+            for row in interventions.values("intervention_type")
+            .annotate(
+                total=Count("pk", distinct=True),
+                farmers=Count(
+                    "recipients__farmer",
+                    filter=Q(recipients__is_active=True),
+                    distinct=True,
+                ),
+            )
+            .order_by("-total", "intervention_type")
+        ]
+        return {
+            "tab": tab,
+            "intervention_total": totals["total"] or 0,
+            "intervention_farmers": totals["farmers"] or 0,
+            "intervention_barangays": len(reached_barangays),
+            "intervention_types": types,
+            "intervention_series": _monthly_series(interventions, "intervention_date"),
+        }
+
+    if tab == "inventory":
+        expiring_cutoff = timezone.localdate() + timedelta(days=30)
+        not_expiring = Q(expiration_date__isnull=True) | Q(expiration_date__gt=expiring_cutoff)
+        low_stock = inventory_items.filter(
+            stock_on_hand__gt=0, stock_on_hand__lte=F("reorder_level")
+        ).filter(not_expiring)
+        out_of_stock = inventory_items.filter(stock_on_hand__lte=0)
+        expiring = inventory_items.filter(
+            stock_on_hand__gt=0,
+            expiration_date__isnull=False,
+            expiration_date__lte=expiring_cutoff,
+        )
+        status_rows = [
+            {
+                "label": "In stock",
+                "value": inventory_items.filter(stock_on_hand__gt=F("reorder_level"))
+                .filter(not_expiring)
+                .count(),
+            },
+            {"label": "Low stock", "value": low_stock.count()},
+            {"label": "Out of stock", "value": out_of_stock.count()},
+            {"label": "Expiring within 30 days", "value": expiring.count()},
+        ]
+        findings = []
+        for queryset, message in (
+            (low_stock, "active inventory item(s) are at or below their reorder level."),
+            (out_of_stock, "active inventory item(s) are out of stock."),
+            (expiring, "active inventory item(s) have an expiration date within 30 days."),
+        ):
+            count = queryset.count()
+            if count:
+                findings.append(f"{count} {message}")
+        if not findings:
+            findings.append("No current low-stock, out-of-stock, or near-expiration exceptions were found.")
+        category_labels = dict(InventoryItem.CATEGORY_CHOICES)
+        return {
+            "tab": tab,
+            "inventory_item_total": inventory_items.count(),
+            "inventory_low_stock": low_stock.count(),
+            "inventory_out_of_stock": out_of_stock.count(),
+            "inventory_expiring": expiring.count(),
+            "inventory_movement_total": inventory_movements.count(),
+            "inventory_intervention_releases": inventory_movements.filter(
+                movement_type=InventoryMovement.RELEASE, intervention__isnull=False
+            ).count(),
+            "inventory_movement_series": _monthly_dual_series(
+                inventory_movements.filter(movement_type=InventoryMovement.RECEIPT),
+                "created_at",
+                inventory_movements.filter(movement_type=InventoryMovement.RELEASE),
+                "created_at",
+            ),
+            "inventory_status_rows": status_rows,
+            "inventory_by_category": [
+                {"label": category_labels.get(row["category"], row["category"]), "value": row["total"]}
+                for row in inventory_items.values("category")
+                .annotate(total=Count("pk"))
+                .order_by("-total", "category")
+            ],
+            "inventory_by_location": [
+                {"label": row["storage_location"] or "Not recorded", "value": row["total"]}
+                for row in inventory_items.values("storage_location")
+                .annotate(total=Count("pk"))
+                .order_by("-total", "storage_location")[:8]
+            ],
+            "inventory_issued_items": [
+                {"label": row["item__name"], "value": row["quantity"] or 0, "unit": row["item__unit"]}
+                for row in inventory_movements.filter(movement_type=InventoryMovement.RELEASE)
+                .values("item__name", "item__unit")
+                .annotate(quantity=Sum("quantity"))
+                .order_by("-quantity", "item__name")[:8]
+            ],
+            "inventory_findings": findings,
+        }
+
     parcel_totals = parcels.aggregate(total=Count("pk"), area=Sum("area_hectares"))
     crop_totals = crops.aggregate(
         total=Count("pk"), distinct=Count("crop_type", distinct=True), area=Sum("area_hectares")
@@ -543,7 +793,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         limit=7,
     )
 
-    return {
+    result = {
         "tab": tab,
         "summary": summary,
         "registration_series": _monthly_series(farmers, "created_at"),
@@ -629,6 +879,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         "inventory_findings": inventory_findings,
         "findings": findings[:3],
     }
+    return result
 
 
 def _apply_report_filters(queryset, model_name, date_range, filters):
@@ -701,13 +952,42 @@ def _apply_report_filters(queryset, model_name, date_range, filters):
     return queryset
 
 
-def report_preview(report_type, date_range, filters, system_report=False, page=1, per_page=25):
+def report_preview(
+    report_type,
+    date_range,
+    filters,
+    system_report=False,
+    page=1,
+    per_page=25,
+    cache_scope="",
+):
     """Turn the selected generated report into a readable on-screen chart and table."""
     builder = build_system_report if system_report else build_report
-    if not system_report and report_type == "farmer_master":
-        title, headers, rows = builder(report_type, date_range, filters, compact=True)
+    preview_key = "fmis:reports:preview:v2:" + hashlib.sha256(
+        repr(
+            (
+                bool(system_report),
+                str(cache_scope or ""),
+                report_type,
+                date_range,
+                sorted((filters or {}).items()),
+            )
+        ).encode("utf-8")
+    ).hexdigest()
+    cached_preview = cache.get(preview_key)
+    if cached_preview is None:
+        if not system_report and report_type == "farmer_master":
+            title, headers, rows = builder(
+                report_type, date_range, filters, compact=True
+            )
+        else:
+            title, headers, rows = builder(report_type, date_range, filters)
+        # Store only the immutable report data. A fresh Paginator/Page is
+        # created below for every request so page navigation remains correct.
+        cached_preview = (title, headers, rows)
+        cache.set(preview_key, cached_preview, REPORT_PREVIEW_CACHE_SECONDS)
     else:
-        title, headers, rows = builder(report_type, date_range, filters)
+        title, headers, rows = cached_preview
     chart_values = defaultdict(float)
     value_label = "Records"
     show_chart = report_type not in {"farmer_master", "service_effectiveness"}

@@ -14,7 +14,6 @@ from apps.crops.models import CropRecord
 from apps.activity_logs.models import ActivityLog
 from apps.activity_logs.services import record_request_event
 from apps.farmers.models import Farmer
-from apps.farmers.duplicate_detection import find_system_duplicate_pairs
 from apps.interventions.models import Intervention
 from apps.inventory.models import InventoryItem, InventoryMovement
 from apps.service_requests.models import ServiceRequest
@@ -157,6 +156,7 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                     system_report=system_report,
                     page=source.get("page", 1),
                     per_page=int(preview_per_page),
+                    cache_scope=self.request.user.role,
                 )
         except ValueError as error:
             report_error = str(error)
@@ -170,7 +170,11 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             date_range = "all"
         context = {
             **super().get_context_data(**kwargs),
-            **report_metrics(date_range, filters),
+            # The cards at the top are municipality-wide indicators, not
+            # analytics for the selected export.  Keeping them on the cached
+            # baseline prevents every filter or preview page from rebuilding
+            # the same expensive aggregates.
+            **report_metrics(),
             "base_template": (
                 "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
             ),
@@ -232,23 +236,23 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             "analytics_filters_active": analytics_filters_active,
             "analytics_error": analytics_error,
         }
-        if not system_report:
-            # A single inventory-mode build returns the shared farmer, parcel,
-            # commodity, request and intervention aggregates plus inventory.
-            # Reusing it for every rendered section avoids repeating the same
-            # database work seven times on the one-page dashboard.
+        if not system_report and analytics_tab != "reports":
+            # Build only the analytics section the user opened.  Previously
+            # every request used inventory mode (the most expensive mode) and
+            # also ran a second system-wide duplicate scan.  That made even
+            # the report generator wait for every analytics module.
             descriptive = descriptive_analytics(
-                "inventory",
+                analytics_tab,
                 analytics_date_range,
                 analytics_filters,
             )
-            duplicate_scan = find_system_duplicate_pairs()
-            duplicate_page = Paginator(duplicate_scan["pairs"], 8).get_page(
-                self.request.GET.get("duplicate_page")
-            )
-            duplicate_scan["pairs"] = list(duplicate_page.object_list)
-            duplicate_scan["page_obj"] = duplicate_page
-            descriptive["duplicate_scan"] = duplicate_scan
+            if analytics_tab == "farmers":
+                duplicate_scan = descriptive["duplicate_scan"]
+                duplicate_page = Paginator(duplicate_scan["pairs"], 8).get_page(
+                    self.request.GET.get("duplicate_page")
+                )
+                duplicate_scan["pairs"] = list(duplicate_page.object_list)
+                duplicate_scan["page_obj"] = duplicate_page
             context["descriptive"] = descriptive
         return context
 

@@ -1221,7 +1221,7 @@
             </p>
           {% endif %}
           {% if report_preview.truncated %}
-            <p class="filtered-note">Showing 25 rows per page. Download the report for the complete result.</p>
+            <p class="filtered-note">Showing {{ report_preview.page_obj.paginator.per_page }} rows per page. Download the report for the complete result.</p>
           {% endif %}
         </article>
       {% else %}
