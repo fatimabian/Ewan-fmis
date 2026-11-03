@@ -15,7 +15,14 @@
     loading: byId("gisLoading"), level: byId("gisLevel"), legend: byId("gisLegend"), legendTitle: byId("gisLegendTitle"),
     legendBox: byId("gisLegendBox"), detail: byId("gisDetail"), detailTitle: byId("gisDetailTitle"),
     detailRows: byId("gisDetailRows"), detailLink: byId("gisDetailLink"), detailClose: byId("gisDetailClose"),
+    detailPhotoWrap: byId("gisDetailPhotoWrap"), detailPhoto: byId("gisDetailPhoto"),
+    detailPhotoEmpty: byId("gisDetailPhotoEmpty"), detailKicker: byId("gisDetailKicker"),
     insights: byId("gisInsights"), tabs: byId("gisTabs"), top: byId("gisTop"), chips: byId("gisChips"),
+    parcelDirectory: byId("gisParcelDirectory"), parcelDirectoryTitle: byId("gisParcelDirectoryTitle"),
+    parcelDirectoryScope: byId("gisParcelDirectoryScope"), parcelSearch: byId("gisParcelSearch"),
+    parcelPinStatus: byId("gisParcelPinStatus"), parcelList: byId("gisParcelList"),
+    parcelPrevious: byId("gisParcelPrevious"), parcelNext: byId("gisParcelNext"),
+    parcelPageStatus: byId("gisParcelPageStatus"),
   };
 
   // State: the layer, the three main filters, and the extra filters of the current layer.
@@ -50,13 +57,15 @@
   let barangayShape = null;
   let selected = null;
   let request = null;
+  let parcelListRequest = null;
+  let parcelPage = 1;
+  let parcelSearchTimer = null;
+  const markerByRecord = new Map();
 
   config.barangays.forEach((name) => els.barangay.add(new Option(name, name)));
   config.commodities.forEach((name) => els.commodity.add(new Option(name, name)));
 
-  const TIER_STYLE = {
-    1: {fillColor: "#2f7d5c"}, 2: {fillColor: "#d8a62b"}, 3: {fillColor: "#ffffff"},
-  };
+  const TIER_STATUS = {1: "good", 2: "attention", 3: "neutral"};
 
   function renderMoreFilters() {
     const layer = layers[state.layer];
@@ -182,11 +191,12 @@
     const layer = layers[state.layer];
     els.legend.replaceChildren();
     if (data.level === 1) {
-      els.legendTitle.textContent = "Records per square (about 1 km)";
+      els.legendTitle.textContent = "Records by map area (about 1 km)";
       data.tiers.forEach((tier) => {
         const item = document.createElement("li");
         const swatch = document.createElement("span");
-        swatch.className = `gis-tier gis-tier-${tier.tier}`;
+        swatch.className = "gis-swatch";
+        swatch.innerHTML = pinHtml(layer.icon, TIER_STATUS[tier.tier], 22);
         item.append(swatch, `${tier.label} record${tier.label === "1" ? "" : "s"}`);
         els.legend.append(item);
       });
@@ -206,7 +216,7 @@
   function showLevel(level) {
     els.level.textContent = [
       "",
-      "Level 1 of 3: where records are. Select a square, or pick from the insights.",
+      "Level 1 of 3: where records are. Select a density pin, or pick from the insights.",
       "Level 2 of 3: each record. Select one for its details.",
       "Level 3 of 3: record details.",
     ][level] || "";
@@ -265,25 +275,33 @@
   }
 
   function renderCells(data) {
+    const layer = layers[state.layer];
     data.cells.forEach((cell) => {
-      const bounds = [[cell.lat, cell.lng], [cell.lat + data.size, cell.lng + data.size]];
-      const rect = L.rectangle(bounds, {
-        ...TIER_STYLE[cell.tier], color: cell.tier === 3 ? "#111c2b" : "#ffffff", weight: 1.5, opacity: 0.9, fillOpacity: 0.85,
+      const center = [cell.lat + (data.size / 2), cell.lng + (data.size / 2)];
+      const marker = L.marker(center, {
+        title: `${cell.count} records near ${cell.barangay}`,
+        icon: L.divIcon({
+          className: "",
+          iconSize: [32, 43],
+          iconAnchor: [16, 41],
+          html: pinHtml(layer.icon, TIER_STATUS[cell.tier], 32),
+        }),
       });
       const note = cell.attention ? `, ${cell.attention} need attention` : "";
-      rect.bindTooltip(`${cell.count} record${cell.count === 1 ? "" : "s"}${note}. Mostly ${cell.barangay}`);
-      rect.on("click", () => selectBarangay(cell.barangay));
-      cells.addLayer(rect);
+      marker.bindTooltip(`${cell.count} record${cell.count === 1 ? "" : "s"}${note}. Mostly ${cell.barangay}`);
+      marker.on("click", () => selectBarangay(cell.barangay));
+      cells.addLayer(marker);
     });
     map.invalidateSize();
     if (data.cells.length) {
-      const lats = data.cells.map((c) => c.lat), lngs = data.cells.map((c) => c.lng);
-      map.fitBounds([[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats) + data.size, Math.max(...lngs) + data.size]], {padding: [20, 20]});
+      const centers = data.cells.map((cell) => [cell.lat + (data.size / 2), cell.lng + (data.size / 2)]);
+      map.fitBounds(L.latLngBounds(centers).pad(0.2), {padding: [20, 20], maxZoom: 14});
     } else map.fitBounds(outline.getBounds());
   }
 
   function renderPoints(points, geometry) {
     const layer = layers[state.layer];
+    markerByRecord.clear();
     points.forEach((point) => {
       const marker = L.marker([point.lat, point.lng], {
         title: layer.label,
@@ -291,6 +309,7 @@
       });
       marker.on("click", () => openDetail(point.id, marker));
       pins.addLayer(marker);
+      markerByRecord.set(String(point.id), marker);
     });
     if (barangayShape) { map.removeLayer(barangayShape); barangayShape = null; }
     if (geometry) {
@@ -301,6 +320,125 @@
     map.invalidateSize();
     if (bounds) map.fitBounds(bounds, {maxZoom: 17});
     else if (config.centers[state.barangay]) map.setView(config.centers[state.barangay], 15);
+  }
+
+  function parcelDetailUrl(id) {
+    return config.parcelDetailUrl.replace("{id}", encodeURIComponent(id));
+  }
+
+  function normalizeParcelCard(item) {
+    const crops = (item.crops || []).map((crop) => crop.name).join(", ") || "None recorded";
+    return {
+      title: item.parcel,
+      kicker: `${item.farmer_id} · ${item.farmer}`,
+      image: item.photo_url || "",
+      imageAlt: `Field photo for ${item.parcel}`,
+      url: item.edit_url,
+      rows: [
+        ["Farmer", item.farmer], ["Barangay", item.barangay], ["Area", item.area],
+        ["Coordinates", item.coordinates], ["Pin status", item.pin_status_label], ["Commodities", crops],
+      ],
+    };
+  }
+
+  function showDetailCard(card) {
+    els.detailTitle.textContent = card.title;
+    els.detailKicker.textContent = card.kicker || "";
+    els.detailKicker.hidden = !card.kicker;
+    const showPhoto = state.layer === "parcels";
+    els.detailPhotoWrap.hidden = !showPhoto;
+    if (showPhoto && card.image) {
+      els.detailPhoto.src = card.image;
+      els.detailPhoto.alt = card.imageAlt || `Field photo for ${card.title}`;
+      els.detailPhoto.hidden = false;
+      els.detailPhotoEmpty.hidden = true;
+      els.detailPhoto.onerror = () => {
+        els.detailPhoto.hidden = true;
+        els.detailPhotoEmpty.hidden = false;
+      };
+    } else if (showPhoto) {
+      els.detailPhoto.removeAttribute("src");
+      els.detailPhoto.alt = "";
+      els.detailPhoto.hidden = true;
+      els.detailPhotoEmpty.hidden = false;
+    }
+    els.detailRows.replaceChildren(...card.rows.flatMap(([label, value]) => {
+      const term = document.createElement("dt"); term.textContent = label;
+      const description = document.createElement("dd"); description.textContent = value;
+      return [term, description];
+    }));
+    els.detailLink.href = card.url;
+    els.detailClose.textContent = state.layer === "parcels" && state.barangay ? "Back to parcel list" : "Back to legend";
+    els.detail.hidden = false;
+    els.parcelDirectory.hidden = true;
+    els.legendBox.hidden = true;
+    els.insights.hidden = true;
+    showLevel(3);
+  }
+
+  function focusParcel(item) {
+    const marker = markerByRecord.get(String(item.id));
+    if (marker) {
+      pins.zoomToShowLayer(marker, () => {
+        map.setView(marker.getLatLng(), Math.max(map.getZoom(), 17));
+        openDetail(item.id, marker);
+      });
+    } else {
+      openDetail(item.id, null);
+    }
+  }
+
+  async function loadParcelDirectory(page = 1) {
+    const visible = state.layer === "parcels" && Boolean(state.barangay);
+    els.parcelDirectory.hidden = !visible;
+    if (!visible) return;
+    if (parcelListRequest) parcelListRequest.abort();
+    parcelListRequest = new AbortController();
+    els.parcelDirectoryTitle.textContent = `${state.barangay} Farm Parcels`;
+    els.parcelList.innerHTML = '<p class="gis-directory-empty">Loading parcels…</p>';
+    const url = new URL(config.parcelListUrl, window.location.origin);
+    url.searchParams.set("barangay", state.barangay);
+    url.searchParams.set("page", page);
+    if (state.commodity) url.searchParams.set("commodity", state.commodity);
+    if (els.parcelSearch.value.trim()) url.searchParams.set("q", els.parcelSearch.value.trim());
+    if (els.parcelPinStatus.value) url.searchParams.set("pin_status", els.parcelPinStatus.value);
+    try {
+      const response = await fetch(url, {signal: parcelListRequest.signal, headers: {Accept: "application/json"}});
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "The parcel list could not be loaded.");
+      parcelPage = data.pagination.page;
+      els.parcelDirectoryScope.textContent = `${data.pagination.total} matching parcel${data.pagination.total === 1 ? "" : "s"}`;
+      els.parcelPageStatus.textContent = `Page ${data.pagination.page} of ${data.pagination.total_pages}`;
+      els.parcelPrevious.disabled = !data.pagination.has_previous;
+      els.parcelNext.disabled = !data.pagination.has_next;
+      els.parcelList.replaceChildren(...data.results.map((item) => {
+        const row = document.createElement("article");
+        row.className = "gis-directory-item";
+        const title = document.createElement("strong");
+        title.textContent = `${item.parcel} · ${item.farmer}`;
+        const identity = document.createElement("small");
+        identity.textContent = `${item.farmer_id} · ${item.barangay}`;
+        const footer = document.createElement("div");
+        const status = document.createElement("span");
+        status.className = `gis-pin-status is-${String(item.pin_status).toLowerCase()}`;
+        status.textContent = item.pin_status === "UNPINNED" ? "Not pinned" : item.pin_status_label;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn btn-outline-secondary";
+        button.textContent = item.lat !== null && item.lng !== null ? "View on map" : "View details";
+        button.addEventListener("click", () => focusParcel(item));
+        footer.append(status, button);
+        row.append(title, identity, footer);
+        return row;
+      }));
+      if (!data.results.length) els.parcelList.innerHTML = '<p class="gis-directory-empty">No parcels match this list filter.</p>';
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      const message = document.createElement("p");
+      message.className = "gis-directory-empty";
+      message.textContent = error.message || "The parcel list could not be loaded.";
+      els.parcelList.replaceChildren(message);
+    }
   }
 
   function setSummary(data) {
@@ -328,6 +466,9 @@
       renderLegend(data);
       renderInsights(data);
       if (data.level === 1) renderCells(data); else renderPoints(data.points, data.barangay_geometry);
+      if (state.layer === "parcels" && state.barangay) loadParcelDirectory(1);
+      else els.parcelDirectory.hidden = true;
+      if (state.layer === "parcels" && state.barangay) els.insights.hidden = true;
       const none = data.mapped === 0;
       els.empty.hidden = !none;
       if (none) els.empty.textContent = data.total
@@ -344,23 +485,16 @@
 
   async function openDetail(id, marker) {
     try {
-      const response = await fetch(`${config.detailUrl}?${new URLSearchParams({layer: state.layer, id})}`);
+      const url = state.layer === "parcels"
+        ? parcelDetailUrl(id)
+        : `${config.detailUrl}?${new URLSearchParams({layer: state.layer, id})}`;
+      const response = await fetch(url, {headers: {Accept: "application/json"}});
       if (!response.ok) throw new Error("missing");
-      const card = await response.json();
-      els.detailTitle.textContent = card.title;
-      els.detailRows.replaceChildren(...card.rows.flatMap(([label, value]) => {
-        const term = document.createElement("dt"); term.textContent = label;
-        const description = document.createElement("dd"); description.textContent = value;
-        return [term, description];
-      }));
-      els.detailLink.href = card.url;
-      els.detail.hidden = false;
-      els.legendBox.hidden = true;
-      els.insights.hidden = true;
-      showLevel(3);
+      const payload = await response.json();
+      showDetailCard(state.layer === "parcels" ? normalizeParcelCard(payload) : payload);
       if (selected) selected.getElement()?.classList.remove("is-selected");
       selected = marker;
-      marker.getElement()?.classList.add("is-selected");
+      marker?.getElement()?.classList.add("is-selected");
     } catch (error) {
       els.level.textContent = "That record could not be opened. It may have been changed.";
     }
@@ -369,7 +503,9 @@
   function closeDetail() {
     els.detail.hidden = true;
     els.legendBox.hidden = false;
-    if (lastData) els.insights.hidden = !els.top.children.length;
+    const hasDirectory = state.layer === "parcels" && Boolean(state.barangay);
+    els.parcelDirectory.hidden = !hasDirectory;
+    if (lastData) els.insights.hidden = hasDirectory || !els.top.children.length;
     if (selected) selected.getElement()?.classList.remove("is-selected");
     selected = null;
   }
@@ -397,6 +533,13 @@
   });
   els.apply.addEventListener("click", () => { closeFilters(); closeDetail(); load(); });
   els.detailClose.addEventListener("click", () => { closeDetail(); showLevel(state.barangay ? 2 : 1); });
+  els.parcelSearch.addEventListener("input", () => {
+    clearTimeout(parcelSearchTimer);
+    parcelSearchTimer = setTimeout(() => loadParcelDirectory(1), 250);
+  });
+  els.parcelPinStatus.addEventListener("change", () => loadParcelDirectory(1));
+  els.parcelPrevious.addEventListener("click", () => loadParcelDirectory(Math.max(1, parcelPage - 1)));
+  els.parcelNext.addEventListener("click", () => loadParcelDirectory(parcelPage + 1));
   window.addEventListener("load", () => map.invalidateSize());
   setTimeout(() => map.invalidateSize(), 300);
   load();

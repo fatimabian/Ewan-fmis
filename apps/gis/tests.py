@@ -65,9 +65,15 @@ class AccessTests(GISTestCase):
             self.assertContains(response, chip)
         self.assertContains(response, 'id="gisChips"')
         self.assertContains(response, 'id="gisFilterToggle"')
+        self.assertContains(response, 'id="gisParcelDirectory"')
+        self.assertContains(response, 'id="gisParcelPinStatus"')
+        self.assertContains(response, 'id="gisDetailPhoto"')
         self.assertContains(response, "Apply Filters")
         self.assertContains(response, reverse("gis:map"))  # sidebar entry
         self.assertNotContains(response, reverse("form_scan:upload"))  # scanning lives inside the forms
+        config = response.context["config"]
+        self.assertEqual(config["parcelListUrl"], reverse("farm_parcels:map_parcels"))
+        self.assertIn("{id}", config["parcelDetailUrl"])
 
     def test_parcel_list_uses_gis_instead_of_a_separate_map_button(self):
         response = self.client.get(reverse("farm_parcels:list"))

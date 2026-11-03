@@ -65,6 +65,36 @@
 .gis-side dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 14px;font-size:14px}
 .gis-side dt{color:var(--sg-muted)}.gis-side dd{margin:0;font-weight:700;overflow-wrap:anywhere}
 .gis-side .btn{margin:0 6px 6px 0;min-height:40px}
+.gis-detail-photo{position:relative;display:grid;place-items:center;min-height:150px;margin:0 0 14px;overflow:hidden;border:1px solid var(--sg-border);background:var(--ag-soft,#f5faf7)}
+.gis-detail-photo[hidden]{display:none}
+.gis-detail-photo img{display:block;width:100%;height:180px;object-fit:cover}
+.gis-detail-photo img[hidden]{display:none}
+.gis-detail-photo span{padding:24px;color:var(--sg-muted);font-size:13px;text-align:center}
+.gis-detail-kicker{margin:-3px 0 8px;color:var(--sg-muted);font-size:13px;font-weight:650;overflow-wrap:anywhere}
+.gis-detail-kicker[hidden]{display:none}
+.gis-parcel-directory[hidden]{display:none}
+.gis-directory-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.gis-directory-head h3{margin:0 0 3px}
+.gis-directory-head p{margin:0;color:var(--sg-muted);font-size:12px}
+.gis-directory-search{position:relative;display:block;margin-bottom:8px}
+.gis-directory-search i{position:absolute;top:50%;left:12px;transform:translateY(-50%);color:var(--sg-muted)}
+.gis-directory-search input,.gis-parcel-directory>select{width:100%;min-height:42px;border:1px solid var(--sg-border);background:var(--surface,#fff);color:inherit;font:inherit}
+.gis-directory-search input{padding:8px 10px 8px 36px}
+.gis-parcel-directory>select{margin-bottom:8px;padding:8px 10px}
+.gis-directory-list{max-height:min(52vh,520px);overflow:auto;border-top:1px solid var(--sg-border);border-bottom:1px solid var(--sg-border);scrollbar-width:thin}
+.gis-directory-item{display:grid;gap:4px;padding:10px 4px;border-bottom:1px solid var(--sg-border)}
+.gis-directory-item:last-child{border-bottom:0}
+.gis-directory-item>strong{font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+.gis-directory-item>small{color:var(--sg-muted);font-size:12px;overflow-wrap:anywhere}
+.gis-directory-item>div{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:3px}
+.gis-directory-item .btn{min-height:34px;margin:0;padding:5px 9px;font-size:12px;white-space:nowrap}
+.gis-pin-status{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:3px 9px;border:1px solid currentColor;font-size:11px;font-weight:750;line-height:1.15;text-align:center}
+.gis-pin-status.is-pinned{color:var(--sg-green)}
+.gis-pin-status.is-unpinned{color:var(--sg-navy)}
+.gis-directory-empty{margin:0;padding:20px 8px;color:var(--sg-muted);font-size:13px;text-align:center}
+.gis-directory-pages{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px;padding-top:10px}
+.gis-directory-pages .btn{min-height:34px;margin:0;padding:5px 9px;font-size:12px}
+.gis-directory-pages span{color:var(--sg-muted);font-size:12px;text-align:center}
 .gis-legend{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .gis-legend li{display:flex;align-items:center;gap:10px}
 .gis-swatch{display:inline-flex;flex:none}
@@ -83,6 +113,11 @@
 #gisTopBox{margin-top:16px}
 .gis-layers#gisLayers .gis-layer-btn[aria-pressed=true]{border-color:var(--sg-green)!important;background:var(--sg-green)!important;color:#fff!important}
 @media(max-width:600px){.gis-summary strong{font-size:18px}}
+@media(max-width:959px){
+  .gis-side{display:block}
+  .gis-directory-list{max-height:380px}
+  .gis-detail-photo img{height:min(42vw,220px)}
+}
 
 /* Scan & Auto-Fill control: a button, an (i) tip, and a dialog */
 .sg-scan{margin:0 0 12px}
@@ -126,8 +161,6 @@
 .gis-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .gis-tab{min-height:34px;padding:4px 10px;border:1px solid var(--sg-border);background:transparent;color:inherit;font-size:13px;cursor:pointer}
 .gis-tab[aria-selected=true]{border-color:var(--sg-green)!important;background:var(--sg-green)!important;color:#fff!important}
-.gis-tier{display:inline-block;width:20px;height:20px;border:1.5px solid #fff;flex:none}
-.gis-tier-1{background:#2f7d5c}.gis-tier-2{background:#d8a62b}.gis-tier-3{background:#fff;border-color:#111c2b}
 .marker-cluster-small,.marker-cluster-medium,.marker-cluster-large{background:transparent}
 
 /* Cluster badges (grouped pins) */
@@ -136,8 +169,10 @@
 .gis-svg text{fill:#fff;stroke:none;font-size:18px;font-weight:700}
 
 /* "Map by" chips and applied-filter chips */
-.gis-layers-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-.gis-filter-toggle{margin-left:auto;min-height:44px}
+.gis-layers-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px}
+.gis-layers-row .gis-layers{min-width:0;flex-wrap:nowrap;overflow-x:auto;padding:2px 2px 5px;scrollbar-width:thin}
+.gis-layers-row .gis-layer-btn{flex:0 0 auto;white-space:nowrap}
+.gis-filter-toggle{margin-left:0;min-height:44px;white-space:nowrap}
 .gis-filter-popover{top:calc(100% + 8px);right:0;width:min(520px,calc(100vw - 36px))}
 .gis-filter-popover .gis-more-grid{display:contents}
 .gis-filter-popover .fmis-filter-actions{margin-top:4px}
@@ -147,11 +182,7 @@
 .gis-chip{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:2px 4px 2px 10px;border:1px solid var(--sg-green);background:transparent;color:inherit;font-size:13px}
 .gis-chip button{display:grid;place-items:center;width:26px;height:26px;border:0;background:transparent;color:inherit;font-size:18px;line-height:1;cursor:pointer}
 .gis-chip button:hover,.gis-chip button:focus-visible{background:var(--sg-green);color:#fff}
-@media(max-width:720px){
-  .gis-layers-row{align-items:stretch}
-  .gis-layers{width:100%}
-  .gis-filter-toggle{width:100%;margin-left:0}
-}
+@media(max-width:720px){.gis-layers-row{gap:7px}.gis-group-label{font-size:12px}.gis-filter-toggle{padding-inline:10px}}
 
 .sg-page-label{margin:10px 0 4px;color:var(--ag-muted,#64748b);font-size:13px;font-weight:700}
 .sg-photo+.sg-page-label,a+.sg-page-label{margin-top:14px}

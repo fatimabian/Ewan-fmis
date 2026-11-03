@@ -38,6 +38,8 @@ class GISMapView(GISAccessMixin, TemplateView):
             "centers": {name: list(point) for name, point in ROSARIO_BARANGAY_CENTERS.items()},
             "dataUrl": reverse("gis:data"),
             "detailUrl": reverse("gis:detail"),
+            "parcelListUrl": reverse("farm_parcels:map_parcels"),
+            "parcelDetailUrl": reverse("farm_parcels:map_detail", args=[0]).replace("/0/", "/{id}/"),
         }
         context.update(base_template="base/staff_base.html", config=config, layer_list=list(layers.LAYERS.values()))
         return context

@@ -62,11 +62,40 @@
       <aside class="panel sg-panel gis-side" aria-label="Legend and details">
         <p class="gis-level" id="gisLevel"></p>
         <div id="gisDetail" hidden>
+          <div class="gis-detail-photo" id="gisDetailPhotoWrap" hidden>
+            <img id="gisDetailPhoto" alt="" loading="lazy">
+            <span id="gisDetailPhotoEmpty">No field photo available</span>
+          </div>
+          <p class="gis-detail-kicker" id="gisDetailKicker" hidden></p>
           <h3 id="gisDetailTitle"></h3>
           <dl id="gisDetailRows"></dl>
           <a class="btn btn-success" id="gisDetailLink" href="#">Open record</a>
           <button type="button" class="btn btn-outline-secondary" id="gisDetailClose">Back to legend</button>
         </div>
+        <section class="gis-parcel-directory" id="gisParcelDirectory" hidden aria-labelledby="gisParcelDirectoryTitle">
+          <div class="gis-directory-head">
+            <div>
+              <h3 id="gisParcelDirectoryTitle">Farm Parcels</h3>
+              <p id="gisParcelDirectoryScope"></p>
+            </div>
+          </div>
+          <label class="gis-directory-search">
+            <span class="visually-hidden">Search parcels in this barangay</span>
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input type="search" id="gisParcelSearch" placeholder="Farmer, parcel, or farmer number">
+          </label>
+          <select id="gisParcelPinStatus" aria-label="Filter parcel list by pin status">
+            <option value="">All parcels</option>
+            <option value="PINNED">Pinned</option>
+            <option value="UNPINNED">Not pinned</option>
+          </select>
+          <div class="gis-directory-list" id="gisParcelList" aria-live="polite"></div>
+          <nav class="gis-directory-pages" aria-label="Parcel list pages">
+            <button type="button" class="btn btn-outline-secondary" id="gisParcelPrevious">Previous</button>
+            <span id="gisParcelPageStatus"></span>
+            <button type="button" class="btn btn-outline-secondary" id="gisParcelNext">Next</button>
+          </nav>
+        </section>
         <div id="gisLegendBox">
           <h3 id="gisLegendTitle">Legend</h3>
           <ul class="sg-legend gis-legend" id="gisLegend"></ul>
