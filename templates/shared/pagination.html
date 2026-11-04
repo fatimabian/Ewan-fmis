@@ -1,4 +1,5 @@
 <nav class="fmis-pagination" aria-label="Table pages">
+  {% if not hide_page_size %}
   <form class="fmis-page-size" method="get" aria-label="Rows per page">
     {% for name, value in preserved_fields %}
       {% if name != 'per_page' %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endif %}
@@ -10,9 +11,10 @@
       {% endfor %}
     </select>
   </form>
+  {% endif %}
   {% if page_obj.has_previous %}
     <a class="fmis-page-button"
-       href="?{% if preserved_query %}{{ preserved_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}"
+       href="?{% if preserved_query %}{{ preserved_query }}&amp;{% endif %}{{ page_parameter|default:"page" }}={{ page_obj.previous_page_number }}"
        aria-label="Previous page">&lsaquo;</a>
   {% else %}
     <span class="fmis-page-button is-disabled" aria-hidden="true">&lsaquo;</span>
@@ -26,7 +28,7 @@
     <input id="fmisPageJump"
            class="fmis-page-input"
            type="number"
-           name="page"
+           name="{{ page_parameter|default:'page' }}"
            value="{{ page_obj.number }}"
            min="1"
            max="{{ page_obj.paginator.num_pages }}"
@@ -38,7 +40,7 @@
 
   {% if page_obj.has_next %}
     <a class="fmis-page-button"
-       href="?{% if preserved_query %}{{ preserved_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}"
+       href="?{% if preserved_query %}{{ preserved_query }}&amp;{% endif %}{{ page_parameter|default:"page" }}={{ page_obj.next_page_number }}"
        aria-label="Next page">&rsaquo;</a>
   {% else %}
     <span class="fmis-page-button is-disabled" aria-hidden="true">&rsaquo;</span>

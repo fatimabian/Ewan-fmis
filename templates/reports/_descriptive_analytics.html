@@ -1077,6 +1077,14 @@
           }
       }
 
+      .analytics-duplicate-scroll {max-height:430px;overflow:auto;scrollbar-width:auto;scrollbar-gutter:stable;border:1px solid var(--an-border)}
+      .analytics-duplicate-scroll .analytics-type-table {min-width:1050px;margin:0}
+      .analytics-duplicate-scroll thead th {position:sticky;top:0;z-index:1;background:#e9f5ee}
+      .analytics-duplicate-scroll td {height:64px;vertical-align:middle}
+      .analytics-duplicate-scroll:focus-visible {outline:2px solid var(--an-green);outline-offset:2px}
+      .analytics-panel .analytics-duplicate-count {font-size:12px;margin:0;color:#526276}
+      body[data-theme="dark"] .analytics-duplicate-scroll thead th {background:#253b30}
+
       .farmer-statistics-grid {
           grid-template-columns: repeat(7, minmax(0, 1fr))
       }
@@ -1401,7 +1409,7 @@
           </div>
         </div>
       </div>
-      <div class="analytics-table-scroll">
+      <div class="analytics-table-scroll analytics-duplicate-scroll" tabindex="0" role="region" aria-label="Possible duplicate farmer records; scroll to see all columns and rows">
         <table class="analytics-type-table">
           <thead>
             <tr>
@@ -1436,6 +1444,10 @@
           </tbody>
         </table>
       </div>
+      {% with duplicates=descriptive.duplicate_scan %}
+        <p class="analytics-duplicate-count">Showing {{ duplicates.page_obj.start_index }}–{{ duplicates.page_obj.end_index }} of {{ duplicates.page_obj.paginator.count }} possible pairs · 8 per page</p>
+        {% include "shared/pagination.html" with page_obj=duplicates.page_obj page_parameter="duplicate_page" hide_page_size=True preserved_query=duplicates.preserved_query preserved_fields=duplicates.preserved_fields %}
+      {% endwith %}
     </article>
   {% elif analytics_tab == "parcels" %}
     <div class="analytics-kpis">

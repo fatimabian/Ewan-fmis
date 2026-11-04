@@ -55,6 +55,36 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertNotContains(response, 'aria-label="Farmers by Barangay bar chart"')
         self.assertNotContains(response, 'name="report_type"')
 
+    def test_duplicate_table_paginates_eight_pairs_and_preserves_filters(self):
+        self.client.force_login(self.staff)
+        farmer = Farmer.objects.first()
+        pairs = [
+            {"left_pk": farmer.pk, "right_pk": farmer.pk, "left_id": f"Pair-{index}",
+             "right_id": "Match", "left_name": "First", "right_name": "Second",
+             "score": 80, "reasons": ["Similar names"]}
+            for index in range(17)
+        ]
+        def scan():
+            return {"total": 17, "pairs": list(pairs), "records_scanned": 18, "method": "test"}
+        with patch("apps.reports.analytics.find_system_duplicate_pairs", side_effect=scan):
+            for number, count in ((1, 8), (2, 8), (3, 1)):
+                response = self.client.get(reverse("reports:home"), {
+                    "analytics_tab": "farmers", "duplicate_page": number,
+                    "analytics_barangay": "Bagong Pook",
+                })
+                self.assertEqual(response.status_code, 200)
+                duplicates = response.context["descriptive"]["duplicate_scan"]
+                self.assertEqual(len(duplicates["pairs"]), count)
+                self.assertEqual(duplicates["page_obj"].number, number)
+                self.assertEqual(duplicates["total"], 17)
+                self.assertContains(response, 'name="duplicate_page"')
+                self.assertContains(response, 'name="analytics_barangay" value="Bagong Pook"')
+                self.assertContains(response, 'analytics-duplicate-scroll')
+                self.assertContains(response, f"Pair-{(number - 1) * 8}")
+                if number == 1:
+                    self.assertNotContains(response, "Pair-8 ·")
+                    self.assertContains(response, "duplicate_page=2")
+
     def test_reports_navigation_uses_staff_overview_and_admin_governance_reports(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("reports:home"))

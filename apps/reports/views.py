@@ -252,6 +252,12 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                 )
                 duplicate_scan["pairs"] = list(duplicate_page.object_list)
                 duplicate_scan["page_obj"] = duplicate_page
+                duplicate_query = self.request.GET.copy()
+                duplicate_query.pop("duplicate_page", None)
+                duplicate_scan["preserved_query"] = duplicate_query.urlencode()
+                duplicate_scan["preserved_fields"] = [
+                    (key, value) for key, values in duplicate_query.lists() for value in values
+                ]
             context["descriptive"] = descriptive
         return context
 
