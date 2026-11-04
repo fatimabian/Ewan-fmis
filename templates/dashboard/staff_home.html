@@ -121,7 +121,6 @@
                               stroke="{{ item.color }}"
                               stroke-dasharray="{{ item.share }} {{ item.remainder }}"
                               stroke-dashoffset="-{{ item.offset }}">
-                      <title>{{ item.label }}: {{ item.records }} records ({{ item.share }}%)</title>
                       </circle>
                     {% endfor %}
                   </svg>
@@ -132,7 +131,6 @@
                     <small>records</small>
                   </span>
                 </div>
-                <p id="commodityTooltip" role="status" aria-live="polite" hidden></p>
                 <ol class="commodity-legend">
                   {% for item in commodity_breakdown %}
                     <li>
@@ -396,23 +394,41 @@
   </div>
 {% endblock %}
 {% block extra_js %}
+  <div id="commodityTooltip" role="tooltip" hidden></div>
   <script defer src="{% static 'js/staff-dashboard.min.js' %}?v=1"></script>
   <script>
       (() => {
           const tooltip = document.getElementById('commodityTooltip');
+          // Keep the floating label outside chart grids and transformed containers.
+          document.body.appendChild(tooltip);
+          const position = (x, y) => {
+              const gap = 12;
+              const bounds = tooltip.getBoundingClientRect();
+              const left = Math.max(8, Math.min(x + gap, window.innerWidth - bounds.width - 8));
+              const top = Math.max(8, y + gap + bounds.height > window.innerHeight - 8
+                  ? y - bounds.height - gap : y + gap);
+              tooltip.style.left = `${left}px`;
+              tooltip.style.top = `${top}px`;
+          };
+          const hide = () => { tooltip.hidden = true; };
           document.querySelectorAll('[data-commodity-tooltip]').forEach(segment => {
-              const show = () => {
+              segment.setAttribute('aria-describedby', 'commodityTooltip');
+              const show = event => {
                   tooltip.textContent = segment.dataset.commodityTooltip;
                   tooltip.hidden = false;
-              };
-              const hide = () => {
-                  tooltip.hidden = true;
+                  const bounds = segment.getBoundingClientRect();
+                  position(event.clientX ?? bounds.left + bounds.width / 2,
+                           event.clientY ?? bounds.top + bounds.height / 2);
               };
               segment.addEventListener('mouseenter', show);
+              segment.addEventListener('mousemove', event => position(event.clientX, event.clientY));
               segment.addEventListener('focus', show);
               segment.addEventListener('mouseleave', hide);
               segment.addEventListener('blur', hide);
           });
+          document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
+          document.addEventListener('scroll', hide, true);
+          window.addEventListener('resize', hide);
       })();
   </script>
 {% endblock %}

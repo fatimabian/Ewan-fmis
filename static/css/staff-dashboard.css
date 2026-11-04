@@ -3077,3 +3077,20 @@ body[data-theme="dark"] .staff-operations-weather-grid .weather-card{background:
         grid-auto-rows:minmax(72px,auto)
     }
 }
+
+/* Commodity identification floats over the page without moving the chart or legend. */
+#commodityTooltip {
+    position: fixed;
+    z-index: 6000;
+    max-width: min(320px, calc(100vw - 16px));
+    margin: 0;
+    padding: 8px 12px;
+    border: 1px solid #40564a;
+    background: #14243a !important;
+    color: #fff !important;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .2);
+    pointer-events: none;
+}
+#commodityTooltip[hidden] {display: none !important;}
