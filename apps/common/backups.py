@@ -144,7 +144,8 @@ def _build_archive(work_dir, database_dump, database_format):
 def _encrypt_archive(source, destination, key):
     nonce = os.urandom(NONCE_BYTES)
     encryptor = Cipher(algorithms.AES(key), modes.GCM(nonce)).encryptor()
-    with source.open("rb") as source_file, destination.open("wb") as encrypted_file:
+    with source.open("rb") as source_file, destination.open("xb") as encrypted_file:
+        destination.chmod(0o600)
         encrypted_file.write(BACKUP_MAGIC)
         encrypted_file.write(nonce)
         while chunk := source_file.read(CHUNK_SIZE):
@@ -355,9 +356,9 @@ def create_verified_backup(output_dir=None):
     from apps.settings_page.models import BackupRun
 
     destination_dir = Path(output_dir or settings.BACKUP_ROOT).expanduser().resolve()
-    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     run = BackupRun.objects.create(status="RUNNING", storage="Preparing encrypted backup")
-    timestamp = timezone.localtime().strftime("%Y%m%d-%H%M%S")
+    timestamp = timezone.localtime().strftime("%Y-%m-%d_%H-%M-%S-%f")
     destination = destination_dir / f"fmis-backup-{timestamp}.fmisbak"
     try:
         key = _encryption_key()

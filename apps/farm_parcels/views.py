@@ -1,3 +1,5 @@
+"""Parcel records, private field photos, maps, and coordinate review workflows."""
+
 import re
 import mimetypes
 from collections import Counter
@@ -684,6 +686,10 @@ class FarmParcelMapDetailView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
                 "lng": point[1] if point else None,
                 "crops": [
                     {"name": name, "symbol": crop_symbol(name)} for name in crops
+                ],
+                "photo_urls": [
+                    reverse("farm_parcels:photo_view", args=[parcel.pk, photo.pk])
+                    for photo in parcel.photos.filter(is_active=True).only("pk")
                 ],
                 "photo_url": (
                     reverse("farm_parcels:photo_view", args=[parcel.pk, active_photo.pk])

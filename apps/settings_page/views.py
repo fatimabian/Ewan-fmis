@@ -1,3 +1,7 @@
+"""Account preferences and administrator backup/recovery actions."""
+
+import time
+import secrets
 import mimetypes
 import uuid
 from pathlib import Path
@@ -5,9 +9,9 @@ from pathlib import Path
 from django.contrib import messages
 from django.conf import settings
 from django.contrib.auth import update_session_auth_hash
-from django.http import FileResponse, Http404
+from django.core.cache import cache
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import redirect
-from django.urls import reverse
 from django.views import View
 from django.views.generic import FormView
 from apps.common.mixins import FMISLoginRequiredMixin
@@ -222,14 +226,13 @@ class ManualBackupView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
             ],
         )
 
-        if backup.offsite:
-            messages.success(request, "Backup verified and stored in secure off-site storage.")
-        else:
-            messages.warning(
-                request,
-                "Backup verified in encrypted server storage. Configure off-site storage to complete disaster protection.",
-            )
-        return redirect("settings_page:home")
+        response = FileResponse(
+            backup.path.open("rb"), as_attachment=True,
+            filename=backup.archive_name, content_type="application/octet-stream",
+        )
+        response["Cache-Control"] = "private, no-store"
+        response["X-Backup-Storage"] = "offsite" if backup.offsite else "server"
+        return response
 
 
 class PrepareRestoreView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
@@ -237,28 +240,55 @@ class PrepareRestoreView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
 
     max_upload_bytes = 2 * 1024 * 1024 * 1024
 
-    @staticmethod
-    def settings_redirect():
-        return redirect(f"{reverse('settings_page:home')}#system")
-
     def post(self, request):
-        password = request.POST.get("restore_password", "")
+        """Unlock for five minutes, then authenticate a selected archive once."""
+        def error(field, message, status=400):
+            response = JsonResponse({"ok": False, "errors": {field: message}}, status=status)
+            response["Cache-Control"] = "no-store"
+            return response
+
+        action = request.POST.get("restore_action", "prepare")
+        if action == "unlock":
+            request.session.pop("restore_authorization", None)
+            password = request.POST.get("restore_password", "")
+            if not password:
+                return error("restore_password", "Enter your administrator password.")
+            rate_key = f"restore-unlock:{request.user.pk}"
+            failures = cache.get(rate_key, 0)
+            if failures >= 5:
+                return error("restore_password", "Too many attempts. Try again in five minutes.", 429)
+            if not request.user.check_password(password):
+                cache.set(rate_key, failures + 1, 300)
+                return error("restore_password", "Your administrator password is incorrect.")
+            cache.delete(rate_key)
+            token = secrets.token_urlsafe(32)
+            request.session["restore_authorization"] = {
+                "expires": time.time() + 300,
+                "auth_hash": request.user.get_session_auth_hash(),
+                "token": token,
+            }
+            return JsonResponse({"ok": True, "token": token})
+
+        authorization = request.session.get("restore_authorization", {})
+        if (
+            authorization.get("expires", 0) < time.time()
+            or authorization.get("auth_hash") != request.user.get_session_auth_hash()
+            or not secrets.compare_digest(str(authorization.get("token", "")), request.POST.get("restore_token", ""))
+        ):
+            request.session.pop("restore_authorization", None)
+            return error("restore_password", "Verify your administrator password again.", 403)
         archive = request.FILES.get("restore_archive")
-        if not request.user.check_password(password):
-            messages.error(request, "Your administrator password is incorrect. No restore was prepared.")
-            return self.settings_redirect()
         if not archive or not archive.name.lower().endswith(".fmisbak"):
-            messages.error(request, "Choose a valid FMIS encrypted backup file (.fmisbak).")
-            return self.settings_redirect()
+            return error("restore_archive", "Choose an FMIS encrypted backup file (.fmisbak).")
         if archive.size > self.max_upload_bytes:
-            messages.error(request, "The selected recovery file is larger than the supported 2 GB upload limit.")
-            return self.settings_redirect()
+            return error("restore_archive", "The selected file exceeds the 2 GB upload limit.")
 
         staging_root = Path(settings.BACKUP_ROOT).expanduser().resolve() / "restore-staging"
-        staging_root.mkdir(parents=True, exist_ok=True)
+        staging_root.mkdir(parents=True, exist_ok=True, mode=0o700)
         staged_path = staging_root / f"restore-{uuid.uuid4().hex}.fmisbak"
         try:
-            with staged_path.open("wb") as output:
+            with staged_path.open("xb") as output:
+                staged_path.chmod(0o600)
                 for chunk in archive.chunks():
                     output.write(chunk)
             checksum = verify_existing_backup(staged_path)
@@ -272,8 +302,7 @@ class PrepareRestoreView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
                 status="Failed",
                 target_label="FMIS recovery restore",
             )
-            messages.error(request, "FMIS could not authenticate this backup. No live records were changed.")
-            return self.settings_redirect()
+            return error("restore_archive", "FMIS could not authenticate this backup. No live records were changed.")
 
         record_request_event(
             request,
@@ -283,8 +312,10 @@ class PrepareRestoreView(FMISLoginRequiredMixin, AdminRequiredMixin, View):
             target_label=staged_path.name,
             details=[{"field": "SHA-256", "after": checksum}],
         )
-        messages.success(
-            request,
-            "Backup authenticated and staged. No live records were changed. The technical administrator can now complete the restore during maintenance mode.",
-        )
-        return self.settings_redirect()
+        request.session.pop("restore_authorization", None)
+        response = JsonResponse({
+            "ok": True,
+            "message": "Recovery package verified and prepared successfully. No live records were changed. A technical administrator can apply it during maintenance.",
+        })
+        response["Cache-Control"] = "no-store"
+        return response

@@ -1,17 +1,45 @@
-<article class="analytics-line-chart analytics-bar-chart" role="img" aria-label="{{ title }} bar chart">
+{# Shared vertical bar chart for dated records and categories. #}
+<article class="analytics-line-chart analytics-bar-chart{% if wide %} is-wide{% endif %}"
+         style="--bar-count:{{ series.points|length }}"
+         role="img"
+         aria-label="{{ title }} bar chart">
   <div class="analytics-chart-heading">
-    <div><h3>{{ title }}</h3><p>{{ description }}</p></div>
-    <span>{{ series.points|length }} recorded month{{ series.points|length|pluralize }}</span>
+    <div>
+      <h3>{{ title }}</h3>
+      <p>{{ description }}</p>
+    </div>
+    <span>{% if series.categorical %}{{ series.points|length }} categories{% else %}{{ series.points|length }} recorded month{{ series.points|length|pluralize }}{% endif %}</span>
   </div>
   {% if series.points %}
     <div class="analytics-bar-plot">
-      <span class="analytics-bar-y-max">{{ series.peak|floatformat:"-2" }}</span><span class="analytics-bar-y-zero">0</span>
+      <span class="analytics-bar-y-max">{{ series.peak|floatformat:"-2" }}</span>
+      <span class="analytics-bar-y-zero">0</span>
       <span class="analytics-y-label">{{ y_label|default:"Recorded total" }}</span>
-      <div class="analytics-bar-grid" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="analytics-bar-grid" aria-hidden="true">
+        <i>
+        </i>
+        <i>
+        </i>
+        <i>
+        </i>
+      </div>
       <div class="analytics-bar-columns">
-        {% for point in series.points %}<div class="analytics-bar-column"><b>{{ point.value|floatformat:"-2" }}</b><i style="--bar-height:{{ point.percent }}%" title="{{ point.label }}: {{ point.value|floatformat:'-2' }}"></i><small>{{ point.month_label }}</small></div>{% endfor %}
+        {% for point in series.points %}
+          <div class="analytics-bar-column">
+            <b>{{ point.value|floatformat:"-2" }}{% if point.tone %} ({{ point.share|default:0|floatformat:1 }}%){% endif %}</b>
+            <i style="--bar-height:{{ point.percent }}%"
+               title="{{ point.label }}: {{ point.value|floatformat:'-2' }}">
+            </i>
+            <small>{{ point.month_label }}</small>
+          </div>
+        {% endfor %}
       </div>
     </div>
-    <p class="analytics-bar-period">{{ series.period_label }}</p>
-  {% else %}<div class="analytics-empty"><i class="bi bi-info-circle"></i> No dated records match the selected filters.</div>{% endif %}
-</article>
+    {% if not hide_period %}
+      <p class="analytics-bar-period">{{ series.period_label }}</p>
+    {% endif %}
+  {% else %}
+    <div class="analytics-empty">
+      <i class="bi bi-info-circle">
+      </i> No dated records match the selected filters.</div>{% endif %}
+  </article>

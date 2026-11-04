@@ -257,3 +257,17 @@ class ValidationTests(GISTestCase):
     def test_empty_result_is_not_an_error(self):
         data = self.data(layer="commodities", barangay="Tulos")
         self.assertEqual((data["total"], data["points"]), (0, []))
+
+    def test_parcel_gallery_lists_only_active_private_photo_urls(self):
+        from apps.farm_parcels.models import FarmParcelPhoto
+        first = FarmParcelPhoto.objects.create(parcel=self.p1, image="private/first.jpg")
+        second = FarmParcelPhoto.objects.create(parcel=self.p1, image="private/second.jpg")
+        hidden = FarmParcelPhoto.objects.create(parcel=self.p1, image="private/hidden.jpg", is_active=False)
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("farm_parcels:map_detail", args=[self.p1.pk]))
+        self.assertEqual(response.status_code, 200)
+        expected = [reverse("farm_parcels:photo_view", args=[self.p1.pk, photo.pk]) for photo in (second, first)]
+        self.assertEqual(response.json()["photo_urls"], expected)
+        self.assertNotIn("private/", response.content.decode())
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(reverse("farm_parcels:map_detail", args=[self.p1.pk])).status_code, 302)

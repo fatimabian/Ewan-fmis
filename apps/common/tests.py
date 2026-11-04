@@ -4988,7 +4988,9 @@ class FMISRequirementTests(TestCase):
         ):
             self.client.force_login(self.admin)
             response = self.client.post(reverse("settings_page:manual_backup"))
-            self.assertRedirects(response, reverse("settings_page:home"))
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("attachment", response["Content-Disposition"])
+            response.close()
             self.assertEqual(len(list(Path(temp_dir).glob("fmis-backup-*.fmisbak"))), 1)
 
             self.client.force_login(self.staff)
@@ -5010,18 +5012,20 @@ class FMISRequirementTests(TestCase):
                     "restore_archive": SimpleUploadedFile("backup.fmisbak", b"encrypted"),
                 },
             )
-            self.assertEqual(denied.status_code, 302)
+            self.assertEqual(denied.status_code, 403)
+            self.assertIn("restore_password", denied.json()["errors"])
             self.assertFalse((Path(temp_dir) / "restore-staging").exists())
             verify.assert_not_called()
 
+            unlocked = self.client.post(reverse("settings_page:prepare_restore"), {"restore_action": "unlock", "restore_password": "StrongPass123!"})
             accepted = self.client.post(
                 reverse("settings_page:prepare_restore"),
                 {
-                    "restore_password": "StrongPass123!",
+                    "restore_token": unlocked.json()["token"],
                     "restore_archive": SimpleUploadedFile("backup.fmisbak", b"encrypted"),
                 },
             )
-            self.assertEqual(accepted.status_code, 302)
+            self.assertEqual(accepted.status_code, 200)
             staged = list((Path(temp_dir) / "restore-staging").glob("restore-*.fmisbak"))
             self.assertEqual(len(staged), 1)
             verify.assert_called_once_with(staged[0])

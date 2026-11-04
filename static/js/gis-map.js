@@ -44,13 +44,13 @@
 
   // Pins are SVG because the system's global shape rule squares every CSS box.
   const PIN_PATH = "M12 1C6 1 1.5 5.6 1.5 11.4c0 7.4 10.5 18.6 10.5 18.6s10.5-11.2 10.5-18.6C22.5 5.6 18 1 12 1z";
-  const pinHtml = (icon, status, width = 22) =>
+  const pinHtml = (icon, status, width = 18) =>
     `<span class="gis-marker gis-${status}" style="--w:${width}px"><svg viewBox="0 0 24 32" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg><i class="bi ${icon}" aria-hidden="true"></i></span>`;
   const clusterIcon = (cluster) => {
     const count = cluster.getChildCount();
-    const size = count > 50 ? 38 : count > 10 ? 32 : 28;
-    return L.divIcon({className: "", iconSize: [size, size],
-      html: `<svg class="gis-svg gis-neutral" width="${size}" height="${size}" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21"/><text x="24" y="30" text-anchor="middle">${count}</text></svg>`});
+    const size = count > 50 ? 28 : 24;
+    return L.divIcon({className: "", iconSize: [size, size * 1.333], iconAnchor: [size / 2, size * 1.333],
+      html: `<svg class="gis-svg gis-neutral" width="${size}" height="${size * 1.333}" viewBox="0 0 24 32" aria-label="${count} records"><path d="${PIN_PATH}"/><text x="12" y="15" text-anchor="middle" style="font-size:9px">${count}</text></svg>`});
   };
   const pins = L.markerClusterGroup({showCoverageOnHover: false, maxClusterRadius: 60, spiderfyOnMaxZoom: true, iconCreateFunction: clusterIcon});
   const cells = L.layerGroup();
@@ -284,9 +284,9 @@
         title: `${cell.count} records near ${cell.barangay}`,
         icon: L.divIcon({
           className: "",
-          iconSize: [24, 32],
-          iconAnchor: [12, 31],
-          html: pinHtml(layer.icon, TIER_STATUS[cell.tier], 24),
+          iconSize: [20, 27],
+          iconAnchor: [10, 27],
+          html: pinHtml(layer.icon, TIER_STATUS[cell.tier], 20),
         }),
       });
       const note = cell.attention ? `, ${cell.attention} need attention` : "";
@@ -307,7 +307,7 @@
     points.forEach((point) => {
       const marker = L.marker([point.lat, point.lng], {
         title: layer.label,
-        icon: L.divIcon({className: "", iconSize: [22, 29], iconAnchor: [11, 28], html: pinHtml(layer.icon, point.status)}),
+        icon: L.divIcon({className: "", iconSize: [18, 24], iconAnchor: [9, 24], html: pinHtml(layer.icon, point.status)}),
       });
       marker.on("click", () => openDetail(point.id, marker));
       pins.addLayer(marker);
@@ -331,6 +331,10 @@
   function normalizeParcelCard(item) {
     const crops = (item.crops || []).map((crop) => crop.name).join(", ") || "None recorded";
     return {
+      id: item.id,
+      lat: item.lat,
+      lng: item.lng,
+      photos: item.photo_urls || (item.photo_url ? [item.photo_url] : []),
       title: item.parcel,
       kicker: `${item.farmer_id} · ${item.farmer}`,
       image: item.photo_url || "",
@@ -343,7 +347,101 @@
     };
   }
 
+  let detailCard = null;
+  let movingMarker = null;
+  let originalPoint = null;
+  let savingPin = false;
+  let photoIndex = 0;
+  const moveButton = byId("gisMovePin");
+  const moveStatus = byId("gisMoveStatus");
+  const gallery = byId("gisPhotoGallery");
+
+  function showGalleryPhoto(index) {
+    const photos = detailCard?.photos || [];
+    if (!photos.length) return;
+    photoIndex = (index + photos.length) % photos.length;
+    byId("gisGalleryImage").src = photos[photoIndex];
+    byId("gisPhotoCounter").textContent = `${photoIndex + 1} / ${photos.length}`;
+    byId("gisPhotoPrevious").hidden = byId("gisPhotoNext").hidden = photos.length < 2;
+  }
+
+  function cancelMove() {
+    if (savingPin) return;
+    if (movingMarker) {
+      movingMarker.setLatLng(originalPoint);
+      map.removeLayer(movingMarker);
+      movingMarker = null;
+    }
+    moveButton.textContent = "Move pin";
+    moveStatus.textContent = "";
+  }
+
+  // Only an explicit Move pin action enables editing; drag operations never save implicitly.
+  moveButton.addEventListener("click", async () => {
+    if (!detailCard || savingPin) return;
+    if (!movingMarker) {
+      originalPoint = L.latLng(detailCard.lat, detailCard.lng);
+      movingMarker = L.marker(originalPoint, {
+        draggable: true,
+        icon: L.divIcon({className: "", iconSize: [24, 32], iconAnchor: [12, 32], html: pinHtml(layers.parcels.icon, "attention", 24)}),
+      }).addTo(map);
+      map.setView(originalPoint, Math.max(map.getZoom(), 17));
+      movingMarker.on("dragend", () => {
+        const point = movingMarker.getLatLng();
+        moveStatus.textContent = `New coordinates: ${point.lat.toFixed(7)}, ${point.lng.toFixed(7)}. Save to confirm.`;
+      });
+      moveButton.textContent = "Save pin location";
+      moveStatus.textContent = "Drag the highlighted pin to the correct location, then save. Back cancels the move.";
+      return;
+    }
+    const point = movingMarker.getLatLng();
+    const cardId = detailCard.id;
+    savingPin = true;
+    moveButton.disabled = true;
+    try {
+      const body = new URLSearchParams({parcel_id: cardId, operation: "move", latitude: point.lat, longitude: point.lng});
+      const csrf = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+      const response = await fetch(config.pinUrl, {method: "POST", headers: {"X-CSRFToken": csrf, Accept: "application/json"}, body});
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.message || "The pin could not be saved.");
+      map.removeLayer(movingMarker);
+      movingMarker = null;
+      savingPin = false;
+      closeDetail();
+      await load();
+      els.level.textContent = result.message;
+    } catch (error) {
+      moveStatus.textContent = error.message || "The pin could not be saved. Try again.";
+    } finally {
+      savingPin = false;
+      moveButton.disabled = false;
+    }
+  });
+
+  const openGallery = () => {
+    if (!detailCard?.photos?.length) return;
+    showGalleryPhoto(0);
+    gallery.showModal();
+  };
+  els.detailPhoto.tabIndex = 0;
+  els.detailPhoto.setAttribute("role", "button");
+  els.detailPhoto.setAttribute("aria-label", "Enlarge field photos");
+  els.detailPhoto.addEventListener("click", openGallery);
+  els.detailPhoto.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openGallery(); }
+  });
+  byId("gisPhotoClose").addEventListener("click", () => gallery.close());
+  byId("gisPhotoPrevious").addEventListener("click", () => showGalleryPhoto(photoIndex - 1));
+  byId("gisPhotoNext").addEventListener("click", () => showGalleryPhoto(photoIndex + 1));
+  gallery.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowLeft") showGalleryPhoto(photoIndex - 1);
+    if (event.key === "ArrowRight") showGalleryPhoto(photoIndex + 1);
+  });
+
   function showDetailCard(card) {
+    cancelMove();
+    detailCard = card;
+    moveButton.hidden = state.layer !== "parcels" || card.lat == null || card.lng == null;
     els.detailTitle.textContent = card.title;
     els.detailKicker.textContent = card.kicker || "";
     els.detailKicker.hidden = !card.kicker;
@@ -485,7 +583,10 @@
     }
   }
 
+  let detailRequest = 0;
   async function openDetail(id, marker) {
+    if (savingPin) return;
+    const current = ++detailRequest;
     try {
       const url = state.layer === "parcels"
         ? parcelDetailUrl(id)
@@ -493,6 +594,7 @@
       const response = await fetch(url, {headers: {Accept: "application/json"}});
       if (!response.ok) throw new Error("missing");
       const payload = await response.json();
+      if (current !== detailRequest) return;
       showDetailCard(state.layer === "parcels" ? normalizeParcelCard(payload) : payload);
       if (selected) selected.getElement()?.classList.remove("is-selected");
       selected = marker;
@@ -503,6 +605,10 @@
   }
 
   function closeDetail() {
+    if (savingPin) return;
+    cancelMove();
+    detailRequest += 1;
+    detailCard = null;
     els.detail.hidden = true;
     els.legendBox.hidden = false;
     const hasDirectory = state.layer === "parcels" && Boolean(state.barangay);

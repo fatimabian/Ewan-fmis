@@ -64,6 +64,28 @@ class InterventionModuleTests(TestCase):
         archived = self.client.get(reverse("interventions:list"), {"status": "archived"})
         self.assertContains(archived, intervention.reference_id)
 
+    def test_actions_hide_eye_and_label_read_only_interventions(self):
+        owner = CustomUser.objects.create_user(username="other-intervention-owner", role="STAFF")
+        service = ServiceCatalog.objects.create(
+            name="Browser-independent seed assistance", code="ACTION-SEED",
+            category="Farm Inputs", description="Seed assistance", processing_time="1 day",
+        )
+        request = ServiceRequest.objects.create(farmer=self.farmer, service=service, assigned_to=owner)
+        intervention = Intervention.objects.create(
+            farmer=self.farmer, service_request=request, intervention_type="SEEDS",
+            intervention_date=date.today(), description="Read-only assistance",
+        )
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("interventions:list"))
+        self.assertContains(response, "View only")
+        self.assertNotContains(response, "bi-eye")
+        self.assertNotContains(response, reverse("interventions:edit", args=[intervention.pk]))
+        self.client.force_login(owner)
+        response = self.client.get(reverse("interventions:list"))
+        self.assertNotContains(response, "View only")
+        self.assertContains(response, reverse("interventions:edit", args=[intervention.pk]))
+        self.assertNotContains(response, "bi-eye")
+
     def test_list_filters_by_workflow_status(self):
         self.client.force_login(self.staff)
         scheduled = Intervention.objects.create(

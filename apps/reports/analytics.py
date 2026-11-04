@@ -1,3 +1,5 @@
+"""Database-backed descriptive metrics and reusable chart series."""
+
 from collections import defaultdict
 import hashlib
 
@@ -6,7 +8,7 @@ from datetime import date, datetime, timedelta
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Q, Sum
+from django.db.models import Avg, Count, DurationField, ExpressionWrapper, F, Max, Min, Q, Sum
 from django.utils import timezone
 
 from apps.activity_logs.models import ActivityLog
@@ -26,9 +28,6 @@ REPORT_PREVIEW_CACHE_SECONDS = 45
 
 ANALYTICS_TABS = (
     ("overview", "Overview"),
-    ("farmers", "Farmers"),
-    ("parcels", "Farm Parcels"),
-    ("commodities", "Commodities"),
     ("requests", "Service Requests"),
     ("interventions", "Interventions"),
     ("inventory", "Inventory"),
@@ -220,6 +219,40 @@ def _categorical_dual_series(first_rows, second_rows, *, first_key="value", seco
     }
 
 
+def _bar_series(rows, period_label=""):
+    """Use the same scale and point shape for monthly and category bars."""
+    peak = max((float(row["value"]) for row in rows), default=0) or 1
+    return {
+        "peak": peak,
+        "period_label": period_label,
+        "categorical": True,
+        "points": [
+            {**row, "month_label": row["label"], "percent": round(float(row["value"]) / peak * 100, 2)}
+            for row in rows
+        ],
+    }
+
+
+def _farmer_barangay_series(farmers, date_range):
+    """Show every Rosario barangay, including zero matching records."""
+    from apps.common.constants import ROSARIO_BARANGAYS
+    totals = dict(farmers.values("barangay").annotate(total=Count("pk")).values_list("barangay", "total"))
+    from .export import _custom_range, _cutoff
+    custom = _custom_range(date_range)
+    if custom:
+        years = sorted({day.year for day in custom})
+        period = "–".join(map(str, years))
+    elif date_range == "all":
+        bounds = farmers.aggregate(first=Min("created_at"), last=Max("created_at"))
+        years = sorted({timezone.localtime(value).year for value in bounds.values() if value})
+        period = "–".join(map(str, (years[0], years[-1]))) if len(years) > 1 else str(years[0]) if years else "All recorded years"
+    else:
+        start = _cutoff(date_range)
+        end = timezone.localdate()
+        period = str(end.year) if start.year == end.year else f"{start.year}–{end.year}"
+    return _bar_series([{"label": name, "value": totals.get(name, 0)} for name in ROSARIO_BARANGAYS], period)
+
+
 def descriptive_analytics(tab="overview", date_range="all", filters=None):
     """Build privacy-safe descriptive analytics from the existing FMIS records.
 
@@ -341,6 +374,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
                 {"label": "Indigenous Farmers", "value": statistics["indigenous"], "icon": "bi-person-vcard"},
             ],
             "top_farmer_barangays": _comparison_rows(farmers, "barangay", limit=8),
+            "farmer_barangay_series": _farmer_barangay_series(farmers, date_range),
             "duplicate_scan": find_system_duplicate_pairs(),
         }
 
@@ -423,6 +457,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             "average_response_hours": duration_hours(timing["average_response"]),
             "average_completion_hours": duration_hours(timing["average_completion"]),
             "request_status_rows": status_rows,
+            "request_status_bar_series": _bar_series([{**row, "share": row["percent"]} for row in status_rows]),
             "request_dual_series": _monthly_dual_series(
                 requests,
                 "created_at",
@@ -823,6 +858,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             top_commodities, top_commodity_areas
         ),
         "request_status_series": _categorical_series(request_status_rows),
+        "request_status_bar_series": _bar_series([{**row, "share": row["percent"]} for row in request_status_rows]),
         "top_services": [
             {"label": row["service__name"], "value": row["total"]}
             for row in requests.values("service__name").annotate(total=Count("pk")).order_by("-total", "service__name")[:6]

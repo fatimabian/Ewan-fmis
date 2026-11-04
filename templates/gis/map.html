@@ -1,46 +1,89 @@
 {% extends base_template %}
+{# GIS controls, parcel details, pin movement, and field-photo gallery. #}
 {% load static %}
 {% block page_title %}GIS Map{% endblock %}
 {% block page_subtitle %}See where farmers, parcels, commodities and service requests are across Rosario{% endblock %}
 {% block content %}
-  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet"
+        href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
-  <link rel="stylesheet" href="{% static 'vendor/leaflet-markercluster/MarkerCluster.css' %}">
+  <link rel="stylesheet"
+        href="{% static 'vendor/leaflet-markercluster/MarkerCluster.css' %}">
   <link rel="stylesheet" href="{% static 'css/scan-gis.css' %}">
   <div class="content sg-page gis-page">
-    <section class="panel sg-panel gis-controls" aria-label="Map controls" data-table-toolbar>
+    <section class="panel sg-panel gis-controls"
+             aria-label="Map controls"
+             data-table-toolbar>
       <div class="gis-toolbar-row">
         <label class="gis-search" for="gisSearch">
-          <i class="bi bi-search" aria-hidden="true"></i>
-          <input type="search" id="gisSearch" placeholder="Search parcel or farmer ID..." autocomplete="off">
+          <i class="bi bi-search" aria-hidden="true">
+          </i>
+          <input type="search"
+                 id="gisSearch"
+                 placeholder="Search parcel or farmer ID..."
+                 autocomplete="off">
         </label>
         <div class="gis-filter-anchor">
-          <button class="fmis-toolbar-button gis-filter-toggle" type="button" id="gisFilterToggle" data-filter-toggle aria-expanded="false" aria-controls="gisFilters">
-            <i class="bi bi-funnel" aria-hidden="true"></i>
+          <button class="fmis-toolbar-button gis-filter-toggle"
+                  type="button"
+                  id="gisFilterToggle"
+                  data-filter-toggle
+                  aria-expanded="false"
+                  aria-controls="gisFilters">
+            <i class="bi bi-funnel" aria-hidden="true">
+            </i>
             <span id="gisFilterLabel">Filter</span>
             <span class="fmis-filter-active" id="gisFilterCount" hidden></span>
           </button>
-          <section class="fmis-filter-popover gis-filter-popover" id="gisFilters" data-filter-popover hidden aria-labelledby="gisFiltersTitle">
+          <section class="fmis-filter-popover gis-filter-popover"
+                   id="gisFilters"
+                   data-filter-popover
+                   hidden
+                   aria-labelledby="gisFiltersTitle">
             <div class="fmis-filter-heading">
               <h2 id="gisFiltersTitle">Filter Map</h2>
-              <button class="fmis-filter-close" type="button" data-filter-close aria-label="Close map filters"><i class="bi bi-x-lg"></i></button>
+              <button class="fmis-filter-close"
+                      type="button"
+                      data-filter-close
+                      aria-label="Close map filters">
+                <i class="bi bi-x-lg">
+                </i>
+              </button>
             </div>
+            <div class="gis-chips" id="gisChips" aria-label="Applied filters" hidden></div>
             <div class="fmis-filter-grid">
               <div class="gis-map-by is-wide">
                 <span class="gis-group-label" id="gisLayersLabel">Map by</span>
-                <div class="gis-layers" id="gisLayers" role="group" aria-labelledby="gisLayersLabel">
+                <div class="gis-layers"
+                     id="gisLayers"
+                     role="group"
+                     aria-labelledby="gisLayersLabel">
                   {% for layer in layer_list %}
-                    <button type="button" class="gis-layer-btn" data-layer="{{ layer.key }}" aria-pressed="false"><i class="bi {{ layer.icon }}"></i> {{ layer.short_label }}</button>
+                    <button type="button"
+                            class="gis-layer-btn"
+                            data-layer="{{ layer.key }}"
+                            aria-pressed="false">
+                      <i class="bi {{ layer.icon }}">
+                      </i>
+                      {{ layer.short_label }}
+                    </button>
                   {% endfor %}
                 </div>
               </div>
-              <label class="fmis-filter-field">Barangay
-                <select id="gisBarangay"><option value="">All barangays</option></select>
+              <label class="fmis-filter-field">
+                Barangay
+                <select id="gisBarangay">
+                  <option value="">All barangays</option>
+                </select>
               </label>
-              <label class="fmis-filter-field" id="gisCommodityWrap">Commodity
-                <select id="gisCommodity"><option value="">All commodities</option></select>
+              <label class="fmis-filter-field" id="gisCommodityWrap">
+                Commodity
+                <select id="gisCommodity">
+                  <option value="">All commodities</option>
+                </select>
               </label>
-              <label class="fmis-filter-field is-wide">Show
+              <label class="fmis-filter-field is-wide">
+                Show
                 <select id="gisStatus"></select>
               </label>
               <div class="gis-more-grid" id="gisMoreGrid"></div>
@@ -52,18 +95,26 @@
           </section>
         </div>
       </div>
-      <div class="gis-chips" id="gisChips" aria-label="Applied filters" hidden></div>
     </section>
-
     <div class="gis-summary" aria-live="polite">
-      <div><strong id="gisShown">0</strong><span>Shown on the map</span></div>
-      <div><strong id="gisUnmapped">0</strong><span>Without a location</span></div>
-      <div><strong id="gisAttention">0</strong><span>Need attention</span></div>
+      <div>
+        <strong id="gisShown">0</strong>
+        <span>Shown on the map</span>
+      </div>
+      <div>
+        <strong id="gisUnmapped">0</strong>
+        <span>Without a location</span>
+      </div>
+      <div>
+        <strong id="gisAttention">0</strong>
+        <span>Need attention</span>
+      </div>
     </div>
-
     <div class="gis-main">
       <div class="gis-map-wrap">
-        <div id="gisMap" role="application" aria-label="Interactive map of Rosario"></div>
+        <div id="gisMap"
+             role="application"
+             aria-label="Interactive map of Rosario"></div>
         <p class="gis-empty" id="gisEmpty" hidden></p>
         <p class="gis-loading" id="gisLoading" hidden>Loading…</p>
       </div>
@@ -76,11 +127,22 @@
           </div>
           <p class="gis-detail-kicker" id="gisDetailKicker" hidden></p>
           <h3 id="gisDetailTitle"></h3>
-          <dl id="gisDetailRows"></dl>
+          <dl id="gisDetailRows">
+          </dl>
           <a class="btn btn-success" id="gisDetailLink" href="#">Open record</a>
+          <button type="button"
+                  class="btn btn-outline-secondary"
+                  id="gisMovePin"
+                  hidden>
+            Move pin
+          </button>
+          <p id="gisMoveStatus" role="status" aria-live="polite"></p>
           <button type="button" class="btn btn-outline-secondary" id="gisDetailClose">Back to legend</button>
         </div>
-        <section class="gis-parcel-directory" id="gisParcelDirectory" hidden aria-labelledby="gisParcelDirectoryTitle">
+        <section class="gis-parcel-directory"
+                 id="gisParcelDirectory"
+                 hidden
+                 aria-labelledby="gisParcelDirectoryTitle">
           <div class="gis-directory-head">
             <div>
               <h3 id="gisParcelDirectoryTitle">Farm Parcels</h3>
@@ -89,8 +151,11 @@
           </div>
           <label class="gis-directory-search">
             <span class="visually-hidden">Search parcels in this barangay</span>
-            <i class="bi bi-search" aria-hidden="true"></i>
-            <input type="search" id="gisParcelSearch" placeholder="Farmer, parcel, or farmer number">
+            <i class="bi bi-search" aria-hidden="true">
+            </i>
+            <input type="search"
+                   id="gisParcelSearch"
+                   placeholder="Farmer, parcel, or farmer number">
           </label>
           <select id="gisParcelPinStatus" aria-label="Filter parcel list by pin status">
             <option value="">All parcels</option>
@@ -99,23 +164,41 @@
           </select>
           <div class="gis-directory-list" id="gisParcelList" aria-live="polite"></div>
           <nav class="gis-directory-pages" aria-label="Parcel list pages">
-            <button type="button" class="btn btn-outline-secondary" id="gisParcelPrevious">Previous</button>
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    id="gisParcelPrevious">
+              Previous
+            </button>
             <span id="gisParcelPageStatus"></span>
             <button type="button" class="btn btn-outline-secondary" id="gisParcelNext">Next</button>
           </nav>
         </section>
         <div id="gisLegendBox">
           <h3 id="gisLegendTitle">Legend</h3>
-          <ul class="sg-legend gis-legend" id="gisLegend"></ul>
+          <ul class="sg-legend gis-legend" id="gisLegend">
+          </ul>
         </div>
         <div id="gisInsights" hidden>
           <h3>Insights</h3>
           <div class="gis-tabs" id="gisTabs" role="tablist" aria-label="Insights"></div>
-          <ol class="gis-top" id="gisTop"></ol>
+          <ol class="gis-top" id="gisTop">
+          </ol>
         </div>
       </aside>
     </div>
   </div>
+  <dialog id="gisPhotoGallery"
+          class="gis-photo-gallery"
+          aria-label="Parcel field photos">
+    <button type="button" id="gisPhotoClose" aria-label="Close photos">Close</button>
+    <div class="gis-gallery-controls">
+      <button type="button" id="gisPhotoPrevious" aria-label="Previous photo">❮</button>
+      <img id="gisGalleryImage" alt="Parcel field photo">
+      <button type="button" id="gisPhotoNext" aria-label="Next photo">❯</button>
+    </div>
+    <p id="gisPhotoCounter" aria-live="polite"></p>
+  </dialog>
+  {% csrf_token %}
   {{ config|json_script:"gis-config" }}
   <script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
   <script src="{% static 'vendor/leaflet-markercluster/leaflet.markercluster.js' %}"></script>

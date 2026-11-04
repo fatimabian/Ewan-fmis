@@ -254,3 +254,13 @@
   .sg-dialog-actions{display:grid;grid-template-columns:1fr 1fr}
   .sg-dialog-actions .btn{width:100%}
 }
+
+/* Centered, keyboard-accessible field-photo gallery. */
+.gis-photo-gallery {width:min(1000px,94vw);max-height:94dvh;margin:auto;padding:16px;border:1px solid #76867b;background:#15221b;color:#fff}
+.gis-photo-gallery::backdrop {background:rgba(0,0,0,.78)}
+.gis-gallery-controls {display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;margin-top:12px}
+.gis-gallery-controls img {width:100%;height:min(72dvh,800px);object-fit:contain}
+.gis-photo-gallery button {min-width:44px;min-height:44px;padding:10px;border:1px solid #9aa9a0;background:#fff!important;color:#14243a!important}
+.gis-photo-gallery p {text-align:center;margin:10px 0 0}
+#gisDetailPhoto {cursor:zoom-in}
+#gisMoveStatus {font-size:12px;line-height:1.5}

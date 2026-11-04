@@ -1,3 +1,5 @@
+"""Staff-only GIS pages and on-demand map data."""
+
 from dataclasses import asdict
 
 from django.http import Http404, JsonResponse
@@ -37,6 +39,7 @@ class GISMapView(GISAccessMixin, TemplateView):
             "boundary": [list(point) for point in ROSARIO_BOUNDARY],
             "centers": {name: list(point) for name, point in ROSARIO_BARANGAY_CENTERS.items()},
             "dataUrl": reverse("gis:data"),
+            "pinUrl": reverse("farm_parcels:pin_farmer"),
             "detailUrl": reverse("gis:detail"),
             "parcelListUrl": reverse("farm_parcels:map_parcels"),
             "parcelDetailUrl": reverse("farm_parcels:map_detail", args=[0]).replace("/0/", "/{id}/"),

@@ -1,3 +1,5 @@
+"""Report permissions, filtered previews, exports, and analytics workspace."""
+
 from datetime import date
 
 from django.contrib.auth import get_user_model
@@ -170,11 +172,8 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
             date_range = "all"
         context = {
             **super().get_context_data(**kwargs),
-            # The cards at the top are municipality-wide indicators, not
-            # analytics for the selected export.  Keeping them on the cached
-            # baseline prevents every filter or preview page from rebuilding
-            # the same expensive aggregates.
-            **report_metrics(),
+            # A selected staff report uses the same scope for its preview and totals.
+            **(report_metrics(date_range, filters) if selected_report_type and not system_report else report_metrics()),
             "base_template": (
                 "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
             ),
@@ -246,8 +245,12 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                 analytics_date_range,
                 analytics_filters,
             )
-            if analytics_tab == "farmers":
-                duplicate_scan = descriptive["duplicate_scan"]
+            if analytics_tab == "overview":
+                context["registry_analytics"] = [
+                    {"key": key, "data": descriptive_analytics(key, analytics_date_range, analytics_filters)}
+                    for key in ("farmers", "parcels", "commodities")
+                ]
+                duplicate_scan = context["registry_analytics"][0]["data"]["duplicate_scan"]
                 duplicate_page = Paginator(duplicate_scan["pairs"], 8).get_page(
                     self.request.GET.get("duplicate_page")
                 )

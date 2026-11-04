@@ -1,71 +1,94 @@
-{% extends 'base/staff_base.html' %}
+{% extends "base/staff_base.html" %}
+{# Staff summary, commodity chart, and operational follow-up. #}
 {% load static %}
-
 {% block page_title %}
   Dashboard
 {% endblock %}
-
 {% block extra_css %}
-  <link rel="stylesheet" href="{% static 'css/staff-dashboard.min.css' %}?v=4">
+  <link rel="stylesheet"
+        href="{% static 'css/staff-dashboard.min.css' %}?v=4">
 {% endblock %}
-
 {% block content %}
   <style>
-  .commodity-legend,.barangay-coverage-list{
-      max-height:235px;
-      overflow-y:auto;
-      padding-right:6px;
-      scrollbar-color:#9ab8a7 transparent;
-      scrollbar-width:thin;
-      overscroll-behavior:contain
-  }
-  .commodity-legend{
-      grid-auto-rows:32px;
-      max-height:188px;
-      overflow-y:auto;
-      scrollbar-gutter:stable
-  }
+      .commodity-legend,
+      .barangay-coverage-list {
+          max-height: 235px;
+          overflow-y: auto;
+          padding-right: 6px;
+          scrollbar-color: #9ab8a7 transparent;
+          scrollbar-width: thin;
+          overscroll-behavior: contain
+      }
+
+      .commodity-legend {
+          grid-auto-rows: 32px;
+          max-height: 188px;
+          overflow-y: auto;
+          scrollbar-gutter: stable
+      }
   </style>
   <div class="content rosario-dashboard staff-overview-v2">
-    <section class="staff-kpi-grid" aria-label="Rosario agricultural record summary">
+    <section class="staff-kpi-grid"
+             aria-label="Rosario agricultural record summary">
       <a class="staff-kpi kpi-farmers" href="{% url 'farmers:list' %}">
-        <span class="staff-kpi-icon"><i class="bi bi-people-fill"></i></span>
+        <span class="staff-kpi-icon">
+          <i class="bi bi-people-fill">
+          </i>
+        </span>
         <span>
-          <b>{{ farmers }}</b>
+          <b>
+            {{ farmers }}
+          </b>
           <small>Active farmers</small>
         </span>
       </a>
-
       <a class="staff-kpi kpi-parcels" href="{% url 'farm_parcels:list' %}">
-        <span class="staff-kpi-icon"><i class="bi bi-map-fill" aria-hidden="true"></i></span>
+        <span class="staff-kpi-icon">
+          <i class="bi bi-map-fill" aria-hidden="true">
+          </i>
+        </span>
         <span>
-          <b>{{ parcels }}</b>
+          <b>
+            {{ parcels }}
+          </b>
           <small>Farm parcels</small>
         </span>
       </a>
-
       <a class="staff-kpi kpi-area" href="{% url 'farm_parcels:list' %}">
-        <span class="staff-kpi-icon"><i class="bi bi-bounding-box-circles"></i></span>
+        <span class="staff-kpi-icon">
+          <i class="bi bi-bounding-box-circles">
+          </i>
+        </span>
         <span>
-          <b>{{ managed_land_area|floatformat:2 }} <em>ha</em></b>
+          <b>
+            {{ managed_land_area|floatformat:2 }}
+            <em>ha</em>
+          </b>
           <small>Managed land</small>
         </span>
       </a>
-
       <a class="staff-kpi kpi-commodities" href="{% url 'crops:list' %}">
-        <span class="staff-kpi-icon"><i class="bi bi-flower1" aria-hidden="true"></i></span>
+        <span class="staff-kpi-icon">
+          <i class="bi bi-flower1" aria-hidden="true">
+          </i>
+        </span>
         <span>
-          <b>{{ crops }}</b>
+          <b>
+            {{ crops }}
+          </b>
           <small>Commodity records</small>
         </span>
       </a>
     </section>
-
-    <section class="staff-primary-grid" aria-label="Production and farmer coverage">
+    <section class="staff-primary-grid"
+             aria-label="Production and farmer coverage">
       <article class="staff-card staff-production-card">
         <div class="card-heading">
           <div class="staff-card-title">
-            <span class="staff-section-icon production"><i class="bi bi-pie-chart-fill"></i></span>
+            <span class="staff-section-icon production">
+              <i class="bi bi-pie-chart-fill">
+              </i>
+            </span>
             <div>
               <span class="card-kicker">PRODUCTION &amp; COVERAGE</span>
               <h2>Production Snapshot</h2>
@@ -73,33 +96,59 @@
             </div>
           </div>
         </div>
-
         <div class="production-analytics-grid">
-          <section class="commodity-donut-section" aria-labelledby="commoditySummaryTitle">
+          <section class="commodity-donut-section"
+                   aria-labelledby="commoditySummaryTitle">
             <div class="ranked-summary-heading">
               <h3 id="commoditySummaryTitle">Common Commodities in Rosario</h3>
               <span>Share of active records</span>
             </div>
             {% if commodity_breakdown %}
               <div class="commodity-donut-layout">
-                <div class="commodity-donut" role="img" aria-label="Commodity distribution across {{ crops }} active records">
-                  <svg viewBox="0 0 42 42" aria-hidden="true">
-                    <circle class="donut-base" cx="21" cy="21" r="15.9155"></circle>
+                <div class="commodity-donut"
+                     role="group"
+                     aria-label="Commodity distribution across {{ crops }} active records">
+                  <svg viewBox="0 0 42 42" role="group" aria-label="Commodity shares">
+                    <circle class="donut-base" cx="21" cy="21" r="15.9155">
+                    </circle>
                     {% for item in commodity_breakdown %}
                       <circle class="donut-segment"
+                              tabindex="0"
+                              role="img"
+                              aria-label="{{ item.label }}: {{ item.records }} records ({{ item.share }}%)"
+                              data-commodity-tooltip="{{ item.label }}: {{ item.records }} records ({{ item.share }}%)"
                               cx="21" cy="21" r="15.9155"
                               stroke="{{ item.color }}"
                               stroke-dasharray="{{ item.share }} {{ item.remainder }}"
-                              stroke-dashoffset="-{{ item.offset }}"></circle>
+                              stroke-dashoffset="-{{ item.offset }}">
+                      <title>{{ item.label }}: {{ item.records }} records ({{ item.share }}%)</title>
+                      </circle>
                     {% endfor %}
                   </svg>
-                  <span><b>{{ crops }}</b><small>records</small></span>
+                  <span>
+                    <b>
+                      {{ crops }}
+                    </b>
+                    <small>records</small>
+                  </span>
                 </div>
+                <p id="commodityTooltip" role="status" aria-live="polite" hidden></p>
                 <ol class="commodity-legend">
                   {% for item in commodity_breakdown %}
                     <li>
-                      <i style="background:{{ item.color }}"></i>
-                      <span><b>{{ item.label }}</b><small>{{ item.records }} record{{ item.records|pluralize }}{% if item.farmers is not None %} · {{ item.farmers }} farmer{{ item.farmers|pluralize }}{% endif %}</small></span>
+                      <i style="background:{{ item.color }}">
+                      </i>
+                      <span>
+                        <b>
+                          {{ item.label }}
+                        </b>
+                        <small>
+                          {{ item.records }} record{{ item.records|pluralize }}
+                          {% if item.farmers is not None %}
+                            · {{ item.farmers }} farmer{{ item.farmers|pluralize }}
+                          {% endif %}
+                        </small>
+                      </span>
                       <strong>{{ item.share|floatformat:0 }}%</strong>
                     </li>
                   {% endfor %}
@@ -109,8 +158,8 @@
               <p class="analytics-empty">No active commodity records yet.</p>
             {% endif %}
           </section>
-
-          <section class="barangay-coverage-section" aria-labelledby="barangaySummaryTitle">
+          <section class="barangay-coverage-section"
+                   aria-labelledby="barangaySummaryTitle">
             <div class="ranked-summary-heading">
               <h3 id="barangaySummaryTitle">Where Farmers Are Registered</h3>
               <span>All barangays</span>
@@ -120,8 +169,16 @@
                 {% for item in barangay_distribution %}
                   <li>
                     <span class="coverage-rank">{{ item.rank }}</span>
-                    <span><b>{{ item.barangay|default:"Not recorded" }}</b><small>{{ item.share }}% of active farmers</small></span>
-                    <strong>{{ item.total }}<small>farmer{{ item.total|pluralize }}</small></strong>
+                    <span>
+                      <b>
+                        {{ item.barangay|default:"Not recorded" }}
+                      </b>
+                      <small>{{ item.share }}% of active farmers</small>
+                    </span>
+                    <strong>
+                      {{ item.total }}
+                      <small>farmer{{ item.total|pluralize }}</small>
+                    </strong>
                   </li>
                 {% endfor %}
               </ol>
@@ -131,130 +188,231 @@
           </section>
         </div>
       </article>
-
     </section>
-
-    <section class="staff-operations-weather-grid" aria-label="Farmer support and Rosario weather">
-    <section class="staff-card staff-support-card operations-dashboard-card" aria-labelledby="operationsTitle">
-      <div class="card-heading">
-        <div class="staff-card-title">
-          <span class="staff-section-icon support"><i class="bi bi-heart-pulse-fill"></i></span>
-          <div>
-            <span class="card-kicker">FARMER SUPPORT</span>
-            <h2 id="operationsTitle">Service &amp; Intervention Workload</h2>
-            <p>Open work, delivered assistance, and common farmer needs</p>
+    <section class="staff-operations-weather-grid"
+             aria-label="Farmer support and Rosario weather">
+      <section class="staff-card staff-support-card operations-dashboard-card"
+               aria-labelledby="operationsTitle">
+        <div class="card-heading">
+          <div class="staff-card-title">
+            <span class="staff-section-icon support">
+              <i class="bi bi-heart-pulse-fill">
+              </i>
+            </span>
+            <div>
+              <span class="card-kicker">FARMER SUPPORT</span>
+              <h2 id="operationsTitle">Service &amp; Intervention Workload</h2>
+              <p>Open work, delivered assistance, and common farmer needs</p>
+            </div>
           </div>
+          <a href="{% url 'service_requests:list' %}">
+            Open all requests
+            <i class="bi bi-arrow-right">
+            </i>
+          </a>
         </div>
-        <a href="{% url 'service_requests:list' %}">Open all requests <i class="bi bi-arrow-right"></i></a>
-      </div>
-
-      <div class="operations-dashboard-grid">
-        <section class="operations-column request-column" aria-labelledby="pipelineTitle">
-          <div class="ranked-summary-heading">
-            <h3 id="pipelineTitle">Request Pipeline</h3>
-            <span>{{ open_requests }} open</span>
-          </div>
-          <div class="request-overview-grid">
-            <a href="{% url 'service_requests:list' %}?status=PENDING"><span class="status-dot pending"></span><small>Pending</small><b>{{ request_status.pending }}</b></a>
-            <a href="{% url 'service_requests:list' %}?status=IN_PROGRESS"><span class="status-dot progress"></span><small>In progress</small><b>{{ request_status.in_progress }}</b></a>
-            <a href="{% url 'service_requests:list' %}?status=COMPLETED"><span class="status-dot completed"></span><small>Completed</small><b>{{ request_status.completed }}</b></a>
-            <a href="{% url 'service_requests:list' %}?priority=HIGH"><span class="status-dot urgent"></span><small>High priority open</small><b>{{ urgent_requests }}</b></a>
-          </div>
-        </section>
-
-        <section class="operations-column intervention-column" aria-labelledby="interventionTitle">
-          <div class="ranked-summary-heading">
-            <h3 id="interventionTitle">Intervention Delivery</h3>
-            <a href="{% url 'reports:home' %}?report_type=intervention_registry">View registry</a>
-          </div>
-          <div class="intervention-delivery-summary">
-            <div class="intervention-total">
-              <b>{{ intervention_total }}</b>
-              <span>interventions for {{ intervention_farmers }} farmer{{ intervention_farmers|pluralize }}</span>
+        <div class="operations-dashboard-grid">
+          <section class="operations-column request-column"
+                   aria-labelledby="pipelineTitle">
+            <div class="ranked-summary-heading">
+              <h3 id="pipelineTitle">Request Pipeline</h3>
+              <span>{{ open_requests }} open</span>
             </div>
-            <div class="intervention-status-list">
-              <span><i class="scheduled"></i><small>Scheduled</small><b>{{ intervention_status.scheduled }}</b></span>
-              <span><i class="ongoing"></i><small>Ongoing</small><b>{{ intervention_status.ongoing }}</b></span>
-              <span><i class="completed"></i><small>Completed</small><b>{{ intervention_status.completed }}</b></span>
+            <div class="request-overview-grid">
+              <a href="{% url 'service_requests:list' %}?status=PENDING">
+                <span class="status-dot pending"></span>
+                <small>Pending</small>
+                <b>
+                  {{ request_status.pending }}
+                </b>
+              </a>
+              <a href="{% url 'service_requests:list' %}?status=IN_PROGRESS">
+                <span class="status-dot progress"></span>
+                <small>In progress</small>
+                <b>
+                  {{ request_status.in_progress }}
+                </b>
+              </a>
+              <a href="{% url 'service_requests:list' %}?status=COMPLETED">
+                <span class="status-dot completed"></span>
+                <small>Completed</small>
+                <b>
+                  {{ request_status.completed }}
+                </b>
+              </a>
+              <a href="{% url 'service_requests:list' %}?priority=HIGH">
+                <span class="status-dot urgent"></span>
+                <small>High priority open</small>
+                <b>
+                  {{ urgent_requests }}
+                </b>
+              </a>
             </div>
-          </div>
-        </section>
-
-      </div>
-    </section>
-
+          </section>
+          <section class="operations-column intervention-column"
+                   aria-labelledby="interventionTitle">
+            <div class="ranked-summary-heading">
+              <h3 id="interventionTitle">Intervention Delivery</h3>
+              <a href="{% url 'reports:home' %}?report_type=intervention_registry">View registry</a>
+            </div>
+            <div class="intervention-delivery-summary">
+              <div class="intervention-total">
+                <b>
+                  {{ intervention_total }}
+                </b>
+                <span>
+                  interventions for {{ intervention_farmers }} farmer{{ intervention_farmers|pluralize }}
+                </span>
+              </div>
+              <div class="intervention-status-list">
+                <span>
+                  <i class="scheduled">
+                  </i>
+                  <small>Scheduled</small>
+                  <b>
+                    {{ intervention_status.scheduled }}
+                  </b>
+                </span>
+                <span>
+                  <i class="ongoing">
+                  </i>
+                  <small>Ongoing</small>
+                  <b>
+                    {{ intervention_status.ongoing }}
+                  </b>
+                </span>
+                <span>
+                  <i class="completed">
+                  </i>
+                  <small>Completed</small>
+                  <b>
+                    {{ intervention_status.completed }}
+                  </b>
+                </span>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
       <article class="staff-card weather-card"
                id="rosarioWeather"
                data-latitude="13.8442"
                data-longitude="121.2035">
         <div class="card-heading">
           <div class="staff-card-title">
-            <span class="staff-section-icon weather"><i class="bi bi-cloud-sun-fill"></i></span>
+            <span class="staff-section-icon weather">
+              <i class="bi bi-cloud-sun-fill">
+              </i>
+            </span>
             <div>
               <span class="card-kicker">ROSARIO FORECAST</span>
               <h2>Rosario Weather</h2>
-              <p><i class="bi bi-geo-alt-fill"></i> Rosario, Batangas · <span id="weatherUpdated">--</span></p>
+              <p>
+                <i class="bi bi-geo-alt-fill">
+                </i>
+                Rosario, Batangas ·
+                <span id="weatherUpdated">--</span>
+              </p>
             </div>
           </div>
           <button id="weatherRefresh"
                   class="weather-refresh"
                   type="button"
                   aria-label="Refresh Rosario weather">
-            <i class="bi bi-arrow-clockwise"></i>
+            <i class="bi bi-arrow-clockwise">
+            </i>
           </button>
         </div>
-
         <div class="weather-loading" id="weatherLoading">
           <span class="weather-spinner"></span>
           Loading Rosario forecast…
         </div>
-
         <div class="weather-content" id="weatherContent" hidden>
           <div class="weather-now">
-            <span class="weather-symbol" id="weatherSymbol"><i class="bi bi-cloud-sun"></i></span>
+            <span class="weather-symbol" id="weatherSymbol">
+              <i class="bi bi-cloud-sun">
+              </i>
+            </span>
             <span>
-              <b id="weatherTemperature">--°C</b>
+              <b id="weatherTemperature">
+                --°C
+              </b>
               <strong id="weatherDescription">Weather unavailable</strong>
-              <small>Feels like <span id="weatherFeelsLike">--°C</span></small>
+              <small>
+                Feels like
+                <span id="weatherFeelsLike">--°C</span>
+              </small>
             </span>
           </div>
-
           <div class="weather-details">
             <span>
-              <i class="bi bi-droplet-fill"></i>
-              <b id="weatherHumidity">--%</b>
+              <i class="bi bi-droplet-fill">
+              </i>
+              <b id="weatherHumidity">
+                --%
+              </b>
               <small>Humidity</small>
             </span>
             <span>
-              <i class="bi bi-cloud-rain-fill"></i>
-              <b id="weatherRainChance">--%</b>
+              <i class="bi bi-cloud-rain-fill">
+              </i>
+              <b id="weatherRainChance">
+                --%
+              </b>
               <small>Rain</small>
             </span>
             <span>
-              <i class="bi bi-wind"></i>
-              <b id="weatherWind">-- km/h</b>
+              <i class="bi bi-wind">
+              </i>
+              <b id="weatherWind">
+                -- km/h
+              </b>
               <small>Wind</small>
             </span>
           </div>
-
         </div>
-
         <div class="weather-error" id="weatherError" hidden>
-          <i class="bi bi-cloud-slash"></i>
+          <i class="bi bi-cloud-slash">
+          </i>
           <span>
-            <b>Forecast temporarily unavailable</b>
+            <b>
+              Forecast temporarily unavailable
+            </b>
             <small>Check the internet connection, then refresh.</small>
           </span>
         </div>
         <div class="season-reference">
-          <i class="bi bi-calendar3"></i>
-          <span><small>Planning reference</small><b>{{ crop_recommendation.season }}</b></span>
+          <i class="bi bi-calendar3">
+          </i>
+          <span>
+            <small>Planning reference</small>
+            <b>
+              {{ crop_recommendation.season }}
+            </b>
+          </span>
         </div>
       </article>
     </section>
   </div>
 {% endblock %}
-
 {% block extra_js %}
   <script defer src="{% static 'js/staff-dashboard.min.js' %}?v=1"></script>
+  <script>
+      (() => {
+          const tooltip = document.getElementById('commodityTooltip');
+          document.querySelectorAll('[data-commodity-tooltip]').forEach(segment => {
+              const show = () => {
+                  tooltip.textContent = segment.dataset.commodityTooltip;
+                  tooltip.hidden = false;
+              };
+              const hide = () => {
+                  tooltip.hidden = true;
+              };
+              segment.addEventListener('mouseenter', show);
+              segment.addEventListener('focus', show);
+              segment.addEventListener('mouseleave', hide);
+              segment.addEventListener('blur', hide);
+          });
+      })();
+  </script>
 {% endblock %}

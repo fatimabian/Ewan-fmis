@@ -1,11 +1,6 @@
+// Shared filter popovers open beneath their trigger and stay inside the viewport.
 (() => {
     const positionPanel = (button, panel) => {
-        if (window.matchMedia('(max-width:600px)').matches) {
-            panel.classList.remove('is-viewport-positioned');
-            panel.style.removeProperty('top');
-            panel.style.removeProperty('left');
-            return;
-        }
         const buttonRect = button.getBoundingClientRect();
         const gap = 8;
         panel.classList.add('is-viewport-positioned');
@@ -14,10 +9,10 @@
         const panelRect = panel.getBoundingClientRect();
         const left = Math.max(12, Math.min(buttonRect.right - panelRect.width, window.innerWidth - panelRect.width - 12));
         const below = buttonRect.bottom + gap;
-        const above = buttonRect.top - panelRect.height - gap;
-        const top = below + panelRect.height <= window.innerHeight - 12 || above < 12 ? below : above;
         panel.style.left = `${left}px`;
-        panel.style.top = `${Math.max(12, top)}px`;
+        panel.style.top = `${Math.max(8, below)}px`;
+        panel.style.maxHeight = `${Math.max(100, window.innerHeight - below - 12)}px`;
+        panel.style.overflowY = 'auto';
         panel.style.visibility = '';
     };
 
@@ -64,11 +59,13 @@
             }
         });
     });
-    window.addEventListener('resize', () => {
+    const repositionOpenPanels = () => {
         document.querySelectorAll('[data-table-toolbar]').forEach(toolbar => {
             const button = toolbar.querySelector('[data-filter-toggle]');
             const panel = toolbar.querySelector('[data-filter-popover]');
             if (button && panel && !panel.hidden) positionPanel(button, panel);
         });
-    });
+    };
+    window.addEventListener('resize', repositionOpenPanels);
+    document.addEventListener('scroll', repositionOpenPanels, true);
 })();

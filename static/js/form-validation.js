@@ -1,3 +1,4 @@
+// Shared input normalization and form loading states.
 document.addEventListener("DOMContentLoaded", () => {
   const loadingOverlay = document.getElementById("fmisSubmitLoading");
   const loadingTitle = document.getElementById("fmisSubmitLoadingTitle");
@@ -61,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const hasOwnLoadingState = form.id === "rsbsaRegistration";
       const isDownload = form.id === "reportGenerator" || form.hasAttribute("data-download-form");
       if (
+        form.hasAttribute("data-managed-submit") ||
         event.defaultPrevented ||
         hasOwnLoadingState ||
         isDownload

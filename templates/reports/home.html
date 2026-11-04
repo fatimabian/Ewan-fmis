@@ -1,1198 +1,1392 @@
 {% extends base_template %}
+{# Shared analytics tabs and the report builder with live previews. #}
 {% block page_title %}
-  {% if request.user.is_admin %}Reports{% else %}Reports &amp; Analytics{% endif %}
+  {% if request.user.is_admin %}
+    Reports
+  {% else %}
+    Reports &amp; Analytics
+  {% endif %}
 {% endblock %}
 {% block page_subtitle %}
-  {% if request.user.is_admin %}Review access, accountability, and governance records{% else %}View insights and generate reports to support data-driven decisions{% endif %}
+  {% if request.user.is_admin %}
+    Review access, accountability, and governance records
+  {% else %}
+    View insights and generate reports to support data-driven decisions
+  {% endif %}
 {% endblock %}
 {% block content %}
   <style>
-  .request-status-layout{
-      display:grid;
-      grid-template-columns:220px 1fr;
-      gap:20px;
-      margin-top:6px
-  }
-  .request-status-side{
-      display:grid;
-      gap:16px;
-      align-content:start
-  }
-  .request-status-side h4{
-      font-size:12px;
-      text-transform:uppercase;
-      letter-spacing:.4px;
-      color:#61718a;
-      margin:0 0 8px
-  }
-  .recent-requests-table{
-      width:100%;
-      border-collapse:collapse;
-      font-size:12px
-  }
-  .recent-requests-table th{
-      text-align:left;
-      color:#61718a;
-      font-weight:700;
-      padding:6px 8px;
-      border-bottom:1px solid #e1e8ed
-  }
-  .recent-requests-table td{
-      padding:7px 8px;
-      border-bottom:1px solid #eef2f5
-  }
-  #filteredReport{
-      align-self:stretch;
-      min-height:0;
-      height:100%
-  }
-  #filteredReport .report-table-wrap{
-      height:auto!important;
-      min-height:0!important;
-      max-height:520px!important;
-      overflow:auto!important
-  }
-  .status-badge{
-      display:inline-block;
-      padding:2px 8px;
-      border-radius:20px;
-      font-size:11px;
-      font-weight:700
-  }
-  @media(max-width:760px){
-      .request-status-layout{
-          grid-template-columns:1fr
+      .request-status-layout {
+          display: grid;
+          grid-template-columns: 220px 1fr;
+          gap: 20px;
+          margin-top: 6px
       }
-  }
-  .reports-page{
-      max-width:1280px;
-      margin:auto
-  }
-  .report-metrics{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:12px;
-      margin:15px 0
-  }
-  .report-metric{
-      background:#fff;
-      border:1px solid #d2ead9;
-      border-radius:11px;
-      padding:16px
-  }
-  .report-metric i{
-      float:left;
-      background:#d9efdf;
-      color:#258854;
-      border-radius:10px;
-      padding:9px;
-      margin-right:12px
-  }
-  .report-metric small{
-      font-size:11px;
-      font-weight:800
-  }
-  .report-metric b{
-      display:block;
-      font-size:24px
-  }
-  .report-metric em{
-      display:block;
-      clear:both;
-      padding-top:12px;
-      color:#278a58;
-      font-style:normal;
-      font-size:12px
-  }
-  .report-top{
-      display:grid;
-      grid-template-columns:1fr 300px;
-      gap:12px
-  }
-  .report-card{
-      background:#fff;
-      border:1px solid #e1e8ed;
-      border-radius:12px;
-      padding:14px;
-      margin-bottom:12px;
-      box-shadow:0 3px 12px #26364b08
-  }
-  .report-card h3{
-      font-size:16px;
-      margin:0 0 6px
-  }
-  .report-card p{
-      font-size:12px;
-      color:#61718a;
-      margin:0
-  }
-  .farmer-statistics-heading{
-      display:flex;
-      align-items:baseline;
-      gap:10px;
-      height:auto!important;
-      min-height:0!important;
-      margin:4px 0 7px;
-      padding:0!important;
-      border:0;
-      background:transparent;
-      box-shadow:none
-  }
-  .farmer-statistics-strip{
-      display:grid;
-      grid-template-rows:max-content max-content;
-      align-content:start;
-      align-self:start;
-      gap:8px;
-      min-height:0!important;
-      height:max-content;
-      margin:0 0 12px
-  }
-  .farmer-statistics-strip .farmer-statistics-heading,
-  .farmer-statistics-strip .farmer-statistics-metrics{
-      margin:0!important
-  }
-  .farmer-statistics-strip .farmer-statistics-metrics{
-      min-height:0!important;
-      padding:0 0 2px!important;
-      align-self:start
-  }
-  .farmer-statistics-heading h2{
-      margin:0;
-      color:#172033;
-      font-size:13px;
-      letter-spacing:.35px;
-      white-space:nowrap
-  }
-  .farmer-statistics-heading p{
-      margin:0;
-      color:#61718a;
-      font-size:11px!important;
-      line-height:1.35
-  }
-  .farmer-statistics-metrics{
-      grid-template-columns:repeat(7,minmax(128px,1fr))!important;
-      gap:8px;
-      margin:0 0 12px;
-      padding-bottom:2px;
-      overflow-x:auto;
-      scrollbar-width:thin
-  }
-  .farmer-statistics-metrics .report-metric{
-      min-width:0;
-      min-height:72px!important;
-      display:grid;
-      grid-template-columns:34px minmax(0,1fr);
-      grid-template-rows:auto auto;
-      align-content:center;
-      column-gap:9px;
-      padding:10px 11px!important
-  }
-  body:not([data-theme="dark"]) .farmer-statistics-metrics .report-metric{
-      background:#fff!important;
-      border:1px solid #238b57!important
-  }
-  .farmer-statistics-metrics .report-metric i{
-      grid-row:1/3;
-      width:34px;
-      height:34px;
-      display:grid;
-      float:none;
-      place-items:center;
-      margin:0!important;
-      padding:0!important;
-      border-radius:8px;
-      font-size:16px
-  }
-  .farmer-statistics-metrics .report-metric small{
-      overflow:visible;
-      color:#374151!important;
-      font-size:11px!important;
-      font-weight:800;
-      line-height:1.25;
-      text-overflow:clip;
-      white-space:normal
-  }
-  .farmer-statistics-metrics .report-metric b{
-      margin-top:2px;
-      color:#172033!important;
-      font-size:22px!important;
-      line-height:1.05
-  }
-  body[data-theme="dark"] .farmer-statistics-heading h2,
-  body[data-theme="dark"] .farmer-statistics-metrics .report-metric b{
-      color:#f1f5f9!important
-  }
-  body[data-theme="dark"] .farmer-statistics-heading p,
-  body[data-theme="dark"] .farmer-statistics-metrics .report-metric small{
-      color:#cbd5e1!important
-  }
-  .report-template-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:9px;
-      margin-top:10px
-  }
-  .template-row{
-      width:100%;
-      border:1px solid #dfe8e4;
-      border-radius:8px;
-      padding:11px 12px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      background:transparent;
-      color:inherit;
-      text-align:left;
-      cursor:pointer
-  }
-  .template-row.selected{
-      border-color:#268758;
-      background:#f3fcf7
-  }
-  .template-row i{
-      background:#dff5e8;
-      color:#127a4d;
-      border-radius:8px;
-      padding:8px
-  }
-  .template-row b{
-      display:block;
-      font-size:13px
-  }
-  .template-row span{
-      display:block;
-      font-size:11px;
-      color:#5e6d85
-  }
-  .template-row strong{
-      margin-left:auto;
-      font-size:20px
-  }
-  .generate-form{
-      display:grid;
-      gap:10px
-  }
-  .generate-form label{
-      display:grid;
-      gap:5px;
-      font-size:12px;
-      font-weight:700
-  }
-  .generate-form select{
-      border:1px solid #dce5eb;
-      border-radius:7px;
-      padding:8px
-  }
-  .selected-report{
-      min-height:57px;
-      padding:9px 10px;
-      border:1px dashed #b8c9be;
-      border-radius:8px;
-      background:#f7faf8
-  }
-  .selected-report small,.selected-report strong{
-      display:block
-  }
-  .selected-report strong{
-      font-size:13px;
-      margin-top:2px
-  }
-  .analytics-grid{
-      display:grid;
-      grid-template-columns:1.35fr 1fr 1fr;
-      gap:12px
-  }
-  .crop-combined{
-      grid-column:span 2
-  }
-  .combined-chart{
-      display:grid;
-      gap:10px;
-      margin-top:13px
-  }
-  .combined-row{
-      display:grid;
-      grid-template-columns:105px 1fr 100px;
-      align-items:center;
-      gap:9px;
-      font-size:12px
-  }
-  .combined-track{
-      height:18px;
-      border-radius:5px;
-      background:#e5efe9;
-      overflow:hidden
-  }
-  .combined-track span{
-      display:block;
-      min-width:2px;
-      height:100%;
-      border-radius:5px;
-      background:linear-gradient(90deg,#168c55,#69bf84)
-  }
-  .combined-values{
-      display:flex;
-      justify-content:flex-end;
-      gap:7px;
-      font-size:10px
-  }
-  .combined-values b{
-      font-size:11px
-  }
-  .bar-list{
-      display:grid;
-      gap:9px;
-      margin-top:12px
-  }
-  .bar-row{
-      display:grid;
-      grid-template-columns:90px 1fr 48px;
-      gap:7px;
-      align-items:center;
-      font-size:12px
-  }
-  .bar-track{
-      background:#e5efe9;
-      height:10px;
-      border-radius:5px
-  }
-  .bar-track span{
-      display:block;
-      height:100%;
-      background:#2d935d;
-      border-radius:5px
-  }
-  .status-donut{
-      width:116px;
-      height:116px;
-      border-radius:50%!important;
-      clip-path:circle(50% at 50% 50%);
-      background:conic-gradient(var(--request-gradient));
-      margin:16px auto;
-      display:grid;
-      place-items:center;
-      position:relative
-  }
-  .status-donut:after{
-      content:'';
-      position:absolute;
-      width:74px;
-      height:74px;
-      background:var(--surface,#fff);
-      border-radius:50%!important;
-      clip-path:circle(50% at 50% 50%)
-  }
-  .status-donut b{
-      z-index:1
-  }
-  .status-legend{
-      display:grid;
-      gap:6px;
-      margin-top:12px
-  }
-  .status-legend span{
-      display:grid;
-      grid-template-columns:9px 1fr auto;
-      align-items:center;
-      gap:7px;
-      font-size:11px
-  }
-  .status-legend i{
-      width:9px;
-      height:9px;
-      border-radius:50%
-  }
-  .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(5,1fr);
-      gap:8px;
-      margin-top:14px
-  }
-  .summary-grid div{
-      background:#edf1f4;
-      border:1px solid #d8e0e6;
-      border-radius:8px;
-      padding:12px
-  }
-  .summary-grid b{
-      font-size:20px;
-      display:block
-  }
-  .summary-grid small{
-      font-size:10px
-  }
-  @media(max-width:1050px){
-      .analytics-grid{
-          grid-template-columns:1fr 1fr
+
+      .request-status-side {
+          display: grid;
+          gap: 16px;
+          align-content: start
       }
-      .report-metrics{
-          grid-template-columns:repeat(2,1fr)
+
+      .request-status-side h4 {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: .4px;
+          color: #61718a;
+          margin: 0 0 8px
       }
-      .crop-combined{
-          grid-column:span 2
+
+      .recent-requests-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 12px
       }
-  }
-  @media(max-width:760px){
-      .report-top,.analytics-grid,.report-template-grid{
-          grid-template-columns:1fr
+
+      .recent-requests-table th {
+          text-align: left;
+          color: #61718a;
+          font-weight: 700;
+          padding: 6px 8px;
+          border-bottom: 1px solid #e1e8ed
       }
-      .crop-combined{
-          grid-column:span 1
+
+      .recent-requests-table td {
+          padding: 7px 8px;
+          border-bottom: 1px solid #eef2f5
       }
-      .combined-row{
-          grid-template-columns:85px 1fr
+
+      #filteredReport {
+          align-self: stretch;
+          min-height: 0;
+          height: 100%
       }
-      .combined-values{
-          grid-column:2
+
+      #filteredReport .report-table-wrap {
+          height: auto !important;
+          min-height: 0 !important;
+          max-height: 520px !important;
+          overflow: auto !important
       }
-      .summary-grid{
-          grid-template-columns:repeat(2,1fr)
+
+      .status-badge {
+          display: inline-block;
+          padding: 2px 8px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 700
       }
-      .farmer-statistics-heading{
-          display:block
+
+      @media(max-width:760px) {
+          .request-status-layout {
+              grid-template-columns: 1fr
+          }
       }
-      .farmer-statistics-heading p{
-          margin-top:2px
+
+      .reports-page {
+          max-width: 1280px;
+          margin: auto
       }
-  }
-  /* Client-requested DRRMIS-style vertical filters, limited to Rosario fields. */
-  .report-top{
-      grid-template-columns:minmax(280px,.42fr) 1fr;
-      align-items:start
-  }
-  .report-filter-card{
-      height:auto;
-      border-top:4px solid var(--fmis-accent)!important;
-      background:linear-gradient(180deg,#fff 0%,#f8fbf9 100%)!important
-  }
-  .report-filter-card h3{
-      color:var(--ag-navy-soft)
-  }
-  .generate-form{
-      gap:9px;
-      margin-top:13px
-  }
-  .report-filter-row{
-      display:grid;
-      grid-template-columns:128px 1fr;
-      min-height:var(--fmis-control-height,48px)
-  }
-  .report-filter-row>label{
-      display:flex;
-      align-items:center;
-      padding:9px 12px;
-      background:#e9f7ef;
-      color:#0c6740!important;
-      font-size:11px;
-      font-weight:800;
-      letter-spacing:.35px;
-      text-transform:uppercase;
-      border:1px solid var(--fmis-accent);
-      border-right:0;
-      border-radius:6px 0 0 6px
-  }
-  .report-filter-row select,.report-filter-row .selected-report{
-      width:100%;
-      min-height:var(--fmis-control-height,48px);
-      border:1px solid #d6e2db;
-      border-left:0;
-      border-radius:0 6px 6px 0;
-      padding:8px 11px;
-      background:#fff;
-      color:#27364a
-  }
-  .report-filter-row select:focus{
-      border-color:var(--fmis-accent)!important;
-      box-shadow:0 0 0 3px color-mix(in srgb,var(--fmis-accent) 15%,transparent)!important;
-      outline:0
-  }
-  .report-filter-help{
-      grid-column:1/-1;
-      display:block;
-      padding:7px 10px 2px;
-      color:#5f6f66;
-      font-size:10px;
-      line-height:1.45
-  }
-  .report-filter-row[hidden]{
-      display:none!important
-  }
-  .report-filter-row .selected-report{
-      display:flex;
-      align-items:center;
-      background:#f7faf8
-  }
-  .selected-report strong{
-      font-size:12px
-  }
-  .report-generate{
-      min-height:var(--fmis-control-height,48px);
-      border-radius:6px!important;
-      background:linear-gradient(100deg,var(--fmis-accent),var(--ag-green-deep))!important;
-      border-color:var(--ag-green-deep)!important;
-      text-transform:uppercase;
-      letter-spacing:.4px
-  }
-  .report-download-status{
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:8px;
-      margin:0;
-      padding:8px 10px;
-      border:1px solid #c9dfd1;
-      background:#f3faf5;
-      color:#275d3d;
-      font-size:11px;
-      font-weight:700;
-      text-align:center
-  }
-  .report-download-status[hidden]{display:none}
-  @media(max-width:760px){
-      .report-top{
-          grid-template-columns:1fr
+
+      .report-metrics {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+          margin: 15px 0
       }
-      .report-filter-row{
-          grid-template-columns:105px 1fr
+
+      .report-metric {
+          background: #fff;
+          border: 1px solid #d2ead9;
+          border-radius: 11px;
+          padding: 16px
       }
-  }
-  .report-actions{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:8px
-  }
-  .report-top:has(.report-preview-empty){align-items:stretch}
-  .report-top:has(.report-preview-empty) .report-filter-card{height:auto}
-  .report-preview-empty{
-      min-height:0!important;
-      height:100%;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:5px;
-      padding:18px 24px;
-      border:2px dashed #cfe3d6!important;
-      background:#f7fbf8!important;
-      text-align:center
-  }
-  .report-preview-empty h3{margin:0}
-  .report-preview-empty p{
-      max-width:440px;
-      color:#61718a
-  }
-  .preview-heading{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:20px
-  }
-  .preview-heading b{
-      font-size:22px;
-      color:var(--fmis-accent)
-  }
-  .applied-report-filters{
-      display:flex;
-      flex-wrap:wrap;
-      gap:7px;
-      margin:12px 0
-  }
-  .applied-report-filter{
-      display:inline-flex;
-      align-items:center;
-      gap:5px;
-      padding:5px 9px;
-      border:1px solid #c8ddce;
-      border-radius:999px;
-      background:#f0f7f2;
-      color:#315c45;
-      font-size:11px
-  }
-  .applied-report-filter b{
-      color:#153c2a;
-      font-size:11px
-  }
-  .report-context-analytics{
-      display:grid;
-      gap:11px;
-      margin:14px 0;
-      padding:14px;
-      border:1px solid #d8e1e7;
-      background:#f8faf9
-  }
-  .report-context-analytics header h4{margin:0;color:#17233a;font-size:14px}
-  .report-context-analytics header p{margin:3px 0 0;color:#64748b;font-size:11px}
-  .report-context-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
-  .report-context-metrics article{
-      min-width:0;
-      padding:11px 12px;
-      border:1px solid #dce4e9;
-      border-top:3px solid #315f86;
-      background:#fff
-  }
-  .report-context-metrics article:nth-child(2){border-top-color:#b07b22}
-  .report-context-metrics article:nth-child(3){border-top-color:#6b5b95}
-  .report-context-metrics article:nth-child(4){border-top-color:#3f7d61}
-  .report-context-metrics small,.report-context-metrics b,.report-context-metrics p{display:block}
-  .report-context-metrics small{color:#536273;font-size:10px!important;font-weight:800;text-transform:uppercase}
-  .report-context-metrics b{margin-top:5px;color:#17233a;font-size:19px;line-height:1.2}
-  .report-context-metrics p{margin:3px 0 0;color:#697586;font-size:10px;line-height:1.35}
-  .report-context-findings{display:grid;gap:5px;margin:0;padding-left:18px;color:#435164;font-size:11px;line-height:1.45}
-  @media(max-width:900px){.report-context-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:520px){.report-context-metrics{grid-template-columns:1fr}}
-  .report-table-wrap{
-      overflow-x:auto!important;
-      overflow-y:auto!important;
-      max-height:520px;
-      border:1px solid #dce5e8;
-      border-radius:7px
-  }
-  .report-horizontal-controls{
-      display:flex;
-      align-items:center;
-      justify-content:flex-end;
-      gap:7px;
-      margin:0 0 7px
-  }
-  .report-horizontal-controls span{
-      margin-right:auto;
-      color:#637184;
-      font-size:11px;
-      font-weight:700
-  }
-  .farmer-master-preview{min-width:1180px}
-  .report-preview-table{
-      width:100%;
-      min-width:900px;
-      border-collapse:collapse;
-      font-size:11px
-  }
-  .report-preview-table th{
-      position:sticky;
-      top:0;
-      background:linear-gradient(105deg,var(--fmis-accent),var(--ag-green-deep));
-      color:#fff;
-      text-align:left;
-      z-index:1
-  }
-  .report-preview-table th,.report-preview-table td{
-      height:43px;
-      padding:8px 10px;
-      border-bottom:1px solid #e2eaed;
-      white-space:nowrap
-  }
-  .report-preview-table tbody tr:nth-child(even){
-      background:#f5faf7
-  }
-  .filtered-note{
-      margin-top:8px!important;
-      color:var(--ag-green-deep)!important;
-      font-weight:700
-  }
-  body[data-theme="dark"] .report-filter-card{
-      background:#1c2735!important
-  }
-  body[data-theme="dark"] .report-filter-row>label{
-      background:#214132!important;
-      color:#d8f7e4!important;
-      border-color:#3f8d62!important
-  }
-  body[data-theme="dark"] .report-filter-row>select{
-      background:#101923!important;
-      color:#f1f5f9!important;
-      border-color:#53657b!important
-  }
-  body[data-theme="dark"] .report-filter-row .selected-report{
-      background:#111b28!important
-  }
-  .admin-report-library{
-      display:grid;
-      grid-template-columns:minmax(300px,430px) minmax(0,1fr);
-      align-items:start;
-      gap:14px;
-      margin-top:16px
-  }
-  .admin-governance-filter{
-      display:block;
-      min-width:0;
-      margin:0
-  }
-  .admin-governance-filter .report-filter-card{
-      width:100%;
-      margin-bottom:0
-  }
-  .admin-report-library-heading{
-      display:none
-  }
-  .admin-report-library-heading h2{
-      margin:0 0 3px;
-      font-size:18px
-  }
-  .admin-report-library-heading p{
-      margin:0;
-      color:#687587;
-      font-size:11px
-  }
-  .admin-report-library>#filteredReport{
-      min-width:0;
-      margin:0
-  }
-  @media(max-width:900px){
-      .admin-report-library{grid-template-columns:1fr}
-  }
-  .admin-report-cards{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:12px
-  }
-  .admin-report-card{
-      display:grid;
-      grid-template-columns:38px minmax(0,1fr);
-      gap:10px;
-      padding:15px
-  }
-  .admin-report-card>i{
-      width:38px;
-      height:38px;
-      display:grid;
-      place-items:center;
-      border-radius:9px;
-      background:#e8f6ed;
-      color:#08753e;
-      font-size:17px
-  }
-  .admin-report-card h3{
-      margin:0 0 3px
-  }
-  .admin-report-card p{
-      min-height:32px;
-      margin:0
-  }
-  .admin-report-actions{
-      grid-column:1/-1;
-      display:grid;
-      grid-template-columns:minmax(0,1fr) 104px;
-      align-items:stretch;
-      gap:10px;
-      margin-top:3px
-  }
-  .admin-report-fields,
-  .admin-report-buttons{
-      display:grid;
-      gap:8px
-  }
-  .admin-report-fields{
-      width:100%;
-      max-width:220px;
-      justify-self:start
-  }
-  .custom-date-fields{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px
-  }
-  .custom-date-fields[hidden]{display:none}
-  .custom-date-fields label{
-      display:grid;
-      gap:4px;
-      color:#526176;
-      font-size:11px;
-      font-weight:700
-  }
-  .custom-date-fields input,
-  .report-filter-row input[type="date"]{
-      width:100%;
-      min-width:0;
-      border:1px solid #cbd9d1;
-      background:#fff;
-      color:#172033;
-      padding:11px 12px
-  }
-  .admin-report-buttons{
-      justify-self:end
-  }
-  .admin-report-actions select{
-      width:100%;
-      min-width:0;
-      height:39px;
-      padding:0 34px 0 12px;
-      border:1px solid #cdded3;
-      border-radius:7px;
-      background:#fff;
-      color:#1d2c3d
-  }
-  .admin-report-actions button{
-      min-height:39px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      padding:8px 12px;
-      border:1px solid #cdded3;
-      border-radius:7px;
-      background:#fff;
-      color:#176438;
-      font-size:10px;
-      font-weight:800;
-      line-height:1.2;
-      cursor:pointer
-  }
-  .admin-report-actions button:first-of-type{
-      border-color:#087b45;
-      background:#087b45;
-      color:#fff
-  }
-  .reports-page .report-text-link:not(#fmis-shape-specificity),
-  .reports-page .report-text-link:not(#fmis-shape-specificity):is(:hover,:focus,:focus-visible,:active){
-      display:flex!important;
-      width:max-content;
-      justify-content:center!important;
-      margin-left:auto!important;
-      padding:10px 15px!important;
-      border:1px solid #168052!important;
-      border-radius:8px!important;
-      color:#153426!important;
-      line-height:1.25;
-      text-align:left
-  }
-  @media(max-width:1400px){
-      .admin-report-cards{
-          grid-template-columns:repeat(2,minmax(0,1fr))
+
+      .report-metric i {
+          float: left;
+          background: #d9efdf;
+          color: #258854;
+          border-radius: 10px;
+          padding: 9px;
+          margin-right: 12px
       }
-  }
-  @media(max-width:900px){
-      .admin-report-cards{
-          grid-template-columns:1fr
+
+      .report-metric small {
+          font-size: 11px;
+          font-weight: 800
       }
-      .admin-report-card p{
-          min-height:0
+
+      .report-metric b {
+          display: block;
+          font-size: 24px
       }
-  }
-  .analytics-tabs{
-      display:flex;
-      overflow-x:auto;
-      margin-bottom:14px;
-      border-bottom:1px solid #d6e1da;
-      background:#fff;
-      scrollbar-width:none
-  }
-  .analytics-tabs::-webkit-scrollbar{display:none}
-  .analytics-tabs a{
-      flex:0 0 auto;
-      padding:12px 15px;
-      border-bottom:3px solid transparent;
-      color:#526276;
-      font-size:12px;
-      font-weight:800;
-      text-decoration:none;
-      white-space:nowrap
-  }
-  .analytics-tabs a:hover{color:#14243a;background:#f7f9f8}
-  .analytics-tabs a[aria-current="page"]{border-bottom-color:#148653;color:#14243a;background:#edf7f1}
-  .one-page-analytics{display:grid;gap:0;margin-top:22px}
-  .analytics-module-section{padding:26px 0;border-top:2px solid #cfdcd4}
-  .analytics-module-section:first-child{padding-top:0;border-top:0}
-  .analytics-module-heading{display:flex;align-items:center;gap:10px;margin:0 0 14px;color:#14243a;font-size:17px;font-weight:850}
-  .analytics-module-heading::after{content:"";height:1px;flex:1;background:#dbe4df}
-  @media(max-width:700px){.analytics-module-section{padding:20px 0}.analytics-module-heading{font-size:15px}}
+
+      .report-metric em {
+          display: block;
+          clear: both;
+          padding-top: 12px;
+          color: #278a58;
+          font-style: normal;
+          font-size: 12px
+      }
+
+      .report-top {
+          display: grid;
+          grid-template-columns: 1fr 300px;
+          gap: 12px
+      }
+
+      .report-card {
+          background: #fff;
+          border: 1px solid #e1e8ed;
+          border-radius: 12px;
+          padding: 14px;
+          margin-bottom: 12px;
+          box-shadow: 0 3px 12px #26364b08
+      }
+
+      .report-card h3 {
+          font-size: 16px;
+          margin: 0 0 6px
+      }
+
+      .report-card p {
+          font-size: 12px;
+          color: #61718a;
+          margin: 0
+      }
+
+      .farmer-statistics-heading {
+          display: flex;
+          align-items: baseline;
+          gap: 10px;
+          height: auto !important;
+          min-height: 0 !important;
+          margin: 4px 0 7px;
+          padding: 0 !important;
+          border: 0;
+          background: transparent;
+          box-shadow: none
+      }
+
+      .farmer-statistics-strip {
+          display: grid;
+          grid-template-rows: max-content max-content;
+          align-content: start;
+          align-self: start;
+          gap: 8px;
+          min-height: 0 !important;
+          height: max-content;
+          margin: 0 0 12px
+      }
+
+      .farmer-statistics-strip .farmer-statistics-heading,
+      .farmer-statistics-strip .farmer-statistics-metrics {
+          margin: 0 !important
+      }
+
+      .farmer-statistics-strip .farmer-statistics-metrics {
+          min-height: 0 !important;
+          padding: 0 0 2px !important;
+          align-self: start
+      }
+
+      .farmer-statistics-heading h2 {
+          margin: 0;
+          color: #172033;
+          font-size: 13px;
+          letter-spacing: .35px;
+          white-space: nowrap
+      }
+
+      .farmer-statistics-heading p {
+          margin: 0;
+          color: #61718a;
+          font-size: 11px !important;
+          line-height: 1.35
+      }
+
+      .farmer-statistics-metrics {
+          grid-template-columns: repeat(7, minmax(128px, 1fr)) !important;
+          gap: 8px;
+          margin: 0 0 12px;
+          padding-bottom: 2px;
+          overflow-x: auto;
+          scrollbar-width: thin
+      }
+
+      .farmer-statistics-metrics .report-metric {
+          min-width: 0;
+          min-height: 72px !important;
+          display: grid;
+          grid-template-columns: 34px minmax(0, 1fr);
+          grid-template-rows: auto auto;
+          align-content: center;
+          column-gap: 9px;
+          padding: 10px 11px !important
+      }
+
+      body:not([data-theme="dark"]) .farmer-statistics-metrics .report-metric {
+          background: #fff !important;
+          border: 1px solid #238b57 !important
+      }
+
+      .farmer-statistics-metrics .report-metric i {
+          grid-row: 1/3;
+          width: 34px;
+          height: 34px;
+          display: grid;
+          float: none;
+          place-items: center;
+          margin: 0 !important;
+          padding: 0 !important;
+          border-radius: 8px;
+          font-size: 16px
+      }
+
+      .farmer-statistics-metrics .report-metric small {
+          overflow: visible;
+          color: #374151 !important;
+          font-size: 11px !important;
+          font-weight: 800;
+          line-height: 1.25;
+          text-overflow: clip;
+          white-space: normal
+      }
+
+      .farmer-statistics-metrics .report-metric b {
+          margin-top: 2px;
+          color: #172033 !important;
+          font-size: 22px !important;
+          line-height: 1.05
+      }
+
+      body[data-theme="dark"] .farmer-statistics-heading h2,
+      body[data-theme="dark"] .farmer-statistics-metrics .report-metric b {
+          color: #f1f5f9 !important
+      }
+
+      body[data-theme="dark"] .farmer-statistics-heading p,
+      body[data-theme="dark"] .farmer-statistics-metrics .report-metric small {
+          color: #cbd5e1 !important
+      }
+
+      .report-template-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 9px;
+          margin-top: 10px
+      }
+
+      .template-row {
+          width: 100%;
+          border: 1px solid #dfe8e4;
+          border-radius: 8px;
+          padding: 11px 12px;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: transparent;
+          color: inherit;
+          text-align: left;
+          cursor: pointer
+      }
+
+      .template-row.selected {
+          border-color: #268758;
+          background: #f3fcf7
+      }
+
+      .template-row i {
+          background: #dff5e8;
+          color: #127a4d;
+          border-radius: 8px;
+          padding: 8px
+      }
+
+      .template-row b {
+          display: block;
+          font-size: 13px
+      }
+
+      .template-row span {
+          display: block;
+          font-size: 11px;
+          color: #5e6d85
+      }
+
+      .template-row strong {
+          margin-left: auto;
+          font-size: 20px
+      }
+
+      .generate-form {
+          display: grid;
+          gap: 10px
+      }
+
+      .generate-form label {
+          display: grid;
+          gap: 5px;
+          font-size: 12px;
+          font-weight: 700
+      }
+
+      .generate-form select {
+          border: 1px solid #dce5eb;
+          border-radius: 7px;
+          padding: 8px
+      }
+
+      .selected-report {
+          min-height: 57px;
+          padding: 9px 10px;
+          border: 1px dashed #b8c9be;
+          border-radius: 8px;
+          background: #f7faf8
+      }
+
+      .selected-report small,
+      .selected-report strong {
+          display: block
+      }
+
+      .selected-report strong {
+          font-size: 13px;
+          margin-top: 2px
+      }
+
+      .analytics-grid {
+          display: grid;
+          grid-template-columns: 1.35fr 1fr 1fr;
+          gap: 12px
+      }
+
+      .crop-combined {
+          grid-column: span 2
+      }
+
+      .combined-chart {
+          display: grid;
+          gap: 10px;
+          margin-top: 13px
+      }
+
+      .combined-row {
+          display: grid;
+          grid-template-columns: 105px 1fr 100px;
+          align-items: center;
+          gap: 9px;
+          font-size: 12px
+      }
+
+      .combined-track {
+          height: 18px;
+          border-radius: 5px;
+          background: #e5efe9;
+          overflow: hidden
+      }
+
+      .combined-track span {
+          display: block;
+          min-width: 2px;
+          height: 100%;
+          border-radius: 5px;
+          background: linear-gradient(90deg, #168c55, #69bf84)
+      }
+
+      .combined-values {
+          display: flex;
+          justify-content: flex-end;
+          gap: 7px;
+          font-size: 10px
+      }
+
+      .combined-values b {
+          font-size: 11px
+      }
+
+      .bar-list {
+          display: grid;
+          gap: 9px;
+          margin-top: 12px
+      }
+
+      .bar-row {
+          display: grid;
+          grid-template-columns: 90px 1fr 48px;
+          gap: 7px;
+          align-items: center;
+          font-size: 12px
+      }
+
+      .bar-track {
+          background: #e5efe9;
+          height: 10px;
+          border-radius: 5px
+      }
+
+      .bar-track span {
+          display: block;
+          height: 100%;
+          background: #2d935d;
+          border-radius: 5px
+      }
+
+      .status-donut {
+          width: 116px;
+          height: 116px;
+          border-radius: 50% !important;
+          clip-path: circle(50% at 50% 50%);
+          background: conic-gradient(var(--request-gradient));
+          margin: 16px auto;
+          display: grid;
+          place-items: center;
+          position: relative
+      }
+
+      .status-donut:after {
+          content: '';
+          position: absolute;
+          width: 74px;
+          height: 74px;
+          background: var(--surface, #fff);
+          border-radius: 50% !important;
+          clip-path: circle(50% at 50% 50%)
+      }
+
+      .status-donut b {
+          z-index: 1
+      }
+
+      .status-legend {
+          display: grid;
+          gap: 6px;
+          margin-top: 12px
+      }
+
+      .status-legend span {
+          display: grid;
+          grid-template-columns: 9px 1fr auto;
+          align-items: center;
+          gap: 7px;
+          font-size: 11px
+      }
+
+      .status-legend i {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%
+      }
+
+      .summary-grid {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
+          margin-top: 14px
+      }
+
+      .summary-grid div {
+          background: #edf1f4;
+          border: 1px solid #d8e0e6;
+          border-radius: 8px;
+          padding: 12px
+      }
+
+      .summary-grid b {
+          font-size: 20px;
+          display: block
+      }
+
+      .summary-grid small {
+          font-size: 10px
+      }
+
+      @media(max-width:1050px) {
+          .analytics-grid {
+              grid-template-columns: 1fr 1fr
+          }
+
+          .report-metrics {
+              grid-template-columns: repeat(2, 1fr)
+          }
+
+          .crop-combined {
+              grid-column: span 2
+          }
+      }
+
+      @media(max-width:760px) {
+
+          .report-top,
+          .analytics-grid,
+          .report-template-grid {
+              grid-template-columns: 1fr
+          }
+
+          .crop-combined {
+              grid-column: span 1
+          }
+
+          .combined-row {
+              grid-template-columns: 85px 1fr
+          }
+
+          .combined-values {
+              grid-column: 2
+          }
+
+          .summary-grid {
+              grid-template-columns: repeat(2, 1fr)
+          }
+
+          .farmer-statistics-heading {
+              display: block
+          }
+
+          .farmer-statistics-heading p {
+              margin-top: 2px
+          }
+      }
+
+      /* Client-requested DRRMIS-style vertical filters, limited to Rosario fields. */
+      .report-top {
+          grid-template-columns: minmax(280px, .42fr) 1fr;
+          align-items: start
+      }
+
+      .report-filter-card {
+          height: auto;
+          border-top: 4px solid var(--fmis-accent) !important;
+          background: linear-gradient(180deg, #fff 0%, #f8fbf9 100%) !important
+      }
+
+      .report-filter-card h3 {
+          color: var(--ag-navy-soft)
+      }
+
+      .generate-form {
+          gap: 9px;
+          margin-top: 13px
+      }
+
+      .report-filter-row {
+          display: grid;
+          grid-template-columns: 128px 1fr;
+          min-height: var(--fmis-control-height, 48px)
+      }
+
+      .report-filter-row>label {
+          display: flex;
+          align-items: center;
+          padding: 9px 12px;
+          background: #e9f7ef;
+          color: #0c6740 !important;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: .35px;
+          text-transform: uppercase;
+          border: 1px solid var(--fmis-accent);
+          border-right: 0;
+          border-radius: 6px 0 0 6px
+      }
+
+      .report-filter-row select,
+      .report-filter-row .selected-report {
+          width: 100%;
+          min-height: var(--fmis-control-height, 48px);
+          border: 1px solid #d6e2db;
+          border-left: 0;
+          border-radius: 0 6px 6px 0;
+          padding: 8px 11px;
+          background: #fff;
+          color: #27364a
+      }
+
+      .report-filter-row select:focus {
+          border-color: var(--fmis-accent) !important;
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--fmis-accent) 15%, transparent) !important;
+          outline: 0
+      }
+
+      .report-filter-help {
+          grid-column: 1/-1;
+          display: block;
+          padding: 7px 10px 2px;
+          color: #5f6f66;
+          font-size: 10px;
+          line-height: 1.45
+      }
+
+      .report-filter-row[hidden] {
+          display: none !important
+      }
+
+      .report-filter-row .selected-report {
+          display: flex;
+          align-items: center;
+          background: #f7faf8
+      }
+
+      .selected-report strong {
+          font-size: 12px
+      }
+
+      .report-generate {
+          min-height: var(--fmis-control-height, 48px);
+          border-radius: 6px !important;
+          background: linear-gradient(100deg, var(--fmis-accent), var(--ag-green-deep)) !important;
+          border-color: var(--ag-green-deep) !important;
+          text-transform: uppercase;
+          letter-spacing: .4px
+      }
+
+      .report-download-status {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin: 0;
+          padding: 8px 10px;
+          border: 1px solid #c9dfd1;
+          background: #f3faf5;
+          color: #275d3d;
+          font-size: 11px;
+          font-weight: 700;
+          text-align: center
+      }
+
+      .report-download-status[hidden] {
+          display: none
+      }
+
+      @media(max-width:760px) {
+          .report-top {
+              grid-template-columns: 1fr
+          }
+
+          .report-filter-row {
+              grid-template-columns: 105px 1fr
+          }
+      }
+
+      .report-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 8px
+      }
+
+      .report-top:has(.report-preview-empty) {
+          align-items: stretch
+      }
+
+      .report-top:has(.report-preview-empty) .report-filter-card {
+          height: auto
+      }
+
+      .report-preview-empty {
+          min-height: 0 !important;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          padding: 18px 24px;
+          border: 2px dashed #cfe3d6 !important;
+          background: #f7fbf8 !important;
+          text-align: center
+      }
+
+      .report-preview-empty h3 {
+          margin: 0
+      }
+
+      .report-preview-empty p {
+          max-width: 440px;
+          color: #61718a
+      }
+
+      .preview-heading {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 20px
+      }
+
+      .preview-heading b {
+          font-size: 22px;
+          color: var(--fmis-accent)
+      }
+
+      .applied-report-filters {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin: 12px 0
+      }
+
+      .applied-report-filter {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 9px;
+          border: 1px solid #c8ddce;
+          border-radius: 999px;
+          background: #f0f7f2;
+          color: #315c45;
+          font-size: 11px
+      }
+
+      .applied-report-filter b {
+          color: #153c2a;
+          font-size: 11px
+      }
+
+      .report-context-analytics {
+          display: grid;
+          gap: 11px;
+          margin: 14px 0;
+          padding: 14px;
+          border: 1px solid #d8e1e7;
+          background: #f8faf9
+      }
+
+      .report-context-analytics header h4 {
+          margin: 0;
+          color: #17233a;
+          font-size: 14px
+      }
+
+      .report-context-analytics header p {
+          margin: 3px 0 0;
+          color: #64748b;
+          font-size: 11px
+      }
+
+      .report-context-metrics {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 9px
+      }
+
+      .report-context-metrics article {
+          min-width: 0;
+          padding: 11px 12px;
+          border: 1px solid #dce4e9;
+          border-top: 3px solid #315f86;
+          background: #fff
+      }
+
+      .report-context-metrics article:nth-child(2) {
+          border-top-color: #b07b22
+      }
+
+      .report-context-metrics article:nth-child(3) {
+          border-top-color: #6b5b95
+      }
+
+      .report-context-metrics article:nth-child(4) {
+          border-top-color: #3f7d61
+      }
+
+      .report-context-metrics small,
+      .report-context-metrics b,
+      .report-context-metrics p {
+          display: block
+      }
+
+      .report-context-metrics small {
+          color: #536273;
+          font-size: 10px !important;
+          font-weight: 800;
+          text-transform: uppercase
+      }
+
+      .report-context-metrics b {
+          margin-top: 5px;
+          color: #17233a;
+          font-size: 19px;
+          line-height: 1.2
+      }
+
+      .report-context-metrics p {
+          margin: 3px 0 0;
+          color: #697586;
+          font-size: 10px;
+          line-height: 1.35
+      }
+
+      .report-context-findings {
+          display: grid;
+          gap: 5px;
+          margin: 0;
+          padding-left: 18px;
+          color: #435164;
+          font-size: 11px;
+          line-height: 1.45
+      }
+
+      @media(max-width:900px) {
+          .report-context-metrics {
+              grid-template-columns: repeat(2, minmax(0, 1fr))
+          }
+      }
+
+      @media(max-width:520px) {
+          .report-context-metrics {
+              grid-template-columns: 1fr
+          }
+      }
+
+      .report-table-wrap {
+          overflow-x: auto !important;
+          overflow-y: auto !important;
+          max-height: 520px;
+          border: 1px solid #dce5e8;
+          border-radius: 7px
+      }
+
+      .report-horizontal-controls {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 7px;
+          margin: 0 0 7px
+      }
+
+      .report-horizontal-controls span {
+          margin-right: auto;
+          color: #637184;
+          font-size: 11px;
+          font-weight: 700
+      }
+
+      .farmer-master-preview {
+          min-width: 1180px
+      }
+
+      .report-preview-table {
+          width: 100%;
+          min-width: 900px;
+          border-collapse: collapse;
+          font-size: 11px
+      }
+
+      .report-preview-table th {
+          position: sticky;
+          top: 0;
+          background: linear-gradient(105deg, var(--fmis-accent), var(--ag-green-deep));
+          color: #fff;
+          text-align: left;
+          z-index: 1
+      }
+
+      .report-preview-table th,
+      .report-preview-table td {
+          height: 43px;
+          padding: 8px 10px;
+          border-bottom: 1px solid #e2eaed;
+          white-space: nowrap
+      }
+
+      .report-preview-table tbody tr:nth-child(even) {
+          background: #f5faf7
+      }
+
+      .filtered-note {
+          margin-top: 8px !important;
+          color: var(--ag-green-deep) !important;
+          font-weight: 700
+      }
+
+      body[data-theme="dark"] .report-filter-card {
+          background: #1c2735 !important
+      }
+
+      body[data-theme="dark"] .report-filter-row>label {
+          background: #214132 !important;
+          color: #d8f7e4 !important;
+          border-color: #3f8d62 !important
+      }
+
+      body[data-theme="dark"] .report-filter-row>select {
+          background: #101923 !important;
+          color: #f1f5f9 !important;
+          border-color: #53657b !important
+      }
+
+      body[data-theme="dark"] .report-filter-row .selected-report {
+          background: #111b28 !important
+      }
+
+      .admin-report-library {
+          display: grid;
+          grid-template-columns: minmax(300px, 430px) minmax(0, 1fr);
+          align-items: start;
+          gap: 14px;
+          margin-top: 16px
+      }
+
+      .admin-governance-filter {
+          display: block;
+          min-width: 0;
+          margin: 0
+      }
+
+      .admin-governance-filter .report-filter-card {
+          width: 100%;
+          margin-bottom: 0
+      }
+
+      .admin-report-library-heading {
+          display: none
+      }
+
+      .admin-report-library-heading h2 {
+          margin: 0 0 3px;
+          font-size: 18px
+      }
+
+      .admin-report-library-heading p {
+          margin: 0;
+          color: #687587;
+          font-size: 11px
+      }
+
+      .admin-report-library>#filteredReport {
+          min-width: 0;
+          margin: 0
+      }
+
+      @media(max-width:900px) {
+          .admin-report-library {
+              grid-template-columns: 1fr
+          }
+      }
+
+      .admin-report-cards {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 12px
+      }
+
+      .admin-report-card {
+          display: grid;
+          grid-template-columns: 38px minmax(0, 1fr);
+          gap: 10px;
+          padding: 15px
+      }
+
+      .admin-report-card>i {
+          width: 38px;
+          height: 38px;
+          display: grid;
+          place-items: center;
+          border-radius: 9px;
+          background: #e8f6ed;
+          color: #08753e;
+          font-size: 17px
+      }
+
+      .admin-report-card h3 {
+          margin: 0 0 3px
+      }
+
+      .admin-report-card p {
+          min-height: 32px;
+          margin: 0
+      }
+
+      .admin-report-actions {
+          grid-column: 1/-1;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 104px;
+          align-items: stretch;
+          gap: 10px;
+          margin-top: 3px
+      }
+
+      .admin-report-fields,
+      .admin-report-buttons {
+          display: grid;
+          gap: 8px
+      }
+
+      .admin-report-fields {
+          width: 100%;
+          max-width: 220px;
+          justify-self: start
+      }
+
+      .custom-date-fields {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px
+      }
+
+      .custom-date-fields[hidden] {
+          display: none
+      }
+
+      .custom-date-fields label {
+          display: grid;
+          gap: 4px;
+          color: #526176;
+          font-size: 11px;
+          font-weight: 700
+      }
+
+      .custom-date-fields input,
+      .report-filter-row input[type="date"] {
+          width: 100%;
+          min-width: 0;
+          border: 1px solid #cbd9d1;
+          background: #fff;
+          color: #172033;
+          padding: 11px 12px
+      }
+
+      .admin-report-buttons {
+          justify-self: end
+      }
+
+      .admin-report-actions select {
+          width: 100%;
+          min-width: 0;
+          height: 39px;
+          padding: 0 34px 0 12px;
+          border: 1px solid #cdded3;
+          border-radius: 7px;
+          background: #fff;
+          color: #1d2c3d
+      }
+
+      .admin-report-actions button {
+          min-height: 39px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 8px 12px;
+          border: 1px solid #cdded3;
+          border-radius: 7px;
+          background: #fff;
+          color: #176438;
+          font-size: 10px;
+          font-weight: 800;
+          line-height: 1.2;
+          cursor: pointer
+      }
+
+      .admin-report-actions button:first-of-type {
+          border-color: #087b45;
+          background: #087b45;
+          color: #fff
+      }
+
+      .reports-page .report-text-link:not(#fmis-shape-specificity),
+      .reports-page .report-text-link:not(#fmis-shape-specificity):is(:hover, :focus, :focus-visible, :active) {
+          display: flex !important;
+          width: max-content;
+          justify-content: center !important;
+          margin-left: auto !important;
+          padding: 10px 15px !important;
+          border: 1px solid #168052 !important;
+          border-radius: 8px !important;
+          color: #153426 !important;
+          line-height: 1.25;
+          text-align: left
+      }
+
+      @media(max-width:1400px) {
+          .admin-report-cards {
+              grid-template-columns: repeat(2, minmax(0, 1fr))
+          }
+      }
+
+      @media(max-width:900px) {
+          .admin-report-cards {
+              grid-template-columns: 1fr
+          }
+
+          .admin-report-card p {
+              min-height: 0
+          }
+      }
+
+      .analytics-tabs {
+          display: flex;
+          overflow-x: auto;
+          margin-bottom: 14px;
+          border-bottom: 1px solid #d6e1da;
+          background: #fff;
+          scrollbar-width: none
+      }
+
+      .analytics-tabs::-webkit-scrollbar {
+          display: none
+      }
+
+      .analytics-tabs a {
+          flex: 0 0 auto;
+          padding: 12px 15px;
+          border-bottom: 3px solid transparent;
+          color: #526276;
+          font-size: 12px;
+          font-weight: 800;
+          text-decoration: none;
+          white-space: nowrap
+      }
+
+      .analytics-tabs a:hover {
+          color: #14243a;
+          background: #f7f9f8
+      }
+
+      .analytics-tabs a[aria-current="page"] {
+          border-bottom-color: #148653;
+          color: #14243a;
+          background: #edf7f1
+      }
+
+      .one-page-analytics {
+          display: grid;
+          gap: 0;
+          margin-top: 22px
+      }
+
+      .analytics-module-section {
+          padding: 26px 0;
+          border-top: 2px solid #cfdcd4
+      }
+
+      .analytics-module-section:first-child {
+          padding-top: 0;
+          border-top: 0
+      }
+
+      .analytics-module-heading {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin: 0 0 14px;
+          color: #14243a;
+          font-size: 17px;
+          font-weight: 850
+      }
+
+      .analytics-module-heading::after {
+          content: "";
+          height: 1px;
+          flex: 1;
+          background: #dbe4df
+      }
+
+      @media(max-width:700px) {
+          .analytics-module-section {
+              padding: 20px 0
+          }
+
+          .analytics-module-heading {
+              font-size: 15px
+          }
+      }
   </style>
   <div class="content reports-page">
-    {% if request.user.is_admin and analytics_tab == 'reports' %}
+    {% if not request.user.is_admin %}
+      {% include "reports/_tabs.html" %}
+    {% endif %}
+    {% if request.user.is_admin and analytics_tab == "reports" %}
       <section class="report-metrics">
         <article class="report-metric">
           <i class="bi bi-people">
           </i>
           <small>USER ACCOUNTS</small>
-          <b>{{ total_accounts }}</b>
+          <b>
+            {{ total_accounts }}
+          </b>
           <em>{{ active_accounts }} active accounts</em>
         </article>
         <article class="report-metric">
           <i class="bi bi-person-check">
           </i>
           <small>PENDING ACTIVATIONS</small>
-          <b>{{ pending_activations }}</b>
+          <b>
+            {{ pending_activations }}
+          </b>
           <em>{{ inactive_accounts }} inactive accounts</em>
         </article>
         <article class="report-metric">
           <i class="bi bi-clock-history">
           </i>
           <small>SYSTEM ACTIVITIES</small>
-          <b>{{ total_activities }}</b>
+          <b>
+            {{ total_activities }}
+          </b>
           <em>Recorded audit events</em>
         </article>
         <article class="report-metric">
           <i class="bi bi-shield-check">
           </i>
           <small>ADMINISTRATORS</small>
-          <b>{{ admin_accounts }}</b>
+          <b>
+            {{ admin_accounts }}
+          </b>
           <em>{{ staff_accounts }} staff accounts</em>
         </article>
       </section>
     {% endif %}
-    {% if request.user.is_admin and analytics_tab == 'reports' %}
-      <section class="admin-report-library" aria-labelledby="adminReportLibraryTitle">
+    {% if request.user.is_admin and analytics_tab == "reports" %}
+      <section class="admin-report-library"
+               aria-labelledby="adminReportLibraryTitle">
         <div class="admin-report-library-heading">
-          <h2 id="adminReportLibraryTitle">Governance Report Filters</h2>
+          <h2 id="adminReportLibraryTitle">Governance Reports</h2>
           <p>Choose an administrator report and apply only the filters relevant to it.</p>
         </div>
         <div class="report-top admin-governance-filter">
           <article class="report-card report-filter-card">
-            <h3>Governance Report Filters</h3>
+            <h3>Governance Reports</h3>
             <p>Choose an administrator report, then apply only the filters relevant to it.</p>
-            <form class="generate-form" id="reportGenerator" method="post" novalidate data-admin-governance>
+            <form class="generate-form"
+                  id="reportGenerator"
+                  method="post"
+                  novalidate
+                  data-admin-governance>
               {% csrf_token %}
               <input type="hidden" name="analytics_tab" value="reports">
               <div class="report-filter-row" data-filter-row="category">
                 <label>Category</label>
-                <select name="report_type" id="reportType"{% if report_error %} class="is-invalid" aria-invalid="true" aria-describedby="reportType_error"{% endif %}>
+                <select name="report_type"
+                        id="reportType"{% if report_error %} class="is-invalid" aria-invalid="true" aria-describedby="reportType_error"{% endif %}>
                   <option value="">Choose a report</option>
                   {% for template in report_templates %}
-                    <option value="{{ template.key }}"{% if selected_report_type == template.key %} selected{% endif %}>{{ template.title }}</option>
+                    <option value="{{ template.key }}"{% if selected_report_type == template.key %} selected{% endif %}>
+                      {{ template.title }}
+                    </option>
                   {% endfor %}
                 </select>
-                {% if report_error %}<span class="inline-form-error" id="reportType_error">{{ report_error }}</span>{% endif %}
+                {% if report_error %}
+                  <span class="inline-form-error" id="reportType_error">{{ report_error }}</span>
+                {% endif %}
               </div>
-              <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+              <div class="report-filter-row"
+                   data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
                 <label>Period</label>
                 <select name="date_range" required data-date-range>
-                  {% for value,label in date_ranges.items %}<option value="{{ value }}"{% if selected_date_range == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                  {% for value,label in date_ranges.items %}
+                    <option value="{{ value }}"{% if selected_date_range == value %} selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
                 </select>
               </div>
-              <div class="report-filter-row" data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
+              <div class="report-filter-row"
+                   data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
                 <label>From date</label>
-                <input type="date" name="date_from" value="{{ selected_date_from }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
+                <input type="date"
+                       name="date_from"
+                       value="{{ selected_date_from }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
               </div>
-              <div class="report-filter-row" data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
+              <div class="report-filter-row"
+                   data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
                 <label>To date</label>
-                <input type="date" name="date_to" value="{{ selected_date_to }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
+                <input type="date"
+                       name="date_to"
+                       value="{{ selected_date_to }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
               </div>
-              <div class="report-filter-row" data-filter-row="staff"{% if selected_report_type != 'staff_accomplishment' %} hidden{% endif %}>
+              <div class="report-filter-row"
+                   data-filter-row="staff"{% if selected_report_type != 'staff_accomplishment' %} hidden{% endif %}>
                 <label>Staff member</label>
-                <select name="staff"><option value="">All staff</option>{% for staff_member in staff_choices %}<option value="{{ staff_member.pk }}"{% if selected_filters.staff == staff_member.pk|stringformat:'s' %} selected{% endif %}>{{ staff_member.display_name }}</option>{% endfor %}</select>
+                <select name="staff">
+                  <option value="">All staff</option>
+                  {% for staff_member in staff_choices %}
+                    <option value="{{ staff_member.pk }}"{% if selected_filters.staff == staff_member.pk|stringformat:'s' %} selected{% endif %}>
+                      {{ staff_member.display_name }}
+                    </option>
+                  {% endfor %}
+                </select>
               </div>
-              <div class="report-filter-row" data-filter-row="account"{% if selected_report_type != 'user_accounts' %} hidden{% endif %}>
+              <div class="report-filter-row"
+                   data-filter-row="account"{% if selected_report_type != 'user_accounts' %} hidden{% endif %}>
                 <label>User role</label>
-                <select name="role"><option value="">All user roles</option>{% for value,label in role_choices %}<option value="{{ value }}"{% if selected_filters.role == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                <select name="role">
+                  <option value="">All user roles</option>
+                  {% for value,label in role_choices %}
+                    <option value="{{ value }}"{% if selected_filters.role == value %} selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
               </div>
-              <div class="report-filter-row" data-filter-row="account"{% if selected_report_type != 'user_accounts' %} hidden{% endif %}>
+              <div class="report-filter-row"
+                   data-filter-row="account"{% if selected_report_type != 'user_accounts' %} hidden{% endif %}>
                 <label>Account status</label>
-                <select name="account_status"><option value="">All account statuses</option>{% for value,label in account_status_choices %}<option value="{{ value }}"{% if selected_filters.account_status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+                <select name="account_status">
+                  <option value="">All account statuses</option>
+                  {% for value,label in account_status_choices %}
+                    <option value="{{ value }}"{% if selected_filters.account_status == value %} selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
               </div>
-              <div class="report-filter-row" data-filter-row="audit"{% if selected_report_type != 'activity_audit' %} hidden{% endif %}>
+              <div class="report-filter-row"
+                   data-filter-row="audit"{% if selected_report_type != 'activity_audit' %} hidden{% endif %}>
                 <label>Activity module</label>
-                <select name="module"><option value="">All system modules</option>{% for module in activity_modules %}<option value="{{ module }}"{% if selected_filters.module == module %} selected{% endif %}>{{ module }}</option>{% endfor %}</select>
+                <select name="module">
+                  <option value="">All system modules</option>
+                  {% for module in activity_modules %}
+                    <option value="{{ module }}"{% if selected_filters.module == module %} selected{% endif %}>
+                      {{ module }}
+                    </option>
+                  {% endfor %}
+                </select>
               </div>
-              <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+              <div class="report-filter-row"
+                   data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
                 <label>Format</label>
-                <select name="format" required><option value="pdf">PDF Document</option><option value="csv">CSV Spreadsheet</option></select>
+                <select name="format" required>
+                  <option value="pdf">PDF Document</option>
+                  <option value="csv">CSV Spreadsheet</option>
+                </select>
               </div>
-              <div class="report-actions" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
-                <button type="submit" class="btn btn-success report-generate"><i class="bi bi-download"></i> Download Report</button>
-                <p class="report-download-status" role="status" aria-live="polite" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Please wait while FMIS prepares your report. The download will start automatically.</span></p>
+              <div class="report-actions"
+                   data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+                <button type="submit" class="btn btn-success report-generate">
+                  <i class="bi bi-download">
+                  </i>
+                  Download Report
+                </button>
+                <p class="report-download-status"
+                   role="status"
+                   aria-live="polite"
+                   hidden>
+                  <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                  <span>
+                    Please wait while FMIS prepares your report. The download will start automatically.
+                  </span>
+                </p>
               </div>
             </form>
           </article>
         </div>
         {% if report_preview %}
           <article class="report-card" id="filteredReport">
-            <div class="preview-heading"><div><h3>{{ report_preview.title|upper }}</h3><p>View-only preview using the filters relevant to this governance report.</p></div><div><b>{{ report_preview.total_rows }}</b><p>matching rows</p></div></div>
-            <div class="report-table-wrap"><table class="report-preview-table"><thead><tr>{% for header in report_preview.headers %}<th>{{ header }}</th>{% endfor %}</tr></thead><tbody>{% for row in report_preview.rows %}<tr>{% for cell in row %}<td>{{ cell|default:'-' }}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="8">No records match the selected filters.</td></tr>{% endfor %}</tbody></table></div>
-            {% if report_preview.page_obj.paginator.num_pages > 1 %}
-              {% load pagination_tags %}
-              {% fmis_pagination report_preview.page_obj %}
-            {% endif %}
-          </article>
-        {% else %}
-          <article class="report-card report-preview-empty" id="filteredReport">
-            <div>
-              <h3>No governance report selected yet</h3>
-              <p>Choose a report under <strong>Category</strong>. Its paginated preview will appear here automatically.</p>
+            <div class="preview-heading">
+              <div>
+                <h3>{{ report_preview.title|upper }}</h3>
+                <p>View-only preview using the filters relevant to this governance report.</p>
+              </div>
+              <div>
+                <b>
+                  {{ report_preview.total_rows }}
+                </b>
+                <p>matching rows</p>
+              </div>
             </div>
-          </article>
-        {% endif %}
-      </section>
-    {% elif analytics_tab == 'reports' %}
-    <section class="report-top">
-      <article class="report-card report-filter-card">
-        <h3>{% if request.user.is_admin %}System Report Builder{% else %}Report Filters{% endif %}</h3>
-        <p>
-          {% if request.user.is_admin %}
-            Generate reports about FMIS accounts, access, and audit activity.
-          {% else %}
-            Choose Rosario-specific filters, then generate the report.
-          {% endif %}
-        </p>
-        <form class="generate-form" id="reportGenerator" method="post" novalidate>
-          {% csrf_token %}
-          <input type="hidden" name="analytics_tab" value="reports">
-          <div class="report-filter-row" data-filter-row="category">
-            <label>{% if request.user.is_admin %}System Report{% else %}Category{% endif %}</label>
-            <select name="report_type" id="reportType"{% if report_error %} class="is-invalid" aria-invalid="true" aria-describedby="reportType_error"{% endif %}>
-              <option value="">{% if request.user.is_admin %}Choose a system report{% else %}Choose a report{% endif %}</option>
-              {% for template in report_templates %}
-                <option value="{{ template.key }}"
-                        {% if selected_report_type == template.key %}selected{% endif %}>{{ template.title }}</option>
-              {% endfor %}
-            </select>
-            {% if report_error %}
-              <span class="inline-form-error" id="reportType_error">{{ report_error }}</span>
-            {% endif %}
-          </div>
-          {% if not request.user.is_admin %}
-          <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
-            <label>Year</label>
-            <select name="year">
-              <option value="">All years</option>
-              {% for year in report_years %}
-                <option value="{{ year }}"
-                        {% if selected_filters.year == year|stringformat:'s' %}selected{% endif %}>{{ year }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="report-filter-row" data-filter-row="association"{% if selected_report_type != 'farmer_master' %} hidden{% endif %}>
-            <label>Association</label>
-            <select name="association">
-              <option value="">All associations</option>
-              {% for association in association_choices %}<option value="{{ association }}"{% if selected_filters.association == association %} selected{% endif %}>{{ association }}</option>{% endfor %}
-            </select>
-          </div>
-          <div class="report-filter-row" data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
-            <label>Barangay</label>
-            <select name="barangay">
-              <option value="">All Rosario barangays</option>
-              {% for barangay in barangays %}
-                <option value="{{ barangay }}"
-                        {% if selected_filters.barangay == barangay %}selected{% endif %}>{{ barangay }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="report-filter-row" data-filter-row="commodity"{% if not selected_report_type or selected_report_type not in commodity_report_types %} hidden{% endif %}>
-            <label>Commodity</label>
-            <select name="commodity">
-              <option value="">All commodities</option>
-              {% for commodity in commodities %}
-                <option value="{{ commodity }}"
-                        {% if selected_filters.commodity == commodity %}selected{% endif %}>{{ commodity }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          {% endif %}
-          <div class="report-filter-row"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
-            <label>Period</label>
-            <select name="date_range" required data-date-range>
-              {% for value,label in date_ranges.items %}
-                <option value="{{ value }}" {% if selected_date_range == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="report-filter-row" data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
-            <label>From date</label>
-            <input type="date" name="date_from" value="{{ selected_date_from }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
-          </div>
-          <div class="report-filter-row" data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
-            <label>To date</label>
-            <input type="date" name="date_to" value="{{ selected_date_to }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
-          </div>
-          {% if request.user.is_admin %}
-            <div class="report-filter-row">
-              <label>User Role</label>
-              <select name="role">
-                <option value="">All user roles</option>
-                {% for value,label in role_choices %}
-                  <option value="{{ value }}" {% if selected_filters.role == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="report-filter-row">
-              <label>Account Status</label>
-              <select name="account_status">
-                <option value="">All account statuses</option>
-                {% for value,label in account_status_choices %}
-                  <option value="{{ value }}" {% if selected_filters.account_status == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="report-filter-row">
-              <label>Activity Module</label>
-              <select name="module">
-                <option value="">All system modules</option>
-                {% for module in activity_modules %}
-                  <option value="{{ module }}" {% if selected_filters.module == module %}selected{% endif %}>{{ module }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          {% else %}
-            <div class="report-filter-row" data-filter-row="status"{% if selected_report_type != 'service_effectiveness' %} hidden{% endif %}>
-              <label>Status</label>
-              <select name="status">
-                <option value="">All request statuses</option>
-                {% for value,label in status_choices %}
-                  <option value="{{ value }}"
-                          {% if selected_filters.status == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="report-filter-row" data-filter-row="intervention"{% if selected_report_type != 'intervention_summary' and selected_report_type != 'intervention_registry' %} hidden{% endif %}>
-              <label>Intervention Type</label>
-              <select name="intervention_type">
-                <option value="">All intervention types</option>
-                {% for value,label in intervention_type_choices %}
-                  <option value="{{ value }}"
-                          {% if selected_filters.intervention_type == value %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </div>
-          {% endif %}
-          <div class="report-filter-row"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
-            <label>Format</label>
-            <select name="format" required>
-              <option value="pdf">PDF Document</option>
-              <option value="csv">CSV Spreadsheet</option>
-            </select>
-          </div>
-          <div class="report-actions"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
-            <button type="submit" class="btn btn-success report-generate">
-              <i class="bi bi-download">
-              </i> Download Report
-            </button>
-            <p class="report-download-status" role="status" aria-live="polite" hidden>
-              <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-              <span>Please wait while FMIS prepares your report. The download will start automatically.</span>
-            </p>
-          </div>
-        </form>
-      </article>
-      {% if report_preview %}
-        <article class="report-card" id="filteredReport">
-          <div class="preview-heading">
-            <div>
-              <h3>{{ report_preview.title|upper }}</h3>
-              <p>
-                {% if report_preview.is_farmer_master %}
-                  Farmer records show the commodities that matched the selected farm filters.
-                {% elif request.user.is_admin %}
-                  The table uses the selected system report, period, role, account status, and module filters.
-                {% else %}
-                  The table uses only the filters relevant to this report.
-                {% endif %}
-              </p>
-            </div>
-            <div>
-              <b>{{ report_preview.total_rows }}</b>
-              <p>matching row{{ report_preview.total_rows|pluralize }}</p>
-            </div>
-          </div>
-          {% if active_report_filters %}
-            <div class="applied-report-filters" aria-label="Applied report filters">
-              {% for filter in active_report_filters %}
-                <span class="applied-report-filter"><b>{{ filter.label }}:</b> {{ filter.value }}</span>
-              {% endfor %}
-            </div>
-          {% endif %}
-          {% if report_preview.rows %}
-            <div class="report-table-wrap{% if report_preview.is_farmer_master %} farmer-master-table-wrap{% endif %}">
-              <table class="report-preview-table{% if report_preview.is_farmer_master %} farmer-master-preview{% endif %}">
+            <div class="report-table-wrap">
+              <table class="report-preview-table">
                 <thead>
                   <tr>
                     {% for header in report_preview.headers %}
@@ -1207,6 +1401,10 @@
                         <td>{{ cell|default:'-' }}</td>
                       {% endfor %}
                     </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="8">No records match the selected filters.</td>
+                    </tr>
                   {% endfor %}
                 </tbody>
               </table>
@@ -1215,234 +1413,548 @@
               {% load pagination_tags %}
               {% fmis_pagination report_preview.page_obj %}
             {% endif %}
-          {% else %}
-            <p class="staff-chart-empty">
-              <i class="bi bi-info-circle"></i> No records match the selected filters.
-            </p>
-          {% endif %}
-          {% if report_preview.truncated %}
-            <p class="filtered-note">Showing {{ report_preview.page_obj.paginator.per_page }} rows per page. Download the report for the complete result.</p>
-          {% endif %}
-        </article>
-      {% else %}
-        <article class="report-card report-preview-empty" id="filteredReport">
-          <h3>No report selected yet</h3>
+          </article>
+        {% else %}
+          <article class="report-card report-preview-empty" id="filteredReport">
+            <div>
+              <h3>No governance report selected yet</h3>
+              <p>
+                Choose a report under
+                <strong>Category</strong>
+                . Its paginated preview will appear here automatically.
+              </p>
+            </div>
+          </article>
+        {% endif %}
+      </section>
+    {% elif analytics_tab == "reports" %}
+      <section class="report-top">
+        <article class="report-card report-filter-card">
+          <h3>
+            {% if request.user.is_admin %}
+              System Report Builder
+            {% else %}
+              Report Filters
+            {% endif %}
+          </h3>
           <p>
             {% if request.user.is_admin %}
-              Choose a <b>System Report</b>, then adjust the management filters. The live preview will appear here automatically.
+              Generate reports about FMIS accounts, access, and audit activity.
             {% else %}
-              Pick a report under <b>Category</b>, then adjust the filters on the left — your live preview will appear here automatically.
+              Choose Rosario-specific filters, then generate the report.
             {% endif %}
           </p>
-        </article>
-      {% endif %}
-    </section>
-    {% endif %}
-    {% if not request.user.is_admin and analytics_tab != 'reports' %}
-      {% include 'reports/_descriptive_analytics.html' %}
-    {% comment %}
-      <section class="one-page-analytics" aria-label="All FMIS analytics">
-        <section class="analytics-module-section" id="analytics-overview">
-          <h2 class="analytics-module-heading">Municipal Overview</h2>
-          {% include 'reports/_descriptive_analytics.html' with analytics_tab='overview' analytics_tab_label='Overview' analytics_one_page=True %}
-        </section>
-        <section class="analytics-module-section" id="analytics-farmers">
-          <h2 class="analytics-module-heading">Farmer Analytics</h2>
-          {% include 'reports/_descriptive_analytics.html' with analytics_tab='farmers' analytics_tab_label='Farmers' analytics_embedded=True %}
-        </section>
-        <section class="analytics-module-section" id="analytics-parcels">
-          <h2 class="analytics-module-heading">Farm Parcel Analytics</h2>
-          {% include 'reports/_descriptive_analytics.html' with analytics_tab='parcels' analytics_tab_label='Farm Parcels' analytics_embedded=True %}
-        </section>
-        <section class="analytics-module-section" id="analytics-commodities">
-          <h2 class="analytics-module-heading">Commodity Analytics</h2>
-          {% include 'reports/_descriptive_analytics.html' with analytics_tab='commodities' analytics_tab_label='Commodities' analytics_embedded=True %}
-        </section>
-        <section class="analytics-module-section" id="analytics-requests">
-          <h2 class="analytics-module-heading">Service Request Analytics</h2>
-          {% include 'reports/_descriptive_analytics.html' with analytics_tab='requests' analytics_tab_label='Service Requests' analytics_embedded=True %}
-        </section>
-        <section class="analytics-module-section" id="analytics-interventions">
-          <h2 class="analytics-module-heading">Intervention Analytics</h2>
-          {% include 'reports/_descriptive_analytics.html' with analytics_tab='interventions' analytics_tab_label='Interventions' analytics_embedded=True %}
-        </section>
-        <section class="analytics-module-section" id="analytics-inventory">
-          <h2 class="analytics-module-heading">Inventory Analytics</h2>
-          {% include 'reports/_descriptive_analytics.html' with analytics_tab='inventory' analytics_tab_label='Inventory' analytics_embedded=True %}
-        </section>
-      </section>
-    {% endcomment %}
-    {% endif %}
-    {% if request.user.is_admin and analytics_tab == 'reports' %}
-    <section class="analytics-grid">
-      {% if request.user.is_admin %}
-        <article class="report-card">
-          <h3>ACCOUNT ACCESS SUMMARY</h3>
-          <p>Current users allowed to access FMIS</p>
-          <div class="summary-grid">
-            <div>
-              <b>{{ admin_accounts }}</b>
-              <small>Administrators</small>
+          <form class="generate-form" id="reportGenerator" method="post" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="analytics_tab" value="reports">
+            <div class="report-filter-row" data-filter-row="category">
+              <label>
+                {% if request.user.is_admin %}
+                  System Report
+                {% else %}
+                  Category
+                {% endif %}
+              </label>
+              <select name="report_type"
+                      id="reportType"{% if report_error %} class="is-invalid" aria-invalid="true" aria-describedby="reportType_error"{% endif %}>
+                <option value="">
+                  {% if request.user.is_admin %}
+                    Choose a system report
+                  {% else %}
+                    Choose a report
+                  {% endif %}
+                </option>
+                {% for template in report_templates %}
+                  <option value="{{ template.key }}"
+                          {% if selected_report_type == template.key %}selected{% endif %}>
+                    {{ template.title }}
+                  </option>
+                {% endfor %}
+              </select>
+              {% if report_error %}
+                <span class="inline-form-error" id="reportType_error">{{ report_error }}</span>
+              {% endif %}
             </div>
-            <div>
-              <b>{{ staff_accounts }}</b>
-              <small>Staff</small>
-            </div>
-            <div>
-              <b>{{ inactive_accounts }}</b>
-              <small>Inactive</small>
-            </div>
-          </div>
-          <a class="panel-link report-text-link mt-3" href="{% url 'accounts:list' %}">Manage user access <span aria-hidden="true">→</span></a>
-        </article>
-        <article class="report-card" style="grid-column:span 2">
-          <h3>SECURITY &amp; AUDIT READINESS</h3>
-          <p>Account activation and audit records requiring administrator attention</p>
-          <div class="summary-grid">
-            <div>
-              <b>{{ pending_activations }}</b>
-              <small>Pending Activations</small>
-            </div>
-            <div>
-              <b>{{ failed_activities }}</b>
-              <small>Flagged Events</small>
-            </div>
-            <div>
-              <b>{{ total_activities }}</b>
-              <small>Audit Records</small>
-            </div>
-          </div>
-          <a class="panel-link report-text-link mt-3" href="{% url 'activity_logs:list' %}">Review audit activity <span aria-hidden="true">→</span></a>
-        </article>
-      {% else %}
-        <article class="report-card" style="grid-column:1/-1">
-          <h3>SERVICE REQUEST STATUS</h3>
-          <div class="request-status-layout">
-            <div>
-              <div class="status-donut" style="--request-gradient:{{ request_status_gradient }}">
-                <b>{{ request_total }}</b>
+            {% if not request.user.is_admin %}
+              <div class="report-filter-row"
+                   data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+                <label>Year</label>
+                <select name="year">
+                  <option value="">All years</option>
+                  {% for year in report_years %}
+                    <option value="{{ year }}"
+                            {% if selected_filters.year == year|stringformat:'s' %}selected{% endif %}>
+                      {{ year }}
+                    </option>
+                  {% endfor %}
+                </select>
               </div>
-              <p class="text-center">Total requests</p>
-              <div class="status-legend">
-                {% for item in request_statuses %}
-                  <span>
-                    <i style="background:{{ item.color }}">
-                    </i>
-                    <small>{{ item.label }}</small>
-                    <b>{{ item.total }} ({{ item.percent|floatformat:1 }}%)</b>
+              <div class="report-filter-row"
+                   data-filter-row="association"{% if selected_report_type != 'farmer_master' %} hidden{% endif %}>
+                <label>Association</label>
+                <select name="association">
+                  <option value="">All associations</option>
+                  {% for association in association_choices %}
+                    <option value="{{ association }}"{% if selected_filters.association == association %} selected{% endif %}>
+                      {{ association }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="report-filter-row"
+                   data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}>
+                <label>Barangay</label>
+                <select name="barangay">
+                  <option value="">All Rosario barangays</option>
+                  {% for barangay in barangays %}
+                    <option value="{{ barangay }}"
+                            {% if selected_filters.barangay == barangay %}selected{% endif %}>
+                      {{ barangay }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="report-filter-row"
+                   data-filter-row="commodity"{% if not selected_report_type or selected_report_type not in commodity_report_types %} hidden{% endif %}>
+                <label>Commodity</label>
+                <select name="commodity">
+                  <option value="">All commodities</option>
+                  {% for commodity in commodities %}
+                    <option value="{{ commodity }}"
+                            {% if selected_filters.commodity == commodity %}selected{% endif %}>
+                      {{ commodity }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endif %}
+            <div class="report-filter-row"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
+              <label>Period</label>
+              <select name="date_range" required data-date-range>
+                {% for value,label in date_ranges.items %}
+                  <option value="{{ value }}"
+                          {% if selected_date_range == value %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="report-filter-row"
+                 data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
+              <label>From date</label>
+              <input type="date"
+                     name="date_from"
+                     value="{{ selected_date_from }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
+            </div>
+            <div class="report-filter-row"
+                 data-filter-row="custom-date"{% if selected_date_range != 'custom' %} hidden{% endif %}>
+              <label>To date</label>
+              <input type="date"
+                     name="date_to"
+                     value="{{ selected_date_to }}"{% if selected_date_range != 'custom' %} disabled{% else %} required{% endif %}>
+            </div>
+            {% if request.user.is_admin %}
+              <div class="report-filter-row">
+                <label>User Role</label>
+                <select name="role">
+                  <option value="">All user roles</option>
+                  {% for value,label in role_choices %}
+                    <option value="{{ value }}"
+                            {% if selected_filters.role == value %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="report-filter-row">
+                <label>Account Status</label>
+                <select name="account_status">
+                  <option value="">All account statuses</option>
+                  {% for value,label in account_status_choices %}
+                    <option value="{{ value }}"
+                            {% if selected_filters.account_status == value %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="report-filter-row">
+                <label>Activity Module</label>
+                <select name="module">
+                  <option value="">All system modules</option>
+                  {% for module in activity_modules %}
+                    <option value="{{ module }}"
+                            {% if selected_filters.module == module %}selected{% endif %}>
+                      {{ module }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% else %}
+              <div class="report-filter-row"
+                   data-filter-row="status"{% if selected_report_type != 'service_effectiveness' %} hidden{% endif %}>
+                <label>Status</label>
+                <select name="status">
+                  <option value="">All request statuses</option>
+                  {% for value,label in status_choices %}
+                    <option value="{{ value }}"
+                            {% if selected_filters.status == value %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="report-filter-row"
+                   data-filter-row="intervention"{% if selected_report_type != 'intervention_summary' and selected_report_type != 'intervention_registry' %} hidden{% endif %}>
+                <label>Intervention Type</label>
+                <select name="intervention_type">
+                  <option value="">All intervention types</option>
+                  {% for value,label in intervention_type_choices %}
+                    <option value="{{ value }}"
+                            {% if selected_filters.intervention_type == value %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% endif %}
+            <div class="report-filter-row"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
+              <label>Format</label>
+              <select name="format" required>
+                <option value="pdf">PDF Document</option>
+                <option value="csv">CSV Spreadsheet</option>
+              </select>
+            </div>
+            <div class="report-actions"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
+              <button type="submit" class="btn btn-success report-generate">
+                <i class="bi bi-download">
+                </i>
+                Download Report
+              </button>
+              <p class="report-download-status"
+                 role="status"
+                 aria-live="polite"
+                 hidden>
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                <span>
+                  Please wait while FMIS prepares your report. The download will start automatically.
+                </span>
+              </p>
+            </div>
+          </form>
+        </article>
+        {% if report_preview %}
+          <article class="report-card" id="filteredReport">
+            <div class="preview-heading">
+              <div>
+                <h3>{{ report_preview.title|upper }}</h3>
+                <p>
+                  {% if report_preview.is_farmer_master %}
+                    Farmer records show the commodities that matched the selected farm filters.
+                  {% elif request.user.is_admin %}
+                    The table uses the selected system report, period, role, account status, and module filters.
+                  {% else %}
+                    The table uses only the filters relevant to this report.
+                  {% endif %}
+                </p>
+              </div>
+              <div>
+                <b>
+                  {{ report_preview.total_rows }}
+                </b>
+                <p>matching row{{ report_preview.total_rows|pluralize }}</p>
+              </div>
+            </div>
+            {% if active_report_filters %}
+              <div class="applied-report-filters" aria-label="Applied report filters">
+                {% for filter in active_report_filters %}
+                  <span class="applied-report-filter">
+                    <b>{{ filter.label }}:</b> {{ filter.value }}
                   </span>
                 {% endfor %}
               </div>
-            </div>
-            <div class="request-status-side">
-              <div>
-                <h4>By Priority</h4>
-                <div class="bar-list">
-                  {% for item in request_priorities %}
-                    <div class="bar-row">
-                      <span>{{ item.label }}</span>
-                      <span class="bar-track">
-                        <span style="width:{{ item.percent }}%;background:{{ item.color }}"></span>
-                      </span>
-                      <b>{{ item.total }}</b>
-                    </div>
-                  {% endfor %}
-                </div>
-              </div>
-              <div>
-                <h4>Recent Requests</h4>
-                <div class="universal-table-wrap recent-requests-table-wrap">
-                <table class="recent-requests-table universal-table">
+            {% endif %}
+            {% if report_preview.rows %}
+              <div class="report-table-wrap{% if report_preview.is_farmer_master %} farmer-master-table-wrap{% endif %}">
+                <table class="report-preview-table{% if report_preview.is_farmer_master %} farmer-master-preview{% endif %}">
                   <thead>
                     <tr>
-                      <th>Farmer</th>
-                      <th>Service</th>
-                      <th>Date</th>
-                      <th>Status</th>
+                      {% for header in report_preview.headers %}
+                        <th>{{ header }}</th>
+                      {% endfor %}
                     </tr>
                   </thead>
                   <tbody>
-                    {% for r in recent_requests %}
+                    {% for row in report_preview.rows %}
                       <tr>
-                        <td>{{ r.farmer }}</td>
-                        <td>{{ r.service }}</td>
-                        <td>{{ r.date }}</td>
-                        <td>
-                          <span class="status-badge" style="--badge-outline:{{ r.color }}">{{ r.label }}</span>
-                        </td>
-                      </tr>
-                    {% empty %}
-                      <tr>
-                        <td colspan="4">No requests yet.</td>
+                        {% for cell in row %}
+                          <td>{{ cell|default:'-' }}</td>
+                        {% endfor %}
                       </tr>
                     {% endfor %}
                   </tbody>
                 </table>
+              </div>
+              {% if report_preview.page_obj.paginator.num_pages > 1 %}
+                {% load pagination_tags %}
+                {% fmis_pagination report_preview.page_obj %}
+              {% endif %}
+            {% else %}
+              <p class="staff-chart-empty">
+                <i class="bi bi-info-circle">
+                </i>
+                No records match the selected filters.
+              </p>
+            {% endif %}
+            {% if report_preview.truncated %}
+              <p class="filtered-note">
+                Showing {{ report_preview.page_obj.paginator.per_page }} rows per page. Download the report for the complete result.
+              </p>
+            {% endif %}
+          </article>
+        {% else %}
+          <article class="report-card report-preview-empty" id="filteredReport">
+            <h3>No report selected yet</h3>
+            <p>
+              {% if request.user.is_admin %}
+                Choose a
+                <b>
+                  System Report
+                </b>
+                , then adjust the management filters. The live preview will appear here automatically.
+              {% else %}
+                Pick a report under
+                <b>
+                  Category
+                </b>
+                , then adjust the filters on the left — your live preview will appear here automatically.
+              {% endif %}
+            </p>
+          </article>
+        {% endif %}
+      </section>
+    {% endif %}
+    {% if not request.user.is_admin and analytics_tab != "reports" %}
+      {% include "reports/_descriptive_analytics.html" %}
+      {% if analytics_tab == "overview" %}
+        {% for registry in registry_analytics %}
+          {% include "reports/_descriptive_analytics.html" with analytics_tab=registry.key descriptive=registry.data analytics_embedded=True %}
+        {% endfor %}
+      {% endif %}
+    {% endif %}
+    {% if request.user.is_admin and analytics_tab == "reports" %}
+      <section class="analytics-grid">
+        {% if request.user.is_admin %}
+          <article class="report-card">
+            <h3>ACCOUNT ACCESS SUMMARY</h3>
+            <p>Current users allowed to access FMIS</p>
+            <div class="summary-grid">
+              <div>
+                <b>
+                  {{ admin_accounts }}
+                </b>
+                <small>Administrators</small>
+              </div>
+              <div>
+                <b>
+                  {{ staff_accounts }}
+                </b>
+                <small>Staff</small>
+              </div>
+              <div>
+                <b>
+                  {{ inactive_accounts }}
+                </b>
+                <small>Inactive</small>
+              </div>
+            </div>
+            <a class="panel-link report-text-link mt-3"
+               href="{% url 'accounts:list' %}">
+              Manage user access
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
+          <article class="report-card" style="grid-column:span 2">
+            <h3>SECURITY &amp; AUDIT READINESS</h3>
+            <p>Account activation and audit records requiring administrator attention</p>
+            <div class="summary-grid">
+              <div>
+                <b>
+                  {{ pending_activations }}
+                </b>
+                <small>Pending Activations</small>
+              </div>
+              <div>
+                <b>
+                  {{ failed_activities }}
+                </b>
+                <small>Flagged Events</small>
+              </div>
+              <div>
+                <b>
+                  {{ total_activities }}
+                </b>
+                <small>Audit Records</small>
+              </div>
+            </div>
+            <a class="panel-link report-text-link mt-3"
+               href="{% url 'activity_logs:list' %}">
+              Review audit activity
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
+        {% else %}
+          <article class="report-card" style="grid-column:1/-1">
+            <h3>SERVICE REQUEST STATUS</h3>
+            <div class="request-status-layout">
+              <div>
+                <div class="status-donut"
+                     style="--request-gradient:{{ request_status_gradient }}">
+                  <b>
+                    {{ request_total }}
+                  </b>
+                </div>
+                <p class="text-center">Total requests</p>
+                <div class="status-legend">
+                  {% for item in request_statuses %}
+                    <span>
+                      <i style="background:{{ item.color }}">
+                      </i>
+                      <small>{{ item.label }}</small>
+                      <b>
+                        {{ item.total }} ({{ item.percent|floatformat:1 }}%)
+                      </b>
+                    </span>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="request-status-side">
+                <div>
+                  <h4>By Priority</h4>
+                  <div class="bar-list">
+                    {% for item in request_priorities %}
+                      <div class="bar-row">
+                        <span>{{ item.label }}</span>
+                        <span class="bar-track">
+                          <span style="width:{{ item.percent }}%;background:{{ item.color }}"></span>
+                        </span>
+                        <b>
+                          {{ item.total }}
+                        </b>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+                <div>
+                  <h4>Recent Requests</h4>
+                  <div class="universal-table-wrap recent-requests-table-wrap">
+                    <table class="recent-requests-table universal-table">
+                      <thead>
+                        <tr>
+                          <th>Farmer</th>
+                          <th>Service</th>
+                          <th>Date</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for r in recent_requests %}
+                          <tr>
+                            <td>{{ r.farmer }}</td>
+                            <td>{{ r.service }}</td>
+                            <td>{{ r.date }}</td>
+                            <td>
+                              <span class="status-badge" style="--badge-outline:{{ r.color }}">
+                                {{ r.label }}
+                              </span>
+                            </td>
+                          </tr>
+                        {% empty %}
+                          <tr>
+                            <td colspan="4">No requests yet.</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </article>
-        <article class="report-card" style="grid-column:1/-1">
-          <h3>INTERVENTION DISTRIBUTION SUMMARY</h3>
-          <p>Active assistance records matching the selected period, barangay, commodity, and intervention type.</p>
-          <div class="summary-grid">
-            <div>
-              <b>{{ intervention_total }}</b>
-              <small>Interventions Given</small>
-            </div>
-            <div>
-              <b>{{ intervention_farmers }}</b>
-              <small>Farmers Served</small>
-            </div>
-          </div>
-          <div class="universal-table-wrap recent-requests-table-wrap mt-3">
-            <table class="recent-requests-table universal-table">
-              <thead>
-                <tr>
-                  <th>Intervention Type</th>
-                  <th>Given</th>
-                  <th>Farmers</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in intervention_summary %}
-                  <tr>
-                    <td>{{ item.label }}</td>
-                    <td>{{ item.total }}</td>
-                    <td>{{ item.farmers }}</td>
-                  </tr>
-                {% empty %}
-                  <tr>
-                    <td colspan="3">No interventions match the selected filters.</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </article>
-      {% endif %}
-      {% if request.user.is_admin %}
-        <article class="report-card" style="grid-column:1/-1">
-          <h3>SYSTEM ACTIVITY SUMMARY</h3>
-          <p>Overview of recorded FMIS administrator activity</p>
-          <div class="summary-grid">
-            {% for item in activity_summary %}
+          </article>
+          <article class="report-card" style="grid-column:1/-1">
+            <h3>INTERVENTION DISTRIBUTION SUMMARY</h3>
+            <p>
+              Active assistance records matching the selected period, barangay, commodity, and intervention type.
+            </p>
+            <div class="summary-grid">
               <div>
-                <b>{{ item.total }}</b>
-                <small>{{ item.module|default:'FMIS' }}</small>
+                <b>
+                  {{ intervention_total }}
+                </b>
+                <small>Interventions Given</small>
               </div>
-            {% empty %}
               <div>
-                <b>0</b>
-                <small>No activity yet</small>
+                <b>
+                  {{ intervention_farmers }}
+                </b>
+                <small>Farmers Served</small>
               </div>
-            {% endfor %}
-          </div>
-          <a class="panel-link report-text-link mt-3" href="{% url 'activity_logs:list' %}">View full activity log <span aria-hidden="true">→</span></a>
-        </article>
-      {% endif %}
-    </section>
+            </div>
+            <div class="universal-table-wrap recent-requests-table-wrap mt-3">
+              <table class="recent-requests-table universal-table">
+                <thead>
+                  <tr>
+                    <th>Intervention Type</th>
+                    <th>Given</th>
+                    <th>Farmers</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in intervention_summary %}
+                    <tr>
+                      <td>{{ item.label }}</td>
+                      <td>{{ item.total }}</td>
+                      <td>{{ item.farmers }}</td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="3">No interventions match the selected filters.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        {% endif %}
+        {% if request.user.is_admin %}
+          <article class="report-card" style="grid-column:1/-1">
+            <h3>SYSTEM ACTIVITY SUMMARY</h3>
+            <p>Overview of recorded FMIS administrator activity</p>
+            <div class="summary-grid">
+              {% for item in activity_summary %}
+                <div>
+                  <b>
+                    {{ item.total }}
+                  </b>
+                  <small>{{ item.module|default:'FMIS' }}</small>
+                </div>
+              {% empty %}
+                <div>
+                  <b>
+                    0
+                  </b>
+                  <small>No activity yet</small>
+                </div>
+              {% endfor %}
+            </div>
+            <a class="panel-link report-text-link mt-3"
+               href="{% url 'activity_logs:list' %}">
+              View full activity log
+              <span aria-hidden="true">→</span>
+            </a>
+          </article>
+        {% endif %}
+      </section>
     {% endif %}
   </div>
   <script>
@@ -1584,7 +2096,9 @@
                       method: (downloadForm.method || 'POST').toUpperCase(),
                       body: requestData,
                       credentials: 'same-origin',
-                      headers: {'X-Requested-With': 'XMLHttpRequest'}
+                      headers: {
+                          'X-Requested-With': 'XMLHttpRequest'
+                      }
                   });
                   if (!response.ok) throw new Error('The report could not be generated. Check the filters and try again.');
                   const blob = await response.blob();
@@ -1611,7 +2125,9 @@
                       button.disabled = false;
                       button.innerHTML = originalButton
                   }
-                  window.setTimeout(() => { status.hidden = true }, 700)
+                  window.setTimeout(() => {
+                      status.hidden = true
+                  }, 700)
               }
           }
 
