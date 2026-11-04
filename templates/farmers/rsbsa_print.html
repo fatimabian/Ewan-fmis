@@ -1,0 +1,39 @@
+{% extends "base/staff_base.html" %}
+{% block page_title %}Print RSBSA Form{% endblock %}
+{% block page_subtitle %}Preview farmer information on the official enrollment form{% endblock %}
+{% block content %}
+<style>
+.rsbsa-print-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}.rsbsa-print-settings,.rsbsa-print-preview{padding:20px;border:1px solid var(--ui-border,#d9dee3);background:var(--ui-surface,#fff);min-width:0}.rsbsa-print-layout h2{font-size:17px;margin:0 0 8px}.rsbsa-print-layout p{font-size:12px;line-height:1.6;color:var(--ui-muted,#667085)}.rsbsa-print-settings form{display:grid;gap:10px}.rsbsa-print-settings label{font-size:12px;font-weight:650}.rsbsa-print-settings input,.rsbsa-print-settings select{width:100%;padding:9px;border:1px solid var(--ui-border,#d9dee3);background:var(--ui-surface,#fff);color:var(--ui-text,#17233a);font:inherit}.rsbsa-print-settings details{border-top:1px solid var(--ui-border,#d9dee3);padding-top:12px}.rsbsa-print-settings summary{font-size:12px;cursor:pointer;font-weight:650}.rsbsa-alignment-fields{display:grid;gap:8px;margin-top:12px}.rsbsa-print-actions{display:flex;gap:9px;flex-wrap:wrap;margin:12px 0}.rsbsa-print-preview iframe{width:100%;height:78vh;border:1px solid var(--ui-border,#d9dee3);background:#e7e9e8}.rsbsa-print-settings .errorlist{color:#b42318;font-size:12px;padding-left:18px}.rsbsa-print-note{padding:12px;border-left:3px solid var(--fmis-accent,#168052);background:var(--surface-muted,#f5f8fa)}
+@media(max-width:850px){.rsbsa-print-layout{grid-template-columns:minmax(0,1fr)}.rsbsa-print-preview iframe{height:65vh}}
+</style>
+<div class="content">
+  <p><a href="{% url 'farmers:detail' farmer.pk %}">← Back to farmer record</a></p>
+  <div class="rsbsa-print-layout">
+    <section class="rsbsa-print-settings">
+      <h2>{{ farmer.full_name }}</h2><p>{{ farmer.record_id }} · Official RSBSA form, revised 01-2024</p>
+      <p class="rsbsa-print-note"><strong>Printer settings:</strong> Letter paper (8.5 × 11 in), Actual size / 100%. Turn off “Fit to page”.</p>
+      <form method="get">
+        {{ alignment_form.non_field_errors }}
+        <label for="{{ alignment_form.mode.id_for_label }}">{{ alignment_form.mode.label }}</label>{{ alignment_form.mode }}{{ alignment_form.mode.errors }}
+        <details{% if alignment_form.errors or request.GET.offset_x or request.GET.offset_y or request.GET.scale %} open{% endif %}>
+          <summary>Adjust alignment</summary>
+          <p>For printer drift on preprinted forms. Positive values move the text right or down. Test one sheet before printing more.</p>
+          <div class="rsbsa-alignment-fields">
+          {% for field in alignment_form %}{% if field.name != 'mode' %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}{% endif %}{% endfor %}
+          </div>
+        </details>
+        <button class="btn btn-success" type="submit">Update preview</button>
+        <a href="{% url 'farmers:rsbsa_print' farmer.pk %}">Reset alignment</a>
+      </form>
+      <p>Extra parcels and commodity entries continue on additional farm-parcel sheets. Signatures, thumbmarks, dates of signing, and verifier details stay blank for completion by the appropriate person.</p>
+    </section>
+    <section class="rsbsa-print-preview" aria-label="Completed RSBSA form preview">
+      <h2>Print preview</h2>
+      {% if preview_url %}
+        <div class="rsbsa-print-actions"><a class="btn btn-success" href="{{ preview_url }}" target="_blank" rel="noopener">Open PDF to print</a><a class="btn btn-outline-success" href="{{ preview_url }}&amp;download=1">Download PDF</a></div>
+        <iframe src="{{ preview_url }}#toolbar=1&amp;zoom=page-width" title="RSBSA form filled with {{ farmer.full_name }}'s information"></iframe>
+      {% else %}<p role="alert">Correct the print settings to show the preview.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

@@ -1,4 +1,5 @@
 from django.urls import path
+from .rsbsa_print import FarmerRSBSAPrintView, FarmerRSBSAFormPDFView
 
 from .views import (
     FarmerDeleteView,
@@ -38,6 +39,8 @@ urlpatterns = [
     path("field/<str:token>/", FarmerSecureQRDetailView.as_view(), name="qr_access"),
     path("<int:pk>/qr/", FarmerQRPrintView.as_view(), name="qr_print"),
     path("<int:pk>/photo/", FarmerPhotoView.as_view(), name="photo"),
+    path("<int:pk>/rsbsa/print/", FarmerRSBSAPrintView.as_view(), name="rsbsa_print"),
+    path("<int:pk>/rsbsa/form.pdf", FarmerRSBSAFormPDFView.as_view(), name="rsbsa_form_pdf"),
     path("<int:pk>/rsbsa/", FarmerRSBSAExportView.as_view(), name="rsbsa_export"),
     path(
         "<int:pk>/duplicate-check/",

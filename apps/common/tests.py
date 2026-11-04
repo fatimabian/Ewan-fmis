@@ -1860,7 +1860,7 @@ class FMISRequirementTests(TestCase):
         export_url = reverse("farmers:rsbsa_export", args=[self.farmer.pk])
         self.assertContains(farmer_detail, export_url)
         self.assertContains(farmer_detail, "Print Farmer Record")
-        self.assertNotContains(farmer_detail, "Print RSBSA")
+        self.assertContains(farmer_detail, "Print RSBSA Form")
 
         response = self.client.get(export_url)
         self.assertEqual(response.status_code, 200)

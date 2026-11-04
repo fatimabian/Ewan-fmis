@@ -265,9 +265,9 @@ class FarmerRSBSAExportView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         response = farmer_record_pdf_response(farmer)
         record_request_event(
             request,
-            title="RSBSA Form Exported",
+            title="Farmer Record Exported",
             module="Reports",
-            description=f"{request.user.display_name} exported one farmer's official RSBSA form.",
+            description=f"{request.user.display_name} exported one farmer's current FMIS record.",
             target_label=farmer.rsbsa_number or farmer.full_name,
             details=[{"field": "Farmer", "after": farmer.full_name}],
         )

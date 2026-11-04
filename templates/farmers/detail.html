@@ -15,6 +15,7 @@
         {% if object.registration_status == 'COMPLETED' %}
           <a class="btn btn-outline-success" href="{% url 'farmers:qr_print' object.pk %}"><i class="bi bi-qr-code"></i> Print QR</a>
         {% endif %}
+        <a class="btn btn-outline-success" href="{% url 'farmers:rsbsa_print' object.pk %}"><i class="bi bi-file-earmark-pdf"></i> Print RSBSA Form</a>
         <a class="btn btn-outline-success" href="{% url 'farmers:rsbsa_export' object.pk %}"><i class="bi bi-file-earmark-pdf"></i> Print Farmer Record</a>
         <a class="btn btn-outline-success" href="{% url 'farmers:history' object.pk %}"><i class="bi bi-clock-history"></i> Update History</a>
         {% if object.is_active %}

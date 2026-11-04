@@ -1,3 +1,4 @@
+from copy import deepcopy
 from io import BytesIO
 from html import escape
 from pathlib import Path
@@ -9,11 +10,15 @@ from django.utils import timezone
 from apps.interventions.models import Intervention
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import inch
+from reportlab.lib.units import inch, mm
+from pypdf import PdfReader, PdfWriter
+from django.db.models import Prefetch
+from apps.crops.models import CropRecord
 from reportlab.platypus import (
     KeepTogether,
     Paragraph,
@@ -37,7 +42,7 @@ PAGE_HEIGHT = 792
 
 
 def _clean(value):
-    return str(value or "").strip().upper()
+    return str("" if value is None else value).strip().upper()
 
 
 def _safe_extension(value):
@@ -104,9 +109,21 @@ def _display(value):
 def _write_boxed_characters(pdf, value, centers, y, size=7):
     """Center one character in each of the form's pre-printed boxes."""
     characters = [character for character in _clean(value) if character.isalnum()]
+    if len(characters) > len(centers):
+        _write(pdf, value, centers[0] - 4, y, centers[-1] - centers[0] + 8, size, "center")
+        return
     pdf.setFont("Helvetica", size)
     for character, x in zip(characters, centers):
         pdf.drawCentredString(x, y, character)
+
+
+def _write_rsbsa_number(pdf, value, x, y, width, size=6):
+    digits = "".join(character for character in str(value or "") if character.isdigit())
+    if len(digits) == 15 and all(character.isdigit() or character in "- " for character in str(value)):
+        centers = tuple(x + (index + .5) * width / 19 for index in range(19) if index not in (2, 5, 8, 12))
+        _write_boxed_characters(pdf, digits, centers, y, size)
+    else:
+        _write(pdf, value, x, y, width, size, "center")
 
 
 def _local_mobile_digits(value):
@@ -119,23 +136,6 @@ def _local_mobile_digits(value):
     return digits
 
 
-def _split_name(value):
-    parts = _clean(value).split()
-    if not parts:
-        return "", "", "", ""
-    if len(parts) == 1:
-        return parts[0], "", "", ""
-    if len(parts) == 2:
-        return parts[0], "", parts[1], ""
-    return parts[0], " ".join(parts[1:-1]), parts[-1], ""
-
-
-def _write_name_parts(pdf, value, columns, y, size=6):
-    """Write a full name into the official first/middle/surname/extension cells."""
-    for part, (x, width) in zip(_split_name(value), columns):
-        _write(pdf, part, x, y, width, size, "center")
-
-
 def _membership_names(value):
     normalized = _clean(value).replace("\n", ",").replace(";", ",")
     return [name.strip() for name in normalized.split(",") if name.strip()][:3]
@@ -146,39 +146,33 @@ def _education_key(value):
     checks = {
         "PRE": "preschool",
         "ELEMENTARY": "elementary",
-        "HIGH SCHOOL": "high_school",
         "JUNIOR": "junior",
         "SENIOR": "senior",
+        "HIGH SCHOOL": "high_school",
         "COLLEGE": "college",
         "POST": "postgraduate",
         "VOCATIONAL": "vocational",
         "NONE": "none",
+        "NO FORMAL": "none",
     }
     return next((key for text, key in checks.items() if text in value), "")
 
 
 def _page_one(pdf, farmer):
-    transaction_code = farmer.registration_reference
+    transaction_code = farmer.philsys_pcn if farmer.philsys_registered is True else farmer.philsys_trn
     if farmer.philsys_registered is True:
-        _write(pdf, farmer.philsys_pcn, 124, 688, 309, 7)
-    elif farmer.philsys_registered is False:
-        _write(pdf, farmer.philsys_trn or transaction_code, 124, 666, 309, 7)
-    else:
-        _write(pdf, transaction_code, 124, 666, 309, 7)
+        # Sixteen digits, skipping the three hyphens already printed on the form.
+        centers = tuple((215 + (index + .5) * (754 - 215) / 19) / (1400 / 792) for index in range(19) if index not in (4, 9, 14))
+        _write_boxed_characters(pdf, farmer.philsys_pcn, centers, 692, 7)
+    elif farmer.philsys_trn:
+        centers = tuple((216 + (index + .5) * (754 - 216) / 29) / (1400 / 792) for index in range(29))
+        _write_boxed_characters(pdf, farmer.philsys_trn, centers, 670, 6)
 
     if farmer.photo_available:
         try:
-            pdf.drawImage(
-                farmer.photo.path,
-                445,
-                650,
-                117,
-                130,
-                preserveAspectRatio=True,
-                anchor="c",
-                mask="auto",
-            )
-        except (OSError, ValueError):
+            with farmer.photo.open("rb") as photo:
+                pdf.drawImage(ImageReader(photo), 430, 654, 120, 120, preserveAspectRatio=True, anchor="c", mask="auto")
+        except (OSError, ValueError, NotImplementedError):
             pass
 
     _write(pdf, farmer.last_name, 72, 628, 223, 8, "center")
@@ -205,7 +199,7 @@ def _page_one(pdf, farmer):
         _write_boxed_characters(
             pdf,
             birth_value,
-            (68.5, 81.0, 93.5, 118.0, 130.5, 152.0, 164.5, 177.0, 189.5),
+            (68.7, 80.3, 91.6, 114.8, 126.2, 149.4, 160.7, 172.3, 183.9),
             407,
             7,
         )
@@ -221,8 +215,7 @@ def _page_one(pdf, farmer):
         407,
         7,
     )
-    name_columns = ((66, 65), (132, 68), (201, 82), (284, 46))
-    _write_name_parts(pdf, farmer.mother_maiden_name, name_columns, 363)
+    _write(pdf, farmer.mother_maiden_name, 66, 363, 264, 6, "center")
 
     civil_checks = {
         "SINGLE": (70.7, 328.4),
@@ -232,7 +225,7 @@ def _page_one(pdf, farmer):
     }
     if farmer.civil_status in civil_checks:
         _check(pdf, *civil_checks[farmer.civil_status], True)
-    _write_name_parts(pdf, farmer.spouse_name, name_columns, 281)
+    _write(pdf, farmer.spouse_name, 66, 285, 264, 6, "center")
 
     education_checks = {
         "preschool": (344.0, 323.5),
@@ -249,9 +242,9 @@ def _page_one(pdf, farmer):
     if education in education_checks:
         _check(pdf, *education_checks[education], True)
 
-    _write(pdf, farmer.rsbsa_number, 124, 254, 208, 7, "center")
-    _write(pdf, farmer.valid_id_type, 430, 241, 118, 6)
-    _write(pdf, farmer.valid_id_number, 430, 222, 118, 7)
+    _write_rsbsa_number(pdf, farmer.rsbsa_number, 121.6, 259, 207.1, 6.5)
+    _write(pdf, farmer.valid_id_type, 416, 245, 118, 6)
+    _write(pdf, farmer.valid_id_number, 416, 225, 118, 7)
 
     religion = _clean(farmer.religion)
     _check(pdf, 71.7, 228.3, "CHRIST" in religion)
@@ -267,7 +260,7 @@ def _page_one(pdf, farmer):
     _check(pdf, 483.7, 199.1, farmer.is_four_ps is False, 6.5)
     membership_boxes = ((66, 157), (226, 157), (386, 174))
     for membership, (x, width) in zip(_membership_names(farmer.fca_membership), membership_boxes):
-        _write(pdf, membership, x, 165, width, 6, "center")
+        _write(pdf, membership, x, 170, width, 6, "center")
 
     livelihood_checks = {
         "FARMER": (74.3, 129.6),
@@ -275,8 +268,9 @@ def _page_one(pdf, farmer):
         "FISHERFOLK": (375.8, 129.8),
         "AGRI_YOUTH": (486.3, 129.8),
     }
-    if farmer.livelihood in livelihood_checks:
-        _check(pdf, *livelihood_checks[farmer.livelihood], True)
+    livelihood = "FARMER" if farmer.livelihood in {"LIVESTOCK", "POULTRY"} else farmer.livelihood
+    if livelihood in livelihood_checks:
+        _check(pdf, *livelihood_checks[livelihood], True)
     stub_columns = ((165, 52), (218, 52), (271, 57), (329, 27))
     for value, (x, width) in zip(
         (farmer.first_name, farmer.middle_name, farmer.last_name, extension_name),
@@ -286,48 +280,47 @@ def _page_one(pdf, farmer):
     _write(pdf, transaction_code, 111, 20, 245, 7, "center")
 
 
-def _parcel_crops(parcel):
-    crops = list(parcel.crops.filter(is_active=True).order_by("pk"))
-    regular = [crop for crop in crops if not crop.is_intercrop][:4]
-    intercrop = next((crop for crop in crops if crop.is_intercrop), None)
-    return regular, intercrop
-
-
-def _page_two(pdf, farmer, parcels):
+def _page_two(pdf, farmer, sections):
     blocks = [
         {
-            "top": 711,
-            "crop_rows": [690, 670, 650, 630],
-            "intercrop": 600,
-            "tiller": 574,
+            "top": 714,
+            "municipality_y": 691,
+            "owner_y": 613,
+            "crop_rows": [702.3, 682.8, 663.3, 643.9],
+            "intercrop": 606.8,
+            "tiller": 584.8,
             "ancestral": ((161.3, 668.8), (179.2, 668.5)),
             "arb": ((161.3, 660.9), (179.2, 660.9)),
             "ownership": {"OWNED": (80.1, 629.2), "LEASED": (145.6, 629.2), "TENANT": (80.1, 622.0), "OTHER": (145.6, 622.0), "ARB": (145.6, 622.0)},
         },
         {
-            "top": 568,
-            "crop_rows": [547, 527, 507, 487],
-            "intercrop": 457,
-            "tiller": 431,
+            "top": 576.5,
+            "municipality_y": 553.5,
+            "owner_y": 475,
+            "crop_rows": [564.6, 545, 525.6, 506.1],
+            "intercrop": 469.3,
+            "tiller": 446.6,
             "ancestral": ((160.9, 532.1), (178.7, 531.9)),
             "arb": ((160.9, 524.2), (178.7, 524.2)),
             "ownership": {"OWNED": (79.7, 492.5), "LEASED": (145.2, 492.5), "TENANT": (79.7, 485.3), "OTHER": (145.2, 485.3), "ARB": (145.2, 485.3)},
         },
         {
-            "top": 425,
-            "crop_rows": [404, 384, 364, 344],
-            "intercrop": 314,
-            "tiller": 288,
+            "top": 438.1,
+            "municipality_y": 418,
+            "owner_y": 338.5,
+            "crop_rows": [426.3, 407, 387.6, 368.1],
+            "intercrop": 331.6,
+            "tiller": 309,
             "ancestral": ((160.3, 395.0), (178.1, 394.7)),
             "arb": ((160.3, 387.1), (178.1, 387.1)),
             "ownership": {"OWNED": (79.1, 355.4), "LEASED": (144.7, 355.4), "TENANT": (79.1, 348.2), "OTHER": (144.7, 348.2), "ARB": (144.7, 348.2)},
         },
     ]
-    for parcel, block in zip(parcels[:3], blocks):
+    for (parcel, regular, intercrop), block in zip(sections, blocks):
         top = block["top"]
         _write(pdf, parcel.barangay, 78, top - 8, 150, 6, "center")
-        _write(pdf, f"{parcel.municipality}, {parcel.province}", 78, top - 20, 150, 5.5, "center")
-        _write(pdf, parcel.area_hectares, 163, top - 40, 42, 7, "center")
+        _write(pdf, f"{parcel.municipality}, {parcel.province}", 78, block["municipality_y"], 150, 5.5, "center")
+        _write(pdf, parcel.area_hectares, 156, top - 34, 28, 7, "center")
         _check(pdf, *block["ancestral"][0], parcel.within_ancestral_domain is True, 5.5)
         _check(pdf, *block["ancestral"][1], parcel.within_ancestral_domain is False, 5.5)
         _check(pdf, *block["arb"][0], parcel.agrarian_reform_beneficiary is True, 5.5)
@@ -348,45 +341,38 @@ def _page_two(pdf, farmer, parcels):
             "OTHER": "M",
         }
         proof = proof_codes.get(parcel.ownership_document, "")
-        _write(pdf, proof, 198, top - 78, 29, 4.5, "center")
+        _write(pdf, proof, 198, top - 69, 29, 4.5, "center")
         ownership_center = block["ownership"].get(parcel.ownership_type)
         if ownership_center:
             _check(pdf, *ownership_center, True, 5.5)
-        _write_name_parts(
-            pdf,
-            parcel.land_owner_name,
-            ((78, 38), (117, 40), (158, 45), (204, 23)),
-            top - 118,
-            4.8,
-        )
-        _write(pdf, parcel.land_owner_rsbsa_number, 94, top - 127, 133, 5.5, "center")
+        _write(pdf, parcel.land_owner_name, 128, block["owner_y"], 100, 4.8, "center")
+        _write_rsbsa_number(pdf, parcel.land_owner_rsbsa_number, 116, top - 116, 112, 4.5)
 
-        regular, intercrop = _parcel_crops(parcel)
         for crop, y in zip(regular, block["crop_rows"]):
-            _write(pdf, crop.cropping_schedule, 238, y, 74, 5.5, "center")
-            _write(pdf, crop.crop_type, 313, y, 80, 5.5, "center")
-            _write(pdf, crop.area_hectares, 394, y, 47, 5.5, "center")
-            _write(pdf, crop.number_of_heads, 442, y, 43, 5.5, "center")
+            _write(pdf, crop.cropping_schedule, 235, y, 71, 5.5, "center")
+            _write(pdf, crop.crop_type, 309, y, 76, 5.5, "center")
+            _write(pdf, crop.area_hectares, 389, y, 40, 5.5, "center")
+            _write(pdf, crop.number_of_heads, 433, y, 41, 5.5, "center")
             farm_type = {"Irrigated": "1", "Rainfed Upland": "2", "Rainfed Lowland": "3", "Urban/Peri-Urban": "4"}.get(parcel.farm_type, "N/A")
-            _write(pdf, farm_type, 487, y, 42, 5.5, "center")
-            _write(pdf, "Y" if crop.is_organic else "N", 531, y, 34, 5.5, "center")
+            _write(pdf, farm_type, 477, y, 41, 5.5, "center")
+            _write(pdf, "Y" if crop.is_organic else "N", 521, y, 32, 5.5, "center")
         if intercrop:
             y = block["intercrop"]
-            _write(pdf, intercrop.cropping_schedule, 238, y, 74, 5.5, "center")
-            _write(pdf, intercrop.crop_type, 313, y, 80, 5.5, "center")
-            _write(pdf, intercrop.area_hectares, 394, y, 47, 5.5, "center")
-            _write(pdf, intercrop.number_of_heads, 442, y, 43, 5.5, "center")
+            _write(pdf, intercrop.cropping_schedule, 235, y, 71, 5.5, "center")
+            _write(pdf, intercrop.crop_type, 309, y, 76, 5.5, "center")
+            _write(pdf, intercrop.area_hectares, 389, y, 40, 5.5, "center")
+            _write(pdf, intercrop.number_of_heads, 433, y, 41, 5.5, "center")
             farm_type = {"Irrigated": "1", "Rainfed Upland": "2", "Rainfed Lowland": "3", "Urban/Peri-Urban": "4"}.get(parcel.farm_type, "N/A")
-            _write(pdf, farm_type, 487, y, 42, 5.5, "center")
-            _write(pdf, "Y" if intercrop.is_organic else "N", 531, y, 34, 5.5, "center")
+            _write(pdf, farm_type, 477, y, 41, 5.5, "center")
+            _write(pdf, "Y" if intercrop.is_organic else "N", 521, y, 32, 5.5, "center")
 
-        tiller_y = block["tiller"] + 7
+        tiller_y = block["tiller"]
         if parcel.rotational_tiller is True:
-            _write(pdf, _farmer_print_name(farmer), 245, tiller_y + 10, 140, 5.2, "center")
-            _write(pdf, farmer.rsbsa_number, 245, tiller_y - 1, 140, 5.2, "center")
-        _write(pdf, parcel.remarks, 399, tiller_y, 159, 5.2)
+            _write(pdf, _farmer_print_name(farmer), 185, tiller_y + 3.5, 200, 5.2, "center")
+            _write_rsbsa_number(pdf, farmer.rsbsa_number, 245, tiller_y - 4, 140, 4.5)
+        _write(pdf, parcel.remarks, 477, tiller_y - 2, 76, 5.2)
 
-    _write(pdf, _farmer_print_name(farmer), 123, 157, 235, 7, "center")
+    _write(pdf, _farmer_print_name(farmer), 126, 157, 210, 7, "center")
 
 
 def _summary_pdf(farmer, parcels):
@@ -659,6 +645,67 @@ def farmer_record_pdf_response(farmer):
     return response
 
 
-# Compatibility aliases for existing integrations that use the former export name.
-build_rsbsa_pdf = build_farmer_record_pdf
-rsbsa_pdf_response = farmer_record_pdf_response
+def _print_sections(farmer):
+    """Use continuation sheets instead of dropping parcels or commodity rows."""
+    parcels = farmer.parcels.filter(is_active=True).order_by("pk").prefetch_related(
+        Prefetch("crops", queryset=CropRecord.objects.filter(is_active=True).order_by("pk"), to_attr="print_crops")
+    )
+    sections = []
+    for parcel in parcels:
+        regular = [crop for crop in parcel.print_crops if not crop.is_intercrop]
+        intercrops = [crop for crop in parcel.print_crops if crop.is_intercrop]
+        for index in range(max(1, (len(regular) + 3) // 4, len(intercrops))):
+            sections.append((parcel, regular[index * 4:index * 4 + 4], intercrops[index] if index < len(intercrops) else None))
+    return sections
+
+
+def build_rsbsa_pdf(farmer, *, mode="complete", offset_x=0, offset_y=0, scale=100):
+    """Overlay fixed Letter-page coordinates on the bundled official 01-2024 form."""
+    if mode not in {"complete", "text"}:
+        raise ValueError("Invalid print mode")
+    if not (-15 <= float(offset_x) <= 15 and -15 <= float(offset_y) <= 15 and 95 <= float(scale) <= 105):
+        raise ValueError("Invalid alignment adjustment")
+    sections = _print_sections(farmer)
+    sheets = [sections[index:index + 3] for index in range(0, len(sections), 3)] or [[]]
+    overlay = BytesIO()
+    pdf = canvas.Canvas(overlay, pagesize=letter)
+    for page_index in range(1 + len(sheets)):
+        pdf.saveState()
+        pdf.translate(PAGE_WIDTH / 2 + float(offset_x) * mm, PAGE_HEIGHT / 2 - float(offset_y) * mm)
+        pdf.scale(float(scale) / 100, float(scale) / 100)
+        pdf.translate(-PAGE_WIDTH / 2, -PAGE_HEIGHT / 2)
+        if page_index == 0:
+            _page_one(pdf, farmer)
+        else:
+            _page_two(pdf, farmer, sheets[page_index - 1])
+        pdf.restoreState()
+        pdf.showPage()
+    pdf.save()
+    overlays = PdfReader(BytesIO(overlay.getvalue()))
+    template = PdfReader(str(TEMPLATE_PATH)) if mode == "complete" else None
+    writer = PdfWriter()
+    for index, overlay_page in enumerate(overlays.pages):
+        if template:
+            page = deepcopy(template.pages[0 if index == 0 else 1])
+            page.merge_page(overlay_page)
+        else:
+            page = overlay_page
+        written_page = writer.add_page(page)
+        written_page.compress_content_streams()
+    writer.create_viewer_preferences()
+    writer.viewer_preferences.print_scaling = "/None"
+    writer.add_metadata({"/Title": f"RSBSA Enrollment Form - {farmer.record_id}", "/Author": "FMIS Rosario"})
+    writer.compress_identical_objects(remove_identicals=True, remove_orphans=True)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def rsbsa_pdf_response(farmer, *, download=False, **options):
+    response = HttpResponse(build_rsbsa_pdf(farmer, **options), content_type="application/pdf")
+    disposition = "attachment" if download else "inline"
+    response["Content-Disposition"] = f'{disposition}; filename="rsbsa_{farmer.record_id.lower()}.pdf"'
+    response["Cache-Control"] = "private, no-store"
+    response["X-Frame-Options"] = "SAMEORIGIN"
+    response["Content-Security-Policy"] = "default-src 'self'; object-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'"
+    return response
