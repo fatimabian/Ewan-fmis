@@ -1,6 +1,6 @@
 // Keep long filter menus below their controls, scrolling instead of flipping up.
 (() => {
-  const selector = '#reportGenerator select,[data-table-toolbar] select,.fmis-pagination select';
+  const selector = '#reportGenerator select,[data-table-toolbar] select,.fmis-filter-field select,.fmis-pagination select,.table-export-control select,.analytics-trend-controls select,#gisParcelPinStatus';
   let opened = null, sequence = 0;
   const close = () => {if(!opened)return;opened.menu.hidden=true;opened.button.setAttribute('aria-expanded','false');opened.button.removeAttribute('aria-activedescendant');opened=null;};
   const setup = select => {
@@ -19,7 +19,16 @@
     let active=0, search='', searchTimer;
     const options=()=>[...menu.querySelectorAll('[role=option]')];
     const sync=()=>{button.textContent=select.selectedOptions[0]?.textContent.trim() || 'Choose';button.disabled=select.disabled;options().forEach(option=>{const selected=Number(option.dataset.index)===select.selectedIndex;option.setAttribute('aria-selected',String(selected));option.classList.toggle('is-selected',selected);});};
-    const position=()=>{const r=button.getBoundingClientRect();menu.style.left=`${Math.max(8,Math.min(r.left,innerWidth-r.width-8))}px`;menu.style.top=`${r.bottom+4}px`;menu.style.width=`${Math.min(Math.max(r.width,180),innerWidth-16)}px`;menu.style.maxHeight=`${Math.max(40,Math.min(300,innerHeight-r.bottom-16))}px`;};
+    const position=()=>{
+      const r=button.getBoundingClientRect();
+      const measure=document.createElement('canvas').getContext('2d');
+      if(measure)measure.font=getComputedStyle(menu).font;
+      const textWidth=Math.max(0,...[...select.options].map(option=>measure?.measureText(option.textContent.trim()).width || 0));
+      const width=Math.min(Math.max(r.width,Math.min(textWidth+28,360)),innerWidth-16);
+      menu.style.left=`${Math.max(8,Math.min(r.left,innerWidth-width-8))}px`;
+      menu.style.top=`${r.bottom}px`;menu.style.width=`${width}px`;
+      menu.style.maxHeight=`${Math.max(36,Math.min(360,innerHeight-r.bottom-12))}px`;
+    };
     const activate=index=>{const all=options();if(!all.length)return;active=Math.max(0,Math.min(index,all.length-1));all.forEach((option,i)=>option.classList.toggle('is-active',i===active));button.setAttribute('aria-activedescendant',all[active].id);const row=all[active];if(row.offsetTop<menu.scrollTop)menu.scrollTop=row.offsetTop;else if(row.offsetTop+row.offsetHeight>menu.scrollTop+menu.clientHeight)menu.scrollTop=row.offsetTop+row.offsetHeight-menu.clientHeight;};
     const choose=option=>{if(!option || option.getAttribute('aria-disabled')==='true')return;select.selectedIndex=Number(option.dataset.index);sync();close();button.focus({preventScroll:true});select.dispatchEvent(new Event('input',{bubbles:true}));select.dispatchEvent(new Event('change',{bubbles:true}));};
     const build=()=>{menu.replaceChildren();[...select.options].forEach((option,index)=>{const row=document.createElement('div');row.id=`${menu.id}Option${index}`;row.dataset.index=index;row.setAttribute('role','option');row.setAttribute('aria-disabled',String(option.disabled || option.parentElement.disabled===true));row.textContent=option.textContent.trim();row.addEventListener('pointerdown',event=>event.preventDefault());row.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();choose(row);});menu.append(row);});sync();};
