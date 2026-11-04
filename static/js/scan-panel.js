@@ -132,6 +132,8 @@
     const run = panel.querySelector("[data-scan-run]");
     const status = panel.querySelector("[data-scan-status]");
     const summary = panel.querySelector("[data-scan-summary]");
+    const summaryTarget = panel.closest(".rsbsa-record-card")?.querySelector("[data-registration-scan-feedback]");
+    if (summaryTarget) summaryTarget.append(summary);
     const dialog = panel.querySelector("[data-scan-dialog]");
     const uploadStep = panel.querySelector("[data-scan-upload]");
     const reviewStep = panel.querySelector("[data-scan-review]");
@@ -184,7 +186,9 @@
     };
     const fill = (name, value) => {
       const field = form.elements[name];
-      if (!field) return false;
+      const targetElement = element(name);
+      if (!field || targetElement.disabled || targetElement.readOnly) return false;
+      if (targetElement.tagName === "SELECT" && ![...targetElement.options].some((option) => option.value === value)) return false;
       field.value = value;
       if (field.value !== value) return false;
       const target = field.tagName ? field : field[0];
@@ -196,57 +200,35 @@
       method: "POST", headers: {"Content-Type": "application/json", "X-CSRFToken": csrf()}, body: JSON.stringify(payload),
     }).catch(() => {});
 
-    const backToUpload = () => { reviewStep.hidden = true; reviewStep.replaceChildren(); uploadStep.hidden = false; };
+    let scanGeneration = 0;
+    const backToUpload = () => { scanGeneration += 1; reviewStep.hidden = true; reviewStep.replaceChildren(); uploadStep.hidden = false; };
     dialog.addEventListener("close", backToUpload);
 
-    // The scan never overwrites silently: each scanned value is shown next to what is already
-    // in the form, and staff tick the ones to use. Empty fields start ticked; different ones do not.
+    // Review every readable field before making any registration changes.
     function review(result, photos) {
       const unsure = new Set(result.needs_review || []);
       const rows = Object.entries(result.fields).filter(([, value]) => value).map(([name, value]) => {
         const now = current(name);
-        const enterable = Boolean(element(name));
+        const enterable = Boolean(element(name) && !element(name).disabled && !element(name).readOnly);
         const state = !enterable ? "missing" : !now ? "empty" : now === value ? "same" : "differs";
         return {name, value, now, state, unsure: unsure.has(name)};
       });
       if (!rows.length) { say("Nothing readable was found on the photo.", true); return false; }
 
-      // Apply every readable value to an empty field immediately. This is an
-      // auto-fill workflow; review is only necessary when OCR would replace a
-      // value staff already entered or when the field needs human checking.
-      const autoApplied = [];
-      rows.forEach((row) => {
-        if (row.state === "empty" && fill(row.name, row.value)) {
-          autoApplied.push(row.name);
-          row.state = "same";
-          row.now = row.value;
-          if (row.unsure) flag(element(row.name));
-        }
-      });
-      window.FMISRegistrationDraft?.save?.();
-      const reviewRows = rows.filter((row) => row.state === "differs" || row.state === "missing");
-      if (!reviewRows.length) {
-        const flagged = autoApplied.filter((name) => unsure.has(name)).length;
-        summary.textContent = `Auto-filled ${autoApplied.length} registration field${autoApplied.length === 1 ? "" : "s"}.` +
-          `${flagged ? ` ${flagged} highlighted for checking.` : ""} Compare the values with the paper form before submitting. No photo was stored.`;
-        summary.hidden = false;
-        log({applied: autoApplied, kept: [], skipped: []});
-        closeDialog();
-        return true;
-      }
+      const reviewRows = rows;
 
       const table = document.createElement("table");
       table.className = "sg-review-table";
-      table.innerHTML = "<caption>Choose the scanned values to use. Your own typed values are kept unless you tick them.</caption><thead><tr><th>Use</th><th>Field</th><th>Now in the form</th><th>Scanned</th></tr></thead>";
+      table.innerHTML = "<caption>Review every reading and tick values to apply. Nothing changes until you press Apply.</caption><thead><tr><th>Use</th><th>Field</th><th>Now in the form</th><th>Scanned</th></tr></thead>";
       const body = document.createElement("tbody");
       reviewRows.forEach((row) => {
         const tr = document.createElement("tr");
         tr.dataset.state = row.state;
         const use = document.createElement("input");
         use.type = "checkbox";
-        use.name = row.name;
-        use.checked = row.state === "empty" || row.state === "same";
-        use.disabled = row.state === "missing" || row.state === "same";
+        use.dataset.fieldName = row.name;
+        use.checked = false;
+        use.disabled = row.state === "missing";
         use.setAttribute("aria-label", `Use the scanned ${labelOf(row.name)}`);
         const cells = [use, labelOf(row.name), row.now ? shown(row.name, row.now) : "empty", shown(row.name, row.value)];
         cells.forEach((content, index) => {
@@ -288,18 +270,15 @@
       apply.addEventListener("click", () => {
         const applied = [], kept = [], skipped = [];
         reviewRows.forEach((row) => {
-          const chosen = boxes().find((b) => b.name === row.name)?.checked;
-          if (row.state === "same") { return; }
+          const chosen = boxes().find((b) => b.dataset.fieldName === row.name)?.checked;
           if (chosen && fill(row.name, row.value)) { applied.push(row.name); if (row.unsure) flag(element(row.name)); }
           else if (row.state === "differs") kept.push(row.name);
           else skipped.push(row.name);
         });
         const flagged = applied.filter((name) => unsure.has(name)).length;
-        applied.unshift(...autoApplied);
         window.FMISRegistrationDraft?.save?.();
-        summary.textContent = `Auto-filled ${applied.length} scanned value${applied.length === 1 ? "" : "s"}.` +
-          `${kept.length ? ` Kept ${kept.length} you had typed.` : ""}${skipped.length ? ` Skipped ${skipped.length}.` : ""}` +
-          `${flagged ? ` ${flagged} highlighted for checking.` : ""} Compare every value with the paper form before you continue. No photo was stored.`;
+        summary.textContent = `Applied ${applied.length} selected value${applied.length === 1 ? "" : "s"}.` +
+          (flagged ? ` Check ${flagged} highlighted reading${flagged === 1 ? "" : "s"}.` : "");
         summary.hidden = false;
         log({applied, kept, skipped});
         closeDialog();
@@ -322,6 +301,7 @@
       if (consent) data.append("consent", "1");
       files.forEach((file) => data.append("rsbsa_scan", file));
       data.append("csrfmiddlewaretoken", csrf());
+      const generation = ++scanGeneration;
       run.disabled = true;
       panel.dataset.scanBusy = "true";
       say("Reading the form. This can take a few seconds…");
@@ -334,6 +314,7 @@
           panel.fileRules.box.dataset.left = left;
           panel.querySelector("[data-scan-left-text]").textContent = `${left} left today`;
         }
+        if (generation !== scanGeneration) return;
         if (!response.ok) { say(result.error || "The form could not be read. Try a clearer photo.", true); return; }
         say("");
         review(result, files.length);

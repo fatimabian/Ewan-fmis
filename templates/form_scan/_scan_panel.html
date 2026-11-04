@@ -19,7 +19,7 @@
       <button class="sg-info" type="button" data-scan-tip aria-label="About Scan and Auto-Fill" aria-describedby="scanTip" aria-expanded="false"><i class="bi bi-info-circle" aria-hidden="true"></i></button>
       <span class="sg-tip" id="scanTip" role="tooltip" hidden>
         {% if scan_target == "FARMER" %}
-          Photograph page 1 of the RSBSA form. The profile fields are filled in and anything the reader was unsure about is highlighted. Nothing is saved until you submit.
+          Photograph page 1 of the RSBSA form. Review each reading and tick the values to apply. Nothing changes until you press Apply.
         {% else %}
           Photograph the paper form. The values are read and checked, you confirm them, and this form opens already filled in. Nothing is saved until you save the form.
         {% endif %}
@@ -40,7 +40,7 @@
       <div class="sg-dialog-head">
         <div>
           <h2 id="scanDialogTitle"><i class="bi bi-camera" aria-hidden="true"></i> Scan &amp; Auto-Fill</h2>
-          <p class="sg-dialog-intro">Add clear photos of the RSBSA form. FMIS will read them and place the recognized information into this registration.</p>
+          <p class="sg-dialog-intro">Add clear photos of the RSBSA form. Review the recognized information and choose which values to apply.</p>
         </div>
         <button class="sg-dialog-close" type="button" data-scan-close aria-label="Close">&times;</button>
       </div>
@@ -89,4 +89,4 @@
     {% if scan_target == "FARMER" %}</div>{% else %}</form>{% endif %}
   </dialog>
 </div>
-<script defer src="{% static 'js/scan-panel.js' %}?v=3" data-module="scan-panel.js"></script>
+<script defer src="{% static 'js/scan-panel.js' %}?v=4" data-module="scan-panel.js"></script>

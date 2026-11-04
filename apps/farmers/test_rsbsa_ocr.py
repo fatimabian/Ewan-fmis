@@ -34,6 +34,12 @@ class RsbsaOcrEngineTests(TestCase):
     def setUp(self):
         self.client.force_login(self.staff)
 
+    def test_registration_renders_philsys_fields_for_review_and_application(self):
+        response = self.client.get(reverse("farmers:create"))
+        self.assertEqual(response.status_code, 200)
+        for name in ("philsys_registered", "philsys_pcn", "philsys_trn"):
+            self.assertContains(response, f'name="{name}"')
+
     def scan(self, upload=None):
         return self.client.post(reverse("farmers:scan_rsbsa"), {"rsbsa_scan": upload or photo(), "consent": "1"})
 

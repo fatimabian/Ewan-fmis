@@ -306,6 +306,8 @@ class FarmerRegistrationForm(StyledFormMixin, forms.ModelForm):
             ),
         }
         labels = {
+            "philsys_pcn": "PhilID / ePhilID PCN",
+            "philsys_trn": "PhilSys transaction reference number (TRN)",
             "extension_name": "Name extension (Jr., Sr., III)",
             "house_lot_purok": "House / Lot / Purok",
             "street_sitio": "Street / Sitio / Subdivision",
