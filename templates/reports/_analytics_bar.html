@@ -1,45 +1,24 @@
-{# Shared vertical bar chart for dated records and categories. #}
-<article class="analytics-line-chart analytics-bar-chart{% if wide %} is-wide{% endif %}"
-         style="--bar-count:{{ series.points|length }}"
-         role="img"
-         aria-label="{{ title }} bar chart">
-  <div class="analytics-chart-heading">
-    <div>
-      <h3>{{ title }}</h3>
-      <p>{{ description }}</p>
-    </div>
-    <span>{% if series.categorical %}{{ series.points|length }} categories{% else %}{{ series.points|length }} recorded month{{ series.points|length|pluralize }}{% endif %}</span>
-  </div>
+{# Shared category/month bars using the monthly-status chart layout. #}
+<article class="analytics-panel analytics-record-chart" role="img" aria-label="{{ title }} bar chart">
+  <div class="analytics-chart-heading"><div><h3>{{ title }}</h3><p>{{ description }}</p></div></div>
+  <ul class="request-status-legend"><li><i style="background:#2f7d5c" aria-hidden="true"></i>{{ y_label|default:"Records" }}</li></ul>
   {% if series.points %}
-    <div class="analytics-bar-plot">
-      <span class="analytics-bar-y-max">{{ series.peak|floatformat:"-2" }}</span>
-      <span class="analytics-bar-y-zero">0</span>
-      <span class="analytics-y-label">{{ y_label|default:"Recorded total" }}</span>
-      <div class="analytics-bar-grid" aria-hidden="true">
-        <i>
-        </i>
-        <i>
-        </i>
-        <i>
-        </i>
-      </div>
-      <div class="analytics-bar-columns">
-        {% for point in series.points %}
-          <div class="analytics-bar-column">
-            <b>{{ point.value|floatformat:"-2" }}{% if point.tone %} ({{ point.share|default:0|floatformat:1 }}%){% endif %}</b>
-            <i style="--bar-height:{{ point.percent }}%"
-               title="{{ point.label }}: {{ point.value|floatformat:'-2' }}">
-            </i>
-            <small>{{ point.month_label }}</small>
-          </div>
-        {% endfor %}
+    <div class="request-status-scroll" tabindex="0" role="region" aria-label="{{ title }}; scroll horizontally for more categories">
+      <div class="request-status-chart" style="--month-count:{{ series.points|length }}">
+        <div class="request-status-scale"><span>{{ series.peak|floatformat:"-2" }}</span><b>{{ y_label|default:"Records" }}</b><span>0</span></div>
+        <div class="request-status-months">
+          {% for point in series.points %}
+            <div class="request-status-month">
+              <div class="request-status-bars">
+                <div class="request-status-bar" tabindex="0" role="img" aria-label="{{ point.label }}: {{ point.value|floatformat:'-2' }} {{ y_label|default:'records' }}" title="{{ point.label }}: {{ point.value|floatformat:'-2' }}" style="--value:{{ point.percent }}%;--bar-color:#2f7d5c"><b>{{ point.value|floatformat:"-2" }}</b><i aria-hidden="true"></i></div>
+              </div>
+              <strong>{{ point.month_label|default:point.label }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        {% if series.years %}<div class="request-status-years">{% for year in series.years %}<b style="grid-column:span {{ year.months }}">{{ year.year }}</b>{% endfor %}</div>{% endif %}
       </div>
     </div>
-    {% if not hide_period %}
-      <p class="analytics-bar-period">{{ series.period_label }}</p>
-    {% endif %}
-  {% else %}
-    <div class="analytics-empty">
-      <i class="bi bi-info-circle">
-      </i> No dated records match the selected filters.</div>{% endif %}
-  </article>
+    {% if series.period_label and not hide_period and not series.years %}<p class="analytics-bar-period">{{ series.period_label }}</p>{% endif %}
+  {% else %}<p class="analytics-empty">No records match the selected filters.</p>{% endif %}
+</article>

@@ -1,4 +1,5 @@
 {% extends base_template %}
+{% load static %}
 {# Shared analytics tabs and the report builder with live previews. #}
 {% block page_title %}
   {% if request.user.is_admin %}
@@ -15,6 +16,7 @@
   {% endif %}
 {% endblock %}
 {% block content %}
+  <link rel="stylesheet" href="{% static 'css/analytics-charts.css' %}">
   <style>
       .request-status-layout {
           display: grid;

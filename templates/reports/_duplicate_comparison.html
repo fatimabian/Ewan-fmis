@@ -1,0 +1,25 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/duplicate-comparison.css' %}">
+<dialog class="duplicate-comparison" id="duplicateComparison" aria-labelledby="duplicateComparisonTitle">
+  <header class="duplicate-comparison-head">
+    <div><h2 id="duplicateComparisonTitle">Compare farmer records</h2><p>A similarity flag is not proof of duplication. Check both records before deciding.</p></div>
+    <button type="button" class="btn btn-outline-secondary" data-comparison-close aria-label="Close comparison">&times;</button>
+  </header>
+  <p data-comparison-context></p>
+  <p role="status" aria-live="polite" data-comparison-status></p>
+  <div class="duplicate-comparison-scroll" tabindex="0" role="region" aria-label="Side-by-side farmer information" data-comparison-records></div>
+  <form data-comparison-form hidden>
+    {% csrf_token %}
+    <label for="duplicateDecision">Review outcome</label>
+    <select id="duplicateDecision" name="decision" required>
+      <option value="">Choose an outcome</option>
+      <option value="SEPARATE">These are separate farmers</option>
+      <option value="SAME">These records belong to the same person</option>
+    </select>
+    <label for="duplicateJustification">Why did you choose this outcome?</label>
+    <textarea id="duplicateJustification" name="justification" rows="3" minlength="10" maxlength="500" required placeholder="Example: Different birthdates and verified as different household members."></textarea>
+    <p class="duplicate-comparison-note">Saving records your review and removes this pair from the pending list. Farmer records are kept; this does not merge or delete them.</p>
+    <footer><button type="button" class="btn btn-outline-secondary" data-comparison-close>Cancel</button><button type="submit" class="btn btn-success" data-comparison-save>Save review</button></footer>
+  </form>
+</dialog>
+<script defer src="{% static 'js/duplicate-comparison.js' %}"></script>

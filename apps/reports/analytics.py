@@ -74,7 +74,22 @@ def _monthly_value_map(queryset, field_name, value_field):
     return dict(grouped)
 
 
-def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None, limit=12):
+def _calendar_months(periods, limit=None):
+    """Keep a continuous calendar so absent months are visible as zero activity."""
+    if not periods:
+        return []
+    first, last = min(periods), max(periods)
+    months = []
+    current = last
+    while current >= first and (limit is None or len(months) < limit):
+        months.append(current)
+        if current == first:
+            break
+        current = date(current.year - (current.month == 1), 12 if current.month == 1 else current.month - 1, 1)
+    return list(reversed(months))
+
+
+def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None, limit=None):
     """Return compact monthly values without relying on DB timezone tables."""
     totals = (
         _monthly_value_map(queryset, field_name, value_field)
@@ -82,8 +97,8 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
         else _monthly_count_map(queryset, field_name, count_field=count_field)
     )
     rows = [
-        {"period": period, "total": total}
-        for period, total in sorted(totals.items())[-limit:]
+        {"period": period, "total": totals.get(period, 0)}
+        for period in _calendar_months(totals, limit)
     ]
     peak = max((row["total"] or 0 for row in rows), default=0) or 1
     years = sorted({row["period"].year for row in rows})
@@ -102,6 +117,7 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
         y = 91 - (float(value) / float(peak) * 76)
         points.append(
             {
+                "year": row["period"].year,
                 "label": row["period"].strftime("%b %Y"),
                 "month_label": row["period"].strftime("%b"),
                 "value": value,
@@ -111,6 +127,7 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
             }
         )
     return {
+        "years": [{"year": year, "months": sum(point["year"] == year for point in points)} for year in years],
         "points": points,
         "polyline": " ".join(f'{point["x"]},{point["y"]}' for point in points),
         "peak": peak,
@@ -118,10 +135,10 @@ def _monthly_series(queryset, field_name, *, count_field="pk", value_field=None,
     }
 
 
-def _monthly_dual_series(first_queryset, first_field, second_queryset, second_field, limit=12):
+def _monthly_dual_series(first_queryset, first_field, second_queryset, second_field, limit=None):
     first = _monthly_count_map(first_queryset, first_field)
     second = _monthly_count_map(second_queryset, second_field)
-    periods = sorted(set(first) | set(second))[-limit:]
+    periods = _calendar_months(set(first) | set(second), limit)
     peak = max([first.get(period, 0) for period in periods] + [second.get(period, 0) for period in periods] + [1])
     count = len(periods)
     points = []
@@ -131,6 +148,8 @@ def _monthly_dual_series(first_queryset, first_field, second_queryset, second_fi
         second_value = second.get(period, 0)
         points.append(
             {
+                "year": period.year,
+                "month_label": period.strftime("%b"),
                 "label": period.strftime("%b %Y"),
                 "first": first_value,
                 "second": second_value,
@@ -142,6 +161,7 @@ def _monthly_dual_series(first_queryset, first_field, second_queryset, second_fi
             }
         )
     return {
+        "years": [{"year": year, "months": sum(point["year"] == year for point in points)} for year in sorted({point["year"] for point in points})],
         "points": points,
         "first_polyline": " ".join(f'{point["x"]},{point["first_y"]}' for point in points),
         "second_polyline": " ".join(f'{point["x"]},{point["second_y"]}' for point in points),
@@ -210,11 +230,14 @@ def _categorical_dual_series(first_rows, second_rows, *, first_key="value", seco
             "label": label,
             "first": first,
             "second": second,
+            "first_percent": round(float(first) / first_peak * 100, 2),
+            "second_percent": round(float(second) / second_peak * 100, 2),
             "x": round(x, 2),
             "first_y": round(91 - (float(first) / first_peak * 76), 2),
             "second_y": round(91 - (float(second) / second_peak * 76), 2),
         })
     return {
+        "peak": max(first_peak, second_peak),
         "points": points,
         "first_polyline": " ".join(f'{point["x"]},{point["first_y"]}' for point in points),
         "second_polyline": " ".join(f'{point["x"]},{point["second_y"]}' for point in points),
@@ -391,6 +414,9 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             senior_cutoff = today.replace(year=today.year - 60, day=28)
         statistics = farmers.aggregate(
             active=Count("pk", distinct=True),
+            with_phone=Count("pk", filter=~Q(phone_number=""), distinct=True),
+            with_birthdate=Count("pk", filter=Q(birth_date__isnull=False), distinct=True),
+            with_id=Count("pk", filter=~Q(valid_id_number=""), distinct=True),
             female=Count("pk", filter=Q(sex="FEMALE"), distinct=True),
             male=Count("pk", filter=Q(sex="MALE"), distinct=True),
             senior=Count("pk", filter=Q(birth_date__lte=senior_cutoff), distinct=True),
@@ -400,6 +426,11 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         )
         return {
             "tab": tab,
+            "selection_highlights": [
+                {"label": "With phone number", "value": statistics["with_phone"], "note": "farmer records with contact details"},
+                {"label": "With birthdate", "value": statistics["with_birthdate"], "note": "records with a recorded date of birth"},
+                {"label": "With ID number", "value": statistics["with_id"], "note": "records with a recorded identification number"},
+            ],
             "summary": [{"label": "Active Farmers", "value": statistics["active"]}],
             "farmer_demographics": [
                 {"label": "Female Farmers", "value": statistics["female"], "icon": "bi-person-vcard"},
@@ -411,25 +442,39 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             ],
             "top_farmer_barangays": _comparison_rows(farmers, "barangay", limit=8),
             "farmer_barangay_series": _farmer_barangay_series(farmers, date_range),
+            "registration_series": _monthly_series(farmers, "created_at"),
             "duplicate_scan": find_system_duplicate_pairs(),
         }
 
     if tab == "parcels":
-        totals = parcels.aggregate(total=Count("pk"), area=Sum("area_hectares"))
+        totals = parcels.aggregate(total=Count("pk"), area=Sum("area_hectares"), farmers=Count("farmer_id", distinct=True), barangays=Count("barangay", filter=~Q(barangay=""), distinct=True))
         unpinned = parcels.filter(Q(coordinates="") | Q(coordinates__isnull=True)).count()
         total = totals["total"] or 0
+        top_counts = _comparison_rows(parcels, "barangay", limit=8)
         return {
             "tab": tab,
+            "selection_highlights": [
+                {"label": "Farmers with parcels", "value": totals["farmers"], "note": "distinct owners or cultivators in these records"},
+                {"label": "Barangays represented", "value": totals["barangays"], "note": "locations in the selected parcel records"},
+                {"label": "Average recorded parcel", "value": f"{float(totals['area'] or 0) / total:.2f} ha" if total else "—", "note": "recorded area divided by parcel count"},
+                {"label": "Mapping coverage", "value": f"{(total - unpinned) / total * 100:.1f}%" if total else "—", "note": "parcels with saved map coordinates"},
+            ],
+            "parcel_area_series": _monthly_series(parcels, "created_at", value_field="area_hectares"),
             "parcel_total": total,
             "parcel_area": totals["area"] or 0,
             "pinned_parcels": total - unpinned,
             "unpinned_parcels": unpinned,
-            "top_parcel_count_barangays": _comparison_rows(parcels, "barangay", limit=8),
+            "top_parcel_count_barangays": top_counts,
+            "parcel_count_series": _monthly_series(parcels, "created_at"),
+            "parcel_count_bar_series": _bar_series(top_counts),
         }
 
     if tab == "commodities":
         totals = crops.aggregate(
             total=Count("pk"),
+            farmers=Count("parcel__farmer_id", distinct=True),
+            barangays=Count("parcel__barangay", filter=~Q(parcel__barangay=""), distinct=True),
+            with_area=Count("pk", filter=Q(area_hectares__isnull=False)),
             distinct=Count("crop_type", distinct=True),
             area=Sum("area_hectares"),
         )
@@ -439,13 +484,23 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             .order_by("-total", "crop_type")
             .first()
         )
+        top_records = _comparison_rows(crops, "crop_type", limit=7)
         return {
             "tab": tab,
+            "selection_highlights": [
+                {"label": "Farmers represented", "value": totals["farmers"], "note": "distinct farmers with matching commodity records"},
+                {"label": "Barangays represented", "value": totals["barangays"], "note": "parcel locations in this selection"},
+                {"label": "Records with area", "value": totals["with_area"], "note": "commodity records with an area value"},
+                {"label": "Missing area", "value": totals["total"] - totals["with_area"], "note": "records without a recorded commodity area"},
+            ],
+            "commodity_area_bar_series": _bar_series(_comparison_rows(crops.exclude(area_hectares__isnull=True), "crop_type", value_field="area_hectares", limit=7)),
             "crop_record_total": totals["total"] or 0,
             "distinct_commodities": totals["distinct"] or 0,
             "recorded_crop_area": totals["area"] or 0,
             "most_recorded_commodity": top["crop_type"] if top else "No records",
-            "top_commodities": _comparison_rows(crops, "crop_type", limit=7),
+            "top_commodities": top_records,
+            "commodity_series": _monthly_series(crops, "created_at"),
+            "commodity_bar_series": _bar_series(top_records),
         }
 
     if tab == "requests":
@@ -487,6 +542,11 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
 
         return {
             "tab": tab,
+            "selection_highlights": [
+                {"label": "Completion rate", "value": f"{status_counts.get('COMPLETED', 0) / total * 100:.1f}%" if total else "—", "note": "matching requests currently completed"},
+                {"label": "Open share", "value": f"{(status_counts.get('PENDING', 0) + status_counts.get('IN_PROGRESS', 0)) / total * 100:.1f}%" if total else "—", "note": "pending or in-progress requests"},
+                {"label": "Cancelled share", "value": f"{status_counts.get('CANCELLED', 0) / total * 100:.1f}%" if total else "—", "note": "matching requests currently cancelled"},
+            ],
             "request_total": total,
             "open_requests": open_requests.count(),
             "overdue_requests": overdue_requests.count(),
@@ -512,6 +572,8 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
     if tab == "interventions":
         totals = interventions.aggregate(
             total=Count("pk", distinct=True),
+            recipient_entries=Count("recipients", filter=Q(recipients__is_active=True), distinct=True),
+            with_recipients=Count("pk", filter=Q(recipients__is_active=True), distinct=True),
             farmers=Count(
                 "recipients__farmer",
                 filter=Q(recipients__is_active=True),
@@ -546,6 +608,12 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
         ]
         return {
             "tab": tab,
+            "selection_highlights": [
+                {"label": "Assistance types", "value": len(types), "note": "intervention types represented in this selection"},
+                {"label": "Farmer assistance entries", "value": totals["recipient_entries"], "note": "active recipient entries across intervention activities"},
+                {"label": "Activities with recipients", "value": totals["with_recipients"], "note": "interventions with at least one active farmer recipient"},
+            ],
+            "intervention_farmer_series": _monthly_series(interventions.filter(recipients__is_active=True), "intervention_date", count_field="recipients__farmer"),
             "intervention_total": totals["total"] or 0,
             "intervention_farmers": totals["farmers"] or 0,
             "intervention_barangays": len(reached_barangays),

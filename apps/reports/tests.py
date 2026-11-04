@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
 
@@ -7,6 +7,7 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
 from unittest.mock import patch
 
 from apps.farmers.models import Farmer
@@ -235,14 +236,34 @@ class DescriptiveAnalyticsTests(TestCase):
         self.client.force_login(self.staff)
         farmers = self.client.get(reverse("reports:home"), {"analytics_tab": "farmers"})
         self.assertContains(farmers, 'aria-label="Farmers by Barangay bar chart"')
+        for tab, title in (("parcels", "Barangays with the Most Farm Parcels"), ("commodities", "Most Planted or Raised Commodities")):
+            page = self.client.get(reverse("reports:home"), {"analytics_tab": tab})
+            self.assertContains(page, f'aria-label="{title} bar chart"')
+        self.assertContains(farmers, "Compare farmer records")
         requests = self.client.get(reverse("reports:home"), {"analytics_tab": "requests"})
         self.assertContains(requests, "Request Status by Month")
         self.assertNotContains(requests, "Recent Requests")
         self.assertContains(requests, 'aria-label="Service Requests Over Time line chart"')
         interventions = self.client.get(reverse("reports:home"), {"analytics_tab": "interventions"})
-        self.assertContains(interventions, 'aria-label="Interventions Given by Month bar chart"')
+        self.assertContains(interventions, 'aria-label="Interventions Given by Month line chart"')
         inventory = self.client.get(reverse("reports:home"), {"analytics_tab": "inventory"})
-        self.assertContains(inventory, 'aria-label="Inventory receipts and releases grouped bar chart"')
+        self.assertContains(inventory, 'aria-label="Inventory Movement Over Time line chart"')
+
+    def test_monthly_trends_include_empty_calendar_months(self):
+        first = Farmer.objects.create(first_name="January", last_name="Trend")
+        last = Farmer.objects.create(first_name="March", last_name="Trend")
+        Farmer.objects.filter(pk=first.pk).update(created_at=timezone.make_aware(datetime(2025, 1, 15, 12)))
+        Farmer.objects.filter(pk=last.pk).update(created_at=timezone.make_aware(datetime(2025, 3, 15, 12)))
+        series = _monthly_series(Farmer.objects.filter(pk__in=[first.pk, last.pk]), "created_at")
+        self.assertEqual([point["value"] for point in series["points"]], [1, 0, 1])
+        self.assertEqual([point["label"] for point in series["points"]], ["Jan 2025", "Feb 2025", "Mar 2025"])
+        self.assertEqual(series["years"], [{"year": 2025, "months": 3}])
+        Farmer.objects.filter(pk=last.pk).update(created_at=timezone.make_aware(datetime(2026, 3, 15, 12)))
+        queryset = Farmer.objects.filter(pk__in=[first.pk, last.pk])
+        all_months = _monthly_series(queryset, "created_at")
+        self.assertEqual(len(all_months["points"]), 15)
+        self.assertEqual(sum(point["value"] for point in all_months["points"]), 2)
+        self.assertEqual(len(_monthly_series(queryset, "created_at", limit=3)["points"]), 3)
 
     def test_bar_chart_axis_shows_months_with_one_shared_year_label(self):
         series = _monthly_series(Farmer.objects.all(), "created_at")

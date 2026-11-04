@@ -1,4 +1,4 @@
 {# Shared report and analytics navigation. #}
-<nav class="analytics-tabs" aria-label="Reports and analytics sections">
+<nav id="reportsAnalyticsTabs" class="analytics-tabs" aria-label="Reports and analytics sections">
   {% for key,label in analytics_tabs %}<a href="?analytics_tab={{ key }}"{% if analytics_tab == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
 </nav>

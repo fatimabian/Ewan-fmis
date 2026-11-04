@@ -1,0 +1,18 @@
+{% load static %}
+<article class="analytics-panel analytics-trend" data-trend-chart data-trend-source="{{ chart_id }}" data-first-label="{{ first_label|default:'Records' }}" data-second-label="{{ second_label }}" data-unit="{{ y_label|default:'Records' }}" data-default-view="{{ default_view|default:'line' }}" role="group" aria-label="{{ title }} {{ default_view|default:'line' }} chart">
+  <div class="analytics-trend-heading"><div><h3>{{ title }}</h3><p>{{ description }}</p></div>
+    <div class="analytics-trend-controls">
+      <label>Months shown<select data-trend-window><option value="3">3 months</option><option value="6">6 months</option><option value="12" selected>12 months</option><option value="all">All available</option></select></label>
+      <label>Chart view<select data-trend-view><option value="line">Line</option><option value="bar">Bar</option></select></label>
+    </div>
+  </div>
+  {{ series|json_script:chart_id }}
+  <div class="analytics-trend-summary" data-trend-summary></div>
+  <div class="analytics-trend-insights" data-trend-insights></div>
+  <p class="analytics-trend-period" data-trend-period></p>
+  <div class="analytics-trend-scroll" tabindex="0" role="region" aria-label="{{ title }} chart; scroll horizontally for more months" data-trend-plot></div>
+  <p class="analytics-trend-reading" role="status" aria-live="polite" data-trend-reading>Hover or focus a point to see its values.</p>
+  <ul class="request-status-legend" data-trend-legend></ul>
+  <details class="analytics-trend-data"><summary>View data table</summary><div class="analytics-table-scroll" data-trend-table></div></details>
+  <noscript><p>Enable JavaScript to view this interactive chart.</p></noscript>
+</article>

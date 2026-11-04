@@ -13,7 +13,7 @@ from .duplicate_detection import (
     normalize_text,
     read_review_token,
 )
-from .models import Farmer
+from .models import Farmer, FarmerDuplicateReview
 
 
 class FarmerDuplicateDetectionTests(TestCase):
@@ -34,6 +34,27 @@ class FarmerDuplicateDetectionTests(TestCase):
             valid_id_type="National ID",
             valid_id_number="1111222233334444",
         )
+
+    def test_pair_review_loads_both_records_and_saves_only_with_a_reason(self):
+        other = Farmer.objects.create(first_name="Marya", last_name="Dela Cruz", barangay="Alupay")
+        url = reverse("farmers:duplicate_review", args=[other.pk, self.existing.pk])
+        self.assertEqual(self.client.get(url).status_code, 302)
+        self.client.force_login(self.staff)
+        data = self.client.get(url).json()
+        self.assertEqual(data["first"]["id"], self.existing.record_id)
+        self.assertEqual(data["second"]["id"], other.record_id)
+        self.assertEqual(data["first"]["birth_date"], "Apr 12, 1985")
+        invalid = self.client.post(url, {"decision": "SEPARATE", "justification": ""})
+        self.assertEqual(invalid.status_code, 400)
+        self.assertFalse(FarmerDuplicateReview.objects.exists())
+        response = self.client.post(url, {"decision": "SEPARATE", "justification": "Verified as different household members."})
+        self.assertEqual(response.status_code, 200)
+        review = FarmerDuplicateReview.objects.get()
+        self.assertEqual(review.first_farmer, self.existing)
+        self.assertEqual(review.second_farmer, other)
+        self.assertEqual(review.reviewed_by, self.staff)
+        self.assertEqual(Farmer.objects.filter(is_active=True).count(), 2)
+        self.assertEqual(self.client.get(url).json()["existing"]["decision"], "SEPARATE")
 
     def values(self, **overrides):
         values = {

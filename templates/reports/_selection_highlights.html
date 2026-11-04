@@ -1,0 +1,5 @@
+{% if descriptive.selection_highlights %}
+<section class="analytics-selection-highlights" aria-label="{{ analytics_tab|title }} selection highlights">
+  {% for item in descriptive.selection_highlights %}<article><h3>{{ item.label }}</h3><b>{{ item.value }}</b><p>{{ item.note }}</p></article>{% endfor %}
+</section>
+{% endif %}

@@ -1,3 +1,5 @@
+{% load static %}
+<script defer src="{% static 'js/analytics-charts.js' %}"></script>
 {# Filtered analytics cards and charts for each report section. #}
 {% if not analytics_embedded %}
   <style>
@@ -1164,10 +1166,10 @@
               type="button"
               data-filter-toggle
               aria-expanded="false"
-              aria-controls="analyticsFilters">
+              aria-controls="analyticsFilters" aria-label="Filter Analytics">
         <i class="bi bi-funnel">
         </i>
-        Filter Analytics
+        <span class="analytics-filter-label">Filter Analytics</span>
         <span class="fmis-filter-active">Active</span>
       </button>
       <section class="fmis-filter-popover"
@@ -1388,10 +1390,9 @@
         </article>
       {% endfor %}
     </div>
-    <div class="analytics-bar-scroll">
-      {% include "reports/_analytics_bar.html" with title="Farmers by Barangay" description="Matching active farmers in every Rosario barangay." series=descriptive.farmer_barangay_series y_label="Farmers" wide=True hide_period=True %}
-    </div>
-    <p class="analytics-bar-period">{{ descriptive.farmer_barangay_series.period_label }}</p>
+    {% include "reports/_selection_highlights.html" %}
+    {% include "reports/_analytics_trend.html" with chart_id="farmerTrendData" title="Farmer Registrations Over Time" description="Active farmer records by registration month; not a population growth estimate." series=descriptive.registration_series first_label="Registrations" y_label="Farmers" %}
+      {% include "reports/_analytics_bar.html" with title="Farmers by Barangay" description="Matching active farmers in every Rosario barangay." series=descriptive.farmer_barangay_series y_label="Farmers" wide=True %}
     <article class="analytics-panel analytics-summary">
       <div class="analytics-summary-heading">
         <div>
@@ -1430,10 +1431,7 @@
                 </td>
                 <td>{{ pair.reasons|join:' · ' }}</td>
                 <td>
-                  <span class="duplicate-pair-actions">
-                    <a href="{% url 'farmers:detail' pair.left_pk %}">First</a>
-                    <a href="{% url 'farmers:detail' pair.right_pk %}">Match</a>
-                  </span>
+                  <button type="button" class="btn btn-outline-success" data-compare-pair="{% url 'farmers:duplicate_review' pair.left_pk pair.right_pk %}" data-score="{{ pair.score }}" data-reasons="{{ pair.reasons|join:' · ' }}">Compare records</button>
                 </td>
               </tr>
             {% empty %}
@@ -1449,6 +1447,7 @@
         {% include "shared/pagination.html" with page_obj=duplicates.page_obj page_parameter="duplicate_page" hide_page_size=True preserved_query=duplicates.preserved_query preserved_fields=duplicates.preserved_fields %}
       {% endwith %}
     </article>
+    {% include "reports/_duplicate_comparison.html" %}
   {% elif analytics_tab == "parcels" %}
     <div class="analytics-kpis">
       <article class="analytics-kpi">
@@ -1497,25 +1496,11 @@
         <p>requiring map completion</p>
       </article>
     </div>
+    {% include "reports/_selection_highlights.html" %}
+    {% include "reports/_analytics_trend.html" with chart_id="parcelTrendData" title="Parcel Records Over Time" description="Active parcels by registration month; new records do not imply physical land expansion." series=descriptive.parcel_count_series first_label="Parcel records" y_label="Parcels" %}
+    {% include "reports/_analytics_trend.html" with chart_id="parcelAreaTrendData" title="Recorded Parcel Area by Month" description="Area of parcel records added each month; this is recording activity, not physical land expansion." series=descriptive.parcel_area_series first_label="Recorded area (ha)" y_label="Hectares" %}
     <div class="analytics-main analytics-main-single">
-      <article class="analytics-panel">
-        <h3>Barangays with the Most Farm Parcels</h3>
-        <p>Ranks barangays by matching active parcel records. This is a record count, not land area.</p>
-        <ol class="analytics-rank-list">
-          {% for item in descriptive.top_parcel_count_barangays %}
-            <li>
-              <span>{{ item.label }}</span>
-              <i style="--value:{{ item.percent }}%">
-              </i>
-              <b>
-                {{ item.value }} parcels
-              </b>
-            </li>
-          {% empty %}
-            <li>No matching records.</li>
-          {% endfor %}
-        </ol>
-      </article>
+      {% include "reports/_analytics_bar.html" with title="Barangays with the Most Farm Parcels" description="Matching active parcel records by barangay; counts do not represent land area." series=descriptive.parcel_count_bar_series y_label="Parcels" %}
     </div>
   {% elif analytics_tab == "commodities" %}
     <div class="analytics-kpis">
@@ -1565,27 +1550,11 @@
         <p>where area was provided</p>
       </article>
     </div>
+    {% include "reports/_selection_highlights.html" %}
+    {% include "reports/_analytics_trend.html" with chart_id="commodityTrendData" title="Commodity Records Over Time" description="Active commodity records by recording month; not harvest or production volume." series=descriptive.commodity_series first_label="Commodity records" y_label="Records" %}
+    {% include "reports/_analytics_bar.html" with title="Recorded Area by Commodity" description="Matching recorded commodity area by type; area across intercropped records can overlap." series=descriptive.commodity_area_bar_series y_label="Hectares" %}
     <div class="analytics-main analytics-main-single">
-      <article class="analytics-panel">
-        <h3>Most Planted or Raised Commodities</h3>
-        <p>
-          Ranks commodities by matching active commodity records; this does not represent harvest volume.
-        </p>
-        <ol class="analytics-rank-list">
-          {% for item in descriptive.top_commodities %}
-            <li>
-              <span>{{ item.label }}</span>
-              <i style="--value:{{ item.percent }}%">
-              </i>
-              <b>
-                {{ item.value }} records
-              </b>
-            </li>
-          {% empty %}
-            <li>No matching records.</li>
-          {% endfor %}
-        </ol>
-      </article>
+      {% include "reports/_analytics_bar.html" with title="Most Planted or Raised Commodities" description="Matching active commodity records; counts do not represent harvest volume." series=descriptive.commodity_bar_series y_label="Commodity records" %}
     </div>
   {% elif analytics_tab == "requests" %}
     <div class="analytics-kpis">
@@ -1650,6 +1619,7 @@
         </b>
       </article>
     </div>
+    {% include "reports/_selection_highlights.html" %}
     <div class="analytics-note analytics-timing-note">
       <strong>Timing definitions:</strong>
       First response uses the first recorded transition to In Progress or Completed. Completion uses completed_at and excludes unresolved requests. Averages include only records with the corresponding timestamp.
@@ -1718,8 +1688,10 @@
         <p>recorded coverage locations</p>
       </article>
     </div>
+    {% include "reports/_selection_highlights.html" %}
+    {% include "reports/_analytics_trend.html" with chart_id="interventionFarmerTrendData" title="Farmers Served by Month" description="Distinct active farmer recipients per intervention month. A farmer may appear in more than one month." series=descriptive.intervention_farmer_series first_label="Farmers served" y_label="Farmers" %}
     <div class="analytics-main analytics-intervention-layout">
-      {% include "reports/_analytics_bar.html" with title="Interventions Given by Month" description="Distinct completed interventions by intervention date." series=descriptive.intervention_series y_label="Interventions" %}
+      {% include "reports/_analytics_trend.html" with chart_id="interventionTrendData" title="Interventions Given by Month" description="Distinct completed interventions by intervention date." series=descriptive.intervention_series first_label="Interventions" y_label="Interventions" %}
       <article class="analytics-panel analytics-summary">
         <div class="analytics-summary-heading">
           <div>

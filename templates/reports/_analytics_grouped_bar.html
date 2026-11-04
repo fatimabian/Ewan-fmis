@@ -1,0 +1,23 @@
+<article class="analytics-panel analytics-record-chart" role="img" aria-label="{{ chart_label|default:title }} grouped bar chart">
+  <div class="analytics-chart-heading"><div><h3>{{ title }}</h3><p>{{ description }}</p></div></div>
+  <ul class="request-status-legend"><li><i style="background:#2f7d5c" aria-hidden="true"></i>{{ first_label }}</li><li><i style="background:#347ec0" aria-hidden="true"></i>{{ second_label }}</li></ul>
+  {% if series.points %}
+    <div class="request-status-scroll" tabindex="0" role="region" aria-label="{{ title }}; scroll horizontally for more categories">
+      <div class="request-status-chart" style="--month-count:{{ series.points|length }}">
+        <div class="request-status-scale"><span>{{ series.peak|floatformat:"-2" }}</span><b>{{ y_label|default:"Count" }}</b><span>0</span></div>
+        <div class="request-status-months">
+          {% for point in series.points %}
+            <div class="request-status-month">
+              <div class="request-status-bars">
+                <div class="request-status-bar" tabindex="0" role="img" aria-label="{{ point.label }}: {{ first_label }}, {{ point.first|floatformat:'-2' }}" title="{{ point.label }} · {{ first_label }}: {{ point.first|floatformat:'-2' }}" style="--value:{{ point.first_percent }}%;--bar-color:#2f7d5c"><b>{{ point.first|floatformat:"-2" }}</b><i aria-hidden="true"></i></div>
+                <div class="request-status-bar" tabindex="0" role="img" aria-label="{{ point.label }}: {{ second_label }}, {{ point.second|floatformat:'-2' }}" title="{{ point.label }} · {{ second_label }}: {{ point.second|floatformat:'-2' }}" style="--value:{{ point.second_percent }}%;--bar-color:#347ec0"><b>{{ point.second|floatformat:"-2" }}</b><i aria-hidden="true"></i></div>
+              </div>
+              <strong>{{ point.month_label|default:point.label }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        {% if series.years %}<div class="request-status-years">{% for year in series.years %}<b style="grid-column:span {{ year.months }}">{{ year.year }}</b>{% endfor %}</div>{% endif %}
+      </div>
+    </div>
+  {% else %}<p class="analytics-empty">No records match the selected filters.</p>{% endif %}
+</article>
