@@ -1,10 +1,21 @@
-<div class="analytics-line-chart analytics-dual-chart" role="img" aria-label="{{ title }} comparison line chart">
+<div class="analytics-line-chart analytics-dual-chart{% if series.shared_scale %} shared-scale{% endif %}"
+     style="--category-count:{{ series.points|length }}"
+     role="img"
+     aria-label="{{ title }} comparison line chart">
   <div class="analytics-chart-heading">
-    <div><h3>{{ title }}</h3><p>{{ description }}</p></div>
+    <div>
+      <h3>{{ title }}</h3>
+      <p>{{ description }}</p>
+    </div>
     <span class="analytics-chart-legend"><i></i> {{ first_label }} <i></i> {{ second_label }}</span>
   </div>
   {% if series.points %}
     <div class="analytics-plot">
+      {% if series.shared_scale %}
+        <span class="analytics-y-max">{{ series.first_peak|floatformat:"-2" }}</span>
+        <span class="analytics-y-zero">0</span>
+        <span class="analytics-y-label">Count</span>
+      {% endif %}
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <line x1="4" y1="91" x2="96" y2="91"></line><line x1="4" y1="53" x2="96" y2="53"></line><line x1="4" y1="15" x2="96" y2="15"></line>
         <polyline class="received-line" points="{{ series.first_polyline }}"></polyline>
@@ -16,6 +27,13 @@
       </svg>
     </div>
     <div class="analytics-chart-axis">{% for point in series.points %}<span><b>{{ point.first }} / {{ point.second|floatformat:"-2" }}</b><small title="{{ point.label }}">{{ point.label }}</small></span>{% endfor %}</div>
-    <p class="analytics-scale-note">Each line uses its own labelled scale; values below show {{ first_label|lower }} / {{ second_label|lower }}.</p>
+    <p class="analytics-scale-note">
+      {% if series.shared_scale %}
+        Both lines use the same count scale: 0–{{ series.first_peak|floatformat:"-2" }}.
+      {% else %}
+        Each line uses its own labelled scale.
+      {% endif %}
+      Values below show {{ first_label|lower }} / {{ second_label|lower }}.
+    </p>
   {% else %}<div class="analytics-empty"><i class="bi bi-info-circle"></i> No matching records.</div>{% endif %}
 </div>

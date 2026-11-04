@@ -81,14 +81,19 @@ class AccessTests(GISTestCase):
 
 
 class LevelTests(GISTestCase):
-    def test_level_one_is_a_density_grid_with_insights(self):
+    def test_level_one_shows_one_reference_pin_per_barangay_with_insights(self):
         data = self.data(layer="parcels")
         self.assertEqual(data["level"], 1)
         self.assertNotIn("points", data)  # no per-record ids or statuses at this level
         self.assertNotIn("heat", data)
-        self.assertEqual(data["size"], 0.01)
-        self.assertEqual(sum(cell["count"] for cell in data["cells"]), 3)
-        self.assertTrue(all(cell["tier"] in (1, 2, 3) for cell in data["cells"]))
+        from apps.farm_parcels.demo_locations import ROSARIO_BARANGAY_CENTERS
+        self.assertNotIn("cells", data)
+        self.assertEqual(len(data["barangays"]), len(ROSARIO_BARANGAY_CENTERS))
+        self.assertEqual(len({item["barangay"] for item in data["barangays"]}), len(data["barangays"]))
+        self.assertEqual(sum(item["count"] for item in data["barangays"]), 4)
+        self.assertEqual(sum(item["mapped"] for item in data["barangays"]), 3)
+        for item in data["barangays"]:
+            self.assertEqual((item["lat"], item["lng"]), ROSARIO_BARANGAY_CENTERS[item["barangay"]])
         self.assertEqual([(t["barangay"], t["count"]) for t in data["insights"]["busiest"]], [("Alupay", 3), ("Bulihan", 1)])
         self.assertEqual(data["insights"]["attention"], [{"barangay": "Alupay", "count": 1}])
         facet = data["insights"]["facet"]
@@ -96,10 +101,13 @@ class LevelTests(GISTestCase):
         self.assertEqual({(i["value"], i["count"]) for i in facet["items"]}, {("OWNED", 3), ("TENANT", 1)})
         self.assertEqual((data["total"], data["mapped"], data["unmapped"]), (4, 3, 1))
 
-    def test_grid_tiers_have_legend_ranges(self):
-        data = self.data(layer="farmers")
-        self.assertTrue(data["tiers"])
-        self.assertTrue(all(set(t) == {"tier", "label"} for t in data["tiers"]))
+    def test_barangay_summary_includes_unpinned_records_and_zero_counts(self):
+        data = self.data(layer="parcels")
+        alupay = next(item for item in data["barangays"] if item["barangay"] == "Alupay")
+        self.assertEqual((alupay["count"], alupay["mapped"]), (3, 2))
+        self.assertTrue(any(item["count"] == 0 for item in data["barangays"]))
+        scoped = self.data(layer="parcels", barangay="Bulihan")
+        self.assertEqual([item["barangay"] for item in scoped["barangays"]], ["Bulihan"])
 
     def test_insights_follow_the_filters(self):
         coconut = self.data(layer="parcels", commodity="Coconut")
@@ -137,7 +145,8 @@ class LayerTests(GISTestCase):
     def test_commodity_layer_and_filter(self):
         self.assertEqual(self.data(layer="commodities")["total"], 2)
         rice = self.data(layer="commodities", commodity="Rice")
-        self.assertEqual((rice["total"], rice["cells"][0]["barangay"]), (1, "Bulihan"))
+        self.assertEqual(rice["total"], 1)
+        self.assertEqual([(item["barangay"], item["count"]) for item in rice["barangays"] if item["count"]], [("Bulihan", 1)])
 
     def test_commodity_filter_applies_to_parcels_and_farmers(self):
         self.assertEqual(self.data(layer="parcels", commodity="Coconut")["total"], 1)

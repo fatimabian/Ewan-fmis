@@ -821,15 +821,22 @@
       }
 
       .analytics-intervention-layout .analytics-summary-heading {
-          display: grid;
-          gap: 10px
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 20px;
       }
-
+      .analytics-intervention-layout .analytics-summary-heading > div:first-child {min-width:0;flex:1}
       .analytics-intervention-layout .analytics-summary-totals {
-          width: 100%;
-          min-width: 0
+          width: auto;
+          flex: 0 0 auto;
+          min-width: 300px;
+          grid-template-columns:repeat(2,minmax(140px,1fr));
       }
-
+      @media(max-width:760px) {
+          .analytics-intervention-layout .analytics-summary-heading {flex-wrap:wrap}
+          .analytics-intervention-layout .analytics-summary-totals {min-width:0;width:100%;flex:1 1 100%}
+      }
       .analytics-intervention-layout .analytics-table-scroll {
           max-height: 275px
       }
@@ -1641,39 +1648,7 @@
         </table>
       </article>
     </div>
-    <div class="analytics-grid-3">
-      {% include "reports/_analytics_bar.html" with title="Request Status" description="Matching requests by current status." series=descriptive.request_status_bar_series y_label="Requests" %}
-      <article class="analytics-panel" style="grid-column:span 2">
-        <h3>Recent Requests</h3>
-        <p>The five newest requests matching the selected filters.</p>
-        <div class="analytics-table-scroll">
-          <table class="analytics-type-table analytics-recent-table">
-            <thead>
-              <tr>
-                <th>Farmer / Coverage</th>
-                <th>Service</th>
-                <th>Date</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in descriptive.recent_requests %}
-                <tr>
-                  <td>{{ item.beneficiary_label }}</td>
-                  <td>{{ item.service.name }}</td>
-                  <td>{{ item.created_at|date:"M d, Y" }}</td>
-                  <td>{{ item.get_status_display }}</td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="4">No matching requests.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </article>
-    </div>
+    {% include "reports/_request_status_monthly.html" with series=descriptive.request_status_monthly %}
   {% elif analytics_tab == "interventions" %}
     <div class="analytics-kpis">
       <article class="analytics-kpi">
@@ -1735,29 +1710,8 @@
             </div>
           </div>
         </div>
-        <div class="analytics-table-scroll">
-          <table class="analytics-type-table">
-            <thead>
-              <tr>
-                <th>Intervention Type</th>
-                <th>Given</th>
-                <th>Farmers</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in descriptive.intervention_types %}
-                <tr>
-                  <td>{{ item.label }}</td>
-                  <td>{{ item.value }}</td>
-                  <td>{{ item.farmers }}</td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="3">No matching interventions.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="intervention-distribution-scroll">
+        {% include "reports/_analytics_categorical_dual.html" with title="Interventions and Farmers by Type" description="Compare given interventions and distinct farmers served for each type. Categories are not a time trend." series=descriptive.intervention_distribution_series first_label="Interventions Given" second_label="Farmers Served" first_unit="interventions" second_unit="farmers" %}
         </div>
       </article>
     </div>

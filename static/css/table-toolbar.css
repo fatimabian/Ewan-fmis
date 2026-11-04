@@ -90,3 +90,29 @@ body[data-theme="dark"] .fmis-filter-field{color:#dce6df}
 }
 
 .intervention-view-only{display:inline-block;padding:7px 10px;border:1px solid #9aa9a0;color:inherit;font-size:12px}
+
+/* Monthly request status bars share one count scale and keep years below months. */
+.request-status-legend {display:flex;flex-wrap:wrap;gap:10px 20px;margin:12px 0 20px;padding:0;list-style:none;font-size:12px}
+.request-status-legend li {display:flex;align-items:center;gap:7px}
+.request-status-legend i {width:12px;height:12px;display:inline-block}
+.request-status-scroll {max-width:100%;overflow-x:auto;padding:6px 0}
+.request-status-chart {position:relative;min-width:calc(var(--month-count) * 135px + 45px);padding-left:45px}
+.request-status-months {display:grid;grid-template-columns:repeat(var(--month-count),minmax(125px,1fr));border-bottom:1px solid #889c90}
+.request-status-month {display:grid;grid-template-rows:280px 28px;text-align:center;min-width:0}
+.request-status-bars {display:flex;align-items:stretch;gap:5px;padding:15px 10px 0;border-left:1px solid #e1e8e3;background:repeating-linear-gradient(to top,transparent 0,transparent 65px,#e1e8e3 66px,transparent 67px)}
+.request-status-bar {position:relative;flex:1;min-width:0;margin-top:18px}
+.request-status-bar b {position:absolute;left:0;bottom:var(--value);width:100%;font-size:10px;text-align:center!important;line-height:18px}
+.request-status-bar i {position:absolute;bottom:0;display:block;width:100%;height:var(--value);background:var(--bar-color);min-height:1px}
+.request-status-month strong {font-size:12px;padding-top:7px}
+.request-status-scale {position:absolute;left:0;top:33px;height:247px;display:flex;flex-direction:column;justify-content:space-between;font-size:10px}
+.request-status-scale b {writing-mode:vertical-rl;transform:rotate(180deg);font-size:11px;align-self:center}
+.request-status-years {display:grid;grid-template-columns:repeat(var(--month-count),minmax(125px,1fr));text-align:center;font-size:12px;padding-top:10px}
+.request-status-bar:focus-visible {outline:2px solid #14243a;outline-offset:2px}
+
+/* Keep every intervention category readable and distinguish coincident lines. */
+.intervention-distribution-scroll {max-width:100%;overflow-x:auto}
+.shared-scale {min-width:calc(var(--category-count) * 110px + 50px)}
+.shared-scale .completed-line {stroke-dasharray:5 3}
+.shared-scale .analytics-chart-axis {margin-left:20px;margin-right:8px;display:grid;grid-template-columns:repeat(var(--category-count),minmax(90px,1fr));gap:8px}
+.shared-scale .analytics-chart-axis span {display:grid!important;text-align:center}
+.shared-scale .analytics-chart-axis small {max-width:none;white-space:normal;font-size:11px;line-height:1.4}

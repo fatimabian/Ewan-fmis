@@ -203,7 +203,8 @@ class DescriptiveAnalyticsTests(TestCase):
         farmers = self.client.get(reverse("reports:home"), {"analytics_tab": "farmers"})
         self.assertContains(farmers, 'aria-label="Farmers by Barangay bar chart"')
         requests = self.client.get(reverse("reports:home"), {"analytics_tab": "requests"})
-        self.assertContains(requests, 'aria-label="Request Status bar chart"')
+        self.assertContains(requests, "Request Status by Month")
+        self.assertNotContains(requests, "Recent Requests")
         self.assertContains(requests, 'aria-label="Service Requests Over Time line chart"')
         interventions = self.client.get(reverse("reports:home"), {"analytics_tab": "interventions"})
         self.assertContains(interventions, 'aria-label="Interventions Given by Month bar chart"')
@@ -356,3 +357,52 @@ class BarangayBarTests(TestCase):
         self.assertEqual(sum(point["value"] for point in series["points"]), 1)
         self.assertEqual(next(point for point in series["points"] if point["label"] == "Bagong Pook")["percent"], 100)
         self.assertEqual(series["period_label"], str(date.today().year))
+
+
+class UpdatedReportChartsTests(TestCase):
+    def test_monthly_status_counts_use_receipt_month_include_gaps_and_share_scale(self):
+        from django.utils import timezone
+        from datetime import datetime
+        from apps.service_requests.models import ServiceRequest
+        from apps.service_catalog.models import ServiceCatalog
+        from apps.reports.analytics import _monthly_request_status_series
+        farmer = Farmer.objects.create(first_name="Ana", last_name="Santos", barangay="Bulihan")
+        service = ServiceCatalog.objects.create(name="Chart assistance", code="CHART", category="Farm Inputs", description="Test", processing_time="1 day")
+        for year, month, status in ((2025, 12, "PENDING"), (2026, 2, "COMPLETED"), (2026, 2, "COMPLETED"), (2026, 2, "IN_PROGRESS")):
+            request = ServiceRequest.objects.create(farmer=farmer, service=service, status=status)
+            ServiceRequest.objects.filter(pk=request.pk).update(created_at=timezone.make_aware(datetime(year, month, 15)))
+        series = _monthly_request_status_series(ServiceRequest.objects.all())
+        self.assertEqual([month["label"] for month in series["points"]], ["Dec 2025", "Jan 2026", "Feb 2026"])
+        self.assertEqual(series["years"], [{"year": 2025, "months": 1}, {"year": 2026, "months": 2}])
+        self.assertEqual(series["peak"], 2)
+        self.assertTrue(all(status["value"] == 0 for status in series["points"][1]["statuses"]))
+        february = {item["key"]: item for item in series["points"][2]["statuses"]}
+        self.assertEqual((february["COMPLETED"]["value"], february["COMPLETED"]["percent"]), (2, 100))
+        self.assertEqual(february["IN_PROGRESS"]["percent"], 50)
+        self.assertEqual(february["CANCELLED"]["value"], 0)
+        empty = _monthly_request_status_series(ServiceRequest.objects.none())
+        self.assertEqual(empty["points"], [])
+
+    def test_intervention_comparison_uses_shared_scale(self):
+        from apps.reports.analytics import _categorical_dual_series
+        rows = [{"label": "Seeds", "value": 2, "farmers": 10}, {"label": "Training", "value": 1, "farmers": 1}]
+        series = _categorical_dual_series(rows, rows, first_key="value", second_key="farmers", shared_scale=True)
+        self.assertEqual(series["first_peak"], series["second_peak"])
+        self.assertEqual(series["first_peak"], 10)
+        same_counts = series["points"][1]
+        self.assertEqual(same_counts["first_y"], same_counts["second_y"])
+        self.assertEqual(series["points"][0]["second_y"], 15)
+        self.assertEqual([point["x"] for point in series["points"]], [25, 75])
+
+    def test_report_generator_has_live_summary_cards(self):
+        staff = get_user_model().objects.create_user(username="report-card-staff", role="STAFF")
+        Farmer.objects.create(first_name="Ana", last_name="Santos", barangay="Bulihan", is_active=True)
+        self.client.force_login(staff)
+        response = self.client.get(reverse("reports:home"), {"analytics_tab": "reports"})
+        self.assertContains(response, 'aria-label="Report data summary"')
+        self.assertContains(response, "Available report types")
+        self.assertEqual(response.context["farmers"], 1)
+        filtered = self.client.get(reverse("reports:home"), {"analytics_tab": "reports", "report_type": "farmer_master", "barangay": "Alupay", "date_range": "all"})
+        self.assertContains(filtered, "Matching report rows")
+        self.assertEqual(filtered.context["report_preview"]["total_rows"], 0)
+        self.assertEqual(filtered.context["farmers"], 0)

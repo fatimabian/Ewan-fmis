@@ -10,6 +10,7 @@ from django.urls import reverse
 from apps.common.constants import COMMODITY_DETAIL_TO_GROUP, ROSARIO_BARANGAYS, commodity_group
 from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel, ParcelCoordinateReview
+from apps.farm_parcels.demo_locations import ROSARIO_BARANGAY_CENTERS
 from apps.farm_parcels.views import FarmParcelMapView, parcel_pin_status
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention, InterventionRecipient
@@ -444,32 +445,23 @@ def insights(found, layer, top=5):
     }
 
 
-def grid(mapped, size=0.01):
-    """Group mapped records into square cells (about 1 km) with three density tiers."""
-    cells = {}
-    for record in mapped:
-        key = (int(record.point[0] // size), int(record.point[1] // size))
-        cell = cells.setdefault(key, {"count": 0, "attention": 0, "barangays": Counter()})
-        cell["count"] += 1
-        cell["attention"] += record.status == ATTENTION
-        cell["barangays"][record.barangay] += 1
-    counts = sorted(cell["count"] for cell in cells.values())
-    low = counts[len(counts) // 3] if counts else 0
-    high = counts[(2 * len(counts)) // 3] if counts else 0
-    out, spans = [], {1: [], 2: [], 3: []}
-    for (row, column), cell in sorted(cells.items()):
-        tier = 1 if cell["count"] <= low else 2 if cell["count"] <= high else 3
-        spans[tier].append(cell["count"])
-        out.append({
-            "lat": round(row * size, 5), "lng": round(column * size, 5), "count": cell["count"],
-            "attention": cell["attention"], "tier": tier,
-            "barangay": cell["barangays"].most_common(1)[0][0],
-        })
-    tiers = [
-        {"tier": tier, "label": f"{min(values)}" if min(values) == max(values) else f"{min(values)} to {max(values)}"}
-        for tier, values in spans.items() if values
+def barangay_markers(found, barangay=""):
+    """One reference pin per barangay, including records without saved locations."""
+    totals = Counter(record.barangay for record in found)
+    mapped = Counter(record.barangay for record in found if record.point)
+    attention = Counter(record.barangay for record in found if record.status == ATTENTION)
+    names = [barangay] if barangay else ROSARIO_BARANGAYS
+    return [
+        {
+            "barangay": name,
+            "lat": ROSARIO_BARANGAY_CENTERS[name][0],
+            "lng": ROSARIO_BARANGAY_CENTERS[name][1],
+            "count": totals[name],
+            "mapped": mapped[name],
+            "attention": attention[name],
+        }
+        for name in names if name in ROSARIO_BARANGAY_CENTERS
     ]
-    return {"size": size, "cells": out, "tiers": tiers}
 
 
 def detail(layer, pk):

@@ -1428,6 +1428,33 @@
         {% endif %}
       </section>
     {% elif analytics_tab == "reports" %}
+      <section class="report-metrics" aria-label="Report data summary">
+        <article class="report-metric">
+          <i class="bi bi-people" aria-hidden="true"></i>
+          <small>Farmer records</small><b>{{ farmers }}</b>
+          <em>{% if selected_report_type %}matching report filters{% else %}active farmer records{% endif %}</em>
+        </article>
+        <article class="report-metric">
+          <i class="bi bi-map" aria-hidden="true"></i>
+          <small>Farm parcels</small><b>{{ parcels }}</b>
+          <em>{% if selected_report_type %}matching report filters{% else %}active parcel records{% endif %}</em>
+        </article>
+        <article class="report-metric">
+          <i class="bi bi-flower1" aria-hidden="true"></i>
+          <small>Commodity records</small><b>{{ crops }}</b>
+          <em>{% if selected_report_type %}matching report filters{% else %}active commodity records{% endif %}</em>
+        </article>
+        <article class="report-metric">
+          <i class="bi bi-file-earmark-bar-graph" aria-hidden="true"></i>
+          {% if report_preview %}
+            <small>Matching report rows</small><b>{{ report_preview.total_rows }}</b>
+            <em>rows across all preview pages</em>
+          {% else %}
+            <small>Available report types</small><b>{{ report_templates|length }}</b>
+            <em>choose a category to get started</em>
+          {% endif %}
+        </article>
+      </section>
       <section class="report-top">
         <article class="report-card report-filter-card">
           <h3>

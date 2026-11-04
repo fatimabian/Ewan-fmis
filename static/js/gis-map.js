@@ -1,4 +1,4 @@
-// GIS map: one layer at a time, three levels (density grid, clustered pins, record card), three colours.
+// GIS map: barangay overview, zoom-responsive record pins, and persistent record details.
 (() => {
   const configNode = document.getElementById("gis-config");
   const mapNode = document.getElementById("gisMap");
@@ -7,7 +7,7 @@
   const byId = (id) => document.getElementById(id);
   const layers = Object.fromEntries(config.layers.map((layer) => [layer.key, layer]));
   const els = {
-    search: byId("gisSearch"),
+    search: byId("gisSearch"), layer: byId("gisLayer"),
     barangay: byId("gisBarangay"), commodity: byId("gisCommodity"), commodityWrap: byId("gisCommodityWrap"),
     status: byId("gisStatus"), reset: byId("gisReset"), apply: byId("gisApply"),
     filterToggle: byId("gisFilterToggle"), filterLabel: byId("gisFilterLabel"), filterCount: byId("gisFilterCount"),
@@ -52,9 +52,9 @@
     return L.divIcon({className: "", iconSize: [size, size * 1.333], iconAnchor: [size / 2, size * 1.333],
       html: `<svg class="gis-svg gis-neutral" width="${size}" height="${size * 1.333}" viewBox="0 0 24 32" aria-label="${count} records"><path d="${PIN_PATH}"/><text x="12" y="15" text-anchor="middle" style="font-size:9px">${count}</text></svg>`});
   };
-  const pins = L.markerClusterGroup({showCoverageOnHover: false, maxClusterRadius: 60, spiderfyOnMaxZoom: true, iconCreateFunction: clusterIcon});
-  const cells = L.layerGroup();
-  map.addLayer(pins); map.addLayer(cells);
+  const pins = L.markerClusterGroup({showCoverageOnHover: false, maxClusterRadius: zoom => zoom >= 17 ? 32 : 65, disableClusteringAtZoom: 18, spiderfyOnMaxZoom: true, iconCreateFunction: clusterIcon});
+  const barangayPins = L.layerGroup();
+  map.addLayer(pins); map.addLayer(barangayPins);
   let barangayShape = null;
   let selected = null;
   let request = null;
@@ -63,11 +63,33 @@
   let parcelSearchTimer = null;
   let mapSearchTimer = null;
   const markerByRecord = new Map();
+  let rendering = false;
+  let loadingMap = false;
+  let panelCollapsed = false;
+  const main = byId("gisMain");
+  const side = byId("gisSide");
+  const panelToggle = byId("gisPanelToggle");
+
+  function setPanelCollapsed(collapsed) {
+    panelCollapsed = collapsed;
+    side.hidden = collapsed;
+    main.classList.toggle("is-panel-collapsed", collapsed);
+    panelToggle.textContent = collapsed ? "Show info panel" : "Hide info panel";
+    panelToggle.setAttribute("aria-expanded", String(!collapsed));
+    // Resizing the map must not pan away from a selected or moved pin.
+    map.invalidateSize({pan: false});
+  }
+  panelToggle.addEventListener("click", () => setPanelCollapsed(!panelCollapsed));
+  new ResizeObserver(() => map.invalidateSize({pan: false})).observe(mapNode);
+  byId("gisAllBarangays").addEventListener("click", () => {
+    if (savingPin) return;
+    cancelMove();
+    state.barangay = "";
+    load();
+  });
 
   config.barangays.forEach((name) => els.barangay.add(new Option(name, name)));
   config.commodities.forEach((name) => els.commodity.add(new Option(name, name)));
-
-  const TIER_STATUS = {1: "good", 2: "attention", 3: "neutral"};
 
   function renderMoreFilters() {
     const layer = layers[state.layer];
@@ -128,7 +150,6 @@
       return (options.find(([v]) => v === value) || [value, value])[1];
     };
     const list = [];
-    if (state.barangay) list.push({text: `Barangay: ${state.barangay}`, clear: () => { state.barangay = ""; }});
     if (state.commodity && layer.uses_commodity) list.push({text: `Commodity: ${state.commodity}`, clear: () => { state.commodity = ""; }});
     const statusLabel = (layer.status_options.find(([v]) => v === state.status) || [])[1];
     if (state.status && state.status !== layer.status_options[0][0]) list.push({text: statusLabel, clear: () => { state.status = ""; }});
@@ -160,7 +181,7 @@
       remove.type = "button";
       remove.setAttribute("aria-label", `Remove filter ${item.text}`);
       remove.textContent = "×";
-      remove.addEventListener("click", () => { item.clear(); closeDetail(); load(); });
+      remove.addEventListener("click", () => { item.clear(); load(); });
       chip.append(remove);
       return chip;
     }));
@@ -168,9 +189,7 @@
 
   function syncControls() {
     const layer = layers[state.layer];
-    document.querySelectorAll(".gis-layer-btn").forEach((button) => {
-      button.setAttribute("aria-pressed", String(button.dataset.layer === state.layer));
-    });
+    els.layer.value = state.layer;
     els.commodityWrap.hidden = !layer.uses_commodity;
     els.status.replaceChildren(...layer.status_options.map(([value, label]) => new Option(label, value)));
     if (!layer.status_options.some(([value]) => value === state.status)) state.status = layer.status_options[0][0];
@@ -193,15 +212,13 @@
     const layer = layers[state.layer];
     els.legend.replaceChildren();
     if (data.level === 1) {
-      els.legendTitle.textContent = "Records by map area (about 1 km)";
-      data.tiers.forEach((tier) => {
-        const item = document.createElement("li");
-        const swatch = document.createElement("span");
-        swatch.className = "gis-swatch";
-        swatch.innerHTML = pinHtml(layer.icon, TIER_STATUS[tier.tier], 22);
-        item.append(swatch, `${tier.label} record${tier.label === "1" ? "" : "s"}`);
-        els.legend.append(item);
-      });
+      els.legendTitle.textContent = "Barangay overview";
+      const item = document.createElement("li");
+      const swatch = document.createElement("span");
+      swatch.className = "gis-swatch";
+      swatch.innerHTML = pinHtml("bi-geo-alt-fill", "good", 22);
+      item.append(swatch, "Barangay reference point. Select a pin to see its records.");
+      els.legend.append(item);
       return;
     }
     els.legendTitle.textContent = "Legend";
@@ -218,16 +235,17 @@
   function showLevel(level) {
     els.level.textContent = [
       "",
-      "Level 1 of 3: where records are. Select a density pin, or pick from the insights.",
-      "Level 2 of 3: each record. Select one for its details.",
-      "Level 3 of 3: record details.",
+      "Select a barangay pin to see its records. Zoom in to explore nearby parcels.",
+      "Zoom in for individual pins; zoom out to group them. Select a pin for details.",
+      "Record details stay open until you close them.",
     ][level] || "";
   }
 
-  function selectBarangay(name) {
+  function selectBarangay(name, preserveView = false) {
+    if (savingPin) return;
+    cancelMove();
     state.barangay = name;
-    closeDetail();
-    load();
+    load({preserveView});
   }
 
   function renderInsights(data) {
@@ -272,40 +290,62 @@
     if (filter === "commodity") state.commodity = state.commodity === value ? "" : value;
     else if (state.extra[filter] === value) delete state.extra[filter];
     else state.extra[filter] = value;
-    closeDetail();
     load();
   }
 
-  function renderCells(data) {
-    const layer = layers[state.layer];
-    data.cells.forEach((cell) => {
-      const center = [cell.lat + (data.size / 2), cell.lng + (data.size / 2)];
-      const marker = L.marker(center, {
-        title: `${cell.count} records near ${cell.barangay}`,
+  function renderBarangays(data, fit = false) {
+    data.barangays.forEach((barangay) => {
+      const marker = L.marker([barangay.lat, barangay.lng], {
+        autoPanOnFocus: false,
+        title: barangay.barangay,
         icon: L.divIcon({
-          className: "",
-          iconSize: [20, 27],
-          iconAnchor: [10, 27],
-          html: pinHtml(layer.icon, TIER_STATUS[cell.tier], 20),
+          className: "gis-barangay-pin", iconSize: [24, 32], iconAnchor: [12, 32],
+          html: pinHtml("bi-geo-alt-fill", barangay.attention ? "attention" : barangay.count ? "good" : "neutral", 24),
         }),
       });
-      const note = cell.attention ? `, ${cell.attention} need attention` : "";
-      marker.bindTooltip(`${cell.count} record${cell.count === 1 ? "" : "s"}${note}. Mostly ${cell.barangay}`);
-      marker.on("click", () => selectBarangay(cell.barangay));
-      cells.addLayer(marker);
+      // Barangay names are configured reference labels, not coordinates inferred for parcels.
+      const label = document.createElement("span");
+      label.textContent = `${barangay.barangay}: ${barangay.count} records (${barangay.mapped} mapped)`;
+      marker.bindTooltip(label, {className: "gis-barangay-label"});
+      marker.on("click", () => selectBarangay(barangay.barangay));
+      barangayPins.addLayer(marker);
     });
-    map.invalidateSize();
-    if (data.cells.length) {
-      const centers = data.cells.map((cell) => [cell.lat + (data.size / 2), cell.lng + (data.size / 2)]);
-      map.fitBounds(L.latLngBounds(centers).pad(0.2), {padding: [20, 20], maxZoom: 14});
-    } else map.fitBounds(outline.getBounds());
+    if (fit) map.fitBounds(outline.getBounds(), {padding: [20, 20]});
   }
 
-  function renderPoints(points, geometry) {
+  function syncZoomLayers() {
+    const showRecords = Boolean(state.barangay) && map.getZoom() >= 14;
+    if (showRecords) {
+      if (map.hasLayer(barangayPins)) map.removeLayer(barangayPins);
+      if (!map.hasLayer(pins)) map.addLayer(pins);
+    } else {
+      if (map.hasLayer(pins)) map.removeLayer(pins);
+      if (!map.hasLayer(barangayPins)) map.addLayer(barangayPins);
+    }
+  }
+
+  map.on("zoomend", () => {
+    syncZoomLayers();
+    if (rendering || loadingMap || movingMarker || savingPin || !lastData) return;
+    if (state.barangay && map.getZoom() <= 12) {
+      state.barangay = "";
+      load({preserveView: true});
+    } else if (!state.barangay && map.getZoom() >= 15) {
+      const center = map.getCenter();
+      const nearest = [...lastData.barangays].sort((a, b) =>
+        center.distanceTo([a.lat, a.lng]) - center.distanceTo([b.lat, b.lng]))[0];
+      if (nearest && center.distanceTo([nearest.lat, nearest.lng]) < 4000) {
+        selectBarangay(nearest.barangay, true);
+      }
+    }
+  });
+
+  function renderPoints(points, geometry, preserveView = false) {
     const layer = layers[state.layer];
     markerByRecord.clear();
     points.forEach((point) => {
       const marker = L.marker([point.lat, point.lng], {
+        autoPanOnFocus: false,
         title: layer.label,
         icon: L.divIcon({className: "", iconSize: [18, 24], iconAnchor: [9, 24], html: pinHtml(layer.icon, point.status)}),
       });
@@ -317,11 +357,14 @@
     if (geometry) {
       barangayShape = L.geoJSON(geometry, {style: {color: "#111c2b", weight: 2, fill: false}, interactive: false}).addTo(map);
     }
-    const bounds = points.length ? L.latLngBounds(points.map((p) => [p.lat, p.lng])).pad(0.3)
-      : barangayShape ? barangayShape.getBounds() : null;
-    map.invalidateSize();
-    if (bounds) map.fitBounds(bounds, {maxZoom: 17});
-    else if (config.centers[state.barangay]) map.setView(config.centers[state.barangay], 15);
+    if (!preserveView) {
+      if (barangayShape) {
+        map.fitBounds(barangayShape.getBounds(), {maxZoom: 17, padding: [30, 30]});
+        if (map.getZoom() < 14) map.setZoom(14);
+      } else if (config.centers[state.barangay]) {
+        map.setView(config.centers[state.barangay], 15);
+      }
+    }
   }
 
   function parcelDetailUrl(id) {
@@ -332,6 +375,8 @@
     const crops = (item.crops || []).map((crop) => crop.name).join(", ") || "None recorded";
     return {
       id: item.id,
+      layer: "parcels",
+      pinStatus: item.pin_status,
       lat: item.lat,
       lng: item.lng,
       photos: item.photo_urls || (item.photo_url ? [item.photo_url] : []),
@@ -348,6 +393,21 @@
   }
 
   let detailCard = null;
+  const selectedPins = L.layerGroup().addTo(map);
+
+  function renderSelectionPin() {
+    selectedPins.clearLayers();
+    if (!detailCard || detailCard.lat == null || detailCard.lng == null) return;
+    const pin = L.marker([detailCard.lat, detailCard.lng], {
+      autoPanOnFocus: false,
+      title: `Selected: ${detailCard.title}`,
+      zIndexOffset: 1000,
+      icon: L.divIcon({className: "gis-selected-pin is-selected", iconSize: [22, 30], iconAnchor: [11, 30],
+        html: pinHtml(layers[detailCard.layer].icon, detailCard.pinStatus && detailCard.pinStatus !== "PINNED" ? "attention" : "good", 22)}),
+    });
+    selectedPins.addLayer(pin);
+  }
+
   let movingMarker = null;
   let originalPoint = null;
   let savingPin = false;
@@ -374,6 +434,7 @@
     }
     moveButton.textContent = "Move pin";
     moveStatus.textContent = "";
+    renderSelectionPin();
   }
 
   // Only an explicit Move pin action enables editing; drag operations never save implicitly.
@@ -381,7 +442,9 @@
     if (!detailCard || savingPin) return;
     if (!movingMarker) {
       originalPoint = L.latLng(detailCard.lat, detailCard.lng);
+      selectedPins.clearLayers();
       movingMarker = L.marker(originalPoint, {
+        autoPanOnFocus: false,
         draggable: true,
         icon: L.divIcon({className: "", iconSize: [24, 32], iconAnchor: [12, 32], html: pinHtml(layers.parcels.icon, "attention", 24)}),
       }).addTo(map);
@@ -406,10 +469,33 @@
       if (!response.ok || !result.ok) throw new Error(result.message || "The pin could not be saved.");
       map.removeLayer(movingMarker);
       movingMarker = null;
+      // Update the saved location without reloading layers or fitting the map bounds.
+      let marker = detailCard.layer === state.layer ? markerByRecord.get(String(cardId)) : null;
+      if (marker) {
+        pins.removeLayer(marker);
+        marker.setLatLng(point);
+        pins.addLayer(marker);
+      }
+      detailCard = {...detailCard, lat: point.lat, lng: point.lng,
+        rows: detailCard.rows.map(([label, value]) => [label,
+          label === "Coordinates" ? `${point.lat.toFixed(7)}, ${point.lng.toFixed(7)}` : value])};
+      if (lastData?.points && state.layer === "parcels") {
+        const savedPoint = lastData.points.find(item => String(item.id) === String(cardId));
+        if (savedPoint) { savedPoint.lat = point.lat; savedPoint.lng = point.lng; }
+      }
       savingPin = false;
-      closeDetail();
-      await load();
-      els.level.textContent = result.message;
+      showDetailCard(detailCard, {reveal: false});
+      selected = marker;
+      marker?.getElement()?.classList.add("is-selected");
+      moveStatus.textContent = result.message;
+      // Refresh authoritative metadata, keeping the current view and panel selection.
+      try {
+        const refreshed = await fetch(parcelDetailUrl(cardId), {headers: {Accept: "application/json"}});
+        if (refreshed.ok && detailCard?.id === cardId && detailCard.layer === "parcels") {
+          showDetailCard(normalizeParcelCard(await refreshed.json()), {reveal: false});
+          moveStatus.textContent = result.message;
+        }
+      } catch (_) { /* The save succeeded; retain the confirmed coordinates if refresh is unavailable. */ }
     } catch (error) {
       moveStatus.textContent = error.message || "The pin could not be saved. Try again.";
     } finally {
@@ -438,14 +524,15 @@
     if (event.key === "ArrowRight") showGalleryPhoto(photoIndex + 1);
   });
 
-  function showDetailCard(card) {
+  function showDetailCard(card, {reveal = true} = {}) {
     cancelMove();
     detailCard = card;
-    moveButton.hidden = state.layer !== "parcels" || card.lat == null || card.lng == null;
+    renderSelectionPin();
+    moveButton.hidden = card.layer !== "parcels" || card.lat == null || card.lng == null;
     els.detailTitle.textContent = card.title;
     els.detailKicker.textContent = card.kicker || "";
     els.detailKicker.hidden = !card.kicker;
-    const showPhoto = state.layer === "parcels";
+    const showPhoto = card.layer === "parcels";
     els.detailPhotoWrap.hidden = !showPhoto;
     if (showPhoto && card.image) {
       els.detailPhoto.src = card.image;
@@ -468,11 +555,12 @@
       return [term, description];
     }));
     els.detailLink.href = card.url;
-    els.detailClose.textContent = state.layer === "parcels" && state.barangay ? "Back to parcel list" : "Back to legend";
+    els.detailClose.textContent = "Close details";
     els.detail.hidden = false;
     els.parcelDirectory.hidden = true;
     els.legendBox.hidden = true;
     els.insights.hidden = true;
+    if (reveal) setPanelCollapsed(false);
     showLevel(3);
   }
 
@@ -490,7 +578,7 @@
 
   async function loadParcelDirectory(page = 1) {
     const visible = state.layer === "parcels" && Boolean(state.barangay);
-    els.parcelDirectory.hidden = !visible;
+    els.parcelDirectory.hidden = !visible || Boolean(detailCard);
     if (!visible) return;
     if (parcelListRequest) parcelListRequest.abort();
     parcelListRequest = new AbortController();
@@ -547,36 +635,59 @@
     els.attention.textContent = data.attention.toLocaleString();
   }
 
-  async function load() {
+  async function load({preserveView = false} = {}) {
+    if (savingPin) return;
+    cancelMove();
+    loadingMap = true;
     syncControls();
     if (request) request.abort();
     request = new AbortController();
+    const controller = request;
     els.loading.hidden = false;
     els.empty.hidden = true;
     const query = new URLSearchParams({layer: state.layer, search: state.search, barangay: state.barangay, commodity: state.commodity, status: state.status, ...state.extra});
     try {
-      const response = await fetch(`${config.dataUrl}?${query}`, {signal: request.signal, headers: {Accept: "application/json"}});
+      const response = await fetch(`${config.dataUrl}?${query}`, {signal: controller.signal, headers: {Accept: "application/json"}});
       const data = await response.json();
       if (!response.ok) { throw new Error(data.message || "bad response"); }
+      if (controller !== request) return;
+      rendering = true;
       lastData = data;
-      pins.clearLayers(); cells.clearLayers();
+      byId("gisScope").textContent = state.barangay || "All barangays";
+      pins.clearLayers(); barangayPins.clearLayers();
+      markerByRecord.clear();
       if (barangayShape && !state.barangay) { map.removeLayer(barangayShape); barangayShape = null; }
       setSummary(data);
-      showLevel(data.level);
+      if (!detailCard) showLevel(data.level);
       renderLegend(data);
       renderInsights(data);
-      if (data.level === 1) renderCells(data); else renderPoints(data.points, data.barangay_geometry);
+      renderBarangays(data, data.level === 1 && !preserveView);
+      if (data.level === 2) renderPoints(data.points, data.barangay_geometry, preserveView);
+      syncZoomLayers();
+      rendering = false;
+      if (detailCard) {
+        selected = detailCard.layer === state.layer ? markerByRecord.get(String(detailCard.id)) : null;
+        selected?.getElement()?.classList.add("is-selected");
+      }
       if (state.layer === "parcels" && state.barangay) loadParcelDirectory(1);
       else els.parcelDirectory.hidden = true;
       if (state.layer === "parcels" && state.barangay) els.insights.hidden = true;
-      const none = data.mapped === 0;
+      if (detailCard) {
+        els.parcelDirectory.hidden = true;
+        els.legendBox.hidden = true;
+        els.insights.hidden = true;
+      }
+      const none = data.level === 2 && data.mapped === 0;
       els.empty.hidden = !none;
       if (none) els.empty.textContent = data.total
         ? `${data.total} record${data.total === 1 ? "" : "s"} match, but none has a map location yet.`
         : "Nothing matches these filters.";
       els.loading.hidden = true;
+      loadingMap = false;
     } catch (error) {
       if (error.name === "AbortError") return;
+      loadingMap = false;
+      rendering = false;
       els.loading.hidden = true;
       els.empty.hidden = false;
       els.empty.textContent = error.message && error.message !== "bad response" ? error.message : "The map data could not be loaded. Try again.";
@@ -585,6 +696,7 @@
 
   let detailRequest = 0;
   async function openDetail(id, marker) {
+    const requestedLayer = state.layer;
     if (savingPin) return;
     const current = ++detailRequest;
     try {
@@ -595,7 +707,8 @@
       if (!response.ok) throw new Error("missing");
       const payload = await response.json();
       if (current !== detailRequest) return;
-      showDetailCard(state.layer === "parcels" ? normalizeParcelCard(payload) : payload);
+      showDetailCard(requestedLayer === "parcels" ? normalizeParcelCard(payload) : {...payload, id, layer: requestedLayer,
+        lat: marker?.getLatLng().lat, lng: marker?.getLatLng().lng});
       if (selected) selected.getElement()?.classList.remove("is-selected");
       selected = marker;
       marker?.getElement()?.classList.add("is-selected");
@@ -609,6 +722,7 @@
     cancelMove();
     detailRequest += 1;
     detailCard = null;
+    selectedPins.clearLayers();
     els.detail.hidden = true;
     els.legendBox.hidden = false;
     const hasDirectory = state.layer === "parcels" && Boolean(state.barangay);
@@ -618,33 +732,27 @@
     selected = null;
   }
 
-  document.querySelectorAll(".gis-layer-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      if (state.layer === button.dataset.layer) return;
-      state.layer = button.dataset.layer;
-      state.status = "";
-      // Keep only the extra filters the new layer understands (the farmer range is shared).
-      const allowed = new Set(layers[state.layer].filters);
-      Object.keys(state.extra).forEach((key) => { if (!allowed.has(key)) delete state.extra[key]; });
-      insightTab = "busiest";
-      closeDetail();
-      load();
-    });
+  els.layer.addEventListener("change", () => {
+    if (savingPin) { els.layer.value = state.layer; return; }
+    state.layer = els.layer.value;
+    state.status = "";
+    const allowed = new Set(layers[state.layer].filters);
+    Object.keys(state.extra).forEach(key => { if (!allowed.has(key)) delete state.extra[key]; });
+    insightTab = "busiest";
+    load();
   });
   [["barangay", els.barangay], ["commodity", els.commodity], ["status", els.status]].forEach(([key, select]) => {
     select.addEventListener("change", () => { state[key] = select.value; updateFilterButton(); });
   });
   els.reset.addEventListener("click", () => {
     Object.assign(state, {barangay: "", commodity: "", status: "", extra: {}});
-    closeDetail();
     load();
   });
-  els.apply.addEventListener("click", () => { closeFilters(); closeDetail(); load(); });
+  els.apply.addEventListener("click", () => { closeFilters(); load(); });
   els.search.addEventListener("input", () => {
     clearTimeout(mapSearchTimer);
     mapSearchTimer = setTimeout(() => {
       state.search = els.search.value.trim();
-      closeDetail();
       load();
     }, 300);
   });

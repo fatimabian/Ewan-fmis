@@ -52,24 +52,14 @@
             </div>
             <div class="gis-chips" id="gisChips" aria-label="Applied filters" hidden></div>
             <div class="fmis-filter-grid">
-              <div class="gis-map-by is-wide">
-                <span class="gis-group-label" id="gisLayersLabel">Map by</span>
-                <div class="gis-layers"
-                     id="gisLayers"
-                     role="group"
-                     aria-labelledby="gisLayersLabel">
+              <label class="fmis-filter-field" for="gisLayer">
+                Map by
+                <select id="gisLayer">
                   {% for layer in layer_list %}
-                    <button type="button"
-                            class="gis-layer-btn"
-                            data-layer="{{ layer.key }}"
-                            aria-pressed="false">
-                      <i class="bi {{ layer.icon }}">
-                      </i>
-                      {{ layer.short_label }}
-                    </button>
+                    <option value="{{ layer.key }}">{{ layer.short_label }}</option>
                   {% endfor %}
-                </div>
-              </div>
+                </select>
+              </label>
               <label class="fmis-filter-field">
                 Barangay
                 <select id="gisBarangay">
@@ -110,7 +100,18 @@
         <span>Need attention</span>
       </div>
     </div>
-    <div class="gis-main">
+    <div class="gis-map-actions">
+      <button type="button" class="btn btn-outline-secondary" id="gisAllBarangays">All barangays</button>
+      <span id="gisScope" aria-live="polite">All barangays</span>
+      <button type="button"
+              class="btn btn-outline-secondary"
+              id="gisPanelToggle"
+              aria-expanded="true"
+              aria-controls="gisSideContent">
+        Hide info panel
+      </button>
+    </div>
+    <div class="gis-main" id="gisMain">
       <div class="gis-map-wrap">
         <div id="gisMap"
              role="application"
@@ -118,71 +119,77 @@
         <p class="gis-empty" id="gisEmpty" hidden></p>
         <p class="gis-loading" id="gisLoading" hidden>Loading…</p>
       </div>
-      <aside class="panel sg-panel gis-side" aria-label="Legend and details">
-        <p class="gis-level" id="gisLevel"></p>
-        <div id="gisDetail" hidden>
-          <div class="gis-detail-photo" id="gisDetailPhotoWrap" hidden>
-            <img id="gisDetailPhoto" alt="" loading="lazy">
-            <span id="gisDetailPhotoEmpty">No field photo available</span>
-          </div>
-          <p class="gis-detail-kicker" id="gisDetailKicker" hidden></p>
-          <h3 id="gisDetailTitle"></h3>
-          <dl id="gisDetailRows">
-          </dl>
-          <a class="btn btn-success" id="gisDetailLink" href="#">Open record</a>
-          <button type="button"
-                  class="btn btn-outline-secondary"
-                  id="gisMovePin"
-                  hidden>
-            Move pin
-          </button>
-          <p id="gisMoveStatus" role="status" aria-live="polite"></p>
-          <button type="button" class="btn btn-outline-secondary" id="gisDetailClose">Back to legend</button>
-        </div>
-        <section class="gis-parcel-directory"
-                 id="gisParcelDirectory"
-                 hidden
-                 aria-labelledby="gisParcelDirectoryTitle">
-          <div class="gis-directory-head">
-            <div>
-              <h3 id="gisParcelDirectoryTitle">Farm Parcels</h3>
-              <p id="gisParcelDirectoryScope"></p>
+      <aside class="panel sg-panel gis-side"
+             id="gisSide"
+             aria-label="Legend and details">
+        <div id="gisSideContent">
+          <p class="gis-level" id="gisLevel"></p>
+          <div id="gisDetail" hidden>
+            <div class="gis-detail-photo" id="gisDetailPhotoWrap" hidden>
+              <img id="gisDetailPhoto" alt="" loading="lazy">
+              <span id="gisDetailPhotoEmpty">No field photo available</span>
             </div>
-          </div>
-          <label class="gis-directory-search">
-            <span class="visually-hidden">Search parcels in this barangay</span>
-            <i class="bi bi-search" aria-hidden="true">
-            </i>
-            <input type="search"
-                   id="gisParcelSearch"
-                   placeholder="Farmer, parcel, or farmer number">
-          </label>
-          <select id="gisParcelPinStatus" aria-label="Filter parcel list by pin status">
-            <option value="">All parcels</option>
-            <option value="PINNED">Pinned</option>
-            <option value="UNPINNED">Not pinned</option>
-          </select>
-          <div class="gis-directory-list" id="gisParcelList" aria-live="polite"></div>
-          <nav class="gis-directory-pages" aria-label="Parcel list pages">
+            <p class="gis-detail-kicker" id="gisDetailKicker" hidden></p>
+            <h3 id="gisDetailTitle"></h3>
+            <dl id="gisDetailRows">
+            </dl>
+            <a class="btn btn-success" id="gisDetailLink" href="#">Open record</a>
             <button type="button"
                     class="btn btn-outline-secondary"
-                    id="gisParcelPrevious">
-              Previous
+                    id="gisMovePin"
+                    hidden>
+              Move pin
             </button>
-            <span id="gisParcelPageStatus"></span>
-            <button type="button" class="btn btn-outline-secondary" id="gisParcelNext">Next</button>
-          </nav>
-        </section>
-        <div id="gisLegendBox">
-          <h3 id="gisLegendTitle">Legend</h3>
-          <ul class="sg-legend gis-legend" id="gisLegend">
-          </ul>
-        </div>
-        <div id="gisInsights" hidden>
-          <h3>Insights</h3>
-          <div class="gis-tabs" id="gisTabs" role="tablist" aria-label="Insights"></div>
-          <ol class="gis-top" id="gisTop">
-          </ol>
+            <p id="gisMoveStatus" role="status" aria-live="polite"></p>
+            <button type="button" class="btn btn-outline-secondary" id="gisDetailClose">
+              Close details
+            </button>
+          </div>
+          <section class="gis-parcel-directory"
+                   id="gisParcelDirectory"
+                   hidden
+                   aria-labelledby="gisParcelDirectoryTitle">
+            <div class="gis-directory-head">
+              <div>
+                <h3 id="gisParcelDirectoryTitle">Farm Parcels</h3>
+                <p id="gisParcelDirectoryScope"></p>
+              </div>
+            </div>
+            <label class="gis-directory-search">
+              <span class="visually-hidden">Search parcels in this barangay</span>
+              <i class="bi bi-search" aria-hidden="true">
+              </i>
+              <input type="search"
+                     id="gisParcelSearch"
+                     placeholder="Farmer, parcel, or farmer number">
+            </label>
+            <select id="gisParcelPinStatus" aria-label="Filter parcel list by pin status">
+              <option value="">All parcels</option>
+              <option value="PINNED">Pinned</option>
+              <option value="UNPINNED">Not pinned</option>
+            </select>
+            <div class="gis-directory-list" id="gisParcelList" aria-live="polite"></div>
+            <nav class="gis-directory-pages" aria-label="Parcel list pages">
+              <button type="button"
+                      class="btn btn-outline-secondary"
+                      id="gisParcelPrevious">
+                Previous
+              </button>
+              <span id="gisParcelPageStatus"></span>
+              <button type="button" class="btn btn-outline-secondary" id="gisParcelNext">Next</button>
+            </nav>
+          </section>
+          <div id="gisLegendBox">
+            <h3 id="gisLegendTitle">Legend</h3>
+            <ul class="sg-legend gis-legend" id="gisLegend">
+            </ul>
+          </div>
+          <div id="gisInsights" hidden>
+            <h3>Insights</h3>
+            <div class="gis-tabs" id="gisTabs" role="tablist" aria-label="Insights"></div>
+            <ol class="gis-top" id="gisTop">
+            </ol>
+          </div>
         </div>
       </aside>
     </div>

@@ -1,6 +1,6 @@
 """Database-backed descriptive metrics and reusable chart series."""
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 import hashlib
 
 from django.core.paginator import Paginator
@@ -191,17 +191,19 @@ def _categorical_series(rows, *, label_key="label", value_key="value"):
     }
 
 
-def _categorical_dual_series(first_rows, second_rows, *, first_key="value", second_key="value"):
+def _categorical_dual_series(first_rows, second_rows, *, first_key="value", second_key="value", shared_scale=False):
     """Compare two measures by label using independent, explicitly labelled scales."""
     first_map = {row["label"]: row.get(first_key) or 0 for row in first_rows}
     second_map = {row["label"]: row.get(second_key) or 0 for row in second_rows}
     labels = list(dict.fromkeys([row["label"] for row in first_rows] + [row["label"] for row in second_rows]))
     first_peak = max((float(first_map.get(label, 0)) for label in labels), default=0) or 1
     second_peak = max((float(second_map.get(label, 0)) for label in labels), default=0) or 1
+    if shared_scale:
+        first_peak = second_peak = max(first_peak, second_peak)
     count = len(labels)
     points = []
     for index, label in enumerate(labels):
-        x = 4 if count <= 1 else 4 + (index * 92 / (count - 1))
+        x = (index + 0.5) * 100 / count if shared_scale else (4 if count <= 1 else 4 + (index * 92 / (count - 1)))
         first = first_map.get(label, 0)
         second = second_map.get(label, 0)
         points.append({
@@ -218,6 +220,7 @@ def _categorical_dual_series(first_rows, second_rows, *, first_key="value", seco
         "second_polyline": " ".join(f'{point["x"]},{point["second_y"]}' for point in points),
         "first_peak": first_peak,
         "second_peak": second_peak,
+        "shared_scale": shared_scale,
         "categorical": True,
     }
 
@@ -254,6 +257,36 @@ def _farmer_barangay_series(farmers, date_range):
         end = timezone.localdate()
         period = str(end.year) if start.year == end.year else f"{start.year}–{end.year}"
     return _bar_series([{"label": name, "value": totals.get(name, 0)} for name in ROSARIO_BARANGAYS], period)
+
+
+def _monthly_request_status_series(requests):
+    """Current statuses grouped by receipt month; never imply historical transitions."""
+    colors = {"PENDING": "#b58220", "IN_PROGRESS": "#377bb5", "COMPLETED": "#2f7d5c", "CANCELLED": "#bb5555"}
+    statuses = [{"key": key, "label": label, "color": colors[key]} for key, label in ServiceRequest.STATUS_CHOICES]
+    counts = defaultdict(Counter)
+    for created_at, status in requests.values_list("created_at", "status").iterator():
+        period = _month_bucket(created_at)
+        if period:
+            counts[period][status] += 1
+    months = []
+    if counts:
+        current, end = min(counts), max(counts)
+        while current <= end:
+            months.append(current)
+            current = date(current.year + (current.month == 12), current.month % 12 + 1, 1)
+    peak = max((count for monthly in counts.values() for count in monthly.values()), default=0) or 1
+    points, years = [], []
+    for month in months:
+        rows = [
+            {**status, "value": counts[month][status["key"]],
+             "percent": round(counts[month][status["key"]] / peak * 100, 2)}
+            for status in statuses
+        ]
+        points.append({"label": month.strftime("%b %Y"), "month": month.strftime("%b"), "statuses": rows})
+        if not years or years[-1]["year"] != month.year:
+            years.append({"year": month.year, "months": 0})
+        years[-1]["months"] += 1
+    return {"points": points, "years": years, "peak": peak, "statuses": statuses}
 
 
 def descriptive_analytics(tab="overview", date_range="all", filters=None):
@@ -460,6 +493,7 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             "average_response_hours": duration_hours(timing["average_response"]),
             "average_completion_hours": duration_hours(timing["average_completion"]),
             "request_status_rows": status_rows,
+            "request_status_monthly": _monthly_request_status_series(requests),
             "request_status_bar_series": _bar_series([{**row, "share": row["percent"]} for row in status_rows]),
             "request_dual_series": _monthly_dual_series(
                 requests,
@@ -473,9 +507,6 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
                 .annotate(total=Count("pk"))
                 .order_by("-total", "service__name")[:6]
             ],
-            "recent_requests": list(
-                requests.select_related("farmer", "service").order_by("-created_at", "-pk")[:5]
-            ),
         }
 
     if tab == "interventions":
@@ -519,6 +550,9 @@ def descriptive_analytics(tab="overview", date_range="all", filters=None):
             "intervention_farmers": totals["farmers"] or 0,
             "intervention_barangays": len(reached_barangays),
             "intervention_types": types,
+            "intervention_distribution_series": _categorical_dual_series(
+                types, types, first_key="value", second_key="farmers", shared_scale=True
+            ),
             "intervention_series": _monthly_series(interventions, "intervention_date"),
         }
 

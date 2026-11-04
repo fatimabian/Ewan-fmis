@@ -49,7 +49,7 @@ class GISMapView(GISAccessMixin, TemplateView):
 
 
 class GISDataView(GISAccessMixin, View):
-    """Level one (density grid) or level two (individual points) for the chosen layer."""
+    """Barangay reference pins first; saved record coordinates after drill-down."""
 
     def get(self, request):
         params, error = layers.parse_params(request.GET)
@@ -66,6 +66,7 @@ class GISDataView(GISAccessMixin, View):
             "attention": sum(1 for record in found if record.status == layers.ATTENTION),
             "level": 2 if params.barangay else 1,
             "insights": layers.insights(found, layer),
+            "barangays": layers.barangay_markers(found, params.barangay),
         }
         if params.barangay:
             payload["truncated"] = len(mapped) > MAX_POINTS
@@ -75,8 +76,6 @@ class GISDataView(GISAccessMixin, View):
             ]
             boundary = RosarioBarangayBoundary.objects.filter(is_active=True, barangay_name=params.barangay).first()
             payload["barangay_geometry"] = boundary.geometry if boundary else None
-        else:
-            payload.update(layers.grid(mapped))
         return JsonResponse(payload)
 
 

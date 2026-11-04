@@ -71,10 +71,11 @@ When the reader sends photos outside FMIS (any provider except `sample`), the di
 
 ### GIS Map
 
-**GIS Map** (staff sidebar) shows one map at a time, chosen with the **Map by** chips: Farmers, Parcels, Commodities, Requests or Interventions. Applied filters appear as removable chips under the filter row.
+**GIS Map** (staff sidebar) shows one map at a time, chosen with the **Map by** dropdown: Farmers, Parcels, Commodities, Requests or Interventions. Choose the barangay and other filters inside the Filter popup.
 
 - **Filters:** Barangay, Commodity and Show are always visible. **More filters** adds the ones that fit the layer: farmer number range (F-0001 is farmer 1) on every layer; livelihood, sex and special group (PWD, 4Ps, indigenous, association) for farmers; ownership, farm type, land type and area range for parcels; organic and area range for commodities; service type, priority and dates for requests; assistance type and dates for interventions.
-- **Three colours** (green good, gold needs attention, navy neutral), one icon per layer, and **three levels**: a square density grid (about 1 km squares, three tiers with their record ranges in the legend), clustered pins once a barangay is chosen, then a short record card with a link.
+- **Map navigation:** start with one reference pin per barangay, then choose a barangay to see its records. Zooming in separates parcel clusters into individual pins; zooming out groups them and returns to the barangay overview. Map by uses a dropdown, and the selected barangay stays visible in its dropdown without a duplicate chip.
+- **Record details:** the larger map has white zoom controls and a collapsible info panel. Selected details and the highlighted pin stay visible until closed. Moving a parcel pin saves its coordinates and refreshes its details without resetting the current map view. Collapsing the panel expands the map without discarding the selected record.
 - **Insights** under the legend: busiest barangays, barangays that need attention, and a breakdown for the layer (livelihood, ownership, commodity, service type, assistance type). Clicking a breakdown row applies it as a filter.
 
 ### Limitations

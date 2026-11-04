@@ -264,3 +264,33 @@
 .gis-photo-gallery p {text-align:center;margin:10px 0 0}
 #gisDetailPhoto {cursor:zoom-in}
 #gisMoveStatus {font-size:12px;line-height:1.5}
+
+/* Larger GIS workspace with an optional side panel; collapsing never discards details. */
+.gis-map-actions {display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.gis-map-actions .btn {min-height:42px}
+#gisPanelToggle {margin-left:auto}
+#gisScope {font-size:13px;font-weight:700}
+.gis-main {min-width:0}
+.gis-map-wrap {height:82vh;height:82dvh;min-height:600px;max-height:none}
+.gis-side {min-width:0;max-height:82vh;max-height:82dvh;overflow-y:auto;scrollbar-width:thin}
+.gis-main.is-panel-collapsed {grid-template-columns:minmax(0,1fr)}
+#gisSide[hidden] {display:none!important}
+#gisMap .leaflet-control-zoom a[role="button"] {
+    display:block!important;background:#fff!important;color:#14243a!important;
+    border-color:#b5c2ba!important;font-size:24px!important;font-weight:800;
+    width:40px!important;height:40px!important;line-height:40px!important;
+}
+#gisMap .leaflet-control-zoom a[role="button"]:hover {background:#eef4f0!important}
+#gisMap .leaflet-control-zoom a[role="button"].leaflet-disabled {color:#7a867f!important}
+#gisMap .leaflet-marker-icon {transition:opacity .2s ease}
+.gis-barangay-label {font-size:12px;font-weight:700;background:#fff;color:#14243a;border:1px solid #64786a}
+@media(min-width:960px) {.gis-main{grid-template-columns:minmax(0,1fr) 310px}}
+@media(max-width:959px) {
+    .gis-map-wrap {height:76vh;height:76dvh;min-height:480px}
+    .gis-side {max-height:60dvh}
+}
+/* Leaflet owns marker transforms; button motion styles must not move geographic pins. */
+#gisMap .leaflet-marker-icon[role="button"] {
+    border:0!important;background:transparent!important;box-shadow:none!important;
+    transition:opacity .2s ease!important;
+}

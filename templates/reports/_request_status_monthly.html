@@ -1,0 +1,53 @@
+{# Full-width monthly status comparison using current statuses and receipt dates. #}
+<article class="analytics-panel request-status-monthly"
+         aria-labelledby="requestStatusMonthlyTitle">
+  <div class="analytics-chart-heading">
+    <div>
+      <h3 id="requestStatusMonthlyTitle">Request Status by Month</h3>
+      <p>Current status of requests received in each month, matching the selected filters.</p>
+    </div>
+  </div>
+  <ul class="request-status-legend" aria-label="Request status colors">
+    {% for status in series.statuses %}
+      <li><i style="background:{{ status.color }}" aria-hidden="true"></i>{{ status.label }}</li>
+    {% endfor %}
+  </ul>
+  {% if series.points %}
+    <div class="request-status-scroll"
+         tabindex="0"
+         role="region"
+         aria-label="Monthly request status grouped bar chart">
+      <div class="request-status-chart"
+           style="--month-count:{{ series.points|length }}">
+        <div class="request-status-scale"><span>{{ series.peak }}</span><b>Requests</b><span>0</span></div>
+        <div class="request-status-months">
+          {% for month in series.points %}
+            <div class="request-status-month">
+              <div class="request-status-bars">
+                {% for status in month.statuses %}
+                  <div class="request-status-bar"
+                       tabindex="0"
+                       role="img"
+                       aria-label="{{ month.label }}: {{ status.label }}, {{ status.value }} requests"
+                       title="{{ month.label }} · {{ status.label }}: {{ status.value }}"
+                       style="--value:{{ status.percent }}%;
+                              --bar-color:{{ status.color }}">
+                    <b>{{ status.value }}</b><i aria-hidden="true"></i>
+                  </div>
+                {% endfor %}
+              </div>
+              <strong>{{ month.month }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="request-status-years">
+          {% for year in series.years %}
+            <b style="grid-column:span {{ year.months }}">{{ year.year }}</b>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <p class="analytics-empty">No requests match the selected filters.</p>
+  {% endif %}
+</article>
