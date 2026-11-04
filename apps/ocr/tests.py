@@ -55,6 +55,41 @@ class FallbackTests(TestCase):
         self.assertEqual(post.call_count, 1)
 
     @mock.patch("apps.ocr.providers.requests.post")
+    def test_openrouter_requests_json_and_room_for_complete_registration(self, post):
+        post.return_value = openrouter_response(reply())
+        services.extract(image_bytes(), fields=FIELDS)
+        body = post.call_args.kwargs["json"]
+        self.assertEqual(body["response_format"], {"type": "json_object"})
+        self.assertGreaterEqual(body["max_tokens"], 4096)
+
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_truncated_provider_answer_is_not_accepted_as_complete(self, post):
+        truncated = openrouter_response(reply("Not a complete scan"))
+        truncated.json.return_value["choices"][0]["finish_reason"] = "length"
+        post.side_effect = [truncated, openrouter_response(reply("Complete answer"))]
+        result = services.extract(image_bytes(), fields=FIELDS)
+        self.assertEqual(result.model, "m2")
+        self.assertEqual(result.fields["farmer_name"].value, "Complete answer")
+        self.assertIn("cut off", result.attempts[0][1])
+
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_malformed_provider_message_falls_back_without_crashing(self, post):
+        malformed = openrouter_response(reply())
+        malformed.json.return_value["choices"] = [None]
+        post.side_effect = [malformed, openrouter_response(reply("Complete answer"))]
+        result = services.extract(image_bytes(), fields=FIELDS)
+        self.assertEqual(result.model, "m2")
+        self.assertEqual(result.fields["farmer_name"].value, "Complete answer")
+
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_wrapped_json_does_not_exhaust_models_or_daily_photo_quota(self, post):
+        post.return_value = openrouter_response("Here is the form:\n```json\n" + reply() + "\n```")
+        result = services.extract(image_bytes(), fields=FIELDS)
+        self.assertEqual(result.model, "m1")
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(OcrDailyUsage.objects.get().count, 1)
+
+    @mock.patch("apps.ocr.providers.requests.post")
     def test_falls_back_when_a_model_errors_or_returns_garbage(self, post):
         failure = mock.Mock(status_code=429)
         post.side_effect = [failure, openrouter_response("not json"), openrouter_response(reply())]
@@ -233,6 +268,17 @@ class ParsingTests(TestCase):
         parsed = parse_reply(text, FIELDS)
         self.assertEqual(parsed["farmer_name"], ("Juan", 0.5))
         self.assertEqual(parsed["latitude"], ("13", 1.0))
+
+    def test_complete_json_inside_provider_formatting_is_accepted(self):
+        payload = reply("Juan {sample}", 0.9)
+        for text in (f"Here is the extracted form:\n```json\n{payload}\n```", f"<think>Read only the visible form.</think>\n{payload}"):
+            with self.subTest(text=text[:25]):
+                self.assertEqual(parse_reply(text, FIELDS)["farmer_name"], ("Juan {sample}", 0.9))
+
+    def test_truncated_and_conflicting_json_answers_are_rejected(self):
+        for text in (reply()[:-1], "```json\n" + reply()[:-5], reply("Juan") + "\n" + reply("Pedro")):
+            with self.subTest(text=text[:25]), self.assertRaises(OcrProviderError):
+                parse_reply(text, FIELDS)
 
     def test_empty_value_has_zero_confidence(self):
         parsed = parse_reply('{"fields": {"farmer_name": {"value": "x", "confidence": 1}, "latitude": {"value": "", "confidence": 0.9}}}', FIELDS)

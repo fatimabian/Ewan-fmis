@@ -302,22 +302,28 @@ def _upload_and_verify(path, checksum):
     return True
 
 
-def prune_local_backups(destination_dir):
-    """Retain 7 daily, 4 weekly, and 12 monthly encrypted recovery points."""
-    backups = sorted(destination_dir.glob("fmis-backup-*.fmisbak"), reverse=True)
-    keep = set(backups[:7])
-    weekly = {}
-    monthly = {}
-    for path in backups:
-        modified = timezone.datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.get_current_timezone())
+def prune_local_backups(destination_dir, *, protected=()):
+    """Retain newest recovery points by file time, across old and new filename formats."""
+    observed = []
+    for path in destination_dir.glob("fmis-backup-*.fmisbak"):
+        try:
+            observed.append((path, path.stat().st_mtime_ns))
+        except FileNotFoundError:
+            continue  # Another retention job may have removed an older file.
+    observed.sort(key=lambda item: (item[1], item[0].name), reverse=True)
+    keep = {path for path, _ in observed[:7]}
+    keep.update(path for path in protected if path.is_file())
+    weekly, monthly = {}, {}
+    for path, modified_ns in observed:
+        modified = timezone.datetime.fromtimestamp(modified_ns / 1_000_000_000, tz=timezone.get_current_timezone())
         weekly.setdefault(modified.strftime("%G-%V"), path)
         monthly.setdefault(modified.strftime("%Y-%m"), path)
     keep.update(list(weekly.values())[:4])
     keep.update(list(monthly.values())[:12])
-    for path in backups:
+    for path, _ in observed:
         if path not in keep:
             path.unlink(missing_ok=True)
-    return len(keep)
+    return sum(path.is_file() for path in keep)
 
 
 def _file_checksum(path):
@@ -370,7 +376,7 @@ def create_verified_backup(output_dir=None):
         _verify_encrypted_archive(destination, key)
         checksum = _file_checksum(destination)
         offsite = _upload_and_verify(destination, checksum)
-        retained = prune_local_backups(destination_dir)
+        retained = prune_local_backups(destination_dir, protected=(destination,))
         storage_label = "Secure off-site storage" if offsite else "Encrypted server storage"
         run.status = "VERIFIED"
         run.storage = storage_label

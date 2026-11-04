@@ -58,7 +58,9 @@ class OpenRouterProvider(BaseProvider):
             {
                 "model": model,
                 "temperature": 0,
-                "max_tokens": 1600,
+                # Leave room for the complete RSBSA field set, not just short parcel forms.
+                "max_tokens": 4096,
+                "response_format": {"type": "json_object"},
                 "messages": [
                     {
                         "role": "user",
@@ -74,11 +76,18 @@ class OpenRouterProvider(BaseProvider):
             },
         )
         try:
-            content = body["choices"][0]["message"]["content"]
+            choice = body["choices"][0]
+            if not isinstance(choice, dict):
+                raise OcrProviderError("The provider reply had no message.")
+            if choice.get("finish_reason") == "length":
+                raise OcrProviderError("The provider cut off the JSON answer before it finished.")
+            content = choice["message"]["content"]
         except (KeyError, IndexError, TypeError) as error:
             raise OcrProviderError("The provider reply had no message.") from error
         if isinstance(content, list):
-            content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+            content = "".join(part["text"] for part in content if isinstance(part, dict) and isinstance(part.get("text"), str))
+        if not isinstance(content, str) or not content.strip():
+            raise OcrProviderError("The provider returned no readable answer.")
         return content
 
 

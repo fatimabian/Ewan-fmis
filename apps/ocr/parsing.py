@@ -25,13 +25,37 @@ def build_prompt(field_names, instructions=""):
     )
 
 
+def _reply_payload(text):
+    """Accept complete JSON, including a single JSON answer wrapped in prose or fences.
+
+    Do not repair truncated JSON or guess missing values, and reject ambiguous answers.
+    """
+    if not isinstance(text, str):
+        raise OcrProviderError("The reply was not valid JSON.")
+    cleaned = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
+    try:
+        return json.loads(cleaned)
+    except ValueError:
+        pass
+    decoder = json.JSONDecoder()
+    candidates, position = [], 0
+    while (start := cleaned.find("{", position)) >= 0:
+        try:
+            candidate, end = decoder.raw_decode(cleaned, start)
+        except ValueError:
+            position = start + 1
+            continue
+        if isinstance(candidate, dict) and isinstance(candidate.get("fields"), dict):
+            candidates.append(candidate)
+        position = end
+    if len(candidates) != 1:
+        raise OcrProviderError("The reply was not valid JSON." if not candidates else "The reply contained multiple conflicting answers.")
+    return candidates[0]
+
+
 def parse_reply(text, field_names):
     """Turn a model reply into {name: (value, confidence)}, or raise OcrProviderError."""
-    cleaned = re.sub(r"^```(?:json)?|```$", "", (text or "").strip(), flags=re.MULTILINE).strip()
-    try:
-        payload = json.loads(cleaned)
-    except ValueError as error:
-        raise OcrProviderError("The reply was not valid JSON.") from error
+    payload = _reply_payload(text)
     fields = payload.get("fields") if isinstance(payload, dict) else None
     if not isinstance(fields, dict):
         raise OcrProviderError("The reply had no fields object.")
