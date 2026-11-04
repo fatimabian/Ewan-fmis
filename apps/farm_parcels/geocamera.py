@@ -1,12 +1,16 @@
-"""Read and reconcile GPS evidence from original GeoCamera image files."""
+"""Read embedded or visibly stamped GPS and propose coordinates for staff review."""
 
 from datetime import datetime
+from io import BytesIO
+import re
+import shutil
+import subprocess
 from hashlib import sha256
 from math import asin, cos, radians, sin, sqrt
 from statistics import median
 
 from django.utils import timezone
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 
 GEOCAMERA_CLUSTER_METERS = 30.0
@@ -34,8 +38,48 @@ def _capture_time(exif):
     return timezone.make_aware(captured, timezone.get_current_timezone())
 
 
+def _stamp_coordinates(text):
+    """Require both explicit labels; never guess coordinates from other numbers."""
+    found = []
+    for label, limit in ((r"lat(?:itude)?", 90), (r"lon(?:gitude)?", 180)):
+        match = re.search(rf"\b{label}\s*[:=]\s*([+-]?\d{{1,3}}[.,]\d{{4,8}})\b", text, re.I)
+        if not match:
+            return None
+        value = float(match.group(1).replace(",", "."))
+        if not -limit <= value <= limit:
+            return None
+        found.append(round(value, 7))
+    return tuple(found)
+
+
+def _read_gps_stamp(image):
+    """Local, bounded OCR of the top stamp; photos never leave the server."""
+    executable = shutil.which("tesseract")
+    if not executable or min(image.size) < 100:
+        return None
+    image = ImageOps.exif_transpose(image)
+    crop = image.crop((0, 0, image.width, max(1, int(image.height * 0.35))))
+    crop.thumbnail((1800, 700))
+    scale = min(3, 2400 / crop.width)
+    crop = ImageOps.autocontrast(ImageOps.grayscale(crop))
+    crop = crop.resize((int(crop.width * scale), int(crop.height * scale)))
+    data = BytesIO()
+    crop.save(data, format="PNG")
+    try:
+        response = subprocess.run(
+            [executable, "stdin", "stdout", "--psm", "11", "-l", "eng"],
+            input=data.getvalue(), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=5, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if response.returncode:
+        return None
+    return _stamp_coordinates(response.stdout.decode("utf-8", errors="replace"))
+
+
 def extract_geocamera_metadata(upload):
-    """Return trustworthy, machine-readable metadata without using OCR overlays."""
+    """Prefer embedded GPS; otherwise propose visible stamp coordinates for review."""
     digest = sha256()
     upload.seek(0)
     for chunk in upload.chunks():
@@ -51,8 +95,6 @@ def extract_geocamera_metadata(upload):
     try:
         with Image.open(upload) as image:
             exif = image.getexif()
-            if not exif:
-                return result
             try:
                 gps = exif.get_ifd(34853)
             except (AttributeError, KeyError, TypeError, ValueError):
@@ -67,6 +109,10 @@ def extract_geocamera_metadata(upload):
                         captured_at=_capture_time(exif),
                         source="Embedded GPS metadata",
                     )
+            if result["latitude"] is None:
+                stamped = _read_gps_stamp(image)
+                if stamped:
+                    result.update(latitude=stamped[0], longitude=stamped[1], source="Visible GPS stamp (OCR; verify with photo)")
     except (OSError, UnidentifiedImageError, ValueError):
         pass
     finally:
@@ -103,7 +149,7 @@ def reconcile_geotagged_photos(photos, threshold=GEOCAMERA_CLUSTER_METERS):
     if not points:
         return {
             "status": "missing",
-            "message": "No embedded GPS coordinates were found in the uploaded originals.",
+            "message": "No readable GPS coordinates were found in the photo metadata or visible stamp.",
             "points": [],
             "accepted": [],
             "outliers": [],
@@ -148,6 +194,7 @@ def reconcile_geotagged_photos(photos, threshold=GEOCAMERA_CLUSTER_METERS):
         "message": (
             f"{len(accepted)} close GPS point(s) support the proposed location."
             + (f" {len(outliers)} distant point(s) were excluded." if outliers else "")
+            + (" Some coordinates were read from visible text. Compare every digit with the photo before confirming." if any("OCR" in getattr(item["photo"], "gps_source", "") for item in accepted) else "")
         ),
         "points": points,
         "accepted": accepted,

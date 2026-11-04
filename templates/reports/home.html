@@ -2034,8 +2034,14 @@
               });
           }
 
+          let previewController = null;
+          document.addEventListener('fmis:results-loading', () => previewController?.abort());
           async function refreshPreview() {
-              if (!type.value) return;
+              previewController?.abort();
+              window.fmisCancelResultsUpdate?.();
+              if (!type.value) { document.getElementById('filteredReport')?.remove(); return; }
+              previewController = new AbortController();
+              const previewSignal = previewController.signal;
               const period = form.querySelector('[name="date_range"]');
               if (period?.value === 'custom') {
                   const from = form.querySelector('[name="date_from"]')?.value;
@@ -2050,11 +2056,15 @@
               const url = `${window.location.pathname}?${params.toString()}`;
               try {
                   const res = await fetch(url, {
+                      signal: previewSignal,
+                      headers: {'X-FMIS-Live-Update':'1'},
                       credentials: 'same-origin'
                   });
                   if (!res.ok) throw new Error('bad response');
                   const html = await res.text();
                   const doc = new DOMParser().parseFromString(html, 'text/html');
+                  if (previewSignal.aborted) return;
+                  form.querySelector('[data-preview-error]')?.remove();
                   const newPreview = doc.getElementById('filteredReport');
                   const oldPreview = document.getElementById('filteredReport');
                   const filterCard = document.querySelector('.report-filter-card');
@@ -2067,11 +2077,12 @@
                   } else if (oldPreview) {
                       oldPreview.remove()
                   }
-                  window.history.replaceState(null, '', url);
+                  window.history.replaceState({fmisLive:true}, '', url);
               } catch (err) {
-                  // Fallback: if the in-place update ever fails for any reason, do a normal navigation
-                  // instead of silently doing nothing, so the filter always works one way or another.
-                  window.location.assign(url);
+                  if (err.name === 'AbortError') return;
+                  let message = form.querySelector('[data-preview-error]');
+                  if (!message) { message = document.createElement('p'); message.dataset.previewError = ''; message.setAttribute('role', 'alert'); form.append(message); }
+                  message.textContent = 'The preview could not be updated. Your entries are kept. Please try again.';
               }
           }
 

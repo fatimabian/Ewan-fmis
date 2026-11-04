@@ -134,9 +134,9 @@
             </div>
             <div class="geocamera-owner"><strong>Coordinate owner:</strong> {{ object.display_name }} · {{ object.farmer.record_id }} — {{ object.farmer.full_name }}. Ownership comes from the selected FMIS parcel, never from GPS proximity.</div>
             {% if geotag_summary.points %}
-              <div class="geocamera-points-wrap"><table class="geocamera-points"><thead><tr><th>Photo</th><th>Embedded coordinate</th><th>Captured</th><th>Assessment</th></tr></thead><tbody>
-                {% for item in geotag_summary.accepted %}<tr><td>Photo {{ forloop.counter }}</td><td>{{ item.point.0|floatformat:7 }}, {{ item.point.1|floatformat:7 }}</td><td>{{ item.photo.gps_captured_at|date:'M d, Y h:i A'|default:'Not embedded' }}</td><td><span class="geocamera-point-status">Included</span></td></tr>{% endfor %}
-                {% for item in geotag_summary.outliers %}<tr><td>Photo {{ forloop.counter }}</td><td>{{ item.point.0|floatformat:7 }}, {{ item.point.1|floatformat:7 }}</td><td>{{ item.photo.gps_captured_at|date:'M d, Y h:i A'|default:'Not embedded' }}</td><td><span class="geocamera-point-status is-outlier">Excluded / review</span></td></tr>{% endfor %}
+              <div class="geocamera-points-wrap"><table class="geocamera-points"><thead><tr><th>Photo</th><th>Detected coordinates</th><th>Captured</th><th>Assessment</th></tr></thead><tbody>
+                {% for item in geotag_summary.accepted %}<tr><td>Photo {{ forloop.counter }}</td><td>{{ item.point.0|floatformat:7 }}, {{ item.point.1|floatformat:7 }}<small>{{ item.photo.gps_source }}</small></td><td>{{ item.photo.gps_captured_at|date:'M d, Y h:i A'|default:'Not embedded' }}</td><td><span class="geocamera-point-status">Included</span></td></tr>{% endfor %}
+                {% for item in geotag_summary.outliers %}<tr><td>Photo {{ forloop.counter }}</td><td>{{ item.point.0|floatformat:7 }}, {{ item.point.1|floatformat:7 }}<small>{{ item.photo.gps_source }}</small></td><td>{{ item.photo.gps_captured_at|date:'M d, Y h:i A'|default:'Not embedded' }}</td><td><span class="geocamera-point-status is-outlier">Excluded / review</span></td></tr>{% endfor %}
               </tbody></table></div>
             {% endif %}
             {% if geotag_summary.status == 'ready' %}
@@ -152,7 +152,7 @@
               <label for="{{ photo_upload_form.field_photo.id_for_label }}">Office field documentation</label>
               {{ photo_upload_form.field_photo }}
               {{ photo_upload_form.field_photo.errors }}
-              <small>Select one or more original DA GeoCamera photos. FMIS reads embedded GPS metadata; screenshots and messaging-app copies may not contain it.</small>
+              <small>Select original DA GeoCamera photos or screenshots with a clear GPS stamp. FMIS reads embedded GPS or the visible DA GeoCamera stamp. Check any detected coordinates before applying them.</small>
             </div>
             <button class="btn btn-outline-success" type="submit"><i class="bi bi-upload"></i> Upload Photos</button>
           </form>
@@ -165,7 +165,7 @@
                   <img src="{% url 'farm_parcels:photo_view' object.pk photo.pk %}" alt="Field view of {{ object.display_name }}" loading="lazy">
                 </a>
                 <div class="parcel-photo-meta">
-                  <span><small>{{ photo.created_at|date:'M d, Y' }}</small>{% if photo.gps_latitude != None and photo.gps_longitude != None %}<small class="parcel-photo-gps"><i class="bi bi-geo-alt-fill"></i> {{ photo.gps_latitude }}, {{ photo.gps_longitude }}</small>{% else %}<small class="parcel-photo-gps is-missing">No embedded GPS</small>{% endif %}</span>
+                  <span><small>{{ photo.created_at|date:'M d, Y' }}</small>{% if photo.gps_latitude != None and photo.gps_longitude != None %}<small class="parcel-photo-gps"><i class="bi bi-geo-alt-fill"></i> {{ photo.gps_latitude }}, {{ photo.gps_longitude }}</small><small>{{ photo.gps_source }}</small>{% else %}<small class="parcel-photo-gps is-missing">GPS not read</small>{% endif %}</span>
                   {% if object.is_active %}
                     <form method="post"
                           action="{% url 'farm_parcels:photo_remove' object.pk photo.pk %}"
@@ -177,6 +177,11 @@
                     </form>
                   {% endif %}
                 </div>
+                {% if object.is_active and photo.gps_latitude == None %}
+                  <form method="post" action="{% url 'farm_parcels:photo_read_gps' object.pk photo.pk %}" class="parcel-photo-read-gps">
+                    {% csrf_token %}<button type="submit" class="btn btn-outline-secondary">Read GPS stamp</button>
+                  </form>
+                {% endif %}
               </article>
             {% endfor %}
           </div>

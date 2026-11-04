@@ -236,7 +236,7 @@
           }
       }
   </style>
-  <div class="content intervention-page">
+  <div class="content intervention-page" data-live-page>
     <form class="fmis-table-toolbar" method="get" data-table-toolbar>
       <label class="fmis-toolbar-search">
         <span>Search Intervention</span>
@@ -337,14 +337,15 @@
         </div>
       </section>
     </form>
-    <div class="intervention-table-wrap universal-table-wrap">
+    <div data-live-results="records">
+      <div class="intervention-table-wrap universal-table-wrap">
       <table class="intervention-table universal-table">
         <thead>
           <tr>
             <th>ID</th>
             <th>Date</th>
             <th>Coverage</th>
-            <th>Name</th>
+            <th>Farmer Name / Beneficiary</th>
             <th>Intervention</th>
             <th title="Quantity">QTY</th>
             <th>Status</th>
@@ -383,7 +384,12 @@
                 </span>
               </td>
               <td>
-                {{ item.beneficiary_label }}
+                {% if item.scope == "INDIVIDUAL" and item.farmer %}
+                  {{ item.farmer.list_name }}
+                {% elif item.table_recipients %}
+                  {% for recipient in item.table_recipients %}<span class="intervention-farmer-name">{{ recipient.farmer.list_name }}</span>{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                  {% if item.beneficiary_count > 3 %}<br><a href="{% url 'interventions:detail' item.pk %}">View all farmers</a>{% endif %}
+                {% else %}{{ item.beneficiary_label }}{% endif %}
                 {% if item.beneficiary_count %}
                   <small>
                     {{ item.beneficiary_count }} registered farmer{{ item.beneficiary_count|pluralize }}
@@ -461,4 +467,5 @@
       {% endif %}
     </div>
   </div>
+    </div>
 {% endblock %}

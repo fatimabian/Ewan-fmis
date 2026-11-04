@@ -35,6 +35,7 @@
   layers[state.layer].filters.forEach((key) => { if (params.get(key)) state.extra[key] = params.get(key); });
   let insightTab = "busiest";
   let lastData = null;
+  let drilledBarangay = "";
 
   const map = L.map(mapNode, {scrollWheelZoom: false, zoomControl: true});
   L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
@@ -81,12 +82,7 @@
   }
   panelToggle.addEventListener("click", () => setPanelCollapsed(!panelCollapsed));
   new ResizeObserver(() => map.invalidateSize({pan: false})).observe(mapNode);
-  byId("gisAllBarangays").addEventListener("click", () => {
-    if (savingPin) return;
-    cancelMove();
-    state.barangay = "";
-    load();
-  });
+
 
   config.barangays.forEach((name) => els.barangay.add(new Option(name, name)));
   config.commodities.forEach((name) => els.commodity.add(new Option(name, name)));
@@ -195,11 +191,13 @@
     if (!layer.status_options.some(([value]) => value === state.status)) state.status = layer.status_options[0][0];
     els.status.value = state.status;
     els.search.value = state.search;
+    els.parcelSearch.value = state.search;
     els.barangay.value = state.barangay;
     els.commodity.value = state.commodity;
     renderMoreFilters();
     updateFilterButton();
     renderChips();
+    document.dispatchEvent(new Event("fmis:filters-synced"));
     const query = new URLSearchParams();
     Object.entries({...state, ...state.extra}).forEach(([key, value]) => {
       if (key === "commodity" && !layer.uses_commodity) return;
@@ -241,10 +239,13 @@
     ][level] || "";
   }
 
-  function selectBarangay(name, preserveView = false) {
+  function selectBarangay(name, preserveView = true, explicit = true) {
     if (savingPin) return;
     cancelMove();
+    clearTimeout(mapSearchTimer);
+    state.search = els.search.value.trim();
     state.barangay = name;
+    drilledBarangay = explicit ? name : "";
     load({preserveView});
   }
 
@@ -314,7 +315,7 @@
   }
 
   function syncZoomLayers() {
-    const showRecords = Boolean(state.barangay) && map.getZoom() >= 14;
+    const showRecords = Boolean(state.barangay) && (map.getZoom() >= 14 || drilledBarangay === state.barangay);
     if (showRecords) {
       if (map.hasLayer(barangayPins)) map.removeLayer(barangayPins);
       if (!map.hasLayer(pins)) map.addLayer(pins);
@@ -327,7 +328,7 @@
   map.on("zoomend", () => {
     syncZoomLayers();
     if (rendering || loadingMap || movingMarker || savingPin || !lastData) return;
-    if (state.barangay && map.getZoom() <= 12) {
+    if (state.barangay && map.getZoom() <= 12 && drilledBarangay !== state.barangay) {
       state.barangay = "";
       load({preserveView: true});
     } else if (!state.barangay && map.getZoom() >= 15) {
@@ -335,7 +336,7 @@
       const nearest = [...lastData.barangays].sort((a, b) =>
         center.distanceTo([a.lat, a.lng]) - center.distanceTo([b.lat, b.lng]))[0];
       if (nearest && center.distanceTo([nearest.lat, nearest.lng]) < 4000) {
-        selectBarangay(nearest.barangay, true);
+        selectBarangay(nearest.barangay, true, false);
       }
     }
   });
@@ -582,17 +583,22 @@
     if (!visible) return;
     if (parcelListRequest) parcelListRequest.abort();
     parcelListRequest = new AbortController();
+    const directoryController = parcelListRequest;
+    const searchContext = byId("gisParcelSearchContext");
+    searchContext.textContent = state.search ? `Matching “${state.search}” in ${state.barangay}` : `All matching parcels in ${state.barangay}`;
+    byId("gisParcelSearchClear").hidden = !state.search;
     els.parcelDirectoryTitle.textContent = `${state.barangay} Farm Parcels`;
     els.parcelList.innerHTML = '<p class="gis-directory-empty">Loading parcels…</p>';
     const url = new URL(config.parcelListUrl, window.location.origin);
     url.searchParams.set("barangay", state.barangay);
     url.searchParams.set("page", page);
     if (state.commodity) url.searchParams.set("commodity", state.commodity);
-    if (els.parcelSearch.value.trim()) url.searchParams.set("q", els.parcelSearch.value.trim());
+    if (state.search) url.searchParams.set("q", state.search);
     if (els.parcelPinStatus.value) url.searchParams.set("pin_status", els.parcelPinStatus.value);
     try {
-      const response = await fetch(url, {signal: parcelListRequest.signal, headers: {Accept: "application/json"}});
+      const response = await fetch(url, {signal: directoryController.signal, headers: {Accept: "application/json"}});
       const data = await response.json();
+      if (directoryController !== parcelListRequest) return;
       if (!response.ok) throw new Error(data.message || "The parcel list could not be loaded.");
       parcelPage = data.pagination.page;
       els.parcelDirectoryScope.textContent = `${data.pagination.total} matching parcel${data.pagination.total === 1 ? "" : "s"}`;
@@ -653,7 +659,6 @@
       if (controller !== request) return;
       rendering = true;
       lastData = data;
-      byId("gisScope").textContent = state.barangay || "All barangays";
       pins.clearLayers(); barangayPins.clearLayers();
       markerByRecord.clear();
       if (barangayShape && !state.barangay) { map.removeLayer(barangayShape); barangayShape = null; }
@@ -753,10 +758,15 @@
     clearTimeout(mapSearchTimer);
     mapSearchTimer = setTimeout(() => {
       state.search = els.search.value.trim();
-      load();
+      load({preserveView:true});
     }, 300);
   });
   els.detailClose.addEventListener("click", () => { closeDetail(); showLevel(state.barangay ? 2 : 1); });
+  byId("gisParcelSearchClear").addEventListener("click", () => {
+    clearTimeout(mapSearchTimer);
+    state.search = ""; els.search.value = ""; els.parcelSearch.value = "";
+    load({preserveView:true});
+  });
   els.parcelSearch.addEventListener("input", () => {
     clearTimeout(parcelSearchTimer);
     parcelSearchTimer = setTimeout(() => loadParcelDirectory(1), 250);

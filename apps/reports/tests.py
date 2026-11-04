@@ -119,6 +119,27 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertEqual(invalid.status_code, 400)
         self.assertEqual(invalid.context["report_error"], "RSBSA forms are available as PDF only.")
 
+    def test_analytics_does_not_compute_unused_report_builder_metrics(self):
+        self.client.force_login(self.staff)
+        with patch("apps.reports.views.report_metrics", side_effect=AssertionError("Unused aggregates")):
+            response = self.client.get(reverse("reports:home"), {"analytics_tab": "requests"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-live-results="analytics"')
+
+    def test_compact_farmer_report_skips_document_and_photo_queries(self):
+        from apps.reports.export import build_report
+        from apps.farm_parcels.models import FarmParcel
+        from apps.crops.models import CropRecord
+        parcel = FarmParcel.objects.create(farmer=Farmer.objects.first(), barangay="Bagong Pook", area_hectares="2", ownership_type="OWNED")
+        CropRecord.objects.create(parcel=parcel, crop_type="Rice")
+        with CaptureQueriesContext(connection) as queries:
+            title, headers, rows = build_report("farmer_master", "all", compact=True)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][2], "Santos")
+        self.assertEqual(rows[0][18], Decimal("2.00"))
+        self.assertLessEqual(len(queries), 2)
+        self.assertFalse(any("farmerdocument" in query["sql"].lower() or "parcelphoto" in query["sql"].lower() for query in queries))
+
     def test_reports_navigation_uses_staff_overview_and_admin_governance_reports(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("reports:home"))

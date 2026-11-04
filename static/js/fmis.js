@@ -115,7 +115,28 @@ document.addEventListener("DOMContentLoaded", () => {
     modalConfirmAction = null;
   }
 
-  function openFeedbackModal(message, kind = "info", onConfirm = null) {
+  let feedbackErrorSequence = 0;
+  const errorContainer = field => field?.closest('.registration-field,.form-group,.form-field,.parcel-photo-upload-field,.intervention-field,.fmis-filter-field,.compact-file-upload') || field?.parentElement;
+  function inlineFeedback(message, kind, explicitField = null) {
+    const invalidFile = document.querySelector('input[type="file"][aria-invalid="true"],input[type="file"].is-invalid');
+    const invalid = document.querySelector('input[aria-invalid="true"],select[aria-invalid="true"],textarea[aria-invalid="true"],input.is-invalid,select.is-invalid,textarea.is-invalid');
+    const active = document.activeElement;
+    const fileContext = /file|photo|image|upload/i.test(String(message)) ? document.querySelector('input[type="file"][data-required-file="true"],input[type="file"]') : null;
+    const field = explicitField || invalidFile || invalid || fileContext || (active?.matches('input,select,textarea') ? active : null);
+    if (field?.type === 'file' && /^(this field is required\.?|please select a file\.?)$/i.test(String(message).trim())) message = 'Choose a file first.';
+    const container = errorContainer(field) || document.querySelector('main .content,main');
+    if (!container) return;
+    let note = container.querySelector('[data-feedback-inline]');
+    if (!note) { note = document.createElement('p'); note.dataset.feedbackInline = ''; note.id = `fmisFieldFeedback${++feedbackErrorSequence}`; note.className='inline-form-error';container.append(note); }
+    note.textContent=message;note.hidden=false;note.setAttribute('role',kind==='info'?'status':'alert');
+    if(field && kind!=='info'){field.setAttribute('aria-invalid','true');field.classList.add('is-invalid');const descriptions=new Set((field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));descriptions.add(note.id);field.setAttribute('aria-describedby',[...descriptions].join(' '));}
+  }
+  document.addEventListener('invalid',event=>{event.preventDefault();const field=event.target;inlineFeedback(field.type==='file' && field.validity.valueMissing ? 'Choose a file first.' : field.validationMessage,'error',field);},true);
+  document.addEventListener('submit',event=>{const form=event.target;const file=[...form.querySelectorAll('input[type=file][data-required-file="true"]')].find(field=>!field.disabled && !field.closest('[hidden],.deleted') && !field.files.length);if(file){event.preventDefault();inlineFeedback('Choose a file first.','error',file);}},true);
+  document.addEventListener('input',event=>{const field=event.target;if(!field.matches?.('input,select,textarea'))return;const container=errorContainer(field);container?.querySelectorAll('[data-feedback-inline]').forEach(note=>note.remove());if(field.value){field.removeAttribute('aria-invalid');field.classList.remove('is-invalid');container?.querySelectorAll('.errorlist').forEach(note=>note.remove());}});
+
+  function openFeedbackModal(message, kind = "info", onConfirm = null, field = null) {
+    if (kind !== "success" && kind !== "confirm") { inlineFeedback(message,kind,field); return; }
     if (!feedbackModal) return;
     const normalizedKind = modalDetails[kind] ? kind : "info";
     const [title, icon] = modalDetails[normalizedKind];
@@ -144,26 +165,23 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && feedbackModal && !feedbackModal.hidden) closeFeedbackModal();
   });
-  document.querySelectorAll("form[data-confirm]").forEach((form) => form.addEventListener("submit", (event) => {
+  document.addEventListener("submit", (event) => {
+    const form = event.target.closest("form[data-confirm]");
+    if (!form || event.defaultPrevented) return;
     if (form.dataset.confirmed === "true") return;
     event.preventDefault();
     openFeedbackModal(form.dataset.confirm, "confirm", () => {
       form.dataset.confirmed = "true";
       form.requestSubmit();
     });
-  }));
+  });
   const queuedMessage = document.querySelector("#fmisMessageQueue [data-message]");
   if (queuedMessage) openFeedbackModal(queuedMessage.dataset.message, queuedMessage.dataset.kind || "info");
   document.querySelectorAll("main .alert").forEach((alert) => {
-    if (alert.closest("form") || alert.hasAttribute("data-inline-validation")) {
-      alert.hidden = false;
-      return;
-    }
-    if (!queuedMessage && alert.textContent.trim()) {
-      const kind = [...alert.classList].find((name) => name.startsWith("alert-"))?.replace("alert-", "") || "error";
-      openFeedbackModal(alert.textContent.trim(), kind);
-    }
-    alert.hidden = true;
+    const kind = [...alert.classList].find(name=>name.startsWith('alert-'))?.replace('alert-','') || 'error';
+    if(kind!=='success' || alert.closest('form') || alert.hasAttribute('data-inline-validation')){alert.hidden=false;return;}
+    if(!queuedMessage && alert.textContent.trim())openFeedbackModal(alert.textContent.trim(),'success');
+    alert.hidden=true;
   });
   const sidebarToggle = document.getElementById("sidebarToggle");
   const notificationMenu = document.querySelector(".notification-menu");
@@ -223,7 +241,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isDashboard || isModule) link.classList.add("active");
   });
   document.querySelectorAll(".farmer-toolbar select").forEach((select) => {
-    select.addEventListener("change", () => select.form.submit());
+    select.addEventListener("change", () => select.form.requestSubmit());
   });
   document.querySelectorAll('form input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]), form select, form textarea').forEach((field) => field.classList.add("form-control"));
   document.querySelectorAll('select[data-farmer-picker]').forEach((select) => {
@@ -394,18 +412,14 @@ document.addEventListener("DOMContentLoaded", () => {
       openCard();
     });
   });
-  document.querySelectorAll("[data-record-url]").forEach((row) => {
-    const openRecord = () => {
-      if (row.dataset.recordUrl) window.location.href = row.dataset.recordUrl;
-    };
-    row.addEventListener("click", (event) => {
-      if (event.target.closest("a,button,input,select,textarea,form,details,summary")) return;
-      openRecord();
-    });
-    row.addEventListener("keydown", (event) => {
-      if (event.key !== "Enter" && event.key !== " ") return;
-      event.preventDefault();
-      openRecord();
-    });
+  document.addEventListener("click", event => {
+    const row = event.target.closest("[data-record-url]");
+    if (!row || event.defaultPrevented || event.target.closest("a,button,input,select,textarea,form,details,summary")) return;
+    window.location.href = row.dataset.recordUrl;
+  });
+  document.addEventListener("keydown", event => {
+    const row = event.target.closest("[data-record-url]");
+    if (!row || event.target !== row || !["Enter", " "].includes(event.key)) return;
+    event.preventDefault(); window.location.href = row.dataset.recordUrl;
   });
 });

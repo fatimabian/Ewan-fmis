@@ -184,7 +184,7 @@ class InterventionModuleTests(TestCase):
         response = self.client.get(reverse("interventions:create"))
         self.assertContains(
             response,
-            "Search by Farmer ID, RSBSA number, name, or barangay",
+            "Search by name, RSBSA number, or barangay",
         )
         self.assertNotContains(
             response,

@@ -165,7 +165,7 @@
       }
   }
   </style>
-  <div class="content parcel-page">
+  <div class="content parcel-page" data-live-page>
       <form class="fmis-table-toolbar" method="get" data-table-toolbar>
       <label class="fmis-toolbar-search">
         <span>Search Parcel</span><input type="search" name="q"
@@ -214,7 +214,8 @@
         </div>
       </section>
       </form>
-        <div class="parcel-table-wrap universal-table-wrap">
+        <div data-live-results="records">
+      <div class="parcel-table-wrap universal-table-wrap">
           <table class="parcel-table universal-table">
             <thead>
               <tr>
@@ -286,4 +287,5 @@
           {% endif %}
         </div>
       </div>
+    </div>
 {% endblock %}

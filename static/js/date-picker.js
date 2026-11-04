@@ -238,7 +238,7 @@
         event.preventDefault();
         trigger.setAttribute("aria-invalid", "true");
         trigger.focus();
-        if (window.fmisFeedback) window.fmisFeedback("Please choose a date for the highlighted field.", "warning");
+        if (window.fmisFeedback) window.fmisFeedback("Choose a date first.", "warning", null, input);
       }
     });
     updateTrigger();

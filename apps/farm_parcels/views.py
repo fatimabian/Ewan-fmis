@@ -126,6 +126,17 @@ def parcel_search_filter(query):
         | Q(farmer__last_name__icontains=query)
         | Q(farmer__rsbsa_number__icontains=query)
     )
+    tokens = [token for token in re.split(r"[\s,]+", query) if token]
+    if len(tokens) > 1:
+        full_name = Q()
+        for token in tokens:
+            full_name &= (
+                Q(farmer__first_name__icontains=token)
+                | Q(farmer__middle_name__icontains=token)
+                | Q(farmer__last_name__icontains=token)
+                | Q(farmer__extension_name__icontains=token)
+            )
+        filters |= full_name
     identifier = re.fullmatch(r"\s*([PF])?\s*[-#]?\s*(\d+)\s*", query, re.IGNORECASE)
     if not identifier:
         return filters
@@ -1146,9 +1157,11 @@ class FarmParcelPhotoUploadView(FMISLoginRequiredMixin, StaffRequiredMixin, View
         skipped = 0
         with transaction.atomic():
             locked_parcel = FarmParcel.objects.select_for_update().get(pk=parcel.pk)
+            # Archived photos are no longer in the gallery and may be uploaded again.
             existing_hashes = set(
                 FarmParcelPhoto.objects.filter(
                     parcel=locked_parcel,
+                    is_active=True,
                     file_sha256__in=[metadata["file_sha256"] for _, metadata in extracted],
                 ).values_list("file_sha256", flat=True)
             )
@@ -1191,7 +1204,7 @@ class FarmParcelPhotoUploadView(FMISLoginRequiredMixin, StaffRequiredMixin, View
             messages.success(
                 request,
                 f"{len(created)} field photo(s) were uploaded. "
-                f"FMIS found embedded GPS coordinates in {geotagged_count} photo(s).",
+                f"FMIS read GPS coordinates in {geotagged_count} photo(s).",
             )
         if skipped:
             messages.info(request, f"{skipped} duplicate photo(s) were not uploaded again.")
@@ -1278,6 +1291,31 @@ class FarmParcelPhotoView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
         )
         content_type = mimetypes.guess_type(photo.image.name)[0] or "application/octet-stream"
         return FileResponse(photo.image.open("rb"), content_type=content_type)
+
+
+class FarmParcelPhotoReadGPSView(FMISLoginRequiredMixin, StaffRequiredMixin, View):
+    """Retry GPS extraction for an existing gallery photo without moving its pin."""
+
+    def post(self, request, pk, photo_pk):
+        parcel = get_object_or_404(FarmParcel, pk=pk, is_active=True)
+        photo = get_object_or_404(FarmParcelPhoto, pk=photo_pk, parcel=parcel, is_active=True)
+        with photo.image.open("rb") as image:
+            metadata = extract_geocamera_metadata(image)
+        if metadata["latitude"] is None:
+            messages.error(request, "GPS could not be read. Upload a clearer image showing the Latitude and Longitude stamp, or use the original photo.")
+            return redirect("farm_parcels:detail", pk=parcel.pk)
+        photo.gps_latitude = metadata["latitude"]
+        photo.gps_longitude = metadata["longitude"]
+        photo.gps_source = metadata["source"]
+        photo.gps_captured_at = metadata["captured_at"]
+        photo.save(update_fields=["gps_latitude", "gps_longitude", "gps_source", "gps_captured_at"])
+        record_request_event(
+            request, title="Field Photo GPS Read", module="Farm Parcels",
+            description=f"{request.user.display_name} read coordinates from a field photo for confirmation.",
+            target_label=parcel.display_name,
+        )
+        messages.success(request, "GPS coordinates were read. Compare them with the photo before confirming the parcel location.")
+        return redirect(reverse("farm_parcels:detail", args=[parcel.pk]) + f"?geotag_batch={photo.upload_batch_id}#geocameraReview")
 
 
 class FarmParcelPhotoArchiveView(FMISLoginRequiredMixin, StaffRequiredMixin, View):

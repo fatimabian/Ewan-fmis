@@ -173,7 +173,7 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
         context = {
             **super().get_context_data(**kwargs),
             # A selected staff report uses the same scope for its preview and totals.
-            **(report_metrics(date_range, filters) if selected_report_type and not system_report else report_metrics()),
+            **((report_metrics(date_range, filters) if selected_report_type and not system_report else report_metrics()) if analytics_tab == "reports" or selected_report_type else {}),
             "base_template": (
                 "base/admin_base.html" if self.request.user.is_admin else "base/staff_base.html"
             ),

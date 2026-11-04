@@ -11,7 +11,7 @@ from apps.common.constants import COMMODITY_DETAIL_TO_GROUP, ROSARIO_BARANGAYS, 
 from apps.crops.models import CropRecord
 from apps.farm_parcels.models import FarmParcel, ParcelCoordinateReview
 from apps.farm_parcels.demo_locations import ROSARIO_BARANGAY_CENTERS
-from apps.farm_parcels.views import FarmParcelMapView, parcel_pin_status
+from apps.farm_parcels.views import FarmParcelMapView, parcel_pin_status, parcel_search_filter
 from apps.farmers.models import Farmer
 from apps.interventions.models import Intervention, InterventionRecipient
 from apps.service_catalog.models import ServiceCatalog
@@ -235,19 +235,7 @@ def _in_area_range(queryset, params, field_name):
 def _parcel_records(params):
     parcels = FarmParcel.objects.filter(is_active=True, farmer__is_active=True)
     if params.search:
-        number = _number_from_search(params.search, "P")
-        farmer_number = _number_from_search(params.search, "F")
-        lookup = (
-            Q(farmer__first_name__icontains=params.search)
-            | Q(farmer__middle_name__icontains=params.search)
-            | Q(farmer__last_name__icontains=params.search)
-            | Q(farmer__rsbsa_number__icontains=params.search)
-        )
-        if number is not None:
-            lookup |= Q(pk=number)
-        if farmer_number is not None:
-            lookup |= Q(farmer_id=farmer_number)
-        parcels = parcels.filter(lookup)
+        parcels = parcels.filter(parcel_search_filter(params.search))
     if params.barangay:
         parcels = parcels.filter(barangay=params.barangay)
     if params.commodity:

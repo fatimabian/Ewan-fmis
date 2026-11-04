@@ -8,7 +8,9 @@
     if (content !== undefined) node.textContent = content;
     return node;
   };
-  document.querySelectorAll("[data-trend-chart]").forEach(chart => {
+  const initialize = () => document.querySelectorAll("[data-trend-chart]").forEach(chart => {
+    if (chart.dataset.trendInitialized) return;
+    chart.dataset.trendInitialized = "true";
     const source = JSON.parse(document.getElementById(chart.dataset.trendSource).textContent);
     const dual = source.first_polyline !== undefined;
     const datasets = source.statuses ? source.statuses.map(s => ({name:s.label, color:s.color})) :
@@ -83,4 +85,6 @@
     }
     view.addEventListener("change",render);windowSelect.addEventListener("change",render);render();
   });
+  document.addEventListener("fmis:results-updated", initialize);
+  initialize();
 })();

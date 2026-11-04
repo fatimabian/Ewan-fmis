@@ -12,6 +12,7 @@ from .views import (
     FarmParcelMapParcelListView,
     FarmParcelMapSearchView,
     FarmParcelPhotoArchiveView,
+    FarmParcelPhotoReadGPSView,
     FarmParcelPhotoView,
     FarmParcelPhotoUploadView,
     FarmParcelGeoCameraConfirmView,
@@ -24,6 +25,7 @@ from .views import (
 
 app_name = "farm_parcels"
 urlpatterns = [
+    path("<int:pk>/photos/<int:photo_pk>/read-gps/", FarmParcelPhotoReadGPSView.as_view(), name="photo_read_gps"),
     path("", FarmParcelListView.as_view(), name="list"),
     path("map/", FarmParcelMapView.as_view(), name="map"),
     path("map/data/", FarmParcelMapDataView.as_view(), name="map_data"),

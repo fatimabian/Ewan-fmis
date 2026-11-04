@@ -2189,9 +2189,9 @@ class FMISRequirementTests(TestCase):
         detail = self.client.get(
             reverse("interventions:detail", args=[intervention.pk])
         )
-        self.assertContains(detail, self.farmer.record_id)
+        self.assertNotContains(detail, self.farmer.record_id)
         self.assertContains(detail, self.farmer.list_name)
-        self.assertContains(detail, second_farmer.record_id)
+        self.assertNotContains(detail, second_farmer.record_id)
         self.assertContains(detail, second_farmer.list_name)
         self.assertNotContains(detail, other_farmer.list_name)
         self.assertNotContains(detail, "No recipients recorded.")
@@ -2306,6 +2306,44 @@ class FMISRequirementTests(TestCase):
         self.assertContains(history_page, "Seed distribution scheduled")
         self.assertContains(history_page, "Seed distribution is ongoing")
 
+    def test_uat_slip_b_omits_unused_paperwork_controls(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(reverse("farm_parcels:edit", args=[self.parcel.pk]))
+        self.assertEqual(response.status_code, 200)
+        for name in ("transaction_code", "agriculturist_name", "date_signed", "date_received"):
+            self.assertNotContains(response, f'name="{name}"')
+        self.assertContains(response, 'name="change_reason"')
+        self.assertContains(response, 'name="update_remarks"')
+
+    def test_uat_request_and_intervention_tables_show_farmer_names(self):
+        from apps.interventions.models import InterventionRecipient
+        self.client.force_login(self.staff)
+        request_record = ServiceRequest.objects.create(farmer=self.farmer, service=self.service, subject="UAT named request")
+        response = self.client.get(reverse("service_requests:list"))
+        self.assertContains(response, "Farmer Name / Beneficiary")
+        self.assertContains(response, self.farmer.list_name)
+        intervention = Intervention.objects.create(farmer=self.farmer, scope="SELECTED", intervention_type="SEEDS", intervention_date=date.today(), description="UAT named recipients", recorded_by=self.staff)
+        InterventionRecipient.objects.get_or_create(intervention=intervention, farmer=self.farmer)
+        response = self.client.get(reverse("interventions:list"))
+        self.assertContains(response, "Farmer Name / Beneficiary")
+        self.assertContains(response, self.farmer.list_name)
+        detail = self.client.get(reverse("interventions:detail", args=[intervention.pk]))
+        self.assertContains(detail, self.farmer.list_name)
+        self.assertNotContains(detail, "<th>Farmer ID</th>", html=True)
+
+    def test_uat_intervention_choices_use_names_instead_of_farmer_ids(self):
+        from apps.interventions.forms import InterventionForm
+        self.client.force_login(self.staff)
+        form = InterventionForm(user=self.staff)
+        self.assertNotIn(self.farmer.record_id, form.fields["farmer"].label_from_instance(self.farmer))
+        self.assertIn(self.farmer.list_name, form.fields["farmer"].label_from_instance(self.farmer))
+        self.assertNotIn(self.farmer.record_id, form.fields["selected_farmers"].label_from_instance(self.farmer))
+        result = self.client.get(reverse("interventions:farmer_search"), {"q": self.farmer.first_name})
+        self.assertEqual(result.status_code, 200)
+        labels = [entry["label"] for entry in result.json()["results"]]
+        self.assertTrue(any(self.farmer.list_name in label for label in labels))
+        self.assertFalse(any(self.farmer.record_id in label for label in labels))
+
     def test_slip_b_is_separate_and_contains_official_parcel_workflow(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("farmers:slip_b", args=[self.farmer.pk]))
@@ -2408,6 +2446,22 @@ class FMISRequirementTests(TestCase):
                 FarmParcelPhoto.objects.filter(parcel=self.parcel, is_active=True).count(),
                 2,
             )
+
+            # Only visible gallery photos count as duplicates, regardless of filename.
+            upload_url = reverse("farm_parcels:photo_upload", args=[self.parcel.pk])
+
+            def green_upload(name):
+                return SimpleUploadedFile(name, image_bytes.getvalue(), content_type="image/png")
+
+            self.client.post(upload_url, {"field_photo": green_upload("same.png")})
+            self.assertEqual(FarmParcelPhoto.objects.filter(parcel=self.parcel).count(), 2)
+            self.client.post(reverse("farm_parcels:photo_remove", args=[self.parcel.pk, photo.pk]))
+            photo.refresh_from_db()
+            self.assertFalse(photo.is_active)
+            self.client.post(upload_url, {"field_photo": [green_upload("again.png"), green_upload("copy.png")]})
+            self.assertEqual(FarmParcelPhoto.objects.filter(parcel=self.parcel).count(), 3)
+            self.assertEqual(FarmParcelPhoto.objects.filter(parcel=self.parcel, is_active=True).count(), 2)
+            self.assertTrue(FarmParcelPhoto.objects.filter(parcel=self.parcel, is_active=True, file_sha256=photo.file_sha256).exclude(pk=photo.pk).exists())
         self.assertEqual(
             FarmerUpdateHistory.objects.filter(
                 farmer=self.farmer, update_type="SLIP_B"
@@ -2415,6 +2469,48 @@ class FMISRequirementTests(TestCase):
             history_count,
         )
         self.assertTrue(ActivityLog.objects.filter(title="Farm Parcel Photos Added").exists())
+
+    def test_existing_gallery_photo_gps_retry_requires_review_before_pin_changes(self):
+        from PIL import Image
+
+        self.client.force_login(self.staff)
+        data = BytesIO()
+        Image.new("RGB", (16, 16), "green").save(data, format="PNG")
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            photo = FarmParcelPhoto.objects.create(
+                parcel=self.parcel, uploaded_by=self.staff,
+                image=SimpleUploadedFile("field.png", data.getvalue(), content_type="image/png"),
+            )
+            before = self.parcel.coordinates
+            with patch("apps.farm_parcels.views.extract_geocamera_metadata", return_value={
+                "latitude": 13.844918, "longitude": 121.2148175,
+                "captured_at": None, "source": "Visible GPS stamp (OCR; verify with photo)",
+            }):
+                response = self.client.post(reverse("farm_parcels:photo_read_gps", args=[self.parcel.pk, photo.pk]))
+            self.assertEqual(response.status_code, 302)
+            self.assertIn("geotag_batch=", response.url)
+            photo.refresh_from_db()
+            self.assertEqual(photo.gps_latitude, Decimal("13.8449180"))
+            self.parcel.refresh_from_db()
+            self.assertEqual(self.parcel.coordinates, before)
+            detail = self.client.get(response.url)
+            self.assertContains(detail, "Compare every digit")
+            self.assertContains(detail, "Confirm Parcel Location")
+
+    def test_map_directory_keeps_full_name_filter_with_selected_barangay(self):
+        self.client.force_login(self.staff)
+        for query in ("Ana Santos", "Santos, Ana"):
+            response = self.client.get(
+                reverse("farm_parcels:map_parcels"),
+                {"barangay": "Bulihan", "q": query},
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual({row["id"] for row in response.json()["results"]}, {self.parcel.pk})
+        response = self.client.get(
+            reverse("farm_parcels:map_parcels"),
+            {"barangay": "Bulihan", "q": "Unrelated Person"},
+        )
+        self.assertEqual(response.json()["results"], [])
 
     def test_staff_confirms_clustered_geocamera_coordinates_for_selected_parcel(self):
         from uuid import uuid4

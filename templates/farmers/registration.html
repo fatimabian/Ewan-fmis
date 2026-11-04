@@ -311,6 +311,19 @@
               </i> Add Document
             </button>
           </div>
+          <details class="rsbsa-record-card"{% if profile_form.rsbsa_form.errors %} open{% endif %}>
+            <summary><strong>RSBSA form copies (optional)</strong></summary>
+            <p>Upload or capture clear copies for record keeping. These copies will not fill the registration fields.</p>
+            <p>Add as many copies as needed. Accepted: JPG, PNG, or PDF up to 5 MB each.</p>
+            <div class="rsbsa-file-picker">
+              {{ profile_form.rsbsa_form }}
+              <label class="btn btn-outline-success rsbsa-file-action" for="{{ profile_form.rsbsa_form.id_for_label }}">Choose files</label>
+              <button type="button" class="btn btn-outline-success rsbsa-file-action" id="rsbsaCameraOpen">Use camera</button>
+              <span id="rsbsaFileSummary" class="rsbsa-file-summary" role="status">No files selected</span>
+            </div>
+            <ul id="rsbsaFileList" class="rsbsa-file-list" aria-label="Selected RSBSA copies"></ul>
+            {{ profile_form.rsbsa_form.errors }}
+          </details>
           {{ document_formset.management_form }}
           {% if document_formset.non_form_errors %}
             <div class="alert alert-danger">{{ document_formset.non_form_errors }}</div>
@@ -396,6 +409,16 @@
           <p>Please wait. Do not close or refresh this page.</p>
         </div>
       </div>
+    </section>
+  </div>
+  <div class="rsbsa-camera-modal" id="rsbsaCameraModal" hidden aria-hidden="true">
+    <button type="button" class="rsbsa-camera-backdrop" id="rsbsaCameraBackdrop" aria-label="Close camera"></button>
+    <section class="rsbsa-camera-dialog" role="dialog" aria-modal="true" aria-labelledby="rsbsaCameraTitle">
+      <h2 id="rsbsaCameraTitle">Capture an RSBSA copy</h2>
+      <p id="rsbsaCameraStatus" role="status">Position the whole form inside the frame.</p>
+      <video class="rsbsa-camera-video" id="rsbsaCameraVideo" autoplay playsinline muted></video>
+      <canvas id="rsbsaCameraCanvas" hidden></canvas>
+      <div class="rsbsa-camera-actions"><button type="button" class="btn btn-outline-secondary" id="rsbsaCameraCancel">Cancel</button><button type="button" class="btn btn-success" id="rsbsaCameraCapture">Capture photo</button></div>
     </section>
   </div>
   <script src="{% static 'js/registration-draft.js' %}"></script>
@@ -878,7 +901,8 @@
 
           function documentReview() {
               const records = activeRows('documents').map((row, index) => `<section class="review-record"><h4>Supporting document ${index + 1}</h4>${reviewData(reviewFields(row))}</section>`).join('');
-              return `<article class="review-summary-card"><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><section class="review-subsection"><h4>Supporting documents</h4><div class="review-records">${records || '<p class="review-empty">No supporting documents entered.</p>'}</div></section></article>`
+              const copies = [...(form.querySelector('[data-rsbsa-file-input]')?.files || [])].map(file => esc(file.name)).join('<br>') || 'No optional RSBSA copies selected.';
+              return `<article class="review-summary-card"><h3><i class="bi bi-file-earmark-text"></i> Documents</h3><section class="review-subsection"><h4>RSBSA form copies</h4><p>${copies}</p></section><section class="review-subsection"><h4>Supporting documents</h4><div class="review-records">${records || '<p class="review-empty">No supporting documents entered.</p>'}</div></section></article>`
           }
 
           function buildReview() {
@@ -916,4 +940,5 @@
 {% endblock %}
 {% block extra_js %}
   <script defer src="{% static 'js/rsbsa-camera.js' %}?v=2"></script>
+  <script defer src="{% static 'js/rsbsa-multi-upload.js' %}"></script>
 {% endblock %}

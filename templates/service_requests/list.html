@@ -306,7 +306,7 @@
   body[data-theme="dark"] .timing-indicator,
   body[data-theme="dark"] .timing-indicator small{color:#edf3fa!important}
   </style>
-  <div class="content request-page">
+  <div class="content request-page" data-live-page>
     <form class="fmis-table-toolbar" method="get" data-table-toolbar>
       <label class="fmis-toolbar-search"><span>Search Request</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search request, farmer, ID, or barangay..."></label>
       <div class="fmis-toolbar-actions"><button class="fmis-toolbar-button{% if request.GET.request_type or request.GET.status or request.GET.priority or request.GET.assigned_to or request.GET.overdue or request.GET.date_from or request.GET.date_to %} has-active-filters{% endif %}" type="button" data-filter-toggle aria-expanded="false" aria-controls="requestFilters"><i class="bi bi-funnel"></i> Filter Requests <span class="fmis-filter-active">Active</span></button><a class="btn btn-success btn-add-outline" href="{% url 'service_requests:create' %}"><i class="bi bi-plus-lg"></i> New Request</a></div>
@@ -322,12 +322,13 @@
         <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'service_requests:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
       </div></section>
     </form>
+      <div data-live-results="records">
       <div class="request-table-wrap universal-table-wrap">
         <table class="request-table universal-table">
           <thead>
             <tr>
               <th>ID</th>
-              <th>Name</th>
+              <th>Farmer Name / Beneficiary</th>
               <th>Request Type</th>
               <th>Coverage</th>
               <th>Priority</th>
@@ -419,5 +420,6 @@
           {% include 'shared/pagination.html' %}
         {% endif %}
       </div>
+    </div>
     </div>
 {% endblock %}

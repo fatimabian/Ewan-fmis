@@ -1155,7 +1155,7 @@
 .analytics-bar-chart.is-wide .analytics-bar-y-max,.analytics-bar-chart.is-wide .analytics-bar-y-zero {left:auto;right:-22px}
 </style>
 {% endif %}
-<section class="analytics-workspace" aria-label="FMIS descriptive analytics">
+<section data-live-page class="analytics-workspace" aria-label="FMIS descriptive analytics">
   {% if not analytics_embedded %}
     {% include "reports/_tabs.html" %}
     <form class="analytics-filter-toolbar fmis-table-toolbar"
@@ -1302,6 +1302,7 @@
       </section>
     </form>
   {% endif %}
+  <div data-live-results="analytics" class="analytics-live-results">
   {% if analytics_tab == "overview" %}
     <div class="analytics-kpis">
       {% for item in descriptive.summary %}
@@ -1342,20 +1343,10 @@
             <li>No matching commodity records.</li>
           {% endfor %}
         </ol>
+        <details class="analytics-extra-ranking"><summary>Farmers by Barangay</summary><p>Top five barangays by matching active farmer records.</p><ol class="analytics-rank-list">{% for item in descriptive.top_farmer_barangays|slice:":5" %}<li><span>{{ item.label }}</span><i style="--value:{{ item.percent }}%"></i><b>{{ item.value }} farmers</b></li>{% empty %}<li>No matching farmer records.</li>{% endfor %}</ol></details>
       </article>
-      <article class="analytics-panel">
-        <h3>Farmers by Barangay</h3>
-        <p>Top five barangays by matching active farmer records.</p>
-        <ol class="analytics-rank-list">
-          {% for item in descriptive.top_farmer_barangays|slice:":5" %}
-            <li><span>{{ item.label }}</span><i style="--value:{{ item.percent }}%"></i><b>{{ item.value }} farmers</b></li>
-          {% empty %}
-            <li>No matching farmer records.</li>
-          {% endfor %}
-        </ol>
-      </article>
+      {% include "reports/_analytics_bar.html" with title="Service Request Performance" description="Current status of requests received in the selected period." series=descriptive.request_status_bar_series y_label="Requests" compact=True %}
     </div>
-    {% include "reports/_analytics_bar.html" with title="Service Request Performance" description="Current status of requests received in the selected period." series=descriptive.request_status_bar_series y_label="Requests" %}
     {% include "reports/_analytics_dual_line.html" %}
     <div class="analytics-note">
       Counts describe recorded FMIS activity, not forecasts. Commodity records do not represent harvest volume; newly recorded farm area does not represent physical land expansion.
@@ -1891,6 +1882,7 @@
       </article>
     </div>
   {% endif %}
+  </div>
 </section>
 {% if not analytics_embedded %}
   <script>

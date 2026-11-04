@@ -1,6 +1,8 @@
 (() => {
+ const initialize = () => {
   const dialog = document.getElementById("duplicateComparison");
-  if (!dialog) return;
+  if (!dialog || dialog.dataset.comparisonInitialized) return;
+  dialog.dataset.comparisonInitialized = "true";
   const form = dialog.querySelector("form");
   const records = dialog.querySelector("[data-comparison-records]");
   const status = dialog.querySelector("[data-comparison-status]");
@@ -58,8 +60,14 @@
       const response = await fetch(url, {method: "POST", body: new FormData(form), headers: {Accept: "application/json"}});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "The review could not be saved.");
-      window.location.reload();
+      saving = false;
+      form.reset();
+      dialog.close();
+      window.fmisRefreshResults?.();
     } catch (error) { say(error.message, true); }
     finally { saving = false; save.disabled = false; }
   });
+ };
+ document.addEventListener("fmis:results-updated", initialize);
+ initialize();
 })();

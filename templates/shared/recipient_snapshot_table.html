@@ -22,18 +22,18 @@
 <div class="universal-table-wrap recipient-snapshot-table recipient-snapshot-scroll" tabindex="0" aria-label="Recipient snapshot; scroll to view additional rows and columns">
   <table class="universal-table recipient-snapshot-grid">
     <thead>
-      <tr><th>Farmer ID</th><th>Farmer Name</th><th>Barangay</th><th>Receipt Status</th></tr>
+      <tr>{% if not hide_farmer_id %}<th>Farmer ID</th>{% endif %}<th>Farmer Name</th><th>Barangay</th><th>Receipt Status</th></tr>
     </thead>
     <tbody>
       {% for recipient in recipients %}
         <tr>
-          <td>{{ recipient.farmer.record_id }}</td>
+          {% if not hide_farmer_id %}<td>{{ recipient.farmer.record_id }}</td>{% endif %}
           <td>{{ recipient.farmer.list_name }}</td>
           <td>{{ recipient.farmer.barangay }}</td>
           <td>{{ recipient.get_status_display }}</td>
         </tr>
       {% empty %}
-        <tr><td colspan="4">{{ empty_message|default:"No recipients recorded." }}</td></tr>
+        <tr><td colspan="{% if hide_farmer_id %}3{% else %}4{% endif %}">{{ empty_message|default:"No recipients recorded." }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

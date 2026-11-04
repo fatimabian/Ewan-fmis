@@ -362,7 +362,7 @@
           color: #087f49
       }
   </style>
-  <div class="content inventory-page">
+  <div class="content inventory-page" data-live-page>
     <nav class="inventory-tabs" aria-label="Inventory sections">
       <a class="{% if tab == 'items' %}active{% endif %}"
          href="{% url 'inventory:list' %}?tab=items">
@@ -567,6 +567,7 @@
           </aside>
         {% endif %}
       {% endif %}
+      <div data-live-results="records">
       <div class="universal-table-wrap inventory-table-wrap">
         {% if tab == "movements" %}
           <table class="universal-table inventory-table movement-table">
@@ -724,6 +725,7 @@
       {% if page_obj %}
         {% include "shared/pagination.html" %}
       {% endif %}
+    </div>
     </section>
   </div>
 {% endblock %}

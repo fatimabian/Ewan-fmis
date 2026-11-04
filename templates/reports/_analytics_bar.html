@@ -1,5 +1,5 @@
 {# Shared category/month bars using the monthly-status chart layout. #}
-<article class="analytics-panel analytics-record-chart" role="img" aria-label="{{ title }} bar chart">
+<article class="analytics-panel analytics-record-chart{% if compact %} is-compact{% endif %}" role="img" aria-label="{{ title }} bar chart">
   <div class="analytics-chart-heading"><div><h3>{{ title }}</h3><p>{{ description }}</p></div></div>
   <ul class="request-status-legend"><li><i style="background:#2f7d5c" aria-hidden="true"></i>{{ y_label|default:"Records" }}</li></ul>
   {% if series.points %}

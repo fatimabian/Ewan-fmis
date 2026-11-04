@@ -30,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (window.fetch) {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = (...args) => {
+      if (new Headers(args[1]?.headers || args[0]?.headers).get("X-FMIS-Live-Update") === "1") return nativeFetch(...args);
       beginNetworkLoading();
       return nativeFetch(...args).finally(endNetworkLoading);
     };
@@ -56,8 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (field) sanitizeConstrainedInput(field);
   });
 
-  document.querySelectorAll("form").forEach((form) => {
-    form.addEventListener("submit", (event) => {
+  document.addEventListener("submit", (event) => {
+      const form = event.target;
       const method = (form.getAttribute("method") || "get").toLowerCase();
       const hasOwnLoadingState = form.id === "rsbsaRegistration";
       const isDownload = form.id === "reportGenerator" || form.hasAttribute("data-download-form");
@@ -89,7 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
           submitButton.removeAttribute("aria-busy");
         }, 0);
       }
-    });
   });
 
   document.addEventListener("click", (event) => {

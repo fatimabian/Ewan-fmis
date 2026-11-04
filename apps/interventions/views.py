@@ -36,7 +36,7 @@ def _recipient_summary(intervention):
         return "No farmers"
     visible_recipients = list(recipients[:10])
     visible = ", ".join(
-        f"{recipient.farmer.record_id} {recipient.farmer.list_name}"
+        f"{recipient.farmer.list_name} ({recipient.farmer.barangay})"
         for recipient in visible_recipients
     )
     remaining = recipient_count - len(visible_recipients)
@@ -221,9 +221,8 @@ class InterventionFarmerSearchView(InterventionAccessMixin, View):
                     {
                         "id": farmer.pk,
                         "label": (
-                            f"{farmer.record_id}"
-                            f"{' / RSBSA ' + farmer.rsbsa_number if farmer.rsbsa_number else ''}"
-                            f" - {farmer.list_name} ({farmer.barangay})"
+                            f"{farmer.list_name} ({farmer.barangay})"
+                            f"{' · RSBSA ' + farmer.rsbsa_number if farmer.rsbsa_number else ''}"
                         ),
                     }
                     for farmer in farmers
@@ -239,7 +238,13 @@ class InterventionListView(InterventionAccessMixin, ListView):
         queryset = (
             Intervention.objects.select_related(
                 "farmer", "service_request", "service_request__assigned_to", "recorded_by"
-            )
+            ).prefetch_related(Prefetch(
+                "recipients",
+                queryset=InterventionRecipient.objects.filter(is_active=True).select_related("farmer").only(
+                    "pk", "intervention_id", "farmer_id", "farmer__first_name", "farmer__middle_name", "farmer__last_name", "farmer__extension_name"
+                ).order_by("farmer__last_name", "farmer__first_name", "pk")[:3],
+                to_attr="table_recipients",
+            ))
             .annotate(
                 beneficiary_count=Count(
                     "recipients", filter=Q(recipients__is_active=True), distinct=True

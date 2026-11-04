@@ -294,3 +294,7 @@
     border:0!important;background:transparent!important;box-shadow:none!important;
     transition:opacity .2s ease!important;
 }
+
+.gis-map-column{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;min-width:0;align-content:start}
+.gis-map-column>.gis-summary{margin:0;justify-content:stretch}
+.gis-map-column>.gis-summary>div{flex:1 1 150px}

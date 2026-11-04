@@ -202,6 +202,10 @@ class InlineValidationMixin:
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
             widget = field.widget
+            if isinstance(field, forms.FileField):
+                field.error_messages["required"] = "Choose a file first."
+                if field.required and not self.initial.get(name):
+                    widget.attrs["data-required-file"] = "true"
             if not isinstance(
                 widget,
                 (

@@ -86,6 +86,24 @@
         </div>
       </div>
     </section>
+    <div class="gis-map-actions">
+      <button type="button"
+              class="btn btn-outline-secondary"
+              id="gisPanelToggle"
+              aria-expanded="true"
+              aria-controls="gisSideContent">
+        Hide info panel
+      </button>
+    </div>
+    <div class="gis-main" id="gisMain">
+      <div class="gis-map-column">
+      <div class="gis-map-wrap">
+        <div id="gisMap"
+             role="application"
+             aria-label="Interactive map of Rosario"></div>
+        <p class="gis-empty" id="gisEmpty" hidden></p>
+        <p class="gis-loading" id="gisLoading" hidden>Loading…</p>
+      </div>
     <div class="gis-summary" aria-live="polite">
       <div>
         <strong id="gisShown">0</strong>
@@ -100,24 +118,6 @@
         <span>Need attention</span>
       </div>
     </div>
-    <div class="gis-map-actions">
-      <button type="button" class="btn btn-outline-secondary" id="gisAllBarangays">All barangays</button>
-      <span id="gisScope" aria-live="polite">All barangays</span>
-      <button type="button"
-              class="btn btn-outline-secondary"
-              id="gisPanelToggle"
-              aria-expanded="true"
-              aria-controls="gisSideContent">
-        Hide info panel
-      </button>
-    </div>
-    <div class="gis-main" id="gisMain">
-      <div class="gis-map-wrap">
-        <div id="gisMap"
-             role="application"
-             aria-label="Interactive map of Rosario"></div>
-        <p class="gis-empty" id="gisEmpty" hidden></p>
-        <p class="gis-loading" id="gisLoading" hidden>Loading…</p>
       </div>
       <aside class="panel sg-panel gis-side"
              id="gisSide"
@@ -155,7 +155,9 @@
                 <p id="gisParcelDirectoryScope"></p>
               </div>
             </div>
-            <label class="gis-directory-search">
+            <p id="gisParcelSearchContext" class="gis-directory-search-context" aria-live="polite"></p>
+            <button type="button" class="btn btn-outline-secondary" id="gisParcelSearchClear" hidden>Clear name search</button>
+            <label class="gis-directory-search" hidden>
               <span class="visually-hidden">Search parcels in this barangay</span>
               <i class="bi bi-search" aria-hidden="true">
               </i>

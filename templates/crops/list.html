@@ -149,7 +149,7 @@
       }
   }
   </style>
-  <div class="content crop-page">
+  <div class="content crop-page" data-live-page>
     <form class="fmis-table-toolbar" method="get" data-table-toolbar>
       <label class="fmis-toolbar-search"><span>Search Commodity</span><input type="search" name="q"
        value="{{ request.GET.q }}"
@@ -178,6 +178,7 @@
       <div class="fmis-filter-actions"><a class="fmis-filter-reset" href="{% url 'crops:list' %}">Reset</a><button class="fmis-filter-apply" type="submit">Apply Filters</button></div>
       </div></section>
       </form>
+      <div data-live-results="records">
       <div class="crop-table-wrap universal-table-wrap">
         <table class="crop-table universal-table">
           <thead>
@@ -244,5 +245,6 @@
           {% include 'shared/pagination.html' %}
         {% endif %}
       </div>
+    </div>
     </div>
 {% endblock %}

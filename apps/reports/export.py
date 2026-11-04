@@ -281,7 +281,7 @@ def _commodity_names(crops, selected=""):
     return ", ".join(names) or "Not recorded"
 
 
-def build_report(report_type, date_range, filters=None, compact=False):
+def build_report(report_type, date_range, filters=None, compact=False, validate_only=False):
     if report_type not in REPORT_KEYS or not _valid_date_range(date_range):
         raise ValueError("Choose a valid report template and date range.")
     filters = normalize_report_filters(report_type, filters)
@@ -306,18 +306,21 @@ def build_report(report_type, date_range, filters=None, compact=False):
     ):
         raise ValueError("Choose a valid intervention type.")
 
+    if validate_only:
+        return None
+
     if report_type == "farmer_rsbsa":
         rows = [[farmer.record_id, farmer.list_name, farmer.barangay, farmer.get_registration_status_display()] for farmer in rsbsa_farmers_queryset(date_range, filters).only("first_name", "middle_name", "last_name", "extension_name", "barangay", "registration_status")]
         return "RSBSA Forms — All Matching Farmers", ["Farmer ID", "Farmer Name", "Barangay", "Registration Status"], rows
 
     if report_type == "farmer_master":
         queryset = _filter_period(
-            Farmer.objects.filter(is_active=True)
-            .select_related("last_updated_by")
-            .prefetch_related("documents", "parcels__crops", "parcels__photos"),
+            Farmer.objects.filter(is_active=True).prefetch_related("parcels" if compact else "parcels__crops"),
             "created_at",
             date_range,
         )
+        if not compact:
+            queryset = queryset.select_related("last_updated_by").prefetch_related("documents", "parcels__photos")
         if year:
             queryset = queryset.filter(created_at__year=int(year))
         if barangay:
@@ -335,28 +338,6 @@ def build_report(report_type, date_range, filters=None, compact=False):
         rows = []
         for farmer in queryset.order_by("pk"):
             parcels = [parcel for parcel in farmer.parcels.all() if parcel.is_active]
-            crops = [crop for parcel in parcels for crop in parcel.crops.all() if crop.is_active]
-            documents = list(farmer.documents.all())
-            parcel_details = []
-            for parcel in parcels:
-                parcel_details.append(
-                    f"{parcel.display_name}: {parcel.area_hectares} ha; {parcel.barangay}, "
-                    f"{parcel.municipality}, {parcel.province}; tenure={parcel.get_ownership_type_display()}; "
-                    f"farm type={parcel.get_farm_type_display() or 'Not recorded'}; "
-                    f"ancestral domain={_yes_no(parcel.within_ancestral_domain)}; ARB={_yes_no(parcel.agrarian_reform_beneficiary)}; "
-                    f"ownership document={parcel.get_ownership_document_display() or parcel.ownership_document_other or 'Not recorded'}; "
-                    f"land owner={parcel.land_owner_name or 'Not recorded'}; owner in RSBSA={_yes_no(parcel.land_owner_registered_rsbsa)}; "
-                    f"owner RSBSA={parcel.land_owner_rsbsa_number or 'Not recorded'}; georeference={parcel.georef_id or 'Not recorded'}; "
-                    f"GPX status={parcel.get_gpx_status_display()}; coordinates={parcel.coordinates or 'Not recorded'}; "
-                    f"rotational tiller={_yes_no(parcel.rotational_tiller)}; remarks={parcel.remarks or 'None'}"
-                )
-            crop_details = [
-                f"{crop.crop_type} ({crop.variety or 'variety not recorded'}) ({crop.parcel.display_name}): {crop.area_hectares} ha; "
-                f"schedule={crop.cropping_schedule or 'Not recorded'}; heads={crop.number_of_heads or 'Not recorded'}; "
-                f"organic={_yes_no(crop.is_organic)}; intercrop={_yes_no(crop.is_intercrop)}; "
-                f"planted={crop.planting_date or 'Not recorded'}; harvest={crop.harvest_date or 'Not recorded'}"
-                for crop in crops
-            ]
             if compact:
                 farm_municipalities = ", ".join(
                     dict.fromkeys(parcel.municipality for parcel in parcels if parcel.municipality)
@@ -387,6 +368,28 @@ def build_report(report_type, date_range, filters=None, compact=False):
                     farmer.phone_number or "-",
                 ])
                 continue
+            crops = [crop for parcel in parcels for crop in parcel.crops.all() if crop.is_active]
+            documents = list(farmer.documents.all())
+            parcel_details = []
+            for parcel in parcels:
+                parcel_details.append(
+                    f"{parcel.display_name}: {parcel.area_hectares} ha; {parcel.barangay}, "
+                    f"{parcel.municipality}, {parcel.province}; tenure={parcel.get_ownership_type_display()}; "
+                    f"farm type={parcel.get_farm_type_display() or 'Not recorded'}; "
+                    f"ancestral domain={_yes_no(parcel.within_ancestral_domain)}; ARB={_yes_no(parcel.agrarian_reform_beneficiary)}; "
+                    f"ownership document={parcel.get_ownership_document_display() or parcel.ownership_document_other or 'Not recorded'}; "
+                    f"land owner={parcel.land_owner_name or 'Not recorded'}; owner in RSBSA={_yes_no(parcel.land_owner_registered_rsbsa)}; "
+                    f"owner RSBSA={parcel.land_owner_rsbsa_number or 'Not recorded'}; georeference={parcel.georef_id or 'Not recorded'}; "
+                    f"GPX status={parcel.get_gpx_status_display()}; coordinates={parcel.coordinates or 'Not recorded'}; "
+                    f"rotational tiller={_yes_no(parcel.rotational_tiller)}; remarks={parcel.remarks or 'None'}"
+                )
+            crop_details = [
+                f"{crop.crop_type} ({crop.variety or 'variety not recorded'}) ({crop.parcel.display_name}): {crop.area_hectares} ha; "
+                f"schedule={crop.cropping_schedule or 'Not recorded'}; heads={crop.number_of_heads or 'Not recorded'}; "
+                f"organic={_yes_no(crop.is_organic)}; intercrop={_yes_no(crop.is_intercrop)}; "
+                f"planted={crop.planting_date or 'Not recorded'}; harvest={crop.harvest_date or 'Not recorded'}"
+                for crop in crops
+            ]
             document_details = [
                 f"{document.get_document_type_display()}"
                 + (f" - {document.description}" if document.description else "")
@@ -1056,6 +1059,7 @@ def _pdf_response(title, headers, rows, date_range, filters=None):
     from reportlab.lib.units import mm
     from reportlab.platypus import (
         KeepTogether,
+        LongTable,
         Paragraph,
         SimpleDocTemplate,
         Spacer,
@@ -1210,7 +1214,7 @@ def _pdf_response(title, headers, rows, date_range, filters=None):
         weights.append(max(5, min(sample, 18)))
     total_weight = sum(weights) or 1
     column_widths = [document.width * weight / total_weight for weight in weights]
-    report_table = Table(
+    report_table = LongTable(
         table_data,
         colWidths=column_widths,
         repeatRows=1,
@@ -1653,7 +1657,7 @@ def generate_report(report_type, output_format, date_range, filters=None):
     if report_type == "farmer_rsbsa":
         if output_format != "pdf":
             raise ValueError("RSBSA forms are available as PDF only.")
-        build_report(report_type, date_range, filters)  # Validate the same selection used by the preview.
+        build_report(report_type, date_range, filters, validate_only=True)
         from apps.farmers.rsbsa_pdf import bulk_rsbsa_pdf_response
         return bulk_rsbsa_pdf_response(rsbsa_farmers_queryset(date_range, filters))
     title, headers, rows = build_report(

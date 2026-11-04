@@ -77,3 +77,14 @@ html body #reportsAnalyticsTabs a:not(#fmis-shape-specificity):focus-visible{out
 .analytics-workspace .analytics-kpis{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
 .analytics-workspace .analytics-kpis>.analytics-kpi{flex:1 1 165px}
 .analytics-workspace .farmer-statistics-grid>.analytics-kpi{flex-basis:120px}
+
+.analytics-live-results{display:grid;gap:12px;min-width:0}
+.analytics-workspace .analytics-record-chart.is-compact{padding:16px}
+.analytics-workspace .is-compact .request-status-chart{--category-width:60px;padding-left:32px;min-width:calc(var(--month-count)*60px + 32px)}
+.analytics-workspace .is-compact .request-status-months{grid-template-columns:repeat(var(--month-count),minmax(60px,1fr))}
+.analytics-workspace .is-compact .request-status-month{grid-template-rows:120px 32px}
+.analytics-workspace .is-compact .request-status-scale{top:35px;height:85px;width:25px}
+.analytics-workspace .is-compact .request-status-legend{margin:8px 0}
+.analytics-workspace .is-compact .request-status-bars{padding-inline:5px}
+.analytics-workspace .is-compact .request-status-month strong{font-size:10px;padding:6px 1px}
+.analytics-workspace .is-compact .analytics-chart-heading p{font-size:10px}

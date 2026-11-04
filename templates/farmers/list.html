@@ -222,7 +222,7 @@
       }
   }
   </style>
-  <div class="content farmer-page">
+  <div class="content farmer-page" data-live-page>
     <form class="fmis-table-toolbar" method="get" data-table-toolbar>
       <label class="fmis-toolbar-search"><span>Search Farmer</span><input type="search" name="q" value="{{ request.GET.q }}" placeholder="Search ID, name, or RSBSA number..."></label>
       <div class="fmis-toolbar-actions">
@@ -242,6 +242,7 @@
         </div>
       </section>
     </form>
+      <div data-live-results="records">
       <div class="farmer-table-wrap universal-table-wrap">
         <table class="farmer-table universal-table">
           <thead>
@@ -324,5 +325,6 @@
           {% include 'shared/pagination.html' %}
         {% endif %}
       </div>
+    </div>
     </div>
 {% endblock %}

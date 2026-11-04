@@ -13,9 +13,19 @@ from .models import Intervention
 from .services import INTERVENTION_TYPE_BY_SERVICE_CODE
 
 
+class InterventionFarmerChoiceField(FarmerChoiceField):
+    def label_from_instance(self, farmer):
+        rsbsa = f" · RSBSA {farmer.rsbsa_number}" if farmer.rsbsa_number else ""
+        return f"{farmer.list_name} ({farmer.barangay}){rsbsa}"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.widget.attrs["data-search-placeholder"] = "Search name, RSBSA number, or barangay..."
+
+
 class FarmerMultipleChoiceField(forms.ModelMultipleChoiceField):
     def label_from_instance(self, farmer):
-        return f"{farmer.record_id} - {farmer.list_name} ({farmer.barangay})"
+        return InterventionFarmerChoiceField.label_from_instance(self, farmer)
 
 
 class RelatedServiceRequestSelect(forms.Select):
@@ -66,7 +76,7 @@ class InterventionForm(InlineValidationMixin, forms.ModelForm):
             "Saving will record one stock release and reduce its balance."
         ),
     )
-    farmer = FarmerChoiceField(queryset=active_farmer_queryset(), required=False)
+    farmer = InterventionFarmerChoiceField(queryset=active_farmer_queryset(), required=False)
     selected_farmers = FarmerMultipleChoiceField(
         queryset=Farmer.objects.none(),
         required=False,

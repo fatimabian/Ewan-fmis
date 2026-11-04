@@ -34,6 +34,8 @@ CORE_JS_SOURCES = (
     "js/form-validation.js",
     "js/date-picker.js",
     "js/table-toolbar.js",
+    "js/live-results.js",
+    "js/filter-dropdowns.js",
 )
 
 
