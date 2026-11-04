@@ -245,12 +245,8 @@ class ReportsView(FMISLoginRequiredMixin, ReportsAccessRequiredMixin, TemplateVi
                 analytics_date_range,
                 analytics_filters,
             )
-            if analytics_tab == "overview":
-                context["registry_analytics"] = [
-                    {"key": key, "data": descriptive_analytics(key, analytics_date_range, analytics_filters)}
-                    for key in ("farmers", "parcels", "commodities")
-                ]
-                duplicate_scan = context["registry_analytics"][0]["data"]["duplicate_scan"]
+            if analytics_tab == "farmers":
+                duplicate_scan = descriptive["duplicate_scan"]
                 duplicate_page = Paginator(duplicate_scan["pairs"], 8).get_page(
                     self.request.GET.get("duplicate_page")
                 )

@@ -1140,6 +1140,7 @@
 {% endif %}
 <section class="analytics-workspace" aria-label="FMIS descriptive analytics">
   {% if not analytics_embedded %}
+    {% include "reports/_tabs.html" %}
     <form class="analytics-filter-toolbar fmis-table-toolbar"
           method="get"
           data-table-toolbar>

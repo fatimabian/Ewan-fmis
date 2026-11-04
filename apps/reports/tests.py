@@ -40,20 +40,16 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("authentication:login"), response.url)
 
-    def test_overview_combines_registry_analytics_and_has_five_tabs(self):
+    def test_overview_shows_summary_and_separate_registry_tabs(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("reports:home"), {"analytics_tab": "overview"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["analytics_tab"], "overview")
         self.assertEqual(response.context["descriptive"]["summary"][0]["value"], 1)
-        registry = response.context["registry_analytics"]
-        self.assertEqual([item["key"] for item in registry], ["farmers", "parcels", "commodities"])
-        self.assertContains(response, "Farmer Statistics")
-        self.assertContains(response, "Farmers by Barangay")
-        self.assertContains(response, "Barangays with the Most Farm Parcels")
-        self.assertContains(response, "Most Planted or Raised Commodities")
-        self.assertEqual([label for key, label in response.context["analytics_tabs"]],
-                         ["Overview", "Service Requests", "Interventions", "Inventory", "Generate Reports"])
+        self.assertEqual([key for key, label in response.context["analytics_tabs"]],
+                         ["overview", "farmers", "commodities", "parcels", "requests", "interventions", "inventory", "reports"])
+        self.assertNotContains(response, "Farmer Statistics")
+        self.assertNotContains(response, 'aria-label="Farmers by Barangay bar chart"')
         self.assertNotContains(response, 'name="report_type"')
 
     def test_reports_navigation_uses_staff_overview_and_admin_governance_reports(self):
@@ -148,7 +144,7 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertEqual(response.status_code, 200)
         values = {
             item["label"]: item["value"]
-            for item in response.context["registry_analytics"][0]["data"]["farmer_demographics"]
+            for item in response.context["descriptive"]["farmer_demographics"]
         }
         self.assertEqual(values["Female Farmers"], 1)
         self.assertEqual(values["Male Farmers"], 0)
@@ -189,19 +185,23 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertNotContains(response, "Descriptive totals calculated from the same records")
         self.assertContains(response, "FARMER MASTER LIST")
 
-    def test_legacy_registry_tabs_resolve_to_overview(self):
+    def test_registry_tabs_show_their_own_analytics(self):
         self.client.force_login(self.staff)
-        for key in ("farmers", "parcels", "commodities"):
-            response = self.client.get(reverse("reports:home"), {"analytics_tab": key})
-            self.assertEqual(response.context["analytics_tab"], "overview")
-            self.assertContains(response, "Farmer Statistics")
-            self.assertContains(response, "Total Parcels")
-            self.assertContains(response, "Commodity Records")
+        for key, title in (("farmers", "Farmer Statistics"), ("parcels", "Total Parcels"), ("commodities", "Commodity Records")):
+            with self.subTest(tab=key):
+                response = self.client.get(reverse("reports:home"), {"analytics_tab": key})
+                self.assertEqual(response.context["analytics_tab"], key)
+                self.assertEqual(response.context["descriptive"]["tab"], key)
+                self.assertContains(response, title)
+                self.assertContains(response, f'name="analytics_tab" value="{key}"')
+                for other_key, other_title in (("farmers", "Farmer Statistics"), ("parcels", "Total Parcels"), ("commodities", "Commodity Records")):
+                    if other_key != key:
+                        self.assertNotContains(response, other_title)
 
     def test_each_analytics_measure_uses_an_appropriate_visual(self):
         self.client.force_login(self.staff)
-        overview = self.client.get(reverse("reports:home"))
-        self.assertContains(overview, 'aria-label="Farmers by Barangay bar chart"')
+        farmers = self.client.get(reverse("reports:home"), {"analytics_tab": "farmers"})
+        self.assertContains(farmers, 'aria-label="Farmers by Barangay bar chart"')
         requests = self.client.get(reverse("reports:home"), {"analytics_tab": "requests"})
         self.assertContains(requests, 'aria-label="Request Status bar chart"')
         self.assertContains(requests, 'aria-label="Service Requests Over Time line chart"')

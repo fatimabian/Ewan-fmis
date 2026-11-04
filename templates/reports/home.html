@@ -1194,7 +1194,7 @@
       }
   </style>
   <div class="content reports-page">
-    {% if not request.user.is_admin %}
+    {% if not request.user.is_admin and analytics_tab == "reports" %}
       {% include "reports/_tabs.html" %}
     {% endif %}
     {% if request.user.is_admin and analytics_tab == "reports" %}
@@ -1736,11 +1736,6 @@
     {% endif %}
     {% if not request.user.is_admin and analytics_tab != "reports" %}
       {% include "reports/_descriptive_analytics.html" %}
-      {% if analytics_tab == "overview" %}
-        {% for registry in registry_analytics %}
-          {% include "reports/_descriptive_analytics.html" with analytics_tab=registry.key descriptive=registry.data analytics_embedded=True %}
-        {% endfor %}
-      {% endif %}
     {% endif %}
     {% if request.user.is_admin and analytics_tab == "reports" %}
       <section class="analytics-grid">

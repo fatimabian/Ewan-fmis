@@ -28,6 +28,9 @@ REPORT_PREVIEW_CACHE_SECONDS = 45
 
 ANALYTICS_TABS = (
     ("overview", "Overview"),
+    ("farmers", "Farmers"),
+    ("commodities", "Commodities"),
+    ("parcels", "Farm Parcels"),
     ("requests", "Service Requests"),
     ("interventions", "Interventions"),
     ("inventory", "Inventory"),
