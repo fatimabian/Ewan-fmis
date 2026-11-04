@@ -86,6 +86,39 @@ class DescriptiveAnalyticsTests(TestCase):
                     self.assertNotContains(response, "Pair-8 ·")
                     self.assertContains(response, "duplicate_page=2")
 
+    def test_bulk_rsbsa_preview_filters_and_pdf_include_all_matching_farmers(self):
+        from pypdf import PdfReader
+        from apps.farm_parcels.models import FarmParcel
+        extra = Farmer.objects.create(first_name="Bulk Print", last_name="Aardvark", barangay="Alupay")
+        Farmer.objects.create(first_name="Archived", last_name="NotForPrint", barangay="Alupay", is_active=False)
+        for index in range(4):
+            FarmParcel.objects.create(farmer=extra, barangay="Alupay", area_hectares="1.00", ownership_type="OWNED")
+        self.client.force_login(self.staff)
+        url = reverse("reports:home")
+        preview = self.client.get(url, {"analytics_tab": "reports", "report_type": "farmer_rsbsa", "date_range": "all", "barangay": "Alupay"})
+        self.assertEqual(preview.status_code, 200)
+        self.assertEqual(preview.context["report_preview"]["total_rows"], 1)
+        self.assertFalse(preview.context["report_preview"]["show_chart"])
+        self.assertContains(preview, "Actual size / 100%")
+        response = self.client.post(url, {"report_type": "farmer_rsbsa", "date_range": "all", "format": "pdf"})
+        self.assertEqual(response.status_code, 200)
+        content = b"".join(response.streaming_content)
+        response.close()
+        self.assertLess(len(content), 2 * 1024 * 1024)
+        pdf = PdfReader(BytesIO(content))
+        self.assertEqual(len(pdf.pages), 6)
+        self.assertIn("BULK PRINT", pdf.pages[0].extract_text())
+        self.assertIn("SANTOS", pdf.pages[4].extract_text())
+        self.assertFalse(pdf.pages[3].extract_text().strip())
+        self.assertNotIn("NOTFORPRINT", "".join(page.extract_text() for page in pdf.pages))
+        self.assertEqual(len(pdf.outline), 2)
+        first_bg = pdf.pages[0]["/Resources"]["/XObject"].raw_get("/FMISOfficialForm")
+        next_bg = pdf.pages[4]["/Resources"]["/XObject"].raw_get("/FMISOfficialForm")
+        self.assertEqual(first_bg.idnum, next_bg.idnum)
+        invalid = self.client.post(url, {"analytics_tab": "reports", "report_type": "farmer_rsbsa", "date_range": "all", "format": "csv"})
+        self.assertEqual(invalid.status_code, 400)
+        self.assertEqual(invalid.context["report_error"], "RSBSA forms are available as PDF only.")
+
     def test_reports_navigation_uses_staff_overview_and_admin_governance_reports(self):
         self.client.force_login(self.staff)
         response = self.client.get(reverse("reports:home"))

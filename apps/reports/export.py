@@ -18,6 +18,7 @@ from apps.service_requests.models import ServiceRequest, ServiceRequestHistory
 from apps.service_requests.services import service_effectiveness_metrics
 
 REPORT_TEMPLATES = [
+    {"key": "farmer_rsbsa", "title": "RSBSA Forms — All Matching Farmers", "description": "One print-ready PDF with official RSBSA forms for every matching active farmer", "icon": "bi-file-earmark-pdf"},
     {
         "key": "farmer_master",
         "title": "Farmer Master List",
@@ -77,6 +78,7 @@ REPORT_KEYS = {item["key"] for item in REPORT_TEMPLATES}
 COMMODITY_REPORT_KEYS = frozenset(
     {
         "farmer_master",
+        "farmer_rsbsa",
         "farm_area_by_barangay",
         "farmers_by_ownership",
         "crop_summary",
@@ -252,9 +254,22 @@ def normalize_report_filters(report_type, filters=None):
         normalized["status"] = ""
     if report_type not in {"intervention_summary", "intervention_registry"}:
         normalized["intervention_type"] = ""
-    if report_type != "farmer_master":
+    if report_type not in {"farmer_master", "farmer_rsbsa"}:
         normalized["association"] = ""
     return normalized
+
+
+def rsbsa_farmers_queryset(date_range, filters):
+    queryset = _filter_period(Farmer.objects.filter(is_active=True), "created_at", date_range)
+    if filters.get("year"):
+        queryset = queryset.filter(created_at__year=int(filters["year"]))
+    if filters.get("barangay"):
+        queryset = queryset.filter(barangay=filters["barangay"])
+    if filters.get("association"):
+        queryset = queryset.filter(is_association_member=True, fca_membership=filters["association"])
+    if filters.get("commodity"):
+        queryset = queryset.filter(parcels__is_active=True, parcels__crops__is_active=True, parcels__crops__crop_type=filters["commodity"]).distinct()
+    return queryset.order_by("last_name", "first_name", "pk")
 
 
 def _commodity_names(crops, selected=""):
@@ -290,6 +305,10 @@ def build_report(report_type, date_range, filters=None, compact=False):
         and intervention_type not in dict(Intervention.TYPE_CHOICES)
     ):
         raise ValueError("Choose a valid intervention type.")
+
+    if report_type == "farmer_rsbsa":
+        rows = [[farmer.record_id, farmer.list_name, farmer.barangay, farmer.get_registration_status_display()] for farmer in rsbsa_farmers_queryset(date_range, filters).only("first_name", "middle_name", "last_name", "extension_name", "barangay", "registration_status")]
+        return "RSBSA Forms — All Matching Farmers", ["Farmer ID", "Farmer Name", "Barangay", "Registration Status"], rows
 
     if report_type == "farmer_master":
         queryset = _filter_period(
@@ -1631,6 +1650,12 @@ def generate_report(report_type, output_format, date_range, filters=None):
     if output_format not in FORMATS:
         raise ValueError("Choose CSV or PDF format.")
     filters = normalize_report_filters(report_type, filters)
+    if report_type == "farmer_rsbsa":
+        if output_format != "pdf":
+            raise ValueError("RSBSA forms are available as PDF only.")
+        build_report(report_type, date_range, filters)  # Validate the same selection used by the preview.
+        from apps.farmers.rsbsa_pdf import bulk_rsbsa_pdf_response
+        return bulk_rsbsa_pdf_response(rsbsa_farmers_queryset(date_range, filters))
     title, headers, rows = build_report(
         report_type,
         date_range,

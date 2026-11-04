@@ -1131,7 +1131,7 @@ def report_preview(
         title, headers, rows = cached_preview
     chart_values = defaultdict(float)
     value_label = "Records"
-    show_chart = report_type not in {"farmer_master", "service_effectiveness"}
+    show_chart = report_type not in {"farmer_master", "farmer_rsbsa", "service_effectiveness"}
 
     if report_type == "system_overview":
         for row in rows:
@@ -1149,7 +1149,7 @@ def report_preview(
         for row in rows:
             chart_values[row[0] or "Unknown staff"] += float(row[4] or 0)
         value_label = "Records handled"
-    elif report_type == "farmer_master":
+    elif report_type in {"farmer_master", "farmer_rsbsa"}:
         # A master list is for reviewing individual farmer records. Barangay is
         # retained as a filter and a table field, not used as a substitute for
         # the farmer information itself.
@@ -1260,7 +1260,9 @@ def _report_preview_analytics(report_type, rows, chart, value_label):
         return f"{int(value):,}"
 
     summary = []
-    if report_type == "farmer_master":
+    if report_type == "farmer_rsbsa":
+        summary = [metric("Farmers to print", whole(len(rows)), "One official form set per farmer"), metric("Barangays", whole(unique(2)), "Represented in this selection")]
+    elif report_type == "farmer_master":
         summary = [
             metric("Matching farmers", whole(len(rows)), "Farmer registry records"),
             metric("Recorded farm area", f"{numeric_total(18):,.2f} ha", "Across matching farmers"),

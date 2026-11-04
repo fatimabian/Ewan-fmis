@@ -1321,8 +1321,7 @@
         </article>
       {% endfor %}
     </div>
-    <div class="analytics-grid-3">
-      {% include "reports/_analytics_bar.html" with title="Service Request Performance" description="Current status of requests received in the selected period." series=descriptive.request_status_bar_series y_label="Requests" %}
+    <div class="analytics-grid-3 analytics-compact-row">
 
       <article class="analytics-panel">
         <h3>Key Findings</h3>
@@ -1344,9 +1343,6 @@
           {% endfor %}
         </ol>
       </article>
-    </div>
-    <div class="analytics-main">
-      {% include "reports/_analytics_dual_line.html" %}
       <article class="analytics-panel">
         <h3>Farmers by Barangay</h3>
         <p>Top five barangays by matching active farmer records.</p>
@@ -1359,6 +1355,8 @@
         </ol>
       </article>
     </div>
+    {% include "reports/_analytics_bar.html" with title="Service Request Performance" description="Current status of requests received in the selected period." series=descriptive.request_status_bar_series y_label="Requests" %}
+    {% include "reports/_analytics_dual_line.html" %}
     <div class="analytics-note">
       Counts describe recorded FMIS activity, not forecasts. Commodity records do not represent harvest volume; newly recorded farm area does not represent physical land expansion.
     </div>

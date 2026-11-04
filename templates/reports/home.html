@@ -1350,7 +1350,7 @@
                 <label>Format</label>
                 <select name="format" required>
                   <option value="pdf">PDF Document</option>
-                  <option value="csv">CSV Spreadsheet</option>
+                  <option value="csv"{% if selected_report_type == 'farmer_rsbsa' %} disabled{% endif %}>CSV Spreadsheet</option>
                 </select>
               </div>
               <div class="report-actions"
@@ -1519,7 +1519,7 @@
                 </select>
               </div>
               <div class="report-filter-row"
-                   data-filter-row="association"{% if selected_report_type != 'farmer_master' %} hidden{% endif %}>
+                   data-filter-row="association"{% if selected_report_type != 'farmer_master' and selected_report_type != 'farmer_rsbsa' %} hidden{% endif %}>
                 <label>Association</label>
                 <select name="association">
                   <option value="">All associations</option>
@@ -1651,7 +1651,7 @@
               <label>Format</label>
               <select name="format" required>
                 <option value="pdf">PDF Document</option>
-                <option value="csv">CSV Spreadsheet</option>
+                <option value="csv"{% if selected_report_type == 'farmer_rsbsa' %} disabled{% endif %}>CSV Spreadsheet</option>
               </select>
             </div>
             <div class="report-actions"{% if not request.user.is_admin %} data-filter-row="common"{% if not selected_report_type %} hidden{% endif %}{% endif %}>
@@ -1678,7 +1678,9 @@
               <div>
                 <h3>{{ report_preview.title|upper }}</h3>
                 <p>
-                  {% if report_preview.is_farmer_master %}
+                  {% if selected_report_type == 'farmer_rsbsa' %}
+                    Download prints every listed farmer on the official RSBSA form, including all their active parcels and commodities. Each farmer starts on a new sheet for double-sided printing. Use Letter paper at Actual size / 100%.
+                  {% elif report_preview.is_farmer_master %}
                     Farmer records show the commodities that matched the selected farm filters.
                   {% elif request.user.is_admin %}
                     The table uses the selected system report, period, role, account status, and module filters.
@@ -1989,12 +1991,19 @@
           function updateRelevantFilters() {
               const selected = type.value;
               const hasSelection = Boolean(selected);
+              const format = form.querySelector('[name="format"]');
+              if (format) {
+                  const csv = format.querySelector('[value="csv"]');
+                  if (csv) csv.disabled = selected === 'farmer_rsbsa';
+                  if (selected === 'farmer_rsbsa') format.value = 'pdf';
+              }
               const isAdminGovernance = form.hasAttribute('data-admin-governance');
               const isServiceEffectiveness = selected === 'service_effectiveness';
               const isIntervention = ['intervention_summary', 'intervention_registry'].includes(selected);
               const customDate = form.querySelector('[name="date_range"]')?.value === 'custom';
               const supportsCommodity = [
                   'farmer_master',
+                  'farmer_rsbsa',
                   'farm_area_by_barangay',
                   'farmers_by_ownership',
                   'crop_summary',
@@ -2009,7 +2018,7 @@
               } : {
                   common: hasSelection,
                   commodity: supportsCommodity,
-                  association: selected === 'farmer_master',
+                  association: ['farmer_master', 'farmer_rsbsa'].includes(selected),
                   status: isServiceEffectiveness,
                   'custom-date': hasSelection && customDate,
                   intervention: isIntervention

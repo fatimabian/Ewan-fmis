@@ -17,6 +17,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch, mm
 from pypdf import PdfReader, PdfWriter
+from PIL import Image, ImageOps
 from django.db.models import Prefetch
 from apps.crops.models import CropRecord
 from reportlab.platypus import (
@@ -170,8 +171,16 @@ def _page_one(pdf, farmer):
 
     if farmer.photo_available:
         try:
-            with farmer.photo.open("rb") as photo:
-                pdf.drawImage(ImageReader(photo), 430, 654, 120, 120, preserveAspectRatio=True, anchor="c", mask="auto")
+            with farmer.photo.open("rb") as photo, Image.open(photo) as original:
+                portrait = ImageOps.exif_transpose(original)
+                portrait.thumbnail((400, 400))
+                rgba = portrait.convert("RGBA")
+                background = Image.new("RGB", rgba.size, "white")
+                background.paste(rgba, mask=rgba.getchannel("A"))
+                image_bytes = BytesIO()
+                background.save(image_bytes, format="JPEG", quality=85)
+                image_bytes.seek(0)
+                pdf.drawImage(ImageReader(image_bytes), 430, 654, 120, 120, preserveAspectRatio=True, anchor="c", mask="auto")
         except (OSError, ValueError, NotImplementedError):
             pass
 
@@ -647,9 +656,11 @@ def farmer_record_pdf_response(farmer):
 
 def _print_sections(farmer):
     """Use continuation sheets instead of dropping parcels or commodity rows."""
-    parcels = farmer.parcels.filter(is_active=True).order_by("pk").prefetch_related(
-        Prefetch("crops", queryset=CropRecord.objects.filter(is_active=True).order_by("pk"), to_attr="print_crops")
-    )
+    parcels = getattr(farmer, "print_parcels", None)
+    if parcels is None:
+        parcels = farmer.parcels.filter(is_active=True).order_by("pk").prefetch_related(
+            Prefetch("crops", queryset=CropRecord.objects.filter(is_active=True).order_by("pk"), to_attr="print_crops")
+        )
     sections = []
     for parcel in parcels:
         regular = [crop for crop in parcel.print_crops if not crop.is_intercrop]
@@ -709,3 +720,79 @@ def rsbsa_pdf_response(farmer, *, download=False, **options):
     response["X-Frame-Options"] = "SAMEORIGIN"
     response["Content-Security-Policy"] = "default-src 'self'; object-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'"
     return response
+
+
+def bulk_rsbsa_pdf_response(farmers):
+    """Reuse the two official backgrounds, keeping large registry PDFs compact."""
+    from tempfile import SpooledTemporaryFile
+    from django.http import FileResponse
+    from pypdf.generic import ArrayObject, DecodedStreamObject, DictionaryObject, NameObject, NumberObject
+    from apps.farm_parcels.models import FarmParcel
+
+    active_parcels = FarmParcel.objects.filter(is_active=True).order_by("pk").prefetch_related(
+        Prefetch("crops", queryset=CropRecord.objects.filter(is_active=True).order_by("pk"), to_attr="print_crops")
+    )
+    farmers = farmers.prefetch_related(Prefetch("parcels", queryset=active_parcels, to_attr="print_parcels"))
+    overlay_file = SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+    output = SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+    try:
+        pdf = canvas.Canvas(overlay_file, pagesize=letter, pageCompression=1)
+        page_types, bookmarks = [], []
+        for farmer in farmers.iterator(chunk_size=100):
+            # Keep each farmer's first page on a fresh sheet for duplex printing.
+            if len(page_types) % 2:
+                pdf.showPage()
+                page_types.append(None)
+            bookmarks.append((f"{farmer.record_id} - {farmer.full_name}", len(page_types)))
+            _page_one(pdf, farmer)
+            pdf.showPage()
+            page_types.append(0)
+            sections = _print_sections(farmer)
+            for start in range(0, max(1, len(sections)), 3):
+                _page_two(pdf, farmer, sections[start:start + 3])
+                pdf.showPage()
+                page_types.append(1)
+        if not bookmarks:
+            raise ValueError("No active farmers match these filters.")
+        pdf.save()
+        overlay_file.seek(0)
+        overlays = PdfReader(overlay_file)
+        template = PdfReader(str(TEMPLATE_PATH))
+        writer = PdfWriter()
+        backgrounds = []
+        for page in template.pages:
+            background = DecodedStreamObject()
+            background.set_data(page.get_contents().get_data())
+            background.update({
+                NameObject("/Type"): NameObject("/XObject"),
+                NameObject("/Subtype"): NameObject("/Form"),
+                NameObject("/BBox"): ArrayObject([NumberObject(0), NumberObject(0), NumberObject(PAGE_WIDTH), NumberObject(PAGE_HEIGHT)]),
+                NameObject("/Resources"): page["/Resources"].clone(writer),
+            })
+            backgrounds.append(writer._add_object(background.flate_encode()))
+        for overlay_page, kind in zip(overlays.pages, page_types):
+            page = writer.add_page(overlay_page)
+            if kind is not None:
+                resources = DictionaryObject(page["/Resources"])
+                xobjects = DictionaryObject(resources["/XObject"] if "/XObject" in resources else {})
+                xobjects[NameObject("/FMISOfficialForm")] = backgrounds[kind]
+                resources[NameObject("/XObject")] = xobjects
+                page[NameObject("/Resources")] = resources
+                content = DecodedStreamObject()
+                content.set_data(b"q /FMISOfficialForm Do Q\n" + page.get_contents().get_data())
+                page[NameObject("/Contents")] = writer._add_object(content.flate_encode())
+        for label, page_number in bookmarks:
+            writer.add_outline_item(label, page_number)
+        writer.create_viewer_preferences()
+        writer.viewer_preferences.print_scaling = "/None"
+        writer.add_metadata({"/Title": "RSBSA Enrollment Forms - Matching Farmers", "/Author": "FMIS Rosario"})
+        writer.write(output)
+        output.seek(0)
+        response = FileResponse(output, as_attachment=True, filename="rsbsa_farmer_forms.pdf", content_type="application/pdf")
+        response["Cache-Control"] = "private, no-store"
+        return response
+    except Exception:
+        output.close()
+        raise
+    finally:
+        overlay_file.close()

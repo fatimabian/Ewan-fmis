@@ -64,3 +64,16 @@ html body #reportsAnalyticsTabs a:not(#fmis-shape-specificity):focus-visible{out
 .analytics-workspace .analytics-kpi :is(small,b),.analytics-workspace .analytics-panel h3{color:var(--ui-text,#17233a)}
 .analytics-workspace .analytics-kpi p,.analytics-workspace .analytics-panel>p{color:var(--ui-muted,#667085)}
 .analytics-workspace .analytics-note,.analytics-workspace .analytics-summary-total{background:var(--surface-muted,#f5f8fa);border-color:var(--ui-border,#d9dee3);color:var(--ui-text,#17233a)}
+
+/* Group short summaries together; a tall chart must not stretch a short list. */
+.analytics-workspace .analytics-compact-row{align-items:stretch}
+.analytics-workspace .analytics-compact-row>.analytics-panel{height:auto;min-height:0;align-self:stretch}
+.analytics-workspace .analytics-main:has(>.analytics-trend){grid-template-columns:minmax(0,1fr);align-items:start}
+.analytics-workspace .analytics-main:has(>.analytics-trend)>.analytics-panel{height:auto;min-height:0}
+.analytics-workspace .analytics-grid-3:not(.analytics-compact-row)>.analytics-panel{min-height:0}
+.analytics-workspace .analytics-compact-row .analytics-rank-list li{grid-template-columns:minmax(0,1fr) minmax(35px,.8fr) auto}
+.analytics-workspace .analytics-compact-row .analytics-finding-list{margin-top:12px}
+/* Let the final row fill its width instead of leaving a single orphan card. */
+.analytics-workspace .analytics-kpis{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+.analytics-workspace .analytics-kpis>.analytics-kpi{flex:1 1 165px}
+.analytics-workspace .farmer-statistics-grid>.analytics-kpi{flex-basis:120px}
