@@ -1324,12 +1324,33 @@
         </ul>
       </article>
       <article class="analytics-panel">
-        <h3>Scope of this dashboard</h3>
-        <p>Descriptive analytics answers what has already been recorded.</p>
-        <div class="analytics-note">
-          Counts describe FMIS records. They are not forecasts. Recorded commodity activity is not harvest volume, and newly recorded farm area is not physical land expansion.
-        </div>
+        <h3>Leading Commodities</h3>
+        <p>Top five commodities by matching active records.</p>
+        <ol class="analytics-rank-list">
+          {% for item in descriptive.top_commodities|slice:":5" %}
+            <li><span>{{ item.label }}</span><i style="--value:{{ item.percent }}%"></i><b>{{ item.value }} records</b></li>
+          {% empty %}
+            <li>No matching commodity records.</li>
+          {% endfor %}
+        </ol>
       </article>
+    </div>
+    <div class="analytics-main">
+      {% include "reports/_analytics_dual_line.html" %}
+      <article class="analytics-panel">
+        <h3>Farmers by Barangay</h3>
+        <p>Top five barangays by matching active farmer records.</p>
+        <ol class="analytics-rank-list">
+          {% for item in descriptive.top_farmer_barangays|slice:":5" %}
+            <li><span>{{ item.label }}</span><i style="--value:{{ item.percent }}%"></i><b>{{ item.value }} farmers</b></li>
+          {% empty %}
+            <li>No matching farmer records.</li>
+          {% endfor %}
+        </ol>
+      </article>
+    </div>
+    <div class="analytics-note">
+      Counts describe recorded FMIS activity, not forecasts. Commodity records do not represent harvest volume; newly recorded farm area does not represent physical land expansion.
     </div>
   {% elif analytics_tab == "farmers" %}
     <h2 class="analytics-section-title">Farmer Statistics</h2>

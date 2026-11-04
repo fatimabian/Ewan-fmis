@@ -48,6 +48,9 @@ class DescriptiveAnalyticsTests(TestCase):
         self.assertEqual(response.context["descriptive"]["summary"][0]["value"], 1)
         self.assertEqual([key for key, label in response.context["analytics_tabs"]],
                          ["overview", "farmers", "commodities", "parcels", "requests", "interventions", "inventory", "reports"])
+        self.assertContains(response, "Leading Commodities")
+        self.assertContains(response, "Service Requests Over Time")
+        self.assertContains(response, "Top five barangays by matching active farmer records.")
         self.assertNotContains(response, "Farmer Statistics")
         self.assertNotContains(response, 'aria-label="Farmers by Barangay bar chart"')
         self.assertNotContains(response, 'name="report_type"')
