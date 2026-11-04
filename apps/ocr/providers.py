@@ -58,8 +58,10 @@ class OpenRouterProvider(BaseProvider):
             {
                 "model": model,
                 "temperature": 0,
-                # Leave room for the complete RSBSA field set, not just short parcel forms.
-                "max_tokens": 4096,
+                # Preserve the output budget for the form, instead of optional reasoning.
+                "max_tokens": ocr_setting("MAX_OUTPUT_TOKENS"),
+                "reasoning": {"enabled": False, "exclude": True},
+                "provider": {"sort": "latency"},
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {
@@ -80,7 +82,18 @@ class OpenRouterProvider(BaseProvider):
             if not isinstance(choice, dict):
                 raise OcrProviderError("The provider reply had no message.")
             if choice.get("finish_reason") == "length":
-                raise OcrProviderError("The provider cut off the JSON answer before it finished.")
+                usage = body.get("usage") or {}
+                details = (usage.get("completion_tokens_details") or {}) if isinstance(usage, dict) else {}
+                counts = []
+                if isinstance(usage, dict):
+                    for label, value in (("output tokens", usage.get("completion_tokens")),
+                                         ("reasoning tokens", details.get("reasoning_tokens") if isinstance(details, dict) else None)):
+                        if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1_000_000:
+                            counts.append(f"{label}: {value}")
+                suffix = f" ({', '.join(counts)})" if counts else ""
+                raise OcrProviderError(
+                    f"The provider cut off the JSON answer at the {ocr_setting('MAX_OUTPUT_TOKENS')}-token limit{suffix}."
+                )
             content = choice["message"]["content"]
         except (KeyError, IndexError, TypeError) as error:
             raise OcrProviderError("The provider reply had no message.") from error

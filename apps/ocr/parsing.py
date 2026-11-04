@@ -17,9 +17,9 @@ def build_prompt(field_names, instructions=""):
         + "Rules:\n"
         "1. Never guess, correct or complete a value. Copy coordinates exactly as written, "
         "even if they look wrong.\n"
-        '2. Use an empty string and confidence 0 when a value is absent or unreadable.\n'
+        '2. Omit fields that are absent or unreadable; the system fills them with an empty string and confidence 0. Never invent missing values.\n'
         "3. Give each field a confidence from 0 to 1 for how sure you are of the reading.\n"
-        "4. Reply with JSON only, shaped as "
+        "4. Reply with compact JSON only, without reasoning, explanations, Markdown or extra fields, shaped as "
         '{"fields": {"<name>": {"value": "<text>", "confidence": <number>}}}.\n'
         f"Fields:\n{lines}"
     )

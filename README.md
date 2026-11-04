@@ -64,6 +64,7 @@ When the reader sends photos outside FMIS (any provider except `sample`), the di
 2. Copy `.env.example` to `.env` and set:
    - `OCR_PROVIDER`: `openrouter` (default), `gemini` (direct Google API) or `sample` (made-up readings, no key, nothing leaves the machine).
    - `OPENROUTER_API_KEY` or `GEMINI_API_KEY`, and `OCR_MODELS` (comma separated, tried in order).
+   - Optional: `OCR_MAX_OUTPUT_TOKENS` (default 8192 for OpenRouter); optional reasoning is disabled and lower-latency routes are preferred to reserve time and output for the form itself.
    - Optional: `OCR_DAILY_LIMIT` (default 30), `OCR_MAX_FILES` (default 3), `OCR_MAX_IMAGE_MB` (default 5), `OCR_RETENTION_HOURS` (default 24), `OCR_TIMEOUT_SECONDS`, `OCR_CONFIDENCE_THRESHOLD` (default 0.75).
 3. Choose the models by testing them on **dummy or consented** forms: `python manage.py ocr_compare form1.jpg form2.jpg`. Images are sent to the outside provider.
 4. Import the barangay boundaries (`import_rosario_barangay_boundaries`) so the "pin inside barangay" check is exact. Without them the check compares with the published barangay reference points and says it is approximate.

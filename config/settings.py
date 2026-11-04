@@ -195,6 +195,7 @@ OCR = {
     "RETENTION_HOURS": max(1, min(168, int(os.getenv("OCR_RETENTION_HOURS", "24")))),
     "MAX_IMAGE_BYTES": max(1, min(10, int(os.getenv("OCR_MAX_IMAGE_MB", "5")))) * 1024 * 1024,
     "TIMEOUT_SECONDS": max(10, min(120, int(os.getenv("OCR_TIMEOUT_SECONDS", "45")))),
+    "MAX_OUTPUT_TOKENS": max(512, min(32768, int(os.getenv("OCR_MAX_OUTPUT_TOKENS", "8192")))),
     "CONFIDENCE_THRESHOLD": float(os.getenv("OCR_CONFIDENCE_THRESHOLD", "0.75")),
 }
 # Uploaded form images contain personal data: kept outside MEDIA_ROOT, never served directly.

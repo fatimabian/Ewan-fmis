@@ -60,7 +60,33 @@ class FallbackTests(TestCase):
         services.extract(image_bytes(), fields=FIELDS)
         body = post.call_args.kwargs["json"]
         self.assertEqual(body["response_format"], {"type": "json_object"})
-        self.assertGreaterEqual(body["max_tokens"], 4096)
+        self.assertEqual(body["max_tokens"], 8192)
+        self.assertEqual(body["reasoning"], {"enabled": False, "exclude": True})
+        self.assertEqual(body["provider"], {"sort": "latency"})
+        self.assertEqual(body["model"], "m1")
+
+    @override_settings(OCR={**OPENROUTER, "MAX_OUTPUT_TOKENS": 12288})
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_openrouter_respects_configured_response_budget(self, post):
+        post.return_value = openrouter_response(reply())
+        services.extract(image_bytes(), fields=FIELDS)
+        self.assertEqual(post.call_args.kwargs["json"]["max_tokens"], 12288)
+
+    @mock.patch("apps.ocr.providers.requests.post")
+    def test_truncation_diagnostics_show_counts_without_form_or_reasoning_content(self, post):
+        from .providers import OpenRouterProvider
+        response = openrouter_response("private scanned form content")
+        response.json.return_value["choices"][0]["finish_reason"] = "length"
+        response.json.return_value["usage"] = {
+            "completion_tokens": 8192,
+            "completion_tokens_details": {"reasoning_tokens": 8000},
+        }
+        post.return_value = response
+        with self.assertRaises(OcrProviderError) as failure:
+            OpenRouterProvider().read("m1", image_bytes(), "image/png", "Extract the form")
+        self.assertIn("8192-token limit", str(failure.exception))
+        self.assertIn("reasoning tokens: 8000", str(failure.exception))
+        self.assertNotIn("private scanned form content", str(failure.exception))
 
     @mock.patch("apps.ocr.providers.requests.post")
     def test_truncated_provider_answer_is_not_accepted_as_complete(self, post):
@@ -279,6 +305,11 @@ class ParsingTests(TestCase):
         for text in (reply()[:-1], "```json\n" + reply()[:-5], reply("Juan") + "\n" + reply("Pedro")):
             with self.subTest(text=text[:25]), self.assertRaises(OcrProviderError):
                 parse_reply(text, FIELDS)
+
+    def test_compact_reply_with_omitted_empty_fields_keeps_missing_values_empty(self):
+        parsed = parse_reply('{"fields":{"farmer_name":{"value":"Juan","confidence":0.9}}}', FIELDS)
+        self.assertEqual(parsed["farmer_name"], ("Juan", 0.9))
+        self.assertEqual(parsed["latitude"], ("", 0.0))
 
     def test_empty_value_has_zero_confidence(self):
         parsed = parse_reply('{"fields": {"farmer_name": {"value": "x", "confidence": 1}, "latitude": {"value": "", "confidence": 0.9}}}', FIELDS)
