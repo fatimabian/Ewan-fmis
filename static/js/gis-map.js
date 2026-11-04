@@ -152,7 +152,7 @@
     const list = [];
     if (state.commodity && layer.uses_commodity) list.push({text: `Commodity: ${state.commodity}`, clear: () => { state.commodity = ""; }});
     const statusLabel = (layer.status_options.find(([v]) => v === state.status) || [])[1];
-    if (state.status && state.status !== layer.status_options[0][0]) list.push({text: statusLabel, clear: () => { state.status = ""; }});
+    if (state.status && state.status !== "attention" && state.status !== layer.status_options[0][0]) list.push({text: statusLabel, clear: () => { state.status = ""; }});
     const done = new Set();
     const range = (low, high, name) => {
       if (!(low in state.extra) && !(high in state.extra)) return;
